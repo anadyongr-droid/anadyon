@@ -1,0 +1,50 @@
+import { Resend } from "resend";
+import { NextRequest, NextResponse } from "next/server";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+export async function POST(req: NextRequest) {
+  const { name, email, message, captchaToken } = await req.json();
+
+  // Verify reCAPTCHA
+  const captchaRes = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${captchaToken}`,
+  });
+  const captchaData = await captchaRes.json();
+  if (!captchaData.success) {
+    return NextResponse.json({ error: "reCAPTCHA verification failed" }, { status: 400 });
+  }
+
+  // Email to Anadyon
+  await resend.emails.send({
+    from: "Anadyon Website <onboarding@resend.dev>",
+    to: ["customerservice@anadyon.gr", "anadyon.gr@gmail.com"],
+    replyTo: email,
+    subject: `New Contact Message from ${name}`,
+    html: `
+      <h2>New Contact Message</h2>
+      <table cellpadding="6" style="border-collapse:collapse;">
+        <tr><td><strong>Name:</strong></td><td>${name}</td></tr>
+        <tr><td><strong>Email:</strong></td><td>${email}</td></tr>
+        <tr><td><strong>Message:</strong></td><td>${message}</td></tr>
+      </table>
+    `,
+  });
+
+  // Auto-reply to sender
+  await resend.emails.send({
+    from: "Anadyon Rentals <onboarding@resend.dev>",
+    to: email,
+    subject: "We received your message — Anadyon Rentals",
+    html: `
+      <p>Dear ${name},</p>
+      <p>Thank you for contacting Anadyon Rentals. We have received your message and will get back to you as soon as possible.</p>
+      <p>If your enquiry is urgent, please call us on <strong>+30 26950 41878</strong> (daily 09:00–21:00).</p>
+      <p>Thank you,<br/>Anadyon Rentals<br/>Zakynthos, Greece</p>
+    `,
+  });
+
+  return NextResponse.json({ success: true });
+}

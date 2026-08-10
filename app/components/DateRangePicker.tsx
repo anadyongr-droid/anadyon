@@ -1,0 +1,154 @@
+"use client";
+import { useState, useRef, useEffect } from "react";
+import { DayPicker } from "react-day-picker";
+import { CalendarDays, ChevronRight } from "lucide-react";
+import "react-day-picker/style.css";
+
+interface Props {
+  pickupDate: string;
+  returnDate: string;
+  onPickupChange: (date: string) => void;
+  onReturnChange: (date: string) => void;
+}
+
+function toDate(str: string): Date | undefined {
+  return str ? new Date(str + "T00:00:00") : undefined;
+}
+
+function toStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function fmt(str: string): string {
+  if (!str) return "Select date";
+  return new Date(str + "T00:00:00").toLocaleDateString("en-GB", {
+    day: "numeric", month: "short", year: "numeric",
+  });
+}
+
+export default function DateRangePicker({ pickupDate, returnDate, onPickupChange, onReturnChange }: Props) {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"pickup" | "return">("pickup");
+  const ref = useRef<HTMLDivElement>(null);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const from = toDate(pickupDate);
+  const to = toDate(returnDate);
+
+  // Range for highlighting
+  const selected = from && to ? { from, to } : from ? { from, to: undefined } : undefined;
+
+  function openForPickup() {
+    setStep("pickup");
+    setOpen(true);
+  }
+
+  function openForReturn() {
+    setStep("return");
+    setOpen(true);
+  }
+
+  function handleDayClick(day: Date) {
+    if (step === "pickup") {
+      onPickupChange(toStr(day));
+      onReturnChange("");
+      setStep("return"); // automatically wait for return date
+    } else {
+      // return step
+      if (from && day <= from) {
+        // clicked before or on pickup — restart from this date
+        onPickupChange(toStr(day));
+        onReturnChange("");
+        setStep("return");
+      } else {
+        onReturnChange(toStr(day));
+        setOpen(false);
+        setStep("pickup");
+      }
+    }
+  }
+
+  // Close when clicking outside
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setStep("pickup");
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const rentalDays = pickupDate && returnDate
+    ? Math.ceil((new Date(returnDate).getTime() - new Date(pickupDate).getTime()) / 86400000)
+    : 0;
+
+  return (
+    <div ref={ref} className="relative">
+      {/* Trigger buttons */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={openForPickup}
+          className={`flex items-center gap-2 w-full border rounded-lg px-3 py-2.5 bg-white dark:bg-gray-700 text-left transition ${
+            open && step === "pickup"
+              ? "border-blue-500 ring-1 ring-blue-400"
+              : "border-gray-300 dark:border-gray-600 hover:border-blue-400"
+          }`}
+        >
+          <CalendarDays size={16} className="text-blue-600 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-xs text-gray-400 dark:text-gray-500">Pick-up</div>
+            <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{fmt(pickupDate)}</div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={openForReturn}
+          className={`flex items-center gap-2 w-full border rounded-lg px-3 py-2.5 bg-white dark:bg-gray-700 text-left transition ${
+            open && step === "return"
+              ? "border-blue-500 ring-1 ring-blue-400"
+              : "border-gray-300 dark:border-gray-600 hover:border-blue-400"
+          }`}
+        >
+          <CalendarDays size={16} className="text-blue-600 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-xs text-gray-400 dark:text-gray-500">Return</div>
+            <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{fmt(returnDate)}</div>
+          </div>
+        </button>
+      </div>
+
+      {/* Duration badge */}
+      {rentalDays > 0 && (
+        <div className="flex items-center gap-1.5 mt-2 text-xs text-blue-700 dark:text-blue-300 font-medium">
+          <ChevronRight size={12} />
+          {rentalDays} day{rentalDays > 1 ? "s" : ""} rental
+        </div>
+      )}
+
+      {/* Calendar popover */}
+      {open && (
+        <div className="absolute z-50 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3">
+          <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-2 px-1">
+            {step === "pickup" ? "Select pick-up date" : "Select return date"}
+          </p>
+          <DayPicker
+            mode="range"
+            selected={selected}
+            onDayClick={handleDayClick}
+            disabled={{ before: step === "return" && from ? from : today }}
+            showOutsideDays
+          />
+        </div>
+      )}
+    </div>
+  );
+}
