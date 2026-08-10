@@ -477,15 +477,13 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         </div>
 
         {/* reCAPTCHA */}
-        <div className="w-full overflow-hidden">
-          <div style={{ transform: 'scale(0.88)', transformOrigin: 'left center' }} className="sm:transform-none">
-            <ReCAPTCHA
-              ref={recaptchaRef}
-              sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
-              onChange={(token: string | null) => setCaptchaToken(token)}
-              onExpired={() => setCaptchaToken(null)}
-            />
-          </div>
+        <div className="w-full overflow-hidden flex justify-start">
+          <ReCAPTCHA
+            ref={recaptchaRef}
+            sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
+            onChange={(token: string | null) => setCaptchaToken(token)}
+            onExpired={() => setCaptchaToken(null)}
+          />
         </div>
 
         {status === "error" && (
