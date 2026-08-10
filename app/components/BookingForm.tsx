@@ -85,6 +85,20 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [showTerms, setShowTerms] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
+  const captchaWrapperRef = useRef<HTMLDivElement>(null);
+  const captchaInnerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const wrapper = captchaWrapperRef.current;
+    const inner = captchaInnerRef.current;
+    if (!wrapper || !inner) return;
+    const scale = wrapper.offsetWidth / 304;
+    if (scale > 1) {
+      inner.style.transform = `scale(${scale})`;
+      inner.style.transformOrigin = "left top";
+      wrapper.style.height = `${Math.round(78 * scale)}px`;
+    }
+  }, []);
 
   function handlePickupDateChange(e: React.ChangeEvent<HTMLInputElement>) {
     const newPickup = e.target.value;
@@ -477,13 +491,15 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         </div>
 
         {/* reCAPTCHA */}
-        <div className="w-full overflow-hidden flex justify-start">
-          <ReCAPTCHA
-            ref={recaptchaRef}
-            sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
-            onChange={(token: string | null) => setCaptchaToken(token)}
-            onExpired={() => setCaptchaToken(null)}
-          />
+        <div ref={captchaWrapperRef} className="w-full overflow-hidden">
+          <div ref={captchaInnerRef}>
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
+              onChange={(token: string | null) => setCaptchaToken(token)}
+              onExpired={() => setCaptchaToken(null)}
+            />
+          </div>
         </div>
 
         {status === "error" && (
