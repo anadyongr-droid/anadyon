@@ -54,8 +54,15 @@ export function calcExtrasTotal(
   return parseFloat((daily * rentalDays).toFixed(2));
 }
 
-export function calcRentalDays(pickupDate: string, returnDate: string): number {
-  const d1 = new Date(pickupDate);
-  const d2 = new Date(returnDate);
-  return Math.max(1, Math.ceil((d2.getTime() - d1.getTime()) / 86400000));
+export function calcRentalDays(
+  pickupDate: string,
+  returnDate: string,
+  pickupTime = "09:00",
+  returnTime = "09:00"
+): number {
+  const d1 = new Date(`${pickupDate}T${pickupTime}`);
+  const d2 = new Date(`${returnDate}T${returnTime}`);
+  const diffMs = d2.getTime() - d1.getTime();
+  // Any portion of a 24-hour period counts as a full day
+  return Math.max(1, Math.ceil(diffMs / 86400000));
 }

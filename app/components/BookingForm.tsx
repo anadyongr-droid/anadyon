@@ -155,7 +155,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
 
   // Live price calculation
   const pricingGroup = modelPricingGroups?.[selectedModel];
-  const rentalDays = pickupDate && dropoffDate ? calcRentalDays(pickupDate, dropoffDate) : 0;
+  const rentalDays = pickupDate && dropoffDate ? calcRentalDays(pickupDate, dropoffDate, pickupTime, dropoffTime) : 0;
   const pickupMonth = pickupDate ? new Date(pickupDate).getMonth() + 1 : 0;
   const dailyRate = pricingGroup && pickupMonth && rentalDays && rates.length
     ? getDailyRate(rates, pricingGroup as PricingGroup, pickupMonth, rentalDays)
