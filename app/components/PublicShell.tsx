@@ -14,13 +14,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
       <main className="flex-1">{children}</main>
       <footer className="bg-gray-900 dark:bg-gray-950 text-gray-400 border-t border-gray-800">
         <nav className="bg-blue-700 dark:bg-blue-900 w-full">
-          <div
-            className="flex"
-            style={{
-              paddingLeft: 'max(16px, calc((100vw - 1152px) / 2 + 16px))',
-              paddingRight: '160px',
-            }}
-          >
+          <div className="flex flex-wrap justify-center">
             {[
               { href: "/faq", label: "FAQ" },
               { href: "/terms", label: "Terms & Conditions" },
@@ -31,7 +25,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
               <a
                 key={l.href}
                 href={l.href}
-                className="flex-1 text-center text-sm font-semibold text-white py-3 hover:bg-blue-800 transition border-r border-blue-600 dark:border-blue-700 last:border-r-0 cursor-pointer"
+                className="text-center text-sm font-semibold text-white px-5 py-3 hover:bg-blue-800 transition cursor-pointer"
               >
                 {l.label}
               </a>

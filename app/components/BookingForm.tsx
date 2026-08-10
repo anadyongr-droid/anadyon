@@ -476,12 +476,14 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         </div>
 
         {/* reCAPTCHA */}
-        <ReCAPTCHA
-          ref={recaptchaRef}
-          sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
-          onChange={(token: string | null) => setCaptchaToken(token)}
-          onExpired={() => setCaptchaToken(null)}
-        />
+        <div className="overflow-x-auto">
+          <ReCAPTCHA
+            ref={recaptchaRef}
+            sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
+            onChange={(token: string | null) => setCaptchaToken(token)}
+            onExpired={() => setCaptchaToken(null)}
+          />
+        </div>
 
         {status === "error" && (
           <p className="text-red-500 text-sm">Something went wrong. Please try again or contact us directly.</p>

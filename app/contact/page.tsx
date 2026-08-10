@@ -70,10 +70,6 @@ export default function Contact() {
               </div>
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-900/30 rounded-xl p-5 border border-blue-100 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-300">
-              <p className="font-semibold mb-1">Free delivery & collection</p>
-              <p>At Airport, Port and our Office during office hours. Outside office hours a surcharge of €20 applies.</p>
-            </div>
           </div>
 
           {/* Contact Form */}
@@ -104,11 +100,13 @@ export default function Contact() {
                     className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700"
                     placeholder="How can we help?" />
                 </div>
-                <ReCAPTCHA
-                  sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
-                  onChange={(token: string | null) => setCaptchaToken(token)}
-                  onExpired={() => setCaptchaToken(null)}
-                />
+                <div className="overflow-x-auto">
+                  <ReCAPTCHA
+                    sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
+                    onChange={(token: string | null) => setCaptchaToken(token)}
+                    onExpired={() => setCaptchaToken(null)}
+                  />
+                </div>
                 {status === "error" && (
                   <p className="text-red-500 text-sm">Something went wrong. Please try again or email us directly.</p>
                 )}
