@@ -111,6 +111,10 @@ export default function Motorbikes() {
               vehicleType="Motorbikes"
               models={models.map((m) => m.name)}
               initialModel={selectedModel ?? models[0].name}
+              modelPricingGroups={{
+                "Kymco 50cc": "motorbike_a",
+                "Kymco 125cc": "motorbike_b",
+              }}
             />
           </div>
         )}
