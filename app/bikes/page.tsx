@@ -154,6 +154,15 @@ export default function Bikes() {
               vehicleType="Bikes"
               models={models.map((m) => m.name)}
               initialModel={selectedModel ?? models[0].name}
+              modelPricingGroups={{
+                "Cinzia Bombi Retro Women": "bike",
+                "Cinzia Bombi Retro Men": "bike",
+                "Scott Sportster 50": "bike",
+                "Ideal Crossmo": "bike",
+                "Kona Lanai": "bike",
+                "KTM Manhattan XC": "bike",
+                "Specialized Ariel": "bike",
+              }}
             />
           </div>
         )}
