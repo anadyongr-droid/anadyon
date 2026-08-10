@@ -296,7 +296,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {vehicleType !== "Bikes" && (<>
+                  {(<>
                   <tr>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Baby Seat (0–9 months)</td>
                     <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ 3.00</td>
@@ -479,7 +479,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         <ReCAPTCHA
           ref={recaptchaRef}
           sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
-          onChange={(token) => setCaptchaToken(token)}
+          onChange={(token: string | null) => setCaptchaToken(token)}
           onExpired={() => setCaptchaToken(null)}
         />
 

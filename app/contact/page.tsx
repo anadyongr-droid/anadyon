@@ -106,7 +106,7 @@ export default function Contact() {
                 </div>
                 <ReCAPTCHA
                   sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
-                  onChange={(token) => setCaptchaToken(token)}
+                  onChange={(token: string | null) => setCaptchaToken(token)}
                   onExpired={() => setCaptchaToken(null)}
                 />
                 {status === "error" && (

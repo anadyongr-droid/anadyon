@@ -9,6 +9,7 @@ interface Vehicle {
   name: string;
   category: string;
   pricing_group: string;
+  status?: string;
 }
 
 interface Props {
