@@ -18,6 +18,7 @@ const models = [
     transmission: "Automatic",
     features: ["Underseat storage", "Fuel efficient", "Easy to ride"],
     imagePadding: "p-4",
+    whiteBg: true,
   },
   {
     name: "Kymco 125cc",
@@ -51,7 +52,7 @@ export default function Motorbikes() {
         <div className="space-y-5">
           {models.map((bike) => (
             <Card key={bike.name} className="overflow-hidden flex flex-col md:flex-row">
-              <div className="relative w-full md:w-72 h-52 md:h-auto flex-shrink-0 bg-white dark:bg-gray-800">
+              <div className={`relative w-full md:w-72 h-52 md:h-auto flex-shrink-0 bg-white ${bike.whiteBg ? "" : "dark:bg-gray-800"}`}>
                 <Image
                   src={bike.image}
                   alt={bike.name}
