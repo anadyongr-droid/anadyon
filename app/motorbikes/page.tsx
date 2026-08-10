@@ -12,7 +12,7 @@ const models = [
   {
     name: "Kymco 50cc",
     category: "Scooter",
-    image: "https://kymco.gr/wp-content/uploads/2020/07/agility-16-50-white-1024x640.png",
+    image: "/kymco-50cc.png",
     seats: 2,
     engine: "50cc",
     transmission: "Automatic",

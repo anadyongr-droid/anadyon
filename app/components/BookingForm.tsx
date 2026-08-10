@@ -412,6 +412,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Comments or Special Requests</label>
               <textarea rows={3} value={comments} onChange={e => setComments(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Any special requests?" />
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">* Required fields</p>
             </div>
           </div>
         </div>
@@ -476,13 +477,15 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         </div>
 
         {/* reCAPTCHA */}
-        <div className="overflow-x-auto">
-          <ReCAPTCHA
-            ref={recaptchaRef}
-            sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
-            onChange={(token: string | null) => setCaptchaToken(token)}
-            onExpired={() => setCaptchaToken(null)}
-          />
+        <div className="w-full overflow-hidden">
+          <div style={{ transform: 'scale(0.88)', transformOrigin: 'left center' }} className="sm:transform-none">
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
+              onChange={(token: string | null) => setCaptchaToken(token)}
+              onExpired={() => setCaptchaToken(null)}
+            />
+          </div>
         </div>
 
         {status === "error" && (

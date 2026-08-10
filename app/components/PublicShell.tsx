@@ -1,6 +1,7 @@
 "use client";
 import { usePathname } from "next/navigation";
 import Header from "./Header";
+import CookieBanner from "./CookieBanner";
 
 export default function PublicShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -11,6 +12,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
   return (
     <>
       <Header />
+      <CookieBanner />
       <main className="flex-1">{children}</main>
       <footer className="bg-gray-900 dark:bg-gray-950 text-gray-400 border-t border-gray-800">
         <nav className="bg-blue-700 dark:bg-blue-900 w-full">
