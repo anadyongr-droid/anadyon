@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 
 const models = [
   {
-    name: "Kymco 50cc",
+    name: "Kymco Agility 50cc",
     category: "Scooter",
     image: "/kymco-50cc.png",
     seats: 2,
@@ -21,7 +21,7 @@ const models = [
     whiteBg: true,
   },
   {
-    name: "Kymco 125cc",
+    name: "Kymco Agility 125cc",
     category: "Scooter",
     image: "https://kymco.gr/wp-content/uploads/2022/11/img_6328-1024x683.jpg",
     seats: 2,
@@ -113,8 +113,8 @@ export default function Motorbikes() {
               models={models.map((m) => m.name)}
               initialModel={selectedModel ?? models[0].name}
               modelPricingGroups={{
-                "Kymco 50cc": "motorbike_a",
-                "Kymco 125cc": "motorbike_b",
+                "Kymco Agility 50cc": "motorbike_a",
+                "Kymco Agility 125cc": "motorbike_b",
               }}
             />
           </div>
