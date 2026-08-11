@@ -21,7 +21,7 @@ const fleet = [
     name: "Motorbikes",
     desc: "Scooters for zipping around Zakynthos",
     href: "/motorbikes",
-    image: "https://kymco.gr/wp-content/uploads/2020/07/agility-16-50-white-1024x640.png",
+    image: "/kymco-50cc-fleet.png",
   },
   {
     name: "Bikes",

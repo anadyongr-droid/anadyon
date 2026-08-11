@@ -81,8 +81,8 @@ export default function DateRangePicker({ pickupDate, returnDate, onPickupChange
         setStep("pickup");
       }
     }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("pointerdown", handleClick);
+    return () => document.removeEventListener("pointerdown", handleClick);
   }, []);
 
   const rentalDays = pickupDate && returnDate
@@ -136,7 +136,7 @@ export default function DateRangePicker({ pickupDate, returnDate, onPickupChange
 
       {/* Calendar popover */}
       {open && (
-        <div className="absolute z-50 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3">
+        <div className="absolute z-50 mt-2 left-0 right-0 sm:right-auto sm:left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 overflow-x-auto">
           <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-2 px-1">
             {step === "pickup" ? "Select pick-up date" : "Select return date"}
           </p>

@@ -396,7 +396,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date of Birth *</label>
-                <input type="date" required value={dob} onChange={e => setDob(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" />
+                <input type="date" required value={dob} onChange={e => setDob(e.target.value)} placeholder="YYYY-MM-DD" className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" />
               </div>
             </div>
             <div>

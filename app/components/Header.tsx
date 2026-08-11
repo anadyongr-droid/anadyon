@@ -37,7 +37,7 @@ export default function Header() {
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <a href="/" ref={logoRef}>
           <Image
-            src="https://anadyon.gr/wp-content/uploads/anadyon-car-rentals-zakynthos-logo-wide.jpg"
+            src="/logo.jpg"
             alt="Anadyon Rentals"
             width={270}
             height={80}

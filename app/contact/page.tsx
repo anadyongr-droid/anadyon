@@ -9,13 +9,15 @@ export default function Contact() {
   const [message, setMessage] = useState("");
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!captchaToken) {
-      alert("Please complete the reCAPTCHA verification.");
-      return;
-    }
+    setFormError(null);
+    if (!name.trim()) { setFormError("Name is required."); return; }
+    if (!email.trim()) { setFormError("Email address is required."); return; }
+    if (!message.trim()) { setFormError("Message is required."); return; }
+    if (!captchaToken) { setFormError("Please complete the reCAPTCHA verification."); return; }
     setStatus("sending");
     const res = await fetch("/api/contact", {
       method: "POST",
@@ -114,6 +116,9 @@ export default function Contact() {
                     apply.
                   </p>
                 </div>
+                {formError && (
+                  <p className="text-red-600 dark:text-red-400 text-sm font-medium bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">{formError}</p>
+                )}
                 {status === "error" && (
                   <p className="text-red-500 text-sm">Something went wrong. Please try again or email us directly.</p>
                 )}
