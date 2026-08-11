@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
-import { calcRentalDays, getDailyRate } from "@/lib/pricing";
+import { calcRentalDays, getDailyRate, calcExtrasTotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "./DateRangePicker";
 
@@ -164,14 +164,17 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const vehicleSubtotal = parseFloat((dailyRate * rentalDays).toFixed(2));
   const xRate = (key: string, fallback: number) =>
     extrasConfig.find(e => e.key === key)?.daily_rate ?? fallback;
-  const extrasDailyTotal =
-    (fdw ? xRate("fdw", 5) : 0) +
-    (Number(babySeat) * xRate("baby_seat", 3)) +
-    (Number(childSeat) * xRate("child_seat", 3)) +
-    (Number(additionalDrivers) * xRate("additional_drivers", 2.5));
-  const extrasSubtotal = parseFloat((extrasDailyTotal * rentalDays).toFixed(2));
+  const extrasSubtotal = rentalDays
+    ? calcExtrasTotal(extrasConfig, {
+        gps: false,
+        baby_seat: Number(babySeat),
+        child_seat: Number(childSeat),
+        fdw,
+        additional_drivers: Number(additionalDrivers),
+      }, rentalDays)
+    : 0;
   const total = parseFloat((vehicleSubtotal + extrasSubtotal).toFixed(2));
-  const deposit = parseFloat((total * 0.3).toFixed(2));
+  const deposit = parseFloat((total * DEPOSIT_RATE).toFixed(2));
   const balanceDue = parseFloat((total - deposit).toFixed(2));
   const showPrice = !!(pricingGroup && rentalDays > 0 && dailyRate > 0);
 

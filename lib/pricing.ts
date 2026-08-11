@@ -1,5 +1,7 @@
 export type PricingGroup = "car_a" | "car_b" | "motorbike_a" | "motorbike_b" | "bike";
 
+export const DEPOSIT_RATE = 0.3;
+
 export interface Rate {
   id: string;
   pricing_group: PricingGroup;

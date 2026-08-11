@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useVehicleSelection } from "../hooks/useVehicleSelection";
 import Image from "next/image";
 import { User, Briefcase, Check } from "lucide-react";
 import { GearStickIcon } from "../components/GearStickIcon";
@@ -52,16 +52,7 @@ const models = [
 ];
 
 export default function Cars() {
-  const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  const [formVisible, setFormVisible] = useState(false);
-
-  function selectAndScroll(name: string) {
-    setSelectedModel(name);
-    setFormVisible(true);
-    setTimeout(() => {
-      document.getElementById("booking-form")?.scrollIntoView({ behavior: "smooth" });
-    }, 50);
-  }
+  const { selectedModel, formVisible, selectAndScroll } = useVehicleSelection();
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">

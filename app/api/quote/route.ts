@@ -1,19 +1,13 @@
 import { Resend } from "resend";
 import { NextRequest, NextResponse } from "next/server";
+import { verifyRecaptcha } from "@/lib/recaptcha";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
 
-  // Verify reCAPTCHA
-  const captchaRes = await fetch("https://www.google.com/recaptcha/api/siteverify", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${body.captchaToken}`,
-  });
-  const captchaData = await captchaRes.json();
-  if (!captchaData.success) {
+  if (!await verifyRecaptcha(body.captchaToken)) {
     return NextResponse.json({ error: "reCAPTCHA verification failed" }, { status: 400 });
   }
 
@@ -55,18 +49,6 @@ export async function POST(req: NextRequest) {
   } = body;
 
   const showPrice = total > 0;
-
-  const priceRows = (compact = false) => `
-    <tr><td>${compact ? selectedModel : `<strong>${selectedModel}</strong> — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${Number(dailyRate).toFixed(2)}`}</td><td align="right">€${Number(vehicleSubtotal).toFixed(2)}</td></tr>
-    ${fdw ? `<tr><td>Full Damage Waiver${compact ? "" : ` — ${rentalDays} day${rentalDays > 1 ? "s" : ""}`}</td><td align="right">€${(Number(extrasSubtotal) > 0 && fdw ? "" : "")}${compact ? Number(extrasSubtotal).toFixed(2) : ""}</td></tr>` : ""}
-    ${Number(babySeat) > 0 ? `<tr><td>Baby Seat ×${babySeat}</td><td align="right"></td></tr>` : ""}
-    ${Number(childSeat) > 0 ? `<tr><td>Child Seat ×${childSeat}</td><td align="right"></td></tr>` : ""}
-    ${Number(additionalDrivers) > 0 ? `<tr><td>Additional Driver ×${additionalDrivers}</td><td align="right"></td></tr>` : ""}
-    ${Number(extrasSubtotal) > 0 ? `<tr><td>Extras subtotal</td><td align="right">€${Number(extrasSubtotal).toFixed(2)}</td></tr>` : ""}
-    <tr style="border-top:2px solid #ccc;"><td><strong>Total (incl. VAT)</strong></td><td align="right"><strong>€${Number(total).toFixed(2)}</strong></td></tr>
-    <tr><td style="color:#666;">Deposit (30%) due on confirmation</td><td align="right" style="color:#666;">€${Number(deposit).toFixed(2)}</td></tr>
-    <tr><td style="color:#666;">Balance due at pick-up</td><td align="right" style="color:#666;">€${Number(balanceDue).toFixed(2)}</td></tr>
-  `;
 
   await resend.emails.send({
     from: "Anadyon Website <noreply@anadyon.gr>",

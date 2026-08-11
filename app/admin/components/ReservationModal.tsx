@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { X, Trash2 } from "lucide-react";
-import { calcRentalDays, getDailyRate, calcExtrasTotal } from "@/lib/pricing";
+import { calcRentalDays, getDailyRate, calcExtrasTotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 
 interface Vehicle {
@@ -100,7 +100,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, vehic
   // Computed pricing
   const vehicle = vehicles.find((v) => v.id === form.vehicle_id);
   const rentalDays = form.pickup_date && form.return_date
-    ? calcRentalDays(form.pickup_date, form.return_date)
+    ? calcRentalDays(form.pickup_date, form.return_date, form.pickup_time, form.return_time)
     : 0;
   const pickupMonth = form.pickup_date ? new Date(form.pickup_date).getMonth() + 1 : 0;
   const dailyRate = vehicle && pickupMonth && rentalDays
@@ -117,7 +117,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, vehic
       }, rentalDays)
     : 0;
   const total = parseFloat((vehicleSubtotal + extrasSubtotal).toFixed(2));
-  const deposit = parseFloat((total * 0.3).toFixed(2));
+  const deposit = parseFloat((total * DEPOSIT_RATE).toFixed(2));
   const balanceDue = parseFloat((total - deposit).toFixed(2));
 
   function set(key: string, value: unknown) {

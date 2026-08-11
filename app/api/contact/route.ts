@@ -1,19 +1,13 @@
 import { Resend } from "resend";
 import { NextRequest, NextResponse } from "next/server";
+import { verifyRecaptcha } from "@/lib/recaptcha";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   const { name, email, message, captchaToken } = await req.json();
 
-  // Verify reCAPTCHA
-  const captchaRes = await fetch("https://www.google.com/recaptcha/api/siteverify", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${captchaToken}`,
-  });
-  const captchaData = await captchaRes.json();
-  if (!captchaData.success) {
+  if (!await verifyRecaptcha(captchaToken)) {
     return NextResponse.json({ error: "reCAPTCHA verification failed" }, { status: 400 });
   }
 
