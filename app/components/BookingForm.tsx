@@ -41,6 +41,19 @@ function localDateStr(d = new Date()) {
 }
 const today = localDateStr();
 const tomorrow = localDateStr(new Date(Date.now() + 86400000));
+const currentYear = new Date().getFullYear();
+
+const DOB_MONTHS = [
+  { value: "01", label: "January" }, { value: "02", label: "February" }, { value: "03", label: "March" },
+  { value: "04", label: "April" }, { value: "05", label: "May" }, { value: "06", label: "June" },
+  { value: "07", label: "July" }, { value: "08", label: "August" }, { value: "09", label: "September" },
+  { value: "10", label: "October" }, { value: "11", label: "November" }, { value: "12", label: "December" },
+];
+// Number of days in a given month/year — falls back to 31 until both are picked, then clamps as needed.
+function daysInDobMonth(month: string, year: string): number {
+  if (!month) return 31;
+  return new Date(Number(year || currentYear), Number(month), 0).getDate();
+}
 
 type Props = {
   vehicleType: string;
@@ -79,7 +92,22 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [dob, setDob] = useState("");
+  const [dobDay, setDobDay] = useState("");
+  const [dobMonth, setDobMonth] = useState("");
+  const [dobYear, setDobYear] = useState("");
+  const dob = dobDay && dobMonth && dobYear ? `${dobYear}-${dobMonth}-${dobDay}` : "";
+  function handleDobMonthChange(value: string) {
+    setDobMonth(value);
+    const max = daysInDobMonth(value, dobYear);
+    if (dobDay && Number(dobDay) > max) setDobDay(String(max).padStart(2, "0"));
+  }
+  function handleDobYearChange(value: string) {
+    setDobYear(value);
+    const max = daysInDobMonth(dobMonth, value);
+    if (dobDay && Number(dobDay) > max) setDobDay(String(max).padStart(2, "0"));
+  }
+  const dobDayOptions = Array.from({ length: daysInDobMonth(dobMonth, dobYear) }, (_, i) => String(i + 1).padStart(2, "0"));
+  const dobYearOptions = Array.from({ length: 100 }, (_, i) => String(currentYear - 18 - i));
   const [address, setAddress] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
@@ -433,7 +461,38 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date of Birth *</label>
-                <input type="date" required value={dob} onChange={e => setDob(e.target.value)} placeholder="YYYY-MM-DD" className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" />
+                <div className="grid grid-cols-3 gap-2">
+                  <select
+                    required
+                    aria-label="Day of birth"
+                    value={dobDay}
+                    onChange={e => setDobDay(e.target.value)}
+                    className="w-full border dark:border-gray-600 rounded-lg px-2 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700"
+                  >
+                    <option value="">Day</option>
+                    {dobDayOptions.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                  <select
+                    required
+                    aria-label="Month of birth"
+                    value={dobMonth}
+                    onChange={e => handleDobMonthChange(e.target.value)}
+                    className="w-full border dark:border-gray-600 rounded-lg px-2 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700"
+                  >
+                    <option value="">Month</option>
+                    {DOB_MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                  <select
+                    required
+                    aria-label="Year of birth"
+                    value={dobYear}
+                    onChange={e => handleDobYearChange(e.target.value)}
+                    className="w-full border dark:border-gray-600 rounded-lg px-2 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700"
+                  >
+                    <option value="">Year</option>
+                    {dobYearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
               </div>
             </div>
             <div>
