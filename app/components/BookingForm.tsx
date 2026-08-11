@@ -73,7 +73,6 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [driverAge, setDriverAge] = useState("26–65");
   const [babySeat, setBabySeat] = useState("0");
   const [childSeat, setChildSeat] = useState("0");
-  const [gps, setGps] = useState(false);
   const [fdw, setFdw] = useState(false);
   const [additionalDrivers, setAdditionalDrivers] = useState("0");
   const [title, setTitle] = useState("Mr");
@@ -158,7 +157,6 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const xRate = (key: string, fallback: number) =>
     extrasConfig.find(e => e.key === key)?.daily_rate ?? fallback;
   const extrasDailyTotal =
-    (gps ? xRate("gps", 5) : 0) +
     (fdw ? xRate("fdw", 5) : 0) +
     (Number(babySeat) * xRate("baby_seat", 3)) +
     (Number(childSeat) * xRate("child_seat", 3)) +
@@ -309,13 +307,6 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                   {(<>
                   <tr>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">GPS Navigation</td>
-                    <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("gps", 5).toFixed(2)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <input type="checkbox" checked={gps} onChange={e => setGps(e.target.checked)} className="rounded" />
-                    </td>
-                  </tr>
-                  <tr>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Baby Seat (0–9 months)</td>
                     <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("baby_seat", 3).toFixed(2)}</td>
                     <td className="px-4 py-3 text-center">
@@ -444,12 +435,6 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 <span>{selectedModel} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{dailyRate.toFixed(2)}</span>
                 <span>€{vehicleSubtotal.toFixed(2)}</span>
               </div>
-              {gps && (
-                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>GPS Navigation — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("gps", 5).toFixed(2)}</span>
-                  <span>€{(xRate("gps", 5) * rentalDays).toFixed(2)}</span>
-                </div>
-              )}
               {fdw && (
                 <div className="flex justify-between text-gray-600 dark:text-gray-400">
                   <span>Full Damage Waiver — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("fdw", 5).toFixed(2)}</span>
