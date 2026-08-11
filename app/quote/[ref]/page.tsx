@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { use } from "react";
+import { useSearchParams } from "next/navigation";
 
 type Quote = {
   ref: string;
@@ -36,16 +37,25 @@ type Quote = {
 
 export default function QuoteLookupPage({ params }: { params: Promise<{ ref: string }> }) {
   const { ref } = use(params);
+  const searchParams = useSearchParams();
   const [surname, setSurname] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleLookup(e: React.FormEvent) {
-    e.preventDefault();
+  // Auto-fetch when arriving from the landing page with surname in URL
+  useEffect(() => {
+    const s = searchParams.get("surname");
+    if (s) {
+      setSurname(s);
+      fetchQuote(ref, s);
+    }
+  }, []);
+
+  async function fetchQuote(r: string, s: string) {
     setError(null);
     setLoading(true);
-    const res = await fetch(`/api/quote/${encodeURIComponent(ref)}?surname=${encodeURIComponent(surname)}`);
+    const res = await fetch(`/api/quote/${encodeURIComponent(r)}?surname=${encodeURIComponent(s)}`);
     const data = await res.json();
     setLoading(false);
     if (!res.ok) {
@@ -53,6 +63,11 @@ export default function QuoteLookupPage({ params }: { params: Promise<{ ref: str
     } else {
       setQuote(data);
     }
+  }
+
+  async function handleLookup(e: React.FormEvent) {
+    e.preventDefault();
+    fetchQuote(ref, surname);
   }
 
   const showPrice = quote && quote.total > 0;

@@ -12,6 +12,7 @@ const links = [
   { href: "/sights", label: "Zakynthos Sights" },
   { href: "/blog", label: "Blog" },
   { href: "/contact", label: "Contact" },
+  { href: "/quote", label: "My Rental" },
 ];
 
 export default function Header() {
