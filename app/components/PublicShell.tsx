@@ -21,6 +21,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
               { href: "/faq", label: "FAQ" },
               { href: "/terms", label: "Terms & Conditions" },
               { href: "/terms-of-use", label: "Terms of Use" },
+              { href: "/privacy-policy", label: "Privacy Policy" },
               { href: "/sitemap", label: "Sitemap" },
               { href: "/contact", label: "Contact Us" },
             ].map(l => (

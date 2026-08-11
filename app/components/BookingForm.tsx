@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
 import { calcRentalDays, getDailyRate } from "@/lib/pricing";
-import type { Rate, PricingGroup } from "@/lib/pricing";
+import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "./DateRangePicker";
 
 const locations = [
@@ -36,8 +36,11 @@ const countries = [
   "Venezuela", "Vietnam", "Other",
 ];
 
-const today = new Date().toISOString().split("T")[0];
-const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+function localDateStr(d = new Date()) {
+  return d.toLocaleDateString("sv"); // 'sv' locale → YYYY-MM-DD in local time
+}
+const today = localDateStr();
+const tomorrow = localDateStr(new Date(Date.now() + 86400000));
 
 type Props = {
   vehicleType: string;
@@ -50,10 +53,14 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const formRef = useRef<HTMLFormElement>(null);
   const [selectedModel, setSelectedModel] = useState(initialModel ?? models[0]);
   const [rates, setRates] = useState<Rate[]>([]);
+  const [extrasConfig, setExtrasConfig] = useState<ExtrasConfig[]>([]);
 
   useEffect(() => {
     if (!modelPricingGroups) return;
-    fetch("/api/admin/rates").then(r => r.json()).then(({ rates: r }) => setRates(r ?? []));
+    fetch("/api/admin/rates").then(r => r.json()).then(({ rates: r, extras: e }) => {
+      setRates(r ?? []);
+      setExtrasConfig(e ?? []);
+    });
   }, []);
   const [differentDropoff, setDifferentDropoff] = useState(false);
   const [pickupDate, setPickupDate] = useState(today);
@@ -66,6 +73,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [driverAge, setDriverAge] = useState("26–65");
   const [babySeat, setBabySeat] = useState("0");
   const [childSeat, setChildSeat] = useState("0");
+  const [gps, setGps] = useState(false);
   const [fdw, setFdw] = useState(false);
   const [additionalDrivers, setAdditionalDrivers] = useState("0");
   const [title, setTitle] = useState("Mr");
@@ -92,7 +100,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
     if (dropoffDate <= newPickup) {
       const next = new Date(newPickup);
       next.setDate(next.getDate() + 1);
-      setDropoffDate(next.toISOString().split("T")[0]);
+      setDropoffDate(localDateStr(next));
     }
   }
 
@@ -147,11 +155,14 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
     ? getDailyRate(rates, pricingGroup as PricingGroup, pickupMonth, rentalDays)
     : 0;
   const vehicleSubtotal = parseFloat((dailyRate * rentalDays).toFixed(2));
+  const xRate = (key: string, fallback: number) =>
+    extrasConfig.find(e => e.key === key)?.daily_rate ?? fallback;
   const extrasDailyTotal =
-    (fdw ? 5 : 0) +
-    (Number(babySeat) * 3) +
-    (Number(childSeat) * 3) +
-    (Number(additionalDrivers) * 2.5);
+    (gps ? xRate("gps", 5) : 0) +
+    (fdw ? xRate("fdw", 5) : 0) +
+    (Number(babySeat) * xRate("baby_seat", 3)) +
+    (Number(childSeat) * xRate("child_seat", 3)) +
+    (Number(additionalDrivers) * xRate("additional_drivers", 2.5));
   const extrasSubtotal = parseFloat((extrasDailyTotal * rentalDays).toFixed(2));
   const total = parseFloat((vehicleSubtotal + extrasSubtotal).toFixed(2));
   const deposit = parseFloat((total * 0.3).toFixed(2));
@@ -298,8 +309,15 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                   {(<>
                   <tr>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">GPS Navigation</td>
+                    <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("gps", 5).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <input type="checkbox" checked={gps} onChange={e => setGps(e.target.checked)} className="rounded" />
+                    </td>
+                  </tr>
+                  <tr>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Baby Seat (0–9 months)</td>
-                    <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ 3.00</td>
+                    <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("baby_seat", 3).toFixed(2)}</td>
                     <td className="px-4 py-3 text-center">
                       <select className="border dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={babySeat} onChange={e => setBabySeat(e.target.value)}>
                         <option>0</option><option>1</option><option>2</option><option>3</option>
@@ -308,7 +326,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                   </tr>
                   <tr>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Child Seat (9+ months)</td>
-                    <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ 3.00</td>
+                    <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("child_seat", 3).toFixed(2)}</td>
                     <td className="px-4 py-3 text-center">
                       <select className="border dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={childSeat} onChange={e => setChildSeat(e.target.value)}>
                         <option>0</option><option>1</option><option>2</option><option>3</option>
@@ -317,7 +335,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                   </tr>
                   <tr>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Full Damage Waiver (FDW)</td>
-                    <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ 5.00</td>
+                    <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("fdw", 5).toFixed(2)}</td>
                     <td className="px-4 py-3 text-center">
                       <input type="checkbox" checked={fdw} onChange={e => setFdw(e.target.checked)} className="rounded" />
                     </td>
@@ -325,7 +343,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                   </>)}
                   <tr>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Additional Drivers</td>
-                    <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ 2.50</td>
+                    <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("additional_drivers", 2.5).toFixed(2)}</td>
                     <td className="px-4 py-3 text-center">
                       <select className="border dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={additionalDrivers} onChange={e => setAdditionalDrivers(e.target.value)}>
                         <option>0</option><option>1</option><option>2</option><option>3</option>
@@ -335,16 +353,16 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 </tbody>
               </table>
             </div>
-            <div className="hidden">
-              <input type="checkbox" id="gps" /><label htmlFor="gps">GPS Navigation € 5.00</label>
-              <input type="checkbox" id="pai" /><label htmlFor="pai">Personal Accident Insurance (PAI)</label>
-            </div>
           </div>
         )}
 
         {/* Customer Details */}
         <div className="border-t dark:border-gray-700 pt-6">
-          <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-4">Your Details</h3>
+          <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-1">Your Details</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            We collect your personal data to process your rental request and communicate with you about your booking. Your data is processed on the basis of contract performance (Art. 6(1)(b) GDPR) and will not be shared with third parties except as required to fulfil your booking. You have the right to access, correct, or request deletion of your data by contacting us at{" "}
+            <a href="mailto:customerservice@anadyon.gr" className="underline hover:text-blue-600">customerservice@anadyon.gr</a>.
+          </p>
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
               <div>
@@ -426,28 +444,34 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 <span>{selectedModel} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{dailyRate.toFixed(2)}</span>
                 <span>€{vehicleSubtotal.toFixed(2)}</span>
               </div>
+              {gps && (
+                <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                  <span>GPS Navigation — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("gps", 5).toFixed(2)}</span>
+                  <span>€{(xRate("gps", 5) * rentalDays).toFixed(2)}</span>
+                </div>
+              )}
               {fdw && (
                 <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Full Damage Waiver — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €5.00</span>
-                  <span>€{(5 * rentalDays).toFixed(2)}</span>
+                  <span>Full Damage Waiver — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("fdw", 5).toFixed(2)}</span>
+                  <span>€{(xRate("fdw", 5) * rentalDays).toFixed(2)}</span>
                 </div>
               )}
               {Number(babySeat) > 0 && (
                 <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Baby Seat ×{babySeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €3.00</span>
-                  <span>€{(3 * Number(babySeat) * rentalDays).toFixed(2)}</span>
+                  <span>Baby Seat ×{babySeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("baby_seat", 3).toFixed(2)}</span>
+                  <span>€{(xRate("baby_seat", 3) * Number(babySeat) * rentalDays).toFixed(2)}</span>
                 </div>
               )}
               {Number(childSeat) > 0 && (
                 <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Child Seat ×{childSeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €3.00</span>
-                  <span>€{(3 * Number(childSeat) * rentalDays).toFixed(2)}</span>
+                  <span>Child Seat ×{childSeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("child_seat", 3).toFixed(2)}</span>
+                  <span>€{(xRate("child_seat", 3) * Number(childSeat) * rentalDays).toFixed(2)}</span>
                 </div>
               )}
               {Number(additionalDrivers) > 0 && (
                 <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Additional Driver ×{additionalDrivers} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €2.50</span>
-                  <span>€{(2.5 * Number(additionalDrivers) * rentalDays).toFixed(2)}</span>
+                  <span>Additional Driver ×{additionalDrivers} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("additional_drivers", 2.5).toFixed(2)}</span>
+                  <span>€{(xRate("additional_drivers", 2.5) * Number(additionalDrivers) * rentalDays).toFixed(2)}</span>
                 </div>
               )}
               <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between font-bold text-gray-900 dark:text-white">
@@ -484,6 +508,13 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             onChange={(token: string | null) => setCaptchaToken(token)}
             onExpired={() => setCaptchaToken(null)}
           />
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            This site is protected by reCAPTCHA and the Google{" "}
+            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">Privacy Policy</a>{" "}
+            and{" "}
+            <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">Terms of Service</a>{" "}
+            apply.
+          </p>
         </div>
 
         {status === "error" && (

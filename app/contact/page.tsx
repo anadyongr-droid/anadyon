@@ -100,12 +100,19 @@ export default function Contact() {
                     className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700"
                     placeholder="How can we help?" />
                 </div>
-                <div className="w-full overflow-hidden flex justify-start">
+                <div className="w-full overflow-hidden flex flex-col justify-start gap-1">
                   <ReCAPTCHA
                     sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
                     onChange={(token: string | null) => setCaptchaToken(token)}
                     onExpired={() => setCaptchaToken(null)}
                   />
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    This site is protected by reCAPTCHA and the Google{" "}
+                    <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">Privacy Policy</a>{" "}
+                    and{" "}
+                    <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">Terms of Service</a>{" "}
+                    apply.
+                  </p>
                 </div>
                 {status === "error" && (
                   <p className="text-red-500 text-sm">Something went wrong. Please try again or email us directly.</p>
