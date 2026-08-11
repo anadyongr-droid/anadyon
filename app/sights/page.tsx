@@ -38,7 +38,7 @@ export default function Sights() {
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
       <div className="max-w-3xl mx-auto px-4 py-16">
         <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Zakynthos Sights</h1>
-        <p className="text-gray-500 dark:text-gray-400 mb-10 leading-relaxed">
+        <p className="text-gray-600 dark:text-gray-400 mb-10 leading-relaxed">
           Welcome to Zakynthos! Also known as Zante, this majestic Greek island sits on the south-west of the Ionian Sea.
           Tropical beaches with crystal clear turquoise waters, lush vegetation and the warm character of the locals make it the ideal summer destination.
           Many hidden treasures are waiting for you — and the best way to explore them is with your own wheels.
@@ -65,12 +65,12 @@ export default function Sights() {
           ))}
         </div>
 
-        <div className="mt-10 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-xl p-6 text-sm text-blue-800 dark:text-blue-300">
-          <p className="font-semibold mb-1">Explore Zakynthos with Anadyon Rentals</p>
-          <p>
-            Rent a <a href="/cars" className="underline hover:text-blue-600">car</a>,{" "}
-            <a href="/motorbikes" className="underline hover:text-blue-600">motorbike</a> or{" "}
-            <a href="/bikes" className="underline hover:text-blue-600">bike</a> and make your holidays in Zakynthos an unforgettable experience!
+        <div className="mt-10 bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800 rounded-xl p-6 text-orange-800 dark:text-orange-300">
+          <p className="text-base font-semibold mb-2">Explore Zakynthos with Anadyon Rentals</p>
+          <p className="text-sm">
+            Rent a <a href="/cars" className="underline hover:text-orange-600">car</a>,{" "}
+            <a href="/motorbikes" className="underline hover:text-orange-600">motorbike</a> or{" "}
+            <a href="/bikes" className="underline hover:text-orange-600">bike</a> and make your holidays in Zakynthos an unforgettable experience!
           </p>
         </div>
       </div>

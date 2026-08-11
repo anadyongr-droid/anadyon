@@ -123,7 +123,7 @@ export default function Contact() {
                   <p className="text-red-500 text-sm">Something went wrong. Please try again or email us directly.</p>
                 )}
                 <button type="submit" disabled={status === "sending"}
-                  className="w-full bg-blue-700 text-white font-semibold py-3 rounded-lg hover:bg-blue-800 transition disabled:opacity-50">
+                  className="w-full bg-orange-600 text-white font-semibold py-3 rounded-lg hover:bg-orange-700 transition disabled:opacity-50">
                   {status === "sending" ? "Sending..." : "Send Message"}
                 </button>
               </form>

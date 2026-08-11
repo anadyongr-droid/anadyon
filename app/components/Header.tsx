@@ -57,7 +57,7 @@ export default function Header() {
       </div>
 
       {/* Desktop nav */}
-      <nav className="hidden md:block bg-blue-700 dark:bg-blue-900 w-full">
+      <nav className="hidden md:block bg-orange-600 dark:bg-orange-900 w-full">
         <div
           className="flex"
           style={{ paddingLeft: navLeft, paddingRight: 160 }}
@@ -66,7 +66,7 @@ export default function Header() {
             <a
               key={l.href}
               href={l.href}
-              className="flex-1 text-center text-sm font-semibold text-white py-3 hover:bg-blue-800 dark:hover:bg-blue-800 transition border-r border-blue-600 dark:border-blue-700 last:border-r-0"
+              className="flex-1 text-center text-sm font-semibold text-white py-3 hover:bg-orange-700 dark:hover:bg-orange-700 transition border-r border-orange-500 dark:border-orange-700 last:border-r-0"
             >
               {l.label}
             </a>

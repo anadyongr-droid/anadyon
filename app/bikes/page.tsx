@@ -129,7 +129,7 @@ export default function Bikes() {
                 <div className="flex md:flex-col items-center md:items-end justify-end">
                   <button
                     onClick={() => selectAndScroll(bike.name)}
-                    className="w-full md:w-36 bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg hover:bg-blue-800 transition text-sm"
+                    className="w-full md:w-36 bg-orange-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-orange-700 transition text-sm"
                   >
                     Get Quote
                   </button>

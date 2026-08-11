@@ -518,7 +518,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
           <input type="checkbox" id="terms" required checked={terms} onChange={e => setTerms(e.target.checked)} className="mt-1 rounded" />
           <label htmlFor="terms" className="text-sm text-gray-600 dark:text-gray-400">
             I accept the{" "}
-            <button type="button" onClick={() => setShowTerms(true)} className="text-blue-700 hover:underline font-medium cursor-pointer">Terms & Conditions</button>
+            <button type="button" onClick={() => setShowTerms(true)} className="text-orange-600 hover:underline font-medium cursor-pointer">Terms & Conditions</button>
           </label>
         </div>
 
@@ -547,7 +547,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
           <p className="text-red-500 text-sm">Something went wrong. Please try again or contact us directly.</p>
         )}
 
-        <button type="submit" disabled={status === "sending"} className="w-full bg-blue-700 text-white font-semibold py-3 rounded-lg hover:bg-blue-800 transition disabled:opacity-50">
+        <button type="submit" disabled={status === "sending"} className="w-full bg-orange-600 text-white font-semibold py-3 rounded-lg hover:bg-orange-700 transition disabled:opacity-50">
           {status === "sending" ? "Sending..." : "Get Quote"}
         </button>
 

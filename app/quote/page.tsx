@@ -72,7 +72,7 @@ export default function QuoteLookupLanding() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-700 text-white font-semibold py-3 rounded-lg hover:bg-blue-800 transition disabled:opacity-50"
+            className="w-full bg-orange-600 text-white font-semibold py-3 rounded-lg hover:bg-orange-700 transition disabled:opacity-50"
           >
             {loading ? "Looking up…" : "View My Rental"}
           </button>
@@ -80,7 +80,7 @@ export default function QuoteLookupLanding() {
 
         <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">
           Can't find your reference? Check your confirmation email from <span className="font-medium">customerservice@anadyon.gr</span> or{" "}
-          <a href="/contact" className="text-blue-700 dark:text-blue-400 underline">contact us</a>.
+          <a href="/contact" className="text-orange-600 dark:text-orange-400 underline">contact us</a>.
         </p>
       </div>
     </div>

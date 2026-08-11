@@ -100,7 +100,7 @@ export default function QuoteLookupPage({ params }: { params: Promise<{ ref: str
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-700 text-white font-semibold py-3 rounded-lg hover:bg-blue-800 transition disabled:opacity-50"
+              className="w-full bg-orange-600 text-white font-semibold py-3 rounded-lg hover:bg-orange-700 transition disabled:opacity-50"
             >
               {loading ? "Looking up…" : "View Quote"}
             </button>

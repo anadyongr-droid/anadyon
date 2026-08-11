@@ -24,7 +24,7 @@ export default function About() {
 
           <p>
             For any additional information regarding vehicle reservations, terms & conditions or any other topic, please don&apos;t hesitate to{" "}
-            <a href="/contact" className="text-blue-700 dark:text-blue-400 hover:underline font-medium">contact us</a>.
+            <a href="/contact" className="text-orange-600 dark:text-orange-400 hover:underline font-medium">contact us</a>.
           </p>
 
         </div>

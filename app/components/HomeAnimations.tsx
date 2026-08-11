@@ -54,7 +54,7 @@ export function Benefits() {
             variants={fadeUp}
             className="flex flex-col items-center text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-xl"
           >
-            <b.icon size={32} className="text-blue-600 mb-3" />
+            <b.icon size={32} className="text-orange-500 mb-3" />
             <h3 className="font-bold text-gray-900 dark:text-white mb-1">{b.title}</h3>
             <p className="text-gray-500 dark:text-gray-400 text-sm">{b.desc}</p>
           </motion.div>
@@ -99,7 +99,7 @@ export function Fleet() {
               <div className="p-5 border-t border-gray-100 dark:border-gray-700">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{v.name}</h3>
                 <p className="text-gray-500 dark:text-gray-400 text-sm mb-3">{v.desc}</p>
-                <span className="text-blue-700 dark:text-blue-400 text-sm font-semibold">View fleet →</span>
+                <span className="text-orange-600 dark:text-orange-400 text-sm font-semibold">View fleet →</span>
               </div>
             </motion.a>
           ))}
@@ -119,7 +119,7 @@ export function WhyAnadyon() {
         transition={{ duration: 0.5 }}
       >
         <h2 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Why Choose Anadyon?</h2>
-        <p className="text-lg font-semibold text-blue-700 dark:text-blue-400 mb-2">Family-run since 2014</p>
+        <p className="text-lg font-semibold text-orange-600 dark:text-orange-400 mb-2">Family-run since 2014</p>
         <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-8">
           We know Zakynthos inside out. Our team is dedicated to making your rental experience as smooth as possible — from the moment you land to the moment you leave.
         </p>
