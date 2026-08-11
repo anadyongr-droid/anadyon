@@ -55,6 +55,19 @@ function daysInDobMonth(month: string, year: string): number {
   return new Date(Number(year || currentYear), Number(month), 0).getDate();
 }
 
+type FieldKey = "firstName" | "lastName" | "email" | "dob" | "mobileTel" | "terms" | "captcha";
+
+const FIELD_MESSAGES: Record<FieldKey, string> = {
+  firstName: "First name is required.",
+  lastName: "Last name is required.",
+  email: "Email address is required.",
+  dob: "Date of birth is required.",
+  mobileTel: "Mobile number is required.",
+  terms: "Please accept the Terms & Conditions.",
+  captcha: "Please complete the reCAPTCHA verification.",
+};
+const invalidFieldClass = "border-red-500 dark:border-red-500 ring-1 ring-red-500";
+
 type Props = {
   vehicleType: string;
   models: string[];
@@ -118,22 +131,51 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [terms, setTerms] = useState(false);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [quoteRef, setQuoteRef] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, boolean>>>({});
   const [showTerms, setShowTerms] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const dobFieldRef = useRef<HTMLDivElement>(null);
+  const mobileTelRef = useRef<HTMLInputElement>(null);
+  const termsRef = useRef<HTMLInputElement>(null);
+  const captchaFieldRef = useRef<HTMLDivElement>(null);
+  const fieldRefs: Record<FieldKey, React.RefObject<HTMLElement | null>> = {
+    firstName: firstNameRef,
+    lastName: lastNameRef,
+    email: emailRef,
+    dob: dobFieldRef,
+    mobileTel: mobileTelRef,
+    terms: termsRef,
+    captcha: captchaFieldRef,
+  };
+
+  function clearFieldError(key: FieldKey) {
+    setFieldErrors(prev => (prev[key] ? { ...prev, [key]: false } : prev));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setFormError(null);
 
-    if (!firstName.trim()) { setFormError("First name is required."); return; }
-    if (!lastName.trim()) { setFormError("Last name is required."); return; }
-    if (!email.trim()) { setFormError("Email address is required."); return; }
-    if (!dob) { setFormError("Date of birth is required."); return; }
-    if (!mobileTel.trim()) { setFormError("Mobile number is required."); return; }
-    if (!terms) { setFormError("Please accept the Terms & Conditions."); return; }
-    if (!captchaToken) { setFormError("Please complete the reCAPTCHA verification."); return; }
+    const errors: Partial<Record<FieldKey, boolean>> = {};
+    if (!firstName.trim()) errors.firstName = true;
+    if (!lastName.trim()) errors.lastName = true;
+    if (!email.trim()) errors.email = true;
+    if (!dob) errors.dob = true;
+    if (!mobileTel.trim()) errors.mobileTel = true;
+    if (!terms) errors.terms = true;
+    if (!captchaToken) errors.captcha = true;
+
+    setFieldErrors(errors);
+    const firstInvalid = (Object.keys(errors) as FieldKey[])[0];
+    if (firstInvalid) {
+      const el = fieldRefs[firstInvalid].current;
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      el?.focus({ preventScroll: true });
+      return;
+    }
 
     setStatus("sending");
     const res = await fetch("/api/quote", {
@@ -265,7 +307,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   return (
     <>
     {showTerms && <TermsModal />}
-    <form ref={formRef} onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl p-8 shadow-sm">
+    <form ref={formRef} onSubmit={handleSubmit} noValidate className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl p-8 shadow-sm">
       <h2 className="text-xl font-semibold mb-6 dark:text-white">Get a Quote</h2>
       <div className="space-y-6">
 
@@ -447,27 +489,54 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">First Name *</label>
-                <input type="text" required value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="First name" />
+                <input
+                  ref={firstNameRef}
+                  type="text"
+                  required
+                  value={firstName}
+                  onChange={e => { setFirstName(e.target.value); clearFieldError("firstName"); }}
+                  className={`w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 ${fieldErrors.firstName ? invalidFieldClass : "dark:border-gray-600"}`}
+                  placeholder="First name"
+                />
+                {fieldErrors.firstName && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{FIELD_MESSAGES.firstName}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name *</label>
-                <input type="text" required value={lastName} onChange={e => setLastName(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Last name" />
+                <input
+                  ref={lastNameRef}
+                  type="text"
+                  required
+                  value={lastName}
+                  onChange={e => { setLastName(e.target.value); clearFieldError("lastName"); }}
+                  className={`w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 ${fieldErrors.lastName ? invalidFieldClass : "dark:border-gray-600"}`}
+                  placeholder="Last name"
+                />
+                {fieldErrors.lastName && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{FIELD_MESSAGES.lastName}</p>}
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
-                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="your@email.com" />
+                <input
+                  ref={emailRef}
+                  type="email"
+                  required
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); clearFieldError("email"); }}
+                  className={`w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 ${fieldErrors.email ? invalidFieldClass : "dark:border-gray-600"}`}
+                  placeholder="your@email.com"
+                />
+                {fieldErrors.email && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{FIELD_MESSAGES.email}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date of Birth *</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div ref={dobFieldRef} className="grid grid-cols-3 gap-2">
                   <select
                     required
                     aria-label="Day of birth"
                     value={dobDay}
-                    onChange={e => setDobDay(e.target.value)}
-                    className="w-full border dark:border-gray-600 rounded-lg px-2 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700"
+                    onChange={e => { setDobDay(e.target.value); clearFieldError("dob"); }}
+                    className={`w-full border rounded-lg px-2 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 ${fieldErrors.dob ? invalidFieldClass : "dark:border-gray-600"}`}
                   >
                     <option value="">Day</option>
                     {dobDayOptions.map(d => <option key={d} value={d}>{d}</option>)}
@@ -476,8 +545,8 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                     required
                     aria-label="Month of birth"
                     value={dobMonth}
-                    onChange={e => handleDobMonthChange(e.target.value)}
-                    className="w-full border dark:border-gray-600 rounded-lg px-2 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700"
+                    onChange={e => { handleDobMonthChange(e.target.value); clearFieldError("dob"); }}
+                    className={`w-full border rounded-lg px-2 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 ${fieldErrors.dob ? invalidFieldClass : "dark:border-gray-600"}`}
                   >
                     <option value="">Month</option>
                     {DOB_MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
@@ -486,13 +555,14 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                     required
                     aria-label="Year of birth"
                     value={dobYear}
-                    onChange={e => handleDobYearChange(e.target.value)}
-                    className="w-full border dark:border-gray-600 rounded-lg px-2 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700"
+                    onChange={e => { handleDobYearChange(e.target.value); clearFieldError("dob"); }}
+                    className={`w-full border rounded-lg px-2 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 ${fieldErrors.dob ? invalidFieldClass : "dark:border-gray-600"}`}
                   >
                     <option value="">Year</option>
                     {dobYearOptions.map(y => <option key={y} value={y}>{y}</option>)}
                   </select>
                 </div>
+                {fieldErrors.dob && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{FIELD_MESSAGES.dob}</p>}
               </div>
             </div>
             <div>
@@ -521,7 +591,16 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mobile *</label>
-                <input type="tel" required value={mobileTel} onChange={e => setMobileTel(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="+30 or international" />
+                <input
+                  ref={mobileTelRef}
+                  type="tel"
+                  required
+                  value={mobileTel}
+                  onChange={e => { setMobileTel(e.target.value); clearFieldError("mobileTel"); }}
+                  className={`w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 ${fieldErrors.mobileTel ? invalidFieldClass : "dark:border-gray-600"}`}
+                  placeholder="+30 or international"
+                />
+                {fieldErrors.mobileTel && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{FIELD_MESSAGES.mobileTel}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Landline</label>
@@ -541,20 +620,31 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         </div>
 
         {/* Terms */}
-        <div className="flex items-start gap-3">
-          <input type="checkbox" id="terms" required checked={terms} onChange={e => setTerms(e.target.checked)} className="mt-1 rounded" />
-          <label htmlFor="terms" className="text-sm text-gray-600 dark:text-gray-400">
-            I accept the{" "}
-            <button type="button" onClick={() => setShowTerms(true)} className="text-orange-600 hover:underline font-medium cursor-pointer">Terms & Conditions</button>
-          </label>
+        <div>
+          <div className={`flex items-start gap-3 ${fieldErrors.terms ? "border border-red-500 rounded-lg p-2 -m-2" : ""}`}>
+            <input
+              ref={termsRef}
+              type="checkbox"
+              id="terms"
+              required
+              checked={terms}
+              onChange={e => { setTerms(e.target.checked); clearFieldError("terms"); }}
+              className={`mt-1 rounded ${fieldErrors.terms ? "ring-2 ring-red-500" : ""}`}
+            />
+            <label htmlFor="terms" className="text-sm text-gray-600 dark:text-gray-400">
+              I accept the{" "}
+              <button type="button" onClick={() => setShowTerms(true)} className="text-orange-600 hover:underline font-medium cursor-pointer">Terms & Conditions</button>
+            </label>
+          </div>
+          {fieldErrors.terms && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{FIELD_MESSAGES.terms}</p>}
         </div>
 
         {/* reCAPTCHA */}
-        <div className="w-full overflow-hidden">
+        <div ref={captchaFieldRef} className={`w-full overflow-hidden ${fieldErrors.captcha ? "border-2 border-red-500 rounded-lg p-2" : ""}`}>
           <ReCAPTCHA
             ref={recaptchaRef}
             sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
-            onChange={(token: string | null) => setCaptchaToken(token)}
+            onChange={(token: string | null) => { setCaptchaToken(token); if (token) clearFieldError("captcha"); }}
             onExpired={() => setCaptchaToken(null)}
           />
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
@@ -564,11 +654,8 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">Terms of Service</a>{" "}
             apply.
           </p>
+          {fieldErrors.captcha && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{FIELD_MESSAGES.captcha}</p>}
         </div>
-
-        {formError && (
-          <p className="text-red-600 dark:text-red-400 text-sm font-medium bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">{formError}</p>
-        )}
 
         {status === "error" && (
           <p className="text-red-500 text-sm">Something went wrong. Please try again or contact us directly.</p>
