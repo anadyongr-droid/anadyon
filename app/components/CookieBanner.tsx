@@ -56,7 +56,7 @@ export default function CookieBanner() {
           <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <p className="text-sm text-gray-300 flex-1">
               We use cookies to improve your experience and analyse site traffic.{" "}
-              <a href="/privacy-policy" className="text-blue-400 underline hover:text-blue-300 transition cursor-pointer">Learn more</a>.
+              <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline hover:text-blue-300 transition cursor-pointer">Learn more</a>.
             </p>
             <div className="flex gap-3 shrink-0">
               <button
