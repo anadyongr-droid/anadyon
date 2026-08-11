@@ -23,7 +23,7 @@ const models = [
   {
     name: "Kymco Agility 125cc",
     category: "Scooter",
-    image: "https://kymco.gr/wp-content/uploads/2022/11/img_6328-1024x683.jpg",
+    image: "/kymco-125cc.jpg",
     seats: 2,
     engine: "125cc",
     transmission: "Automatic",
