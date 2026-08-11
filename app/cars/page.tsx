@@ -12,7 +12,7 @@ const models = [
   {
     name: "Fiat Panda",
     category: "Economy Car",
-    image: "https://anadyon.gr/wp-content/uploads/anadyon-car-rentals-zakynthos-fiat-panda-01-300x185.jpg",
+    image: "/fiat-panda.jpg",
     seats: 5,
     doors: 5,
     luggage: "225 lt.",
@@ -22,7 +22,7 @@ const models = [
   {
     name: "Hyundai Getz",
     category: "Economy Car",
-    image: "https://anadyon.gr/wp-content/uploads/anadyon-car-rentals-zakynthos-hyundai-getz-01-300x225.jpg",
+    image: "/hyundai-getz.jpg",
     seats: 5,
     doors: 5,
     luggage: "288 lt.",
@@ -32,7 +32,7 @@ const models = [
   {
     name: "Hyundai i10",
     category: "Economy Car",
-    image: "https://anadyon.gr/wp-content/uploads/anadyon-car-rentals-zakynthos-hyundai-i10-01.jpg",
+    image: "/hyundai-i10.jpg",
     seats: 5,
     doors: 5,
     luggage: "252 lt.",
@@ -42,7 +42,7 @@ const models = [
   {
     name: "Hyundai i20",
     category: "Compact Car",
-    image: "https://anadyon.gr/wp-content/uploads/anadyon-car-rentals-zakynthos-hyundai-i20-01-300x179.jpg",
+    image: "/hyundai-i20.jpg",
     seats: 5,
     doors: 5,
     luggage: "311 lt.",

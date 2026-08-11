@@ -8,7 +8,7 @@ export default function Home() {
       <div className="relative bg-gray-900 text-white overflow-hidden -mb-px">
         <div className="absolute inset-0 z-0">
           <Image
-            src="https://anadyon.gr/wp-content/uploads/anadyon-car-rental-agency-zakynthos-01.jpg"
+            src="/hero-zakynthos.jpg"
             alt="Zakynthos Shipwreck Beach"
             fill
             className="object-cover opacity-95"

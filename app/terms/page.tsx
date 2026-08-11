@@ -1,10 +1,12 @@
+import ContentPage, { ContentCard } from "../components/ContentPage";
+
 export default function Terms() {
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <div className="max-w-3xl mx-auto px-4 py-16">
+    <ContentPage>
+      <div>
         <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Vehicle Reservation Terms & Conditions</h1>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 space-y-6 text-gray-700 dark:text-gray-300 leading-relaxed">
+      <ContentCard>
 
         <div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">1. Driver's Licence</h2>
@@ -62,8 +64,8 @@ export default function Terms() {
           <p>Our staff will go above and beyond to ensure you get a hassle-free rental experience. For any additional information please <a href="/contact" className="text-orange-600 dark:text-orange-400 hover:underline">contact us</a>.</p>
         </div>
 
+      </ContentCard>
       </div>
-      </div>
-    </div>
+    </ContentPage>
   );
 }

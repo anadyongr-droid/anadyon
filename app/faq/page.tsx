@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import ContentPage from "../components/ContentPage";
 
 const faqs = [
   {
@@ -57,8 +58,7 @@ export default function FAQ() {
   const [open, setOpen] = useState<number | null>(null);
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <div className="max-w-3xl mx-auto px-4 py-16">
+    <ContentPage>
         <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Frequently Asked Questions</h1>
         <p className="text-gray-500 dark:text-gray-400 mb-10">
           Everything you need to know about renting with Anadyon. Can't find the answer?{" "}
@@ -86,7 +86,6 @@ export default function FAQ() {
             </div>
           ))}
         </div>
-      </div>
-    </div>
+    </ContentPage>
   );
 }

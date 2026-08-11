@@ -36,10 +36,11 @@ const sections = [
   },
 ];
 
+import ContentPage from "../components/ContentPage";
+
 export default function Sitemap() {
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <div className="max-w-3xl mx-auto px-4 py-16">
+    <ContentPage>
         <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Sitemap</h1>
         <p className="text-gray-500 dark:text-gray-400 mb-10">
           Find all pages on the Anadyon Rentals website. For any additional information please{" "}
@@ -62,7 +63,6 @@ export default function Sitemap() {
             </div>
           ))}
         </div>
-      </div>
-    </div>
+    </ContentPage>
   );
 }

@@ -1,11 +1,13 @@
+import ContentPage, { ContentCard } from "../components/ContentPage";
+
 export default function PrivacyPolicy() {
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <div className="max-w-3xl mx-auto px-4 py-16">
+    <ContentPage>
+      <div>
         <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Privacy Policy &amp; Cookie Notice</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">Last updated: August 2026</p>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 space-y-6 text-gray-700 dark:text-gray-300 leading-relaxed">
+        <ContentCard>
 
           <div>
             <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">1. Who We Are</h2>
@@ -151,8 +153,8 @@ export default function PrivacyPolicy() {
             </p>
           </div>
 
-        </div>
+        </ContentCard>
       </div>
-    </div>
+    </ContentPage>
   );
 }

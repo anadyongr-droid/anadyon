@@ -1,10 +1,12 @@
+import ContentPage, { ContentCard } from "../components/ContentPage";
+
 export default function TermsOfUse() {
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <div className="max-w-3xl mx-auto px-4 py-16">
+    <ContentPage>
+      <div>
         <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Website Terms of Use</h1>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 space-y-6 text-gray-700 dark:text-gray-300 leading-relaxed">
+        <ContentCard>
 
           <div>
             <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">1. Terms</h2>
@@ -74,8 +76,8 @@ export default function TermsOfUse() {
             <a href="/contact" className="text-orange-600 dark:text-orange-400 hover:underline font-medium">contact us</a>.
           </p>
 
-        </div>
+        </ContentCard>
       </div>
-    </div>
+    </ContentPage>
   );
 }

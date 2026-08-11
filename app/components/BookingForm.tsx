@@ -384,13 +384,59 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
           </div>
         )}
 
+        {/* Live Price Summary */}
+        {showPrice && (
+          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
+            <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">Price Estimate</h3>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between text-gray-700 dark:text-gray-300">
+                <span>{selectedModel} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{dailyRate.toFixed(2)}</span>
+                <span>€{vehicleSubtotal.toFixed(2)}</span>
+              </div>
+              {fdw && (
+                <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                  <span>Full Damage Waiver — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("fdw", 5).toFixed(2)}</span>
+                  <span>€{(xRate("fdw", 5) * rentalDays).toFixed(2)}</span>
+                </div>
+              )}
+              {Number(babySeat) > 0 && (
+                <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                  <span>Baby Seat ×{babySeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("baby_seat", 3).toFixed(2)}</span>
+                  <span>€{(xRate("baby_seat", 3) * Number(babySeat) * rentalDays).toFixed(2)}</span>
+                </div>
+              )}
+              {Number(childSeat) > 0 && (
+                <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                  <span>Child Seat ×{childSeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("child_seat", 3).toFixed(2)}</span>
+                  <span>€{(xRate("child_seat", 3) * Number(childSeat) * rentalDays).toFixed(2)}</span>
+                </div>
+              )}
+              {Number(additionalDrivers) > 0 && (
+                <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                  <span>Additional Driver ×{additionalDrivers} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("additional_drivers", 2.5).toFixed(2)}</span>
+                  <span>€{(xRate("additional_drivers", 2.5) * Number(additionalDrivers) * rentalDays).toFixed(2)}</span>
+                </div>
+              )}
+              <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between font-bold text-gray-900 dark:text-white">
+                <span>Total</span>
+                <span>€{total.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-gray-500 dark:text-gray-400 text-xs">
+                <span>Deposit (30%) due on confirmation</span>
+                <span>€{deposit.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-gray-500 dark:text-gray-400 text-xs">
+                <span>Balance due at pick-up</span>
+                <span>€{balanceDue.toFixed(2)}</span>
+              </div>
+            </div>
+            <p className="text-xs text-blue-700 dark:text-blue-300 mt-3">Final price confirmed upon booking. Includes VAT, extras &amp; all taxes.</p>
+          </div>
+        )}
+
         {/* Customer Details */}
         <div className="border-t dark:border-gray-700 pt-6">
-          <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-1">Your Details</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-            We collect your personal data to process your rental request and communicate with you about your booking. Your data is processed on the basis of contract performance (Art. 6(1)(b) GDPR) and will not be shared with third parties except as required to fulfil your booking. You have the right to access, correct, or request deletion of your data by contacting us at{" "}
-            <a href="mailto:customerservice@anadyon.gr" className="underline hover:text-blue-600">customerservice@anadyon.gr</a>.
-          </p>
+          <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-4">Your Details</h3>
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
               <div>
@@ -462,56 +508,6 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             </div>
           </div>
         </div>
-
-        {/* Live Price Summary */}
-        {showPrice && (
-          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
-            <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">Price Estimate</h3>
-            <div className="space-y-1.5 text-sm">
-              <div className="flex justify-between text-gray-700 dark:text-gray-300">
-                <span>{selectedModel} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{dailyRate.toFixed(2)}</span>
-                <span>€{vehicleSubtotal.toFixed(2)}</span>
-              </div>
-              {fdw && (
-                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Full Damage Waiver — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("fdw", 5).toFixed(2)}</span>
-                  <span>€{(xRate("fdw", 5) * rentalDays).toFixed(2)}</span>
-                </div>
-              )}
-              {Number(babySeat) > 0 && (
-                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Baby Seat ×{babySeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("baby_seat", 3).toFixed(2)}</span>
-                  <span>€{(xRate("baby_seat", 3) * Number(babySeat) * rentalDays).toFixed(2)}</span>
-                </div>
-              )}
-              {Number(childSeat) > 0 && (
-                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Child Seat ×{childSeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("child_seat", 3).toFixed(2)}</span>
-                  <span>€{(xRate("child_seat", 3) * Number(childSeat) * rentalDays).toFixed(2)}</span>
-                </div>
-              )}
-              {Number(additionalDrivers) > 0 && (
-                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Additional Driver ×{additionalDrivers} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("additional_drivers", 2.5).toFixed(2)}</span>
-                  <span>€{(xRate("additional_drivers", 2.5) * Number(additionalDrivers) * rentalDays).toFixed(2)}</span>
-                </div>
-              )}
-              <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between font-bold text-gray-900 dark:text-white">
-                <span>Total</span>
-                <span>€{total.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-gray-500 dark:text-gray-400 text-xs">
-                <span>Deposit (30%) due on confirmation</span>
-                <span>€{deposit.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-gray-500 dark:text-gray-400 text-xs">
-                <span>Balance due at pick-up</span>
-                <span>€{balanceDue.toFixed(2)}</span>
-              </div>
-            </div>
-            <p className="text-xs text-blue-700 dark:text-blue-300 mt-3">Final price confirmed upon booking. Includes VAT, extras &amp; all taxes.</p>
-          </div>
-        )}
 
         {/* Terms */}
         <div className="flex items-start gap-3">

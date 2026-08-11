@@ -15,7 +15,7 @@ const fleet = [
     name: "Cars",
     desc: "Economy cars perfect for exploring the island",
     href: "/cars",
-    image: "https://anadyon.gr/wp-content/uploads/anadyon-car-rentals-zakynthos-hyundai-i20-01-300x179.jpg",
+    image: "/hyundai-i20.jpg",
   },
   {
     name: "Motorbikes",
@@ -27,7 +27,7 @@ const fleet = [
     name: "Bikes",
     desc: "City, trekking and mountain bikes",
     href: "/bikes",
-    image: "https://anadyon.gr/wp-content/uploads/ktm-manhattan1.jpeg",
+    image: "/ktm-manhattan.jpeg",
   },
 ];
 

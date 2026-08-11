@@ -10,7 +10,7 @@ const models = [
   {
     name: "Cinzia Bombi Retro Women",
     category: "City Bike — Women's",
-    image: "https://img.cdn-cnj.si/img/250/250/VP/VPqgrd4FUPP.webp",
+    image: "/bottecchia.webp",
     gears: "3-speed Shimano Nexus",
     wheels: '26"',
     features: ["Step-through frame", "Mudguards & chain guard", "Rear luggage carrier"],
@@ -18,7 +18,7 @@ const models = [
   {
     name: "Cinzia Bombi Retro Men",
     category: "City Bike — Men's",
-    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRCtNFBtZQ36I0rOHc3r31n9DVm0Uz0w57Vope5vybMNfNvjILcqhjnjVw&s=10",
+    image: "/giant-bike.jpg",
     gears: "3-speed Shimano Nexus",
     wheels: '28"',
     features: ["Classic steel frame", "Mudguards & chain guard", "Rear luggage carrier"],
@@ -26,7 +26,7 @@ const models = [
   {
     name: "Scott Sportster 50",
     category: "Trekking Bike — Women's",
-    image: "https://static.cyclelab.eu/velos/scott/2007/highres/227820.jpg",
+    image: "/scott-bike.jpg",
     gears: "21-speed Shimano",
     wheels: "700c",
     features: ["Lightweight aluminium frame", "Front suspension", "Flat handlebar"],
@@ -34,7 +34,7 @@ const models = [
   {
     name: "Ideal Crossmo",
     category: "Trekking Bike — Men's",
-    image: "https://www.idealbikes.net/mocunab/2024/03/CROSSMO-M-ANTH-1920x1227.jpg",
+    image: "/crossmo-bike.jpg",
     gears: "21-speed Shimano",
     wheels: '28"',
     features: ["Aluminium frame", "Shimano hydraulic disc brakes", "Front suspension"],
@@ -42,7 +42,7 @@ const models = [
   {
     name: "Kona Lanai",
     category: "Mountain Bike",
-    image: "https://unitedbycycling.com/cdn/shop/products/KONA1.jpg?v=1768827305",
+    image: "/kona-bike.jpg",
     gears: "21-speed Shimano",
     wheels: '27.5"',
     features: ["Aluminium frame", "Front suspension", "All-terrain tyres"],
@@ -50,7 +50,7 @@ const models = [
   {
     name: "KTM Manhattan XC",
     category: "Trekking Bike — Men's",
-    image: "https://anadyon.gr/wp-content/uploads/ktm-manhattan1.jpeg",
+    image: "/ktm-manhattan.jpeg",
     gears: "24-speed Shimano",
     wheels: '28"',
     features: ["Front suspension with lock", "Hydraulic disc brakes", "XLarge frame"],
@@ -58,7 +58,7 @@ const models = [
   {
     name: "Specialized Ariel",
     category: "Trekking Bike — Men's",
-    image: "https://anadyon.gr/wp-content/uploads/Specialized.jpg",
+    image: "/specialized.jpg",
     gears: "21-speed Shimano",
     wheels: "700c",
     features: ["Aluminium frame", "Front suspension", "Flat handlebar"],

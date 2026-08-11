@@ -1,10 +1,11 @@
 import Image from "next/image";
+import ContentPage from "../components/ContentPage";
 
 const sights = [
   {
     name: "The Shipwreck Beach (Navagio)",
     desc: "The landmark of the island and one of the best awarded beaches worldwide — you just have to visit! Also known as Smuggler's Wreck, it is only accessible by boat.",
-    image: "https://anadyon.gr/wp-content/uploads/anadyon-car-rental-agency-zakynthos-01.jpg",
+    image: "/hero-zakynthos.jpg",
   },
   {
     name: "Blue Caves",
@@ -24,19 +25,18 @@ const sights = [
   {
     name: "National Marine Park of Zakynthos",
     desc: "The Park covers multiple beaches around Laganas Bay on the south side of the island: Daphne, Gerakas, Sekania, Kalamaki, Laganas, Agios Sostis, Porto Koukla and Keri Lake. Rent a boat or go snorkelling to swim with the protected Loggerhead Sea Turtle (Caretta-Caretta).",
-    image: "https://anadyon.gr/wp-content/uploads/anadyon-car-rental-agency-zakynthos-04.jpg",
+    image: "/zakynthos-turtles.jpg",
   },
   {
     name: "Zakynthos Town",
     desc: "Stroll around the alleys of Zakynthos Town, taste and buy traditional local products such as Mantolato, Mantoles and Fitoura. Visit the grand church of St. Dionysios, the Byzantine Museum and the Dionysios Solomos Museum, hosting the mausoleums of two of Greece's most important poets.",
-    image: "https://anadyon.gr/wp-content/uploads/anadyon-car-rental-agency-zakynthos-02.jpg",
+    image: "/zakynthos-town.jpg",
   },
 ];
 
 export default function Sights() {
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <div className="max-w-3xl mx-auto px-4 py-16">
+    <ContentPage>
         <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Zakynthos Sights</h1>
         <p className="text-gray-600 dark:text-gray-400 mb-10 leading-relaxed">
           Welcome to Zakynthos! Also known as Zante, this majestic Greek island sits on the south-west of the Ionian Sea.
@@ -65,15 +65,14 @@ export default function Sights() {
           ))}
         </div>
 
-        <div className="mt-10 bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800 rounded-xl p-6 text-orange-800 dark:text-orange-300">
-          <p className="text-base font-semibold mb-2">Explore Zakynthos with Anadyon Rentals</p>
-          <p className="text-sm">
-            Rent a <a href="/cars" className="underline hover:text-orange-600">car</a>,{" "}
-            <a href="/motorbikes" className="underline hover:text-orange-600">motorbike</a> or{" "}
-            <a href="/bikes" className="underline hover:text-orange-600">bike</a> and make your holidays in Zakynthos an unforgettable experience!
+        <div className="mt-10 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-6">
+          <p className="text-base font-semibold mb-2 text-gray-900 dark:text-white">Explore Zakynthos with Anadyon Rentals</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Rent a <a href="/cars" className="text-orange-600 dark:text-orange-400 hover:underline">car</a>,{" "}
+            <a href="/motorbikes" className="text-orange-600 dark:text-orange-400 hover:underline">motorbike</a> or{" "}
+            <a href="/bikes" className="text-orange-600 dark:text-orange-400 hover:underline">bike</a> and make your holidays in Zakynthos an unforgettable experience!
           </p>
         </div>
-      </div>
-    </div>
+    </ContentPage>
   );
 }

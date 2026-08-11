@@ -1,10 +1,11 @@
 import Image from "next/image";
+import ContentPage from "../components/ContentPage";
 
 const posts = [
   {
     title: "Spring in Zakynthos",
     date: "30 March 2016",
-    image: "https://anadyon.gr/wp-content/uploads/anadyon-car-rental-agency-zakynthos-01-300x200.jpg",
+    image: "/hero-zakynthos.jpg",
     excerpt:
       "The spring is here! Clear skies, 20°C, superb visibility, bright colours, blossomed trees and the unmistakable rejuvenation smell in the air. What more would you ask from your visit to Zakynthos, Il fiore di Levante? Rent a car, motorbike or bike from Anadyon Rentals and indulge in the spring wellbeing!",
     href: "/blog/spring-in-zakynthos",
@@ -13,8 +14,7 @@ const posts = [
 
 export default function Blog() {
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <div className="max-w-3xl mx-auto px-4 py-16">
+    <ContentPage>
         <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Blog</h1>
 
         <div className="space-y-6">
@@ -38,7 +38,6 @@ export default function Blog() {
             </div>
           ))}
         </div>
-      </div>
-    </div>
+    </ContentPage>
   );
 }
