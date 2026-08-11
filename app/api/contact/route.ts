@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   // Email to Anadyon
   await resend.emails.send({
     from: "Anadyon Website <noreply@anadyon.gr>",
-    to: ["customerservice@anadyon.gr", "anadyon.gr@gmail.com"],
+    to: ["customerservice@anadyon.gr"],
     replyTo: email,
     subject: `New Contact Message from ${name}`,
     html: `

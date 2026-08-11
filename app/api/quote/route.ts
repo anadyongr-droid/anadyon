@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
   // Internal notification to Anadyon (reply-to goes directly to client)
   await resend.emails.send({
     from: "Anadyon Website <customerservice@anadyon.gr>",
-    to: ["customerservice@anadyon.gr", "anadyon.gr@gmail.com"],
+    to: ["customerservice@anadyon.gr"],
     replyTo: email,
     subject: `Quote Request — ${lastName}, ${ref}`,
     html: `
