@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
-import { calcRentalDays, getDailyRate, calcExtrasTotal, DEPOSIT_RATE } from "@/lib/pricing";
+import { calcRentalDays, getDailyRate, calcExtrasTotal, buildExtrasLineItems, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "./DateRangePicker";
 
@@ -95,16 +95,6 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
 
-  function handlePickupDateChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const newPickup = e.target.value;
-    setPickupDate(newPickup);
-    if (dropoffDate <= newPickup) {
-      const next = new Date(newPickup);
-      next.setDate(next.getDate() + 1);
-      setDropoffDate(localDateStr(next));
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
@@ -178,15 +168,15 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const vehicleSubtotal = parseFloat((dailyRate * rentalDays).toFixed(2));
   const xRate = (key: string, fallback: number) =>
     extrasConfig.find(e => e.key === key)?.daily_rate ?? fallback;
-  const extrasSubtotal = rentalDays
-    ? calcExtrasTotal(extrasConfig, {
-        gps: false,
-        baby_seat: Number(babySeat),
-        child_seat: Number(childSeat),
-        fdw,
-        additional_drivers: Number(additionalDrivers),
-      }, rentalDays)
-    : 0;
+  const extrasSelections = {
+    gps: false,
+    baby_seat: Number(babySeat),
+    child_seat: Number(childSeat),
+    fdw,
+    additional_drivers: Number(additionalDrivers),
+  };
+  const extrasSubtotal = rentalDays ? calcExtrasTotal(extrasConfig, extrasSelections, rentalDays) : 0;
+  const extrasLineItems = rentalDays ? buildExtrasLineItems(extrasConfig, extrasSelections, rentalDays) : [];
   const total = parseFloat((vehicleSubtotal + extrasSubtotal).toFixed(2));
   const deposit = parseFloat((total * DEPOSIT_RATE).toFixed(2));
   const balanceDue = parseFloat((total - deposit).toFixed(2));
@@ -393,30 +383,12 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 <span>{selectedModel} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{dailyRate.toFixed(2)}</span>
                 <span>€{vehicleSubtotal.toFixed(2)}</span>
               </div>
-              {fdw && (
-                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Full Damage Waiver — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("fdw", 5).toFixed(2)}</span>
-                  <span>€{(xRate("fdw", 5) * rentalDays).toFixed(2)}</span>
+              {extrasLineItems.map(item => (
+                <div key={item.key} className="flex justify-between text-gray-600 dark:text-gray-400">
+                  <span>{item.label}{item.qty > 1 ? ` ×${item.qty}` : ""} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{item.rate.toFixed(2)}</span>
+                  <span>€{item.amount.toFixed(2)}</span>
                 </div>
-              )}
-              {Number(babySeat) > 0 && (
-                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Baby Seat ×{babySeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("baby_seat", 3).toFixed(2)}</span>
-                  <span>€{(xRate("baby_seat", 3) * Number(babySeat) * rentalDays).toFixed(2)}</span>
-                </div>
-              )}
-              {Number(childSeat) > 0 && (
-                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Child Seat ×{childSeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("child_seat", 3).toFixed(2)}</span>
-                  <span>€{(xRate("child_seat", 3) * Number(childSeat) * rentalDays).toFixed(2)}</span>
-                </div>
-              )}
-              {Number(additionalDrivers) > 0 && (
-                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Additional Driver ×{additionalDrivers} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("additional_drivers", 2.5).toFixed(2)}</span>
-                  <span>€{(xRate("additional_drivers", 2.5) * Number(additionalDrivers) * rentalDays).toFixed(2)}</span>
-                </div>
-              )}
+              ))}
               <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between font-bold text-gray-900 dark:text-white">
                 <span>Total</span>
                 <span>€{total.toFixed(2)}</span>

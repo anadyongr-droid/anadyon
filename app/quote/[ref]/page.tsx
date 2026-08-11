@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import { use } from "react";
 import { useSearchParams } from "next/navigation";
+import { buildExtrasLineItems } from "@/lib/pricing";
+import type { ExtrasConfig } from "@/lib/pricing";
 
 type Quote = {
   ref: string;
@@ -42,6 +44,7 @@ export default function QuoteLookupPage({ params }: { params: Promise<{ ref: str
   const [quote, setQuote] = useState<Quote | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [extrasConfig, setExtrasConfig] = useState<ExtrasConfig[]>([]);
 
   // Auto-fetch when arriving from the landing page with surname in URL
   useEffect(() => {
@@ -50,6 +53,7 @@ export default function QuoteLookupPage({ params }: { params: Promise<{ ref: str
       setSurname(s);
       fetchQuote(ref, s);
     }
+    fetch("/api/admin/rates").then(r => r.json()).then(({ extras }) => setExtrasConfig(extras ?? []));
   }, []);
 
   async function fetchQuote(r: string, s: string) {
@@ -163,12 +167,18 @@ export default function QuoteLookupPage({ params }: { params: Promise<{ ref: str
                     <span>{quote.selected_model} — {quote.rental_days} day{quote.rental_days > 1 ? "s" : ""} × €{Number(quote.daily_rate).toFixed(2)}</span>
                     <span>€{Number(quote.vehicle_subtotal).toFixed(2)}</span>
                   </div>
-                  {Number(quote.extras_subtotal) > 0 && (
-                    <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                      <span>Extras</span>
-                      <span>€{Number(quote.extras_subtotal).toFixed(2)}</span>
+                  {buildExtrasLineItems(extrasConfig, {
+                    gps: false,
+                    baby_seat: quote.baby_seat,
+                    child_seat: quote.child_seat,
+                    fdw: quote.fdw,
+                    additional_drivers: quote.additional_drivers,
+                  }, quote.rental_days).map(item => (
+                    <div key={item.key} className="flex justify-between text-gray-600 dark:text-gray-400">
+                      <span>{item.label}{item.qty > 1 ? ` ×${item.qty}` : ""} — {quote.rental_days} day{quote.rental_days > 1 ? "s" : ""} × €{item.rate.toFixed(2)}</span>
+                      <span>€{item.amount.toFixed(2)}</span>
                     </div>
-                  )}
+                  ))}
                   <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between font-bold text-gray-900 dark:text-white">
                     <span>Total (incl. VAT)</span>
                     <span>€{Number(quote.total).toFixed(2)}</span>

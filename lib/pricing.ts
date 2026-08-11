@@ -56,6 +56,48 @@ export function calcExtrasTotal(
   return parseFloat((daily * rentalDays).toFixed(2));
 }
 
+export interface ExtraLineItem {
+  key: string;
+  label: string;
+  qty: number;
+  rate: number;
+  amount: number;
+}
+
+const EXTRA_LABELS: Record<string, string> = {
+  gps: "GPS Navigation",
+  baby_seat: "Baby Seat (0–9 months)",
+  child_seat: "Child Seat (9+ months)",
+  fdw: "Full Damage Waiver (FDW)",
+  additional_drivers: "Additional Driver",
+};
+
+export function buildExtrasLineItems(
+  extras: ExtrasConfig[],
+  selections: {
+    gps: boolean;
+    baby_seat: number;
+    child_seat: number;
+    fdw: boolean;
+    additional_drivers: number;
+  },
+  rentalDays: number
+): ExtraLineItem[] {
+  const rate = (key: string) => extras.find((e) => e.key === key)?.daily_rate ?? 0;
+  const line = (key: string, qty: number): ExtraLineItem => {
+    const r = rate(key);
+    return { key, label: EXTRA_LABELS[key] ?? key, qty, rate: r, amount: parseFloat((r * qty * rentalDays).toFixed(2)) };
+  };
+
+  const items: ExtraLineItem[] = [];
+  if (selections.gps) items.push(line("gps", 1));
+  if (selections.fdw) items.push(line("fdw", 1));
+  if (selections.baby_seat > 0) items.push(line("baby_seat", selections.baby_seat));
+  if (selections.child_seat > 0) items.push(line("child_seat", selections.child_seat));
+  if (selections.additional_drivers > 0) items.push(line("additional_drivers", selections.additional_drivers));
+  return items;
+}
+
 export function calcRentalDays(
   pickupDate: string,
   returnDate: string,

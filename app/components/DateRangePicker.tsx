@@ -53,17 +53,30 @@ export default function DateRangePicker({ pickupDate, returnDate, onPickupChange
     setOpen(true);
   }
 
+  function dayAfter(day: Date): Date {
+    const next = new Date(day);
+    next.setDate(next.getDate() + 1);
+    return next;
+  }
+
   function handleDayClick(day: Date) {
     if (step === "pickup") {
       onPickupChange(toStr(day));
-      onReturnChange("");
-      setStep("return"); // automatically wait for return date
+      if (to && day < to) {
+        // existing return date is still valid for the new pick-up — keep it
+        setOpen(false);
+        setStep("pickup");
+      } else {
+        // no valid return date yet — default to the next day so a price is always shown
+        onReturnChange(toStr(dayAfter(day)));
+        setStep("return");
+      }
     } else {
       // return step
       if (from && day <= from) {
         // clicked before or on pickup — restart from this date
         onPickupChange(toStr(day));
-        onReturnChange("");
+        onReturnChange(toStr(dayAfter(day)));
         setStep("return");
       } else {
         onReturnChange(toStr(day));

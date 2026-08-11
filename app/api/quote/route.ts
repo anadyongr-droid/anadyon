@@ -2,6 +2,8 @@ import { Resend } from "resend";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRecaptcha } from "@/lib/recaptcha";
 import { supabaseAdmin } from "@/lib/supabase";
+import { buildExtrasLineItems } from "@/lib/pricing";
+import type { ExtrasConfig } from "@/lib/pricing";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -59,6 +61,22 @@ export async function POST(req: NextRequest) {
 
   const ref = generateRef();
   const showPrice = total > 0;
+
+  const { data: extrasConfigData } = await supabaseAdmin.from("extras_config").select("*");
+  const extrasLineItems = buildExtrasLineItems(
+    (extrasConfigData ?? []) as ExtrasConfig[],
+    {
+      gps: false,
+      baby_seat: Number(babySeat) || 0,
+      child_seat: Number(childSeat) || 0,
+      fdw: !!fdw,
+      additional_drivers: Number(additionalDrivers) || 0,
+    },
+    Number(rentalDays) || 0
+  );
+  const extrasLinesHtml = extrasLineItems
+    .map(item => `<tr><td>${item.label}${item.qty > 1 ? ` ×${item.qty}` : ""} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${item.rate.toFixed(2)}</td><td align="right">€${item.amount.toFixed(2)}</td></tr>`)
+    .join("");
 
   // Persist quote to DB (retained indefinitely for legal compliance; hidden from lookup after 1 year)
   const expiresAt = new Date();
@@ -136,7 +154,7 @@ export async function POST(req: NextRequest) {
       <h3>Price Estimate</h3>
       <table cellpadding="6" style="border-collapse:collapse; width:100%; max-width:420px;">
         <tr><td><strong>${selectedModel}</strong> — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${Number(dailyRate).toFixed(2)}</td><td align="right">€${Number(vehicleSubtotal).toFixed(2)}</td></tr>
-        ${Number(extrasSubtotal) > 0 ? `<tr><td>Extras</td><td align="right">€${Number(extrasSubtotal).toFixed(2)}</td></tr>` : ""}
+        ${extrasLinesHtml}
         <tr style="border-top:2px solid #ccc;"><td><strong>Total (incl. VAT)</strong></td><td align="right"><strong>€${Number(total).toFixed(2)}</strong></td></tr>
         <tr><td style="color:#666;">Deposit (30%) due on confirmation</td><td align="right" style="color:#666;">€${Number(deposit).toFixed(2)}</td></tr>
         <tr><td style="color:#666;">Balance due at pick-up</td><td align="right" style="color:#666;">€${Number(balanceDue).toFixed(2)}</td></tr>
@@ -183,7 +201,7 @@ export async function POST(req: NextRequest) {
       <h3>Price Estimate</h3>
       <table cellpadding="6" style="border-collapse:collapse; width:100%; max-width:420px;">
         <tr><td><strong>${selectedModel}</strong> — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${Number(dailyRate).toFixed(2)}</td><td align="right">€${Number(vehicleSubtotal).toFixed(2)}</td></tr>
-        ${Number(extrasSubtotal) > 0 ? `<tr><td>Extras</td><td align="right">€${Number(extrasSubtotal).toFixed(2)}</td></tr>` : ""}
+        ${extrasLinesHtml}
         <tr style="border-top:2px solid #ccc;"><td><strong>Total (incl. VAT)</strong></td><td align="right"><strong>€${Number(total).toFixed(2)}</strong></td></tr>
         <tr><td style="color:#666;">Deposit (30%) due on confirmation</td><td align="right" style="color:#666;">€${Number(deposit).toFixed(2)}</td></tr>
         <tr><td style="color:#666;">Balance due at pick-up</td><td align="right" style="color:#666;">€${Number(balanceDue).toFixed(2)}</td></tr>
