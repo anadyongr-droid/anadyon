@@ -5,21 +5,23 @@ export default function Home() {
   return (
     <div>
       {/* Hero */}
-      <div className="relative bg-orange-600 text-white overflow-hidden">
+      <div className="relative bg-gray-900 text-white overflow-hidden">
         <div className="absolute inset-0 z-0">
           <Image
             src="https://anadyon.gr/wp-content/uploads/anadyon-car-rental-agency-zakynthos-01.jpg"
             alt="Zakynthos Shipwreck Beach"
             fill
-            className="object-cover opacity-60"
+            className="object-cover opacity-95"
             priority
           />
+          {/* dark gradient so text stays readable without colour-tinting the photo */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/20 to-transparent" />
         </div>
         <div className="max-w-6xl mx-auto px-4 py-20 md:py-28 flex flex-col items-center text-center relative z-10">
           <h1 className="text-3xl md:text-5xl font-bold mb-4 leading-tight">
             Explore Zakynthos<br />Your Way
           </h1>
-          <p className="text-base md:text-xl mb-8 text-orange-100 max-w-xl">
+          <p className="text-base md:text-xl mb-8 text-white max-w-xl">
             Car, motorbike and bike rentals in Zakynthos
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
@@ -34,6 +36,7 @@ export default function Home() {
             </a>
           </div>
         </div>
+        <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white dark:from-gray-950 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0">
           <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M0,40 C360,80 1080,0 1440,40 L1440,60 L0,60 Z" fill="white" className="dark:fill-gray-950"/>
