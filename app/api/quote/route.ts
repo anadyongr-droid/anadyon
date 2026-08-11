@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
       </table>
 
       <hr/>
-      <p style="color:#888;font-size:12px;">This is not a confirmed reservation. Anadyon Rentals will contact the customer to confirm availability.</p>
+      <p style="color:#888;font-size:12px;">This is not a confirmed reservation. Anadyon Rentals will contact you shortly to confirm availability.</p>
     `,
   });
 
