@@ -1,8 +1,17 @@
 import { Resend } from "resend";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRecaptcha } from "@/lib/recaptcha";
+import { supabaseAdmin } from "@/lib/supabase";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+function generateRef(): string {
+  const now = new Date();
+  const yyyymm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I, O, 0, 1 (visually ambiguous)
+  const random = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  return `ANA-${yyyymm}-${random}`;
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -48,15 +57,59 @@ export async function POST(req: NextRequest) {
     balanceDue,
   } = body;
 
+  const ref = generateRef();
   const showPrice = total > 0;
 
+  // Persist quote to DB (retained indefinitely for legal compliance; hidden from lookup after 1 year)
+  const expiresAt = new Date();
+  expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+  await supabaseAdmin.from("quotes").insert({
+    ref,
+    title,
+    first_name: firstName,
+    last_name: lastName,
+    email,
+    dob,
+    address,
+    postal_code: postalCode,
+    city,
+    country,
+    mobile_tel: mobileTel,
+    landline_tel: landlineTel,
+    vehicle_type: vehicleType,
+    selected_model: selectedModel,
+    pickup_location: pickupLocation,
+    dropoff_location: dropoffLocation,
+    pickup_date: pickupDate,
+    pickup_time: pickupTime,
+    dropoff_date: dropoffDate,
+    dropoff_time: dropoffTime,
+    driver_age: driverAge,
+    transmission: transmission ?? null,
+    baby_seat: Number(babySeat) || 0,
+    child_seat: Number(childSeat) || 0,
+    fdw: !!fdw,
+    additional_drivers: Number(additionalDrivers) || 0,
+    rental_days: rentalDays,
+    daily_rate: dailyRate,
+    vehicle_subtotal: vehicleSubtotal,
+    extras_subtotal: extrasSubtotal,
+    total,
+    deposit,
+    balance_due: balanceDue,
+    comments: comments || null,
+    expires_at: expiresAt.toISOString(),
+  });
+
+  // Internal notification to Anadyon (reply-to goes directly to client)
   await resend.emails.send({
-    from: "Anadyon Website <noreply@anadyon.gr>",
+    from: "Anadyon Website <customerservice@anadyon.gr>",
     to: ["customerservice@anadyon.gr", "anadyon.gr@gmail.com"],
     replyTo: email,
-    subject: `New Quote Request — ${vehicleType} — ${firstName} ${lastName}`,
+    subject: `Quote Request — ${lastName}, ${ref}`,
     html: `
       <h2>New Quote Request</h2>
+      <p><strong>Reference:</strong> ${ref}</p>
 
       <h3>Rental Details</h3>
       <table cellpadding="6" style="border-collapse:collapse;">
@@ -109,15 +162,17 @@ export async function POST(req: NextRequest) {
 
   // Auto-confirmation to customer
   await resend.emails.send({
-    from: "Anadyon Rentals <noreply@anadyon.gr>",
+    from: "Anadyon Rentals <customerservice@anadyon.gr>",
     to: email,
-    subject: "Your Quote Request — Anadyon Rentals",
+    subject: `Quote Request — ${lastName}, ${ref}`,
     html: `
       <p>Dear ${title} ${firstName} ${lastName},</p>
       <p>Thank you for your quote request. Please note that <strong>this is not a confirmed reservation</strong>. We will contact you as soon as possible with availability and pricing.</p>
+      <p>Your reference number is: <strong>${ref}</strong></p>
 
       <h3>Your Request Summary</h3>
       <table cellpadding="6" style="border-collapse:collapse;">
+        <tr><td><strong>Reference:</strong></td><td><strong>${ref}</strong></td></tr>
         <tr><td><strong>Vehicle:</strong></td><td>${selectedModel}</td></tr>
         <tr><td><strong>Pick-up:</strong></td><td>${pickupLocation} on ${pickupDate} at ${pickupTime}</td></tr>
         <tr><td><strong>Drop-off:</strong></td><td>${dropoffLocation} on ${dropoffDate} at ${dropoffTime}</td></tr>
@@ -136,10 +191,13 @@ export async function POST(req: NextRequest) {
       <p style="color:#888;font-size:12px;">This is an estimate only. Final price confirmed upon booking.</p>
       ` : ""}
 
+      <p>You can view your quote online at any time within one year using your reference number and surname:<br/>
+      <a href="https://anadyon.gr/quote/${ref}">https://anadyon.gr/quote/${ref}</a></p>
+
       <p>Please add <strong>customerservice@anadyon.gr</strong> to your safe senders list to avoid our reply going to spam.</p>
-      <p>Thank you,<br/>Anadyon Rentals<br/>Tel: +30 26950 41878</p>
+      <p>Thank you,<br/>Anadyon Rentals<br/>Tel: +30 6988 010188</p>
     `,
   });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, ref });
 }

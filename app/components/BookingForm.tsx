@@ -89,6 +89,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [comments, setComments] = useState("");
   const [terms, setTerms] = useState(false);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [quoteRef, setQuoteRef] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [showTerms, setShowTerms] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
@@ -158,7 +159,13 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         comments,
       }),
     });
-    setStatus(res.ok ? "sent" : "error");
+    if (res.ok) {
+      const data = await res.json();
+      setQuoteRef(data.ref ?? null);
+      setStatus("sent");
+    } else {
+      setStatus("error");
+    }
   }
 
   // Live price calculation
@@ -218,9 +225,21 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
 
   if (status === "sent") {
     return (
-      <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl p-8 shadow-sm text-center">
-        <h2 className="text-xl font-semibold text-green-600 mb-2">Request Sent!</h2>
-        <p className="text-gray-600 dark:text-gray-400">Thank you. We will contact you as soon as possible with availability and pricing. Please check your email for a confirmation.</p>
+      <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl p-8 shadow-sm text-center space-y-3">
+        <h2 className="text-xl font-semibold text-green-600">Request Sent!</h2>
+        {quoteRef && (
+          <p className="text-gray-700 dark:text-gray-300">
+            Your reference number is{" "}
+            <span className="font-mono font-bold text-gray-900 dark:text-white">{quoteRef}</span>
+          </p>
+        )}
+        <p className="text-gray-600 dark:text-gray-400">We will contact you as soon as possible with availability and pricing. A confirmation has been sent to your email.</p>
+        {quoteRef && (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            You can view your quote at any time at{" "}
+            <a href={`/quote/${quoteRef}`} className="text-blue-700 dark:text-blue-400 underline font-medium">/quote/{quoteRef}</a>
+          </p>
+        )}
       </div>
     );
   }
