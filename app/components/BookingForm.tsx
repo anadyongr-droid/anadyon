@@ -89,6 +89,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [comments, setComments] = useState("");
   const [terms, setTerms] = useState(false);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [formError, setFormError] = useState<string | null>(null);
   const [showTerms, setShowTerms] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
@@ -105,10 +106,16 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!captchaToken) {
-      alert("Please complete the reCAPTCHA verification.");
-      return;
-    }
+    setFormError(null);
+
+    if (!firstName.trim()) { setFormError("First name is required."); return; }
+    if (!lastName.trim()) { setFormError("Last name is required."); return; }
+    if (!email.trim()) { setFormError("Email address is required."); return; }
+    if (!dob) { setFormError("Date of birth is required."); return; }
+    if (!mobileTel.trim()) { setFormError("Mobile number is required."); return; }
+    if (!terms) { setFormError("Please accept the Terms & Conditions."); return; }
+    if (!captchaToken) { setFormError("Please complete the reCAPTCHA verification."); return; }
+
     setStatus("sending");
     const res = await fetch("/api/quote", {
       method: "POST",
@@ -512,6 +519,10 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             apply.
           </p>
         </div>
+
+        {formError && (
+          <p className="text-red-600 dark:text-red-400 text-sm font-medium bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">{formError}</p>
+        )}
 
         {status === "error" && (
           <p className="text-red-500 text-sm">Something went wrong. Please try again or contact us directly.</p>
