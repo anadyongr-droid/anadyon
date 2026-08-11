@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   // Email to Anadyon
   await resend.emails.send({
-    from: "Anadyon Website <onboarding@resend.dev>",
+    from: "Anadyon Website <noreply@anadyon.gr>",
     to: ["customerservice@anadyon.gr", "anadyon.gr@gmail.com"],
     replyTo: email,
     subject: `New Contact Message from ${name}`,
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
   // Auto-reply to sender
   await resend.emails.send({
-    from: "Anadyon Rentals <onboarding@resend.dev>",
+    from: "Anadyon Rentals <noreply@anadyon.gr>",
     to: email,
     subject: "We received your message — Anadyon Rentals",
     html: `

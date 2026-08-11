@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   } = body;
 
   await resend.emails.send({
-    from: "Anadyon Website <onboarding@resend.dev>",
+    from: "Anadyon Website <noreply@anadyon.gr>",
     to: ["customerservice@anadyon.gr", "anadyon.gr@gmail.com"],
     replyTo: email,
     subject: `New Quote Request — ${vehicleType} — ${firstName} ${lastName}`,
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
 
   // Auto-confirmation to customer
   await resend.emails.send({
-    from: "Anadyon Rentals <onboarding@resend.dev>",
+    from: "Anadyon Rentals <noreply@anadyon.gr>",
     to: email,
     subject: "Your Quote Request — Anadyon Rentals",
     html: `
