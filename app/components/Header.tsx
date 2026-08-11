@@ -57,7 +57,7 @@ export default function Header() {
       </div>
 
       {/* Desktop nav */}
-      <nav className="hidden md:block bg-orange-600 dark:bg-orange-900 w-full">
+      <nav className="hidden md:block bg-orange-600 dark:bg-orange-700 w-full">
         <div
           className="flex"
           style={{ paddingLeft: navLeft, paddingRight: 160 }}
@@ -81,7 +81,7 @@ export default function Header() {
             <a
               key={l.href}
               href={l.href}
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-400 py-1"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-orange-600 dark:hover:text-orange-400 visited:text-gray-700 dark:visited:text-gray-300 py-1"
               onClick={() => setOpen(false)}
             >
               {l.label}

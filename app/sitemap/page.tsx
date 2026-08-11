@@ -43,7 +43,7 @@ export default function Sitemap() {
         <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Sitemap</h1>
         <p className="text-gray-500 dark:text-gray-400 mb-10">
           Find all pages on the Anadyon Rentals website. For any additional information please{" "}
-          <a href="/contact" className="text-blue-700 dark:text-blue-400 hover:underline">contact us</a>.
+          <a href="/contact" className="text-orange-600 dark:text-orange-400 hover:underline">contact us</a>.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -53,7 +53,7 @@ export default function Sitemap() {
               <ul className="space-y-2">
                 {section.links.map(link => (
                   <li key={link.href}>
-                    <a href={link.href} className="text-blue-700 dark:text-blue-400 hover:underline text-sm">
+                    <a href={link.href} className="text-orange-600 dark:text-orange-400 hover:underline text-sm">
                       {link.label}
                     </a>
                   </li>

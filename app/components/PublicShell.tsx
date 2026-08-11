@@ -14,8 +14,8 @@ export default function PublicShell({ children }: { children: React.ReactNode })
       <Header />
       <CookieBanner />
       <main className="flex-1">{children}</main>
-      <footer className="bg-gray-900 dark:bg-gray-950 text-gray-400 border-t border-gray-800">
-        <nav className="bg-orange-600 dark:bg-orange-900 w-full">
+      <footer className="bg-gray-900 dark:bg-gray-950 text-gray-400 border-t border-orange-700">
+        <nav className="bg-orange-600 dark:bg-orange-700 w-full">
           <div className="flex flex-wrap justify-center">
             {[
               { href: "/faq", label: "FAQ" },
@@ -28,7 +28,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
               <a
                 key={l.href}
                 href={l.href}
-                className="text-center text-sm font-semibold text-white px-5 py-3 hover:bg-orange-700 transition cursor-pointer"
+                className="text-center text-sm font-semibold text-white px-5 py-3 hover:bg-orange-700 dark:hover:bg-orange-600 visited:text-white transition cursor-pointer"
               >
                 {l.label}
               </a>

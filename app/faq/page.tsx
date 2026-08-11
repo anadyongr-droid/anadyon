@@ -62,7 +62,7 @@ export default function FAQ() {
         <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Frequently Asked Questions</h1>
         <p className="text-gray-500 dark:text-gray-400 mb-10">
           Everything you need to know about renting with Anadyon. Can't find the answer?{" "}
-          <a href="/contact" className="text-blue-700 dark:text-blue-400 hover:underline">Contact us</a>.
+          <a href="/contact" className="text-orange-600 dark:text-orange-400 hover:underline">Contact us</a>.
         </p>
 
         <div className="space-y-3">
@@ -75,7 +75,7 @@ export default function FAQ() {
                 <span>{faq.q}</span>
                 <ChevronDown
                   size={18}
-                  className={`flex-shrink-0 ml-4 text-blue-600 dark:text-blue-400 transition-transform ${open === i ? "rotate-180" : ""}`}
+                  className={`flex-shrink-0 ml-4 text-orange-500 dark:text-orange-400 transition-transform ${open === i ? "rotate-180" : ""}`}
                 />
               </button>
               {open === i && (

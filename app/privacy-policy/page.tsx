@@ -13,7 +13,7 @@ export default function PrivacyPolicy() {
               Anadyon Rentals is a vehicle rental company based at 20 Lomvardou Str. (Seafront Road, Zakynthos Town), 29100 Zakynthos, Greece.
               We are the data controller for the personal information collected through this website.
               You can reach us at{" "}
-              <a href="mailto:customerservice@anadyon.gr" className="text-blue-600 hover:underline dark:text-blue-400">customerservice@anadyon.gr</a>{" "}
+              <a href="mailto:customerservice@anadyon.gr" className="text-orange-600 hover:underline dark:text-orange-400">customerservice@anadyon.gr</a>{" "}
               or by phone at +30 26950 41878.
             </p>
           </div>
@@ -138,7 +138,7 @@ export default function PrivacyPolicy() {
             </ul>
             <p className="text-sm mt-3">
               To exercise any of these rights, contact us at{" "}
-              <a href="mailto:customerservice@anadyon.gr" className="text-blue-600 hover:underline dark:text-blue-400">customerservice@anadyon.gr</a>.
+              <a href="mailto:customerservice@anadyon.gr" className="text-orange-600 hover:underline dark:text-orange-400">customerservice@anadyon.gr</a>.
               We will respond within 30 days. If you are not satisfied with our response, you have the right to lodge a complaint with the{" "}
               <a href="https://www.dpa.gr" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline dark:text-blue-400">Hellenic Data Protection Authority (HDPA)</a>.
             </p>
