@@ -117,6 +117,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         captchaToken,
         vehicleType,
         selectedModel,
+        pricingGroup: pricingGroup ?? null,
         pickupLocation,
         dropoffLocation: differentDropoff ? dropoffLocation : pickupLocation,
         pickupDate,
