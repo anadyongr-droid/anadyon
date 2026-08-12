@@ -60,6 +60,15 @@ export async function POST(req: NextRequest) {
   const ref = generateRef();
   const showPrice = total > 0;
 
+  // Build per-line extras rows for emails
+  const days = Number(rentalDays);
+  const extrasRows = [
+    fdw ? `<tr><td>Full Damage Waiver (FDW) — ${days} day${days > 1 ? "s" : ""} × €5.00</td><td align="right">€${(5 * days).toFixed(2)}</td></tr>` : "",
+    Number(babySeat) > 0 ? `<tr><td>Baby Seat ×${babySeat} — ${days} day${days > 1 ? "s" : ""} × €3.00</td><td align="right">€${(3 * Number(babySeat) * days).toFixed(2)}</td></tr>` : "",
+    Number(childSeat) > 0 ? `<tr><td>Child Seat ×${childSeat} — ${days} day${days > 1 ? "s" : ""} × €3.00</td><td align="right">€${(3 * Number(childSeat) * days).toFixed(2)}</td></tr>` : "",
+    Number(additionalDrivers) > 0 ? `<tr><td>Additional Driver ×${additionalDrivers} — ${days} day${days > 1 ? "s" : ""} × €2.50</td><td align="right">€${(2.5 * Number(additionalDrivers) * days).toFixed(2)}</td></tr>` : "",
+  ].filter(Boolean).join("\n        ");
+
   // Persist quote to DB (retained indefinitely for legal compliance; hidden from lookup after 1 year)
   const expiresAt = new Date();
   expiresAt.setFullYear(expiresAt.getFullYear() + 1);
@@ -136,7 +145,7 @@ export async function POST(req: NextRequest) {
       <h3>Price Estimate</h3>
       <table cellpadding="6" style="border-collapse:collapse; width:100%; max-width:420px;">
         <tr><td><strong>${selectedModel}</strong> — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${Number(dailyRate).toFixed(2)}</td><td align="right">€${Number(vehicleSubtotal).toFixed(2)}</td></tr>
-        ${Number(extrasSubtotal) > 0 ? `<tr><td>Extras</td><td align="right">€${Number(extrasSubtotal).toFixed(2)}</td></tr>` : ""}
+        ${extrasRows}
         <tr style="border-top:2px solid #ccc;"><td><strong>Total (incl. VAT)</strong></td><td align="right"><strong>€${Number(total).toFixed(2)}</strong></td></tr>
         <tr><td style="color:#666;">Deposit (30%) due on confirmation</td><td align="right" style="color:#666;">€${Number(deposit).toFixed(2)}</td></tr>
         <tr><td style="color:#666;">Balance due at pick-up</td><td align="right" style="color:#666;">€${Number(balanceDue).toFixed(2)}</td></tr>
@@ -183,7 +192,7 @@ export async function POST(req: NextRequest) {
       <h3>Price Estimate</h3>
       <table cellpadding="6" style="border-collapse:collapse; width:100%; max-width:420px;">
         <tr><td><strong>${selectedModel}</strong> — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${Number(dailyRate).toFixed(2)}</td><td align="right">€${Number(vehicleSubtotal).toFixed(2)}</td></tr>
-        ${Number(extrasSubtotal) > 0 ? `<tr><td>Extras</td><td align="right">€${Number(extrasSubtotal).toFixed(2)}</td></tr>` : ""}
+        ${extrasRows}
         <tr style="border-top:2px solid #ccc;"><td><strong>Total (incl. VAT)</strong></td><td align="right"><strong>€${Number(total).toFixed(2)}</strong></td></tr>
         <tr><td style="color:#666;">Deposit (30%) due on confirmation</td><td align="right" style="color:#666;">€${Number(deposit).toFixed(2)}</td></tr>
         <tr><td style="color:#666;">Balance due at pick-up</td><td align="right" style="color:#666;">€${Number(balanceDue).toFixed(2)}</td></tr>
