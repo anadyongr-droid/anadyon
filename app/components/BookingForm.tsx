@@ -570,7 +570,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                     </p>
                   </div>
                 </div>
-                <p className="text-xs text-blue-500 dark:text-blue-400 text-right">Deposit €{deposit.toFixed(2)} due on confirmation</p>
+                <p className="text-xs text-blue-500 dark:text-blue-400">Deposit €{deposit.toFixed(2)} due on confirmation</p>
               </div>
             )}
 
