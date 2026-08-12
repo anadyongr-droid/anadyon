@@ -110,13 +110,12 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const xRate = (key: string, fallback: number) =>
     extrasConfig.find(e => e.key === key)?.daily_rate ?? fallback;
   const extrasSubtotal = rentalDays
-    ? calcExtrasTotal(extrasConfig, {
-        gps: false,
-        baby_seat: Number(babySeat),
-        child_seat: Number(childSeat),
-        fdw,
-        additional_drivers: Number(additionalDrivers),
-      }, rentalDays)
+    ? parseFloat((
+        (fdw ? xRate("fdw", 5) : 0) * rentalDays +
+        Number(babySeat) * xRate("baby_seat", 3) * rentalDays +
+        Number(childSeat) * xRate("child_seat", 3) * rentalDays +
+        Number(additionalDrivers) * xRate("additional_drivers", 2.5) * rentalDays
+      ).toFixed(2))
     : 0;
   const total = parseFloat((vehicleSubtotal + extrasSubtotal).toFixed(2));
   const deposit = parseFloat((total * DEPOSIT_RATE).toFixed(2));
