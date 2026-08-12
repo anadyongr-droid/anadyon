@@ -27,7 +27,7 @@ export default function Home() {
             Explore Zakynthos<br />Your Way
           </h1>
           <p className="text-base md:text-xl mb-8 text-white max-w-xl">
-            Car, motorbike and bike rentals in Zakynthos
+            Car, Motorbike and Bike rentals in Zakynthos
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
             <a href="/cars" className="bg-white text-orange-600 font-semibold px-8 py-3 rounded-full hover:bg-orange-50 transition">
