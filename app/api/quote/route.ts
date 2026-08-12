@@ -69,35 +69,47 @@ export async function POST(req: NextRequest) {
 
   const pickupMonth = new Date(pickupDate).getMonth() + 1;
   const serverRentalDays = calcRentalDays(pickupDate, dropoffDate, pickupTime, dropoffTime);
-  const serverDailyRate = pricingGroup
-    ? getDailyRate(rates as Rate[], pricingGroup, pickupMonth, serverRentalDays)
-    : 0;
-  const serverVehicleSubtotal = parseFloat((serverDailyRate * serverRentalDays).toFixed(2));
 
+  const canVerify = !!(rates?.length && extrasConfig);
   const xRate = (key: string) =>
-    (extrasConfig as ExtrasConfig[])?.find(e => e.key === key)?.daily_rate ?? 0;
-  const serverExtrasSubtotal = parseFloat((
-    (fdw ? xRate("fdw") : 0) * serverRentalDays +
-    Number(babySeat) * xRate("baby_seat") * serverRentalDays +
-    Number(childSeat) * xRate("child_seat") * serverRentalDays +
-    Number(additionalDrivers) * xRate("additional_drivers") * serverRentalDays
-  ).toFixed(2));
+    (extrasConfig as ExtrasConfig[] | null)?.find(e => e.key === key)?.daily_rate ?? 0;
 
-  const serverTotal = parseFloat((serverVehicleSubtotal + serverExtrasSubtotal).toFixed(2));
-  const serverDeposit = parseFloat((serverTotal * DEPOSIT_RATE).toFixed(2));
-  const serverBalanceDue = parseFloat((serverTotal - serverDeposit).toFixed(2));
+  let manipulated = false;
+  let rentalDays = Number(clientRentalDays);
+  let dailyRate = Number(clientDailyRate);
+  let vehicleSubtotal = Number(clientVehicleSubtotal);
+  let extrasSubtotal = Number(clientExtrasSubtotal);
+  let total = Number(clientTotal);
+  let deposit = Number(clientDeposit);
+  let balanceDue = Number(clientBalanceDue);
 
-  // Detect manipulation: compare client vs server totals
-  const manipulated = serverTotal > 0 && Math.abs(Number(clientTotal) - serverTotal) > TOLERANCE;
+  if (canVerify) {
+    const serverDailyRate = pricingGroup
+      ? getDailyRate(rates as Rate[], pricingGroup, pickupMonth, serverRentalDays)
+      : 0;
+    const serverVehicleSubtotal = parseFloat((serverDailyRate * serverRentalDays).toFixed(2));
+    const serverExtrasSubtotal = parseFloat((
+      (fdw ? xRate("fdw") : 0) * serverRentalDays +
+      Number(babySeat) * xRate("baby_seat") * serverRentalDays +
+      Number(childSeat) * xRate("child_seat") * serverRentalDays +
+      Number(additionalDrivers) * xRate("additional_drivers") * serverRentalDays
+    ).toFixed(2));
+    const serverTotal = parseFloat((serverVehicleSubtotal + serverExtrasSubtotal).toFixed(2));
+    const serverDeposit = parseFloat((serverTotal * DEPOSIT_RATE).toFixed(2));
+    const serverBalanceDue = parseFloat((serverTotal - serverDeposit).toFixed(2));
 
-  // Use server values for DB and emails — always authoritative
-  const rentalDays = serverRentalDays;
-  const dailyRate = serverDailyRate;
-  const vehicleSubtotal = serverVehicleSubtotal;
-  const extrasSubtotal = serverExtrasSubtotal;
-  const total = serverTotal;
-  const deposit = serverDeposit;
-  const balanceDue = serverBalanceDue;
+    manipulated = serverTotal > 0 && Math.abs(Number(clientTotal) - serverTotal) > TOLERANCE;
+
+    // Always use server-calculated values when available
+    rentalDays = serverRentalDays;
+    dailyRate = serverDailyRate;
+    vehicleSubtotal = serverVehicleSubtotal;
+    extrasSubtotal = serverExtrasSubtotal;
+    total = serverTotal;
+    deposit = serverDeposit;
+    balanceDue = serverBalanceDue;
+  }
+
   const showPrice = total > 0;
 
   // Rebuild extras rows using server rates (ignoring client extrasLines amounts)
@@ -155,7 +167,7 @@ export async function POST(req: NextRequest) {
     <div style="background:#fff3cd;border:2px solid #ff9800;border-radius:8px;padding:16px;margin-bottom:20px;">
       <p style="margin:0 0 8px;font-weight:bold;color:#b45309;">⚠️ POSSIBLE PRICE MANIPULATION DETECTED</p>
       <p style="margin:0 0 4px;color:#92400e;">Client submitted total: <strong>€${Number(clientTotal).toFixed(2)}</strong></p>
-      <p style="margin:0 0 4px;color:#92400e;">Server-calculated total: <strong>€${serverTotal.toFixed(2)}</strong></p>
+      <p style="margin:0 0 4px;color:#92400e;">Server-calculated total: <strong>€${total.toFixed(2)}</strong></p>
       <p style="margin:0;color:#92400e;font-size:13px;">The correct figures have been used in this email and saved to the database. Please verify with the customer.</p>
     </div>
   ` : "";
