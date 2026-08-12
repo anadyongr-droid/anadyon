@@ -557,13 +557,13 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                   <p className="text-xl font-bold text-blue-900 dark:text-blue-100 flex-shrink-0">€{total.toFixed(2)}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-px bg-blue-200 dark:bg-blue-700 rounded-lg overflow-hidden mb-2">
-                  <div className="bg-blue-50 dark:bg-blue-950 px-3 py-2">
+                  <div className="bg-blue-50 dark:bg-blue-950 pr-3 py-2">
                     <p className="text-xs font-semibold uppercase tracking-wide text-blue-500 dark:text-blue-400">Pick-up</p>
                     <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mt-0.5">
                       {new Date(pickupDate + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                     </p>
                   </div>
-                  <div className="bg-blue-50 dark:bg-blue-950 px-3 py-2">
+                  <div className="bg-blue-50 dark:bg-blue-950 pl-3 py-2 text-right">
                     <p className="text-xs font-semibold uppercase tracking-wide text-blue-500 dark:text-blue-400">Return</p>
                     <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mt-0.5">
                       {new Date(dropoffDate + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
