@@ -549,18 +549,28 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             {/* Booking summary */}
             {showPrice && (
               <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-semibold text-blue-900 dark:text-blue-100">{selectedModel}</p>
-                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-0.5">
-                      {rentalDays} day{rentalDays > 1 ? "s" : ""} &nbsp;·&nbsp; {pickupDate} → {dropoffDate}
+                <div className="flex items-baseline justify-between gap-2 mb-3">
+                  <p className="font-semibold text-blue-900 dark:text-blue-100">
+                    {selectedModel}
+                    <span className="ml-2 inline-block bg-orange-600 text-white text-xs font-semibold rounded-full px-2 py-0.5 align-middle">{rentalDays} day{rentalDays > 1 ? "s" : ""}</span>
+                  </p>
+                  <p className="text-xl font-bold text-blue-900 dark:text-blue-100 flex-shrink-0">€{total.toFixed(2)}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-px bg-blue-200 dark:bg-blue-700 rounded-lg overflow-hidden mb-2">
+                  <div className="bg-blue-50 dark:bg-blue-950 px-3 py-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-500 dark:text-blue-400">Pick-up</p>
+                    <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mt-0.5">
+                      {new Date(pickupDate + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                     </p>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-xl font-bold text-blue-900 dark:text-blue-100">€{total.toFixed(2)}</p>
-                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">Deposit €{deposit.toFixed(2)} on confirmation</p>
+                  <div className="bg-blue-50 dark:bg-blue-950 px-3 py-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-500 dark:text-blue-400">Return</p>
+                    <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mt-0.5">
+                      {new Date(dropoffDate + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                    </p>
                   </div>
                 </div>
+                <p className="text-xs text-blue-500 dark:text-blue-400 text-right">Deposit €{deposit.toFixed(2)} due on confirmation</p>
               </div>
             )}
 
