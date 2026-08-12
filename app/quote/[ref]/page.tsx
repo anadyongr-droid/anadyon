@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { use } from "react";
 import { useSearchParams } from "next/navigation";
-import type { ExtrasConfig } from "@/lib/pricing";
+import type { ExtrasConfig, Rate } from "@/lib/pricing";
 
 type Quote = {
   ref: string;
@@ -163,7 +163,7 @@ export default function QuoteLookupPage({ params }: { params: Promise<{ ref: str
                 <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-4">Price Estimate</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between text-gray-700 dark:text-gray-300">
-                    <span>{quote.selected_model} — {quote.rental_days} day{quote.rental_days > 1 ? "s" : ""} × €{Number(quote.daily_rate).toFixed(2)}</span>
+                    <span>{quote.selected_model} — {quote.rental_days} day{quote.rental_days > 1 ? "s" : ""} × €{quote.rental_days > 0 ? (Number(quote.vehicle_subtotal) / quote.rental_days).toFixed(2) : "0.00"}/day</span>
                     <span>€{Number(quote.vehicle_subtotal).toFixed(2)}</span>
                   </div>
                   {quote.fdw && (

@@ -35,6 +35,69 @@ export function getDailyRate(
   return season.rate_1_2;
 }
 
+export interface RateSegment {
+  month: number;
+  monthName: string;
+  days: number;
+  rate: number;
+  subtotal: number;
+}
+
+function segmentTierRate(season: Rate, rentalDays: number): number {
+  if (rentalDays >= 7) return season.rate_7plus;
+  if (rentalDays >= 3) return season.rate_3_6;
+  return season.rate_1_2;
+}
+
+/** Break a rental into month segments and return the rate and cost for each. */
+export function calcVehicleSegments(
+  rates: Rate[],
+  pricingGroup: PricingGroup,
+  pickupDate: string,
+  dropoffDate: string,
+  rentalDays: number
+): RateSegment[] {
+  const start = new Date(pickupDate + "T00:00:00");
+  const end = new Date(dropoffDate + "T00:00:00");
+  const segments: RateSegment[] = [];
+  let current = new Date(start);
+  while (current < end) {
+    const month = current.getMonth() + 1;
+    const year = current.getFullYear();
+    const nextMonth = new Date(year, current.getMonth() + 1, 1);
+    const segEnd = nextMonth < end ? nextMonth : end;
+    const segDays = Math.round((segEnd.getTime() - current.getTime()) / 86400000);
+    const season = rates.find(
+      (r) => r.pricing_group === pricingGroup && r.season_months.includes(month)
+    );
+    const rate = season ? segmentTierRate(season, rentalDays) : 0;
+    segments.push({
+      month,
+      monthName: new Date(year, month - 1, 1).toLocaleString("en-GB", { month: "long" }),
+      days: segDays,
+      rate,
+      subtotal: parseFloat((rate * segDays).toFixed(2)),
+    });
+    current = segEnd;
+  }
+  return segments;
+}
+
+/** Total vehicle cost across all month segments. */
+export function calcVehicleSubtotal(
+  rates: Rate[],
+  pricingGroup: PricingGroup,
+  pickupDate: string,
+  dropoffDate: string,
+  rentalDays: number
+): number {
+  return parseFloat(
+    calcVehicleSegments(rates, pricingGroup, pickupDate, dropoffDate, rentalDays)
+      .reduce((sum, s) => sum + s.subtotal, 0)
+      .toFixed(2)
+  );
+}
+
 export function calcExtrasTotal(
   extras: ExtrasConfig[],
   selections: {

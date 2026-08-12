@@ -1,8 +1,8 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
-import { calcRentalDays, getDailyRate, DEPOSIT_RATE } from "@/lib/pricing";
-import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
+import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, DEPOSIT_RATE } from "@/lib/pricing";
+import type { Rate, ExtrasConfig, PricingGroup, RateSegment } from "@/lib/pricing";
 import DateRangePicker from "./DateRangePicker";
 
 const locations = [
@@ -147,11 +147,13 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   // Live price calculation
   const pricingGroup = modelPricingGroups?.[selectedModel];
   const rentalDays = pickupDate && dropoffDate ? calcRentalDays(pickupDate, dropoffDate, pickupTime, dropoffTime) : 0;
-  const pickupMonth = pickupDate ? new Date(pickupDate).getMonth() + 1 : 0;
-  const dailyRate = pricingGroup && pickupMonth && rentalDays && rates.length
-    ? getDailyRate(rates, pricingGroup as PricingGroup, pickupMonth, rentalDays)
+  const rateSegments: RateSegment[] = pricingGroup && pickupDate && dropoffDate && rentalDays && rates.length
+    ? calcVehicleSegments(rates, pricingGroup as PricingGroup, pickupDate, dropoffDate, rentalDays)
+    : [];
+  const dailyRate = rateSegments.length === 1 ? rateSegments[0].rate : 0;
+  const vehicleSubtotal = pricingGroup && pickupDate && dropoffDate && rentalDays && rates.length
+    ? calcVehicleSubtotal(rates, pricingGroup as PricingGroup, pickupDate, dropoffDate, rentalDays)
     : 0;
-  const vehicleSubtotal = parseFloat((dailyRate * rentalDays).toFixed(2));
   const xRate = (key: string, fallback: number) =>
     extrasConfig.find(e => e.key === key)?.daily_rate ?? fallback;
   const extrasSubtotal = rentalDays
@@ -165,7 +167,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const total = parseFloat((vehicleSubtotal + extrasSubtotal).toFixed(2));
   const deposit = parseFloat((total * DEPOSIT_RATE).toFixed(2));
   const balanceDue = parseFloat((total - deposit).toFixed(2));
-  const showPrice = !!(pricingGroup && rentalDays > 0 && dailyRate > 0);
+  const showPrice = !!(pricingGroup && rentalDays > 0 && vehicleSubtotal > 0);
 
   function scrollToForm() {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -481,7 +483,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">Price Estimate</h3>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between text-gray-700 dark:text-gray-300">
-                    <span>{selectedModel} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{dailyRate.toFixed(2)}</span>
+                    <span>{selectedModel} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{rentalDays > 0 ? (vehicleSubtotal / rentalDays).toFixed(2) : "0.00"}/day</span>
                     <span>€{vehicleSubtotal.toFixed(2)}</span>
                   </div>
                   {fdw && (

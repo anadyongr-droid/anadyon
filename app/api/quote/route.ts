@@ -2,7 +2,7 @@ import { Resend } from "resend";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRecaptcha } from "@/lib/recaptcha";
 import { supabaseAdmin } from "@/lib/supabase";
-import { getDailyRate, calcRentalDays, DEPOSIT_RATE, type Rate, type ExtrasConfig } from "@/lib/pricing";
+import { calcVehicleSubtotal, calcRentalDays, DEPOSIT_RATE, type Rate, type ExtrasConfig } from "@/lib/pricing";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const TOLERANCE = 0.02; // allow up to €0.02 rounding difference before flagging
@@ -67,7 +67,6 @@ export async function POST(req: NextRequest) {
     supabaseAdmin.from("extras_config").select("*"),
   ]);
 
-  const pickupMonth = new Date(pickupDate).getMonth() + 1;
   const serverRentalDays = calcRentalDays(pickupDate, dropoffDate, pickupTime, dropoffTime);
 
   if (!rates?.length || !extrasConfig) {
@@ -77,10 +76,10 @@ export async function POST(req: NextRequest) {
   const xRate = (key: string) =>
     (extrasConfig as ExtrasConfig[]).find(e => e.key === key)?.daily_rate ?? 0;
 
-  const serverDailyRate = pricingGroup
-    ? getDailyRate(rates as Rate[], pricingGroup, pickupMonth, serverRentalDays)
+  const serverVehicleSubtotal = pricingGroup
+    ? calcVehicleSubtotal(rates as Rate[], pricingGroup, pickupDate, dropoffDate, serverRentalDays)
     : 0;
-  const serverVehicleSubtotal = parseFloat((serverDailyRate * serverRentalDays).toFixed(2));
+  const serverDailyRate = serverVehicleSubtotal && serverRentalDays ? parseFloat((serverVehicleSubtotal / serverRentalDays).toFixed(2)) : 0;
   const serverExtrasSubtotal = parseFloat((
     (fdw ? xRate("fdw") : 0) * serverRentalDays +
     Number(babySeat) * xRate("baby_seat") * serverRentalDays +
