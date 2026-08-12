@@ -2,13 +2,15 @@ import { Resend } from "resend";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRecaptcha } from "@/lib/recaptcha";
 import { supabaseAdmin } from "@/lib/supabase";
+import { getDailyRate, calcRentalDays, DEPOSIT_RATE, type Rate, type ExtrasConfig } from "@/lib/pricing";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const TOLERANCE = 0.02; // allow up to €0.02 rounding difference before flagging
 
 function generateRef(): string {
   const now = new Date();
   const yyyymm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I, O, 0, 1 (visually ambiguous)
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const random = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
   return `ANA-${yyyymm}-${random}`;
 }
@@ -35,6 +37,7 @@ export async function POST(req: NextRequest) {
     childSeat,
     fdw,
     additionalDrivers,
+    pricingGroup,
     title,
     firstName,
     lastName,
@@ -47,29 +50,67 @@ export async function POST(req: NextRequest) {
     mobileTel,
     landlineTel,
     comments,
-    // Pre-calculated price from client
-    rentalDays,
-    dailyRate,
-    vehicleSubtotal,
-    extrasSubtotal,
-    total,
-    deposit,
-    balanceDue,
+    // Client-calculated pricing
+    rentalDays: clientRentalDays,
+    dailyRate: clientDailyRate,
+    vehicleSubtotal: clientVehicleSubtotal,
+    extrasSubtotal: clientExtrasSubtotal,
+    total: clientTotal,
+    deposit: clientDeposit,
+    balanceDue: clientBalanceDue,
+    extrasLines,
   } = body;
 
-  const ref = generateRef();
+  // Server-side verification — recalculate independently from DB
+  const [{ data: rates }, { data: extrasConfig }] = await Promise.all([
+    supabaseAdmin.from("rates").select("*"),
+    supabaseAdmin.from("extras_config").select("*"),
+  ]);
+
+  const pickupMonth = new Date(pickupDate).getMonth() + 1;
+  const serverRentalDays = calcRentalDays(pickupDate, dropoffDate, pickupTime, dropoffTime);
+  const serverDailyRate = pricingGroup
+    ? getDailyRate(rates as Rate[], pricingGroup, pickupMonth, serverRentalDays)
+    : 0;
+  const serverVehicleSubtotal = parseFloat((serverDailyRate * serverRentalDays).toFixed(2));
+
+  const xRate = (key: string) =>
+    (extrasConfig as ExtrasConfig[])?.find(e => e.key === key)?.daily_rate ?? 0;
+  const serverExtrasSubtotal = parseFloat((
+    (fdw ? xRate("fdw") : 0) * serverRentalDays +
+    Number(babySeat) * xRate("baby_seat") * serverRentalDays +
+    Number(childSeat) * xRate("child_seat") * serverRentalDays +
+    Number(additionalDrivers) * xRate("additional_drivers") * serverRentalDays
+  ).toFixed(2));
+
+  const serverTotal = parseFloat((serverVehicleSubtotal + serverExtrasSubtotal).toFixed(2));
+  const serverDeposit = parseFloat((serverTotal * DEPOSIT_RATE).toFixed(2));
+  const serverBalanceDue = parseFloat((serverTotal - serverDeposit).toFixed(2));
+
+  // Detect manipulation: compare client vs server totals
+  const manipulated = serverTotal > 0 && Math.abs(Number(clientTotal) - serverTotal) > TOLERANCE;
+
+  // Use server values for DB and emails — always authoritative
+  const rentalDays = serverRentalDays;
+  const dailyRate = serverDailyRate;
+  const vehicleSubtotal = serverVehicleSubtotal;
+  const extrasSubtotal = serverExtrasSubtotal;
+  const total = serverTotal;
+  const deposit = serverDeposit;
+  const balanceDue = serverBalanceDue;
   const showPrice = total > 0;
 
-  // Build per-line extras rows for emails
-  const days = Number(rentalDays);
-  const extrasRows = [
-    fdw ? `<tr><td>Full Damage Waiver (FDW) — ${days} day${days > 1 ? "s" : ""} × €5.00</td><td align="right">€${(5 * days).toFixed(2)}</td></tr>` : "",
-    Number(babySeat) > 0 ? `<tr><td>Baby Seat ×${babySeat} — ${days} day${days > 1 ? "s" : ""} × €3.00</td><td align="right">€${(3 * Number(babySeat) * days).toFixed(2)}</td></tr>` : "",
-    Number(childSeat) > 0 ? `<tr><td>Child Seat ×${childSeat} — ${days} day${days > 1 ? "s" : ""} × €3.00</td><td align="right">€${(3 * Number(childSeat) * days).toFixed(2)}</td></tr>` : "",
-    Number(additionalDrivers) > 0 ? `<tr><td>Additional Driver ×${additionalDrivers} — ${days} day${days > 1 ? "s" : ""} × €2.50</td><td align="right">€${(2.5 * Number(additionalDrivers) * days).toFixed(2)}</td></tr>` : "",
+  // Rebuild extras rows using server rates (ignoring client extrasLines amounts)
+  const serverExtrasRows = [
+    fdw ? `<tr><td>Full Damage Waiver (FDW) — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("fdw").toFixed(2)}</td><td align="right">€${(xRate("fdw") * rentalDays).toFixed(2)}</td></tr>` : "",
+    Number(babySeat) > 0 ? `<tr><td>Baby Seat ×${babySeat} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("baby_seat").toFixed(2)}</td><td align="right">€${(xRate("baby_seat") * Number(babySeat) * rentalDays).toFixed(2)}</td></tr>` : "",
+    Number(childSeat) > 0 ? `<tr><td>Child Seat ×${childSeat} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("child_seat").toFixed(2)}</td><td align="right">€${(xRate("child_seat") * Number(childSeat) * rentalDays).toFixed(2)}</td></tr>` : "",
+    Number(additionalDrivers) > 0 ? `<tr><td>Additional Driver ×${additionalDrivers} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("additional_drivers").toFixed(2)}</td><td align="right">€${(xRate("additional_drivers") * Number(additionalDrivers) * rentalDays).toFixed(2)}</td></tr>` : "",
   ].filter(Boolean).join("\n        ");
 
-  // Persist quote to DB (retained indefinitely for legal compliance; hidden from lookup after 1 year)
+  const ref = generateRef();
+
+  // Persist with server-calculated values
   const expiresAt = new Date();
   expiresAt.setFullYear(expiresAt.getFullYear() + 1);
   await supabaseAdmin.from("quotes").insert({
@@ -110,13 +151,23 @@ export async function POST(req: NextRequest) {
     expires_at: expiresAt.toISOString(),
   });
 
-  // Internal notification to Anadyon (reply-to goes directly to client)
+  const manipulationWarning = manipulated ? `
+    <div style="background:#fff3cd;border:2px solid #ff9800;border-radius:8px;padding:16px;margin-bottom:20px;">
+      <p style="margin:0 0 8px;font-weight:bold;color:#b45309;">⚠️ POSSIBLE PRICE MANIPULATION DETECTED</p>
+      <p style="margin:0 0 4px;color:#92400e;">Client submitted total: <strong>€${Number(clientTotal).toFixed(2)}</strong></p>
+      <p style="margin:0 0 4px;color:#92400e;">Server-calculated total: <strong>€${serverTotal.toFixed(2)}</strong></p>
+      <p style="margin:0;color:#92400e;font-size:13px;">The correct figures have been used in this email and saved to the database. Please verify with the customer.</p>
+    </div>
+  ` : "";
+
+  // Internal notification to Anadyon
   await resend.emails.send({
     from: "Anadyon Website <customerservice@anadyon.gr>",
     to: ["customerservice@anadyon.gr"],
     replyTo: email,
-    subject: `Quote Request — ${lastName}, ${ref}`,
+    subject: `${manipulated ? "⚠️ [ALERT] " : ""}Quote Request — ${lastName}, ${ref}`,
     html: `
+      ${manipulationWarning}
       <h2>New Quote Request</h2>
       <p><strong>Reference:</strong> ${ref}</p>
 
@@ -144,11 +195,11 @@ export async function POST(req: NextRequest) {
       ${showPrice ? `
       <h3>Price Estimate</h3>
       <table cellpadding="6" style="border-collapse:collapse; width:100%; max-width:420px;">
-        <tr><td><strong>${selectedModel}</strong> — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${Number(dailyRate).toFixed(2)}</td><td align="right">€${Number(vehicleSubtotal).toFixed(2)}</td></tr>
-        ${extrasRows}
-        <tr style="border-top:2px solid #ccc;"><td><strong>Total (incl. VAT)</strong></td><td align="right"><strong>€${Number(total).toFixed(2)}</strong></td></tr>
-        <tr><td style="color:#666;">Deposit (30%) due on confirmation</td><td align="right" style="color:#666;">€${Number(deposit).toFixed(2)}</td></tr>
-        <tr><td style="color:#666;">Balance due at pick-up</td><td align="right" style="color:#666;">€${Number(balanceDue).toFixed(2)}</td></tr>
+        <tr><td><strong>${selectedModel}</strong> — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${dailyRate.toFixed(2)}</td><td align="right">€${vehicleSubtotal.toFixed(2)}</td></tr>
+        ${serverExtrasRows}
+        <tr style="border-top:2px solid #ccc;"><td><strong>Total (incl. VAT)</strong></td><td align="right"><strong>€${total.toFixed(2)}</strong></td></tr>
+        <tr><td style="color:#666;">Deposit (30%) due on confirmation</td><td align="right" style="color:#666;">€${deposit.toFixed(2)}</td></tr>
+        <tr><td style="color:#666;">Balance due at pick-up</td><td align="right" style="color:#666;">€${balanceDue.toFixed(2)}</td></tr>
       </table>
       <p style="color:#888;font-size:12px;">This is an estimate only. Final price confirmed upon booking.</p>
       ` : ""}
@@ -169,7 +220,7 @@ export async function POST(req: NextRequest) {
     `,
   });
 
-  // Auto-confirmation to customer
+  // Auto-confirmation to customer — always uses correct server figures
   await resend.emails.send({
     from: "Anadyon Rentals <customerservice@anadyon.gr>",
     to: email,
@@ -191,11 +242,11 @@ export async function POST(req: NextRequest) {
       ${showPrice ? `
       <h3>Price Estimate</h3>
       <table cellpadding="6" style="border-collapse:collapse; width:100%; max-width:420px;">
-        <tr><td><strong>${selectedModel}</strong> — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${Number(dailyRate).toFixed(2)}</td><td align="right">€${Number(vehicleSubtotal).toFixed(2)}</td></tr>
-        ${extrasRows}
-        <tr style="border-top:2px solid #ccc;"><td><strong>Total (incl. VAT)</strong></td><td align="right"><strong>€${Number(total).toFixed(2)}</strong></td></tr>
-        <tr><td style="color:#666;">Deposit (30%) due on confirmation</td><td align="right" style="color:#666;">€${Number(deposit).toFixed(2)}</td></tr>
-        <tr><td style="color:#666;">Balance due at pick-up</td><td align="right" style="color:#666;">€${Number(balanceDue).toFixed(2)}</td></tr>
+        <tr><td><strong>${selectedModel}</strong> — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${dailyRate.toFixed(2)}</td><td align="right">€${vehicleSubtotal.toFixed(2)}</td></tr>
+        ${serverExtrasRows}
+        <tr style="border-top:2px solid #ccc;"><td><strong>Total (incl. VAT)</strong></td><td align="right"><strong>€${total.toFixed(2)}</strong></td></tr>
+        <tr><td style="color:#666;">Deposit (30%) due on confirmation</td><td align="right" style="color:#666;">€${deposit.toFixed(2)}</td></tr>
+        <tr><td style="color:#666;">Balance due at pick-up</td><td align="right" style="color:#666;">€${balanceDue.toFixed(2)}</td></tr>
       </table>
       <p style="color:#888;font-size:12px;">This is an estimate only. Final price confirmed upon booking.</p>
       ` : ""}

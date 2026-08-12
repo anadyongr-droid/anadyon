@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
-import { calcRentalDays, getDailyRate, calcExtrasTotal, DEPOSIT_RATE } from "@/lib/pricing";
+import { calcRentalDays, getDailyRate, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "./DateRangePicker";
 
@@ -167,13 +167,6 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         vehicleType,
         selectedModel,
         pricingGroup: pricingGroup ?? null,
-        rentalDays,
-        dailyRate,
-        vehicleSubtotal,
-        extrasSubtotal,
-        total,
-        deposit,
-        balanceDue,
         pickupLocation,
         dropoffLocation: differentDropoff ? dropoffLocation : pickupLocation,
         pickupDate,
@@ -186,6 +179,19 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         childSeat,
         fdw,
         additionalDrivers,
+        rentalDays,
+        dailyRate,
+        vehicleSubtotal,
+        extrasSubtotal,
+        total,
+        deposit,
+        balanceDue,
+        extrasLines: [
+          ...(fdw ? [{ label: `Full Damage Waiver (FDW) — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("fdw", 5).toFixed(2)}`, amount: (xRate("fdw", 5) * rentalDays).toFixed(2) }] : []),
+          ...(Number(babySeat) > 0 ? [{ label: `Baby Seat ×${babySeat} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("baby_seat", 3).toFixed(2)}`, amount: (xRate("baby_seat", 3) * Number(babySeat) * rentalDays).toFixed(2) }] : []),
+          ...(Number(childSeat) > 0 ? [{ label: `Child Seat ×${childSeat} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("child_seat", 3).toFixed(2)}`, amount: (xRate("child_seat", 3) * Number(childSeat) * rentalDays).toFixed(2) }] : []),
+          ...(Number(additionalDrivers) > 0 ? [{ label: `Additional Driver ×${additionalDrivers} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("additional_drivers", 2.5).toFixed(2)}`, amount: (xRate("additional_drivers", 2.5) * Number(additionalDrivers) * rentalDays).toFixed(2) }] : []),
+        ],
         title,
         firstName,
         lastName,
