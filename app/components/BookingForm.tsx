@@ -37,7 +37,7 @@ const countries = [
 ];
 
 function localDateStr(d = new Date()) {
-  return d.toLocaleDateString("sv"); // 'sv' locale → YYYY-MM-DD in local time
+  return d.toLocaleDateString("sv");
 }
 const today = localDateStr();
 const tomorrow = localDateStr(new Date(Date.now() + 86400000));
@@ -50,7 +50,9 @@ type Props = {
 };
 
 export default function BookingForm({ vehicleType, models, initialModel, modelPricingGroups }: Props) {
-  const formRef = useRef<HTMLFormElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+  const [step, setStep] = useState<1 | 2>(1);
+
   const [selectedModel, setSelectedModel] = useState(initialModel ?? models[0]);
   const [rates, setRates] = useState<Rate[]>([]);
   const [extrasConfig, setExtrasConfig] = useState<ExtrasConfig[]>([]);
@@ -62,6 +64,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
       setExtrasConfig(e ?? []);
     });
   }, []);
+
   const [differentDropoff, setDifferentDropoff] = useState(false);
   const [pickupDate, setPickupDate] = useState(today);
   const [dropoffDate, setDropoffDate] = useState(tomorrow);
@@ -75,6 +78,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [childSeat, setChildSeat] = useState("0");
   const [fdw, setFdw] = useState(false);
   const [additionalDrivers, setAdditionalDrivers] = useState("0");
+
   const [title, setTitle] = useState("Mr");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -95,14 +99,52 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
 
-  function handlePickupDateChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const newPickup = e.target.value;
-    setPickupDate(newPickup);
-    if (dropoffDate <= newPickup) {
-      const next = new Date(newPickup);
-      next.setDate(next.getDate() + 1);
-      setDropoffDate(localDateStr(next));
+  // Live price calculation
+  const pricingGroup = modelPricingGroups?.[selectedModel];
+  const rentalDays = pickupDate && dropoffDate ? calcRentalDays(pickupDate, dropoffDate, pickupTime, dropoffTime) : 0;
+  const pickupMonth = pickupDate ? new Date(pickupDate).getMonth() + 1 : 0;
+  const dailyRate = pricingGroup && pickupMonth && rentalDays && rates.length
+    ? getDailyRate(rates, pricingGroup as PricingGroup, pickupMonth, rentalDays)
+    : 0;
+  const vehicleSubtotal = parseFloat((dailyRate * rentalDays).toFixed(2));
+  const xRate = (key: string, fallback: number) =>
+    extrasConfig.find(e => e.key === key)?.daily_rate ?? fallback;
+  const extrasSubtotal = rentalDays
+    ? calcExtrasTotal(extrasConfig, {
+        gps: false,
+        baby_seat: Number(babySeat),
+        child_seat: Number(childSeat),
+        fdw,
+        additional_drivers: Number(additionalDrivers),
+      }, rentalDays)
+    : 0;
+  const total = parseFloat((vehicleSubtotal + extrasSubtotal).toFixed(2));
+  const deposit = parseFloat((total * DEPOSIT_RATE).toFixed(2));
+  const balanceDue = parseFloat((total - deposit).toFixed(2));
+  const showPrice = !!(pricingGroup && rentalDays > 0 && dailyRate > 0);
+
+  function scrollToForm() {
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function handleContinue() {
+    setFormError(null);
+    if (!pickupDate || !dropoffDate) {
+      setFormError("Please select your rental dates.");
+      return;
     }
+    if (rentalDays <= 0) {
+      setFormError("Return date must be after pick-up date.");
+      return;
+    }
+    setStep(2);
+    setTimeout(scrollToForm, 50);
+  }
+
+  function handleBack() {
+    setFormError(null);
+    setStep(1);
+    setTimeout(scrollToForm, 50);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -168,30 +210,6 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
     }
   }
 
-  // Live price calculation
-  const pricingGroup = modelPricingGroups?.[selectedModel];
-  const rentalDays = pickupDate && dropoffDate ? calcRentalDays(pickupDate, dropoffDate, pickupTime, dropoffTime) : 0;
-  const pickupMonth = pickupDate ? new Date(pickupDate).getMonth() + 1 : 0;
-  const dailyRate = pricingGroup && pickupMonth && rentalDays && rates.length
-    ? getDailyRate(rates, pricingGroup as PricingGroup, pickupMonth, rentalDays)
-    : 0;
-  const vehicleSubtotal = parseFloat((dailyRate * rentalDays).toFixed(2));
-  const xRate = (key: string, fallback: number) =>
-    extrasConfig.find(e => e.key === key)?.daily_rate ?? fallback;
-  const extrasSubtotal = rentalDays
-    ? calcExtrasTotal(extrasConfig, {
-        gps: false,
-        baby_seat: Number(babySeat),
-        child_seat: Number(childSeat),
-        fdw,
-        additional_drivers: Number(additionalDrivers),
-      }, rentalDays)
-    : 0;
-  const total = parseFloat((vehicleSubtotal + extrasSubtotal).toFixed(2));
-  const deposit = parseFloat((total * DEPOSIT_RATE).toFixed(2));
-  const balanceDue = parseFloat((total - deposit).toFixed(2));
-  const showPrice = !!(pricingGroup && rentalDays > 0 && dailyRate > 0);
-
   const TermsModal = () => (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
@@ -246,309 +264,371 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
 
   return (
     <>
-    {showTerms && <TermsModal />}
-    <form ref={formRef} onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl p-8 shadow-sm">
-      <h2 className="text-xl font-semibold mb-6 dark:text-white">Get a Quote</h2>
-      <div className="space-y-6">
+      {showTerms && <TermsModal />}
+      <div ref={formRef} className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl shadow-sm scroll-mt-[168px]">
 
-        {/* Vehicle Model */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vehicle</label>
-          <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={selectedModel} onChange={e => setSelectedModel(e.target.value)}>
-            {models.map(m => <option key={m}>{m}</option>)}
-          </select>
-        </div>
-
-        {/* Pick-up Location */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pick-up Location</label>
-          <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={pickupLocation} onChange={e => setPickupLocation(e.target.value)}>
-            {locations.map(l => <option key={l}>{l}</option>)}
-          </select>
-          <label className="flex items-center gap-2 mt-2 text-sm text-gray-500 dark:text-gray-400 cursor-pointer">
-            <input type="checkbox" checked={differentDropoff} onChange={() => setDifferentDropoff(!differentDropoff)} className="rounded" />
-            Return at a different location
-          </label>
-        </div>
-
-        {/* Drop-off Location */}
-        {differentDropoff && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Drop-off Location</label>
-            <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)}>
-              {locations.map(l => <option key={l}>{l}</option>)}
-            </select>
+        {/* Step indicator */}
+        <div className="flex items-center border-b dark:border-gray-700 px-8 py-4 gap-3">
+          <div className="flex items-center gap-2">
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${step === 1 ? "bg-orange-600 text-white" : "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400"}`}>1</span>
+            <span className={`text-sm font-medium ${step === 1 ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}`}>Rental Details</span>
           </div>
-        )}
-
-        {/* Dates & Times */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rental Dates</label>
-          <DateRangePicker
-            pickupDate={pickupDate}
-            returnDate={dropoffDate}
-            onPickupChange={setPickupDate}
-            onReturnChange={setDropoffDate}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pick-up Time</label>
-            <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={pickupTime} onChange={e => setPickupTime(e.target.value)}>
-              {times.map(t => <option key={t}>{t}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Return Time</label>
-            <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={dropoffTime} onChange={e => setDropoffTime(e.target.value)}>
-              {times.map(t => <option key={t}>{t}</option>)}
-            </select>
+          <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+          <div className="flex items-center gap-2">
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${step === 2 ? "bg-orange-600 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500"}`}>2</span>
+            <span className={`text-sm font-medium ${step === 2 ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}`}>Your Details</span>
           </div>
         </div>
 
-        {/* Transmission — cars only */}
-        {vehicleType === "Cars" && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Transmission</label>
-            <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={transmission} onChange={e => setTransmission(e.target.value)}>
-              <option>Any</option>
-              <option>Manual</option>
-              <option>Automatic</option>
-            </select>
-          </div>
-        )}
+        {/* ── STEP 1: Rental details ── */}
+        {step === 1 && (
+          <div className="p-8 space-y-6">
+            <h2 className="text-xl font-semibold dark:text-white">Get a Quote</h2>
 
-        {/* Driver Age */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Driver Age</label>
-          <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={driverAge} onChange={e => setDriverAge(e.target.value)}>
-            <option>21–25</option>
-            <option>26–65</option>
-            <option>66+</option>
-          </select>
-        </div>
-
-        {/* Extras — cars only */}
-        {vehicleType === "Cars" && (
-          <div className="border-t dark:border-gray-700 pt-6">
-            <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-4">Extras</h3>
-            <div className="border dark:border-gray-600 rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 dark:bg-gray-700 text-xs uppercase text-gray-500 dark:text-gray-400">
-                  <tr>
-                    <th className="text-left px-4 py-3">Description</th>
-                    <th className="text-center px-4 py-3">Price per day</th>
-                    <th className="text-center px-4 py-3">Selection</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {(<>
-                  <tr>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Baby Seat (0–9 months)</td>
-                    <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("baby_seat", 3).toFixed(2)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <select className="border dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={babySeat} onChange={e => setBabySeat(e.target.value)}>
-                        <option>0</option><option>1</option><option>2</option><option>3</option>
-                      </select>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Child Seat (9+ months)</td>
-                    <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("child_seat", 3).toFixed(2)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <select className="border dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={childSeat} onChange={e => setChildSeat(e.target.value)}>
-                        <option>0</option><option>1</option><option>2</option><option>3</option>
-                      </select>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Full Damage Waiver (FDW)</td>
-                    <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("fdw", 5).toFixed(2)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <input type="checkbox" checked={fdw} onChange={e => setFdw(e.target.checked)} className="rounded" />
-                    </td>
-                  </tr>
-                  </>)}
-                  <tr>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Additional Drivers</td>
-                    <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("additional_drivers", 2.5).toFixed(2)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <select className="border dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={additionalDrivers} onChange={e => setAdditionalDrivers(e.target.value)}>
-                        <option>0</option><option>1</option><option>2</option><option>3</option>
-                      </select>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            {/* Vehicle Model */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vehicle</label>
+              <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={selectedModel} onChange={e => setSelectedModel(e.target.value)}>
+                {models.map(m => <option key={m}>{m}</option>)}
+              </select>
             </div>
-          </div>
-        )}
 
-        {/* Live Price Summary */}
-        {showPrice && (
-          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
-            <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">Price Estimate</h3>
-            <div className="space-y-1.5 text-sm">
-              <div className="flex justify-between text-gray-700 dark:text-gray-300">
-                <span>{selectedModel} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{dailyRate.toFixed(2)}</span>
-                <span>€{vehicleSubtotal.toFixed(2)}</span>
-              </div>
-              {fdw && (
-                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Full Damage Waiver — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("fdw", 5).toFixed(2)}</span>
-                  <span>€{(xRate("fdw", 5) * rentalDays).toFixed(2)}</span>
-                </div>
-              )}
-              {Number(babySeat) > 0 && (
-                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Baby Seat ×{babySeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("baby_seat", 3).toFixed(2)}</span>
-                  <span>€{(xRate("baby_seat", 3) * Number(babySeat) * rentalDays).toFixed(2)}</span>
-                </div>
-              )}
-              {Number(childSeat) > 0 && (
-                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Child Seat ×{childSeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("child_seat", 3).toFixed(2)}</span>
-                  <span>€{(xRate("child_seat", 3) * Number(childSeat) * rentalDays).toFixed(2)}</span>
-                </div>
-              )}
-              {Number(additionalDrivers) > 0 && (
-                <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                  <span>Additional Driver ×{additionalDrivers} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("additional_drivers", 2.5).toFixed(2)}</span>
-                  <span>€{(xRate("additional_drivers", 2.5) * Number(additionalDrivers) * rentalDays).toFixed(2)}</span>
-                </div>
-              )}
-              <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between font-bold text-gray-900 dark:text-white">
-                <span>Total</span>
-                <span>€{total.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-gray-500 dark:text-gray-400 text-xs">
-                <span>Deposit (30%) due on confirmation</span>
-                <span>€{deposit.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-gray-500 dark:text-gray-400 text-xs">
-                <span>Balance due at pick-up</span>
-                <span>€{balanceDue.toFixed(2)}</span>
-              </div>
+            {/* Pick-up Location */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pick-up Location</label>
+              <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={pickupLocation} onChange={e => setPickupLocation(e.target.value)}>
+                {locations.map(l => <option key={l}>{l}</option>)}
+              </select>
+              <label className="flex items-center gap-2 mt-2 text-sm text-gray-500 dark:text-gray-400 cursor-pointer">
+                <input type="checkbox" checked={differentDropoff} onChange={() => setDifferentDropoff(!differentDropoff)} className="rounded" />
+                Return at a different location
+              </label>
             </div>
-            <p className="text-xs text-blue-700 dark:text-blue-300 mt-3">Final price confirmed upon booking. Includes VAT, extras &amp; all taxes.</p>
-          </div>
-        )}
 
-        {/* Customer Details */}
-        <div className="border-t dark:border-gray-700 pt-6">
-          <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-4">Your Details</h3>
-          <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            {/* Drop-off Location */}
+            {differentDropoff && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
-                <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={title} onChange={e => setTitle(e.target.value)}>
-                  <option>Mr</option><option>Mrs</option><option>Ms</option>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Drop-off Location</label>
+                <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)}>
+                  {locations.map(l => <option key={l}>{l}</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* Dates */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rental Dates</label>
+              <DateRangePicker
+                pickupDate={pickupDate}
+                returnDate={dropoffDate}
+                onPickupChange={setPickupDate}
+                onReturnChange={setDropoffDate}
+              />
+            </div>
+
+            {/* Times */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pick-up Time</label>
+                <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={pickupTime} onChange={e => setPickupTime(e.target.value)}>
+                  {times.map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">First Name *</label>
-                <input type="text" required value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="First name" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name *</label>
-                <input type="text" required value={lastName} onChange={e => setLastName(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Last name" />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
-                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="your@email.com" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date of Birth *</label>
-                <input type="date" required value={dob} onChange={e => setDob(e.target.value)} placeholder="YYYY-MM-DD" className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
-              <input type="text" value={address} onChange={e => setAddress(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Street address" />
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Postal Code</label>
-                <input type="text" value={postalCode} onChange={e => setPostalCode(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Postal code" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">City</label>
-                <input type="text" value={city} onChange={e => setCity(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="City" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country</label>
-                <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={country} onChange={e => setCountry(e.target.value)}>
-                  <option>Greece</option>
-                  <optgroup label="─────────────">
-                    {countries.filter(c => c !== "Greece").map(c => <option key={c}>{c}</option>)}
-                  </optgroup>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Return Time</label>
+                <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={dropoffTime} onChange={e => setDropoffTime(e.target.value)}>
+                  {times.map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* Transmission — cars only */}
+            {vehicleType === "Cars" && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mobile *</label>
-                <input type="tel" required value={mobileTel} onChange={e => setMobileTel(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="+30 or international" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Transmission</label>
+                <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={transmission} onChange={e => setTransmission(e.target.value)}>
+                  <option>Any</option>
+                  <option>Manual</option>
+                  <option>Automatic</option>
+                </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Landline</label>
-                <input type="tel" value={landlineTel} onChange={e => setLandlineTel(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Optional" />
-              </div>
-            </div>
-            <div className="hidden">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hotel</label>
-              <input type="text" className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" />
-            </div>
+            )}
+
+            {/* Driver Age */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Comments or Special Requests</label>
-              <textarea rows={3} value={comments} onChange={e => setComments(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Any special requests?" />
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">* Required fields</p>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Driver Age</label>
+              <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={driverAge} onChange={e => setDriverAge(e.target.value)}>
+                <option>21–25</option>
+                <option>26–65</option>
+                <option>66+</option>
+              </select>
             </div>
+
+            {/* Extras — cars only */}
+            {vehicleType === "Cars" && (
+              <div className="border-t dark:border-gray-700 pt-6">
+                <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-4">Extras</h3>
+                <div className="border dark:border-gray-600 rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-700 text-xs uppercase text-gray-500 dark:text-gray-400">
+                      <tr>
+                        <th className="text-left px-4 py-3">Description</th>
+                        <th className="text-center px-4 py-3">Price per day</th>
+                        <th className="text-center px-4 py-3">Selection</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      <tr>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Baby Seat (0–9 months)</td>
+                        <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("baby_seat", 3).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <select className="border dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={babySeat} onChange={e => setBabySeat(e.target.value)}>
+                            <option>0</option><option>1</option><option>2</option><option>3</option>
+                          </select>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Child Seat (9+ months)</td>
+                        <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("child_seat", 3).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <select className="border dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={childSeat} onChange={e => setChildSeat(e.target.value)}>
+                            <option>0</option><option>1</option><option>2</option><option>3</option>
+                          </select>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Full Damage Waiver (FDW)</td>
+                        <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("fdw", 5).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <input type="checkbox" checked={fdw} onChange={e => setFdw(e.target.checked)} className="rounded" />
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Additional Drivers</td>
+                        <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("additional_drivers", 2.5).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <select className="border dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={additionalDrivers} onChange={e => setAdditionalDrivers(e.target.value)}>
+                            <option>0</option><option>1</option><option>2</option><option>3</option>
+                          </select>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Price Estimate */}
+            {showPrice && (
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">Price Estimate</h3>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between text-gray-700 dark:text-gray-300">
+                    <span>{selectedModel} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{dailyRate.toFixed(2)}</span>
+                    <span>€{vehicleSubtotal.toFixed(2)}</span>
+                  </div>
+                  {fdw && (
+                    <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                      <span>Full Damage Waiver — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("fdw", 5).toFixed(2)}</span>
+                      <span>€{(xRate("fdw", 5) * rentalDays).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {Number(babySeat) > 0 && (
+                    <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                      <span>Baby Seat ×{babySeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("baby_seat", 3).toFixed(2)}</span>
+                      <span>€{(xRate("baby_seat", 3) * Number(babySeat) * rentalDays).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {Number(childSeat) > 0 && (
+                    <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                      <span>Child Seat ×{childSeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("child_seat", 3).toFixed(2)}</span>
+                      <span>€{(xRate("child_seat", 3) * Number(childSeat) * rentalDays).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {Number(additionalDrivers) > 0 && (
+                    <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                      <span>Additional Driver ×{additionalDrivers} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("additional_drivers", 2.5).toFixed(2)}</span>
+                      <span>€{(xRate("additional_drivers", 2.5) * Number(additionalDrivers) * rentalDays).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between font-bold text-gray-900 dark:text-white">
+                    <span>Total</span>
+                    <span>€{total.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500 dark:text-gray-400 text-xs">
+                    <span>Deposit (30%) due on confirmation</span>
+                    <span>€{deposit.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500 dark:text-gray-400 text-xs">
+                    <span>Balance due at pick-up</span>
+                    <span>€{balanceDue.toFixed(2)}</span>
+                  </div>
+                </div>
+                <p className="text-xs text-blue-700 dark:text-blue-300 mt-3">Final price confirmed upon booking. Includes VAT, extras &amp; all taxes.</p>
+              </div>
+            )}
+
+            {formError && (
+              <p className="text-red-600 dark:text-red-400 text-sm font-medium bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">{formError}</p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleContinue}
+              className="w-full bg-orange-600 text-white font-semibold py-3 rounded-lg hover:bg-orange-700 transition"
+            >
+              Continue →
+            </button>
           </div>
-        </div>
-
-        {/* Terms */}
-        <div className="flex items-start gap-3">
-          <input type="checkbox" id="terms" required checked={terms} onChange={e => setTerms(e.target.checked)} className="mt-1 rounded" />
-          <label htmlFor="terms" className="text-sm text-gray-600 dark:text-gray-400">
-            I accept the{" "}
-            <button type="button" onClick={() => setShowTerms(true)} className="text-orange-600 hover:underline font-medium cursor-pointer">Terms & Conditions</button>
-          </label>
-        </div>
-
-        {/* reCAPTCHA */}
-        <div className="w-full overflow-hidden">
-          <ReCAPTCHA
-            ref={recaptchaRef}
-            sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
-            onChange={(token: string | null) => setCaptchaToken(token)}
-            onExpired={() => setCaptchaToken(null)}
-          />
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-            This site is protected by reCAPTCHA and the Google{" "}
-            <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">Privacy Policy</a>{" "}
-            and{" "}
-            <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">Terms of Service</a>{" "}
-            apply.
-          </p>
-        </div>
-
-        {formError && (
-          <p className="text-red-600 dark:text-red-400 text-sm font-medium bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">{formError}</p>
         )}
 
-        {status === "error" && (
-          <p className="text-red-500 text-sm">Something went wrong. Please try again or contact us directly.</p>
+        {/* ── STEP 2: Your details ── */}
+        {step === 2 && (
+          <form onSubmit={handleSubmit} className="p-8 space-y-6">
+            <h2 className="text-xl font-semibold dark:text-white">Your Details</h2>
+
+            {/* Booking summary */}
+            {showPrice && (
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-blue-900 dark:text-blue-100">{selectedModel}</p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-0.5">
+                      {rentalDays} day{rentalDays > 1 ? "s" : ""} &nbsp;·&nbsp; {pickupDate} → {dropoffDate}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xl font-bold text-blue-900 dark:text-blue-100">€{total.toFixed(2)}</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">Deposit €{deposit.toFixed(2)} on confirmation</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                  <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={title} onChange={e => setTitle(e.target.value)}>
+                    <option>Mr</option><option>Mrs</option><option>Ms</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">First Name *</label>
+                  <input type="text" required value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="First name" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name *</label>
+                  <input type="text" required value={lastName} onChange={e => setLastName(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Last name" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
+                  <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="your@email.com" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date of Birth *</label>
+                  <input type="date" required value={dob} onChange={e => setDob(e.target.value)} placeholder="YYYY-MM-DD" className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
+                <input type="text" value={address} onChange={e => setAddress(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Street address" />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Postal Code</label>
+                  <input type="text" value={postalCode} onChange={e => setPostalCode(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Postal code" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">City</label>
+                  <input type="text" value={city} onChange={e => setCity(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="City" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country</label>
+                  <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={country} onChange={e => setCountry(e.target.value)}>
+                    <option>Greece</option>
+                    <optgroup label="─────────────">
+                      {countries.filter(c => c !== "Greece").map(c => <option key={c}>{c}</option>)}
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mobile *</label>
+                  <input type="tel" required value={mobileTel} onChange={e => setMobileTel(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="+30 or international" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Landline</label>
+                  <input type="tel" value={landlineTel} onChange={e => setLandlineTel(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Optional" />
+                </div>
+              </div>
+              <div className="hidden">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hotel</label>
+                <input type="text" className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Comments or Special Requests</label>
+                <textarea rows={3} value={comments} onChange={e => setComments(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Any special requests?" />
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">* Required fields</p>
+              </div>
+            </div>
+
+            {/* Terms */}
+            <div className="flex items-start gap-3">
+              <input type="checkbox" id="terms" required checked={terms} onChange={e => setTerms(e.target.checked)} className="mt-1 rounded" />
+              <label htmlFor="terms" className="text-sm text-gray-600 dark:text-gray-400">
+                I accept the{" "}
+                <button type="button" onClick={() => setShowTerms(true)} className="text-orange-600 hover:underline font-medium cursor-pointer">Terms & Conditions</button>
+              </label>
+            </div>
+
+            {/* reCAPTCHA */}
+            <div className="w-full overflow-hidden">
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
+                onChange={(token: string | null) => setCaptchaToken(token)}
+                onExpired={() => setCaptchaToken(null)}
+              />
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                This site is protected by reCAPTCHA and the Google{" "}
+                <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">Privacy Policy</a>{" "}
+                and{" "}
+                <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">Terms of Service</a>{" "}
+                apply.
+              </p>
+            </div>
+
+            {formError && (
+              <p className="text-red-600 dark:text-red-400 text-sm font-medium bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">{formError}</p>
+            )}
+
+            {status === "error" && (
+              <p className="text-red-500 text-sm">Something went wrong. Please try again or contact us directly.</p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleBack}
+                className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+              >
+                ← Back
+              </button>
+              <button
+                type="submit"
+                disabled={status === "sending"}
+                className="flex-2 w-full bg-orange-600 text-white font-semibold py-3 rounded-lg hover:bg-orange-700 transition disabled:opacity-50"
+              >
+                {status === "sending" ? "Sending..." : "Get Quote"}
+              </button>
+            </div>
+          </form>
         )}
-
-        <button type="submit" disabled={status === "sending"} className="w-full bg-orange-600 text-white font-semibold py-3 rounded-lg hover:bg-orange-700 transition disabled:opacity-50">
-          {status === "sending" ? "Sending..." : "Get Quote"}
-        </button>
-
       </div>
-    </form>
     </>
   );
 }
