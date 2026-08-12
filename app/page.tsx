@@ -40,6 +40,22 @@ export default function Home() {
               Rent a Bike
             </a>
           </div>
+
+          {/* Trust strip */}
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mt-7 text-sm text-white/80">
+            <span>✓ Family-run since 2014</span>
+            <span>✓ Personal service — real people, real phone</span>
+            <span>✓ No hidden fees</span>
+          </div>
+
+          {/* How it works */}
+          <div className="flex items-center gap-2 mt-5 text-xs text-white/60 font-medium tracking-wide uppercase whitespace-nowrap">
+            <span>Quote</span>
+            <span>→</span>
+            <span>Confirm</span>
+            <span>→</span>
+            <span>Pick up</span>
+          </div>
         </div>
       </div>
 

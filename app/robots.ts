@@ -1,5 +1,7 @@
 import { MetadataRoute } from "next";
 
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://anadyon.gr";
+
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
@@ -9,6 +11,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/admin/", "/api/", "/quote/"],
       },
     ],
-    sitemap: "https://anadyon.gr/sitemap.xml",
+    sitemap: `${baseUrl}/sitemap.xml`,
   };
 }

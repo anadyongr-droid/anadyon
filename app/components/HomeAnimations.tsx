@@ -14,18 +14,21 @@ const fleet = [
   {
     name: "Cars",
     desc: "Economy cars perfect for exploring the island",
+    bestFor: "Best for families, couples & longer trips",
     href: "/cars",
     image: "/hyundai-i20.jpg",
   },
   {
     name: "Motorbikes",
     desc: "Scooters for zipping around Zakynthos",
+    bestFor: "Best for solo riders & quick island hops",
     href: "/motorbikes",
     image: "/kymco-50cc-fleet.png",
   },
   {
     name: "Bikes",
     desc: "City, trekking and mountain bikes",
+    bestFor: "Best for active explorers & scenic routes",
     href: "/bikes",
     image: "/ktm-manhattan.jpeg",
   },
@@ -98,7 +101,8 @@ export function Fleet() {
               </div>
               <div className="p-5 border-t border-gray-100 dark:border-gray-700">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{v.name}</h3>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mb-3">{v.desc}</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">{v.desc}</p>
+                <p className="text-xs text-orange-600 dark:text-orange-400 font-medium mb-3">{v.bestFor}</p>
                 <span className="text-orange-600 dark:text-orange-400 text-sm font-semibold">View fleet →</span>
               </div>
             </motion.a>
