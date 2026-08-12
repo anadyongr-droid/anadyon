@@ -70,46 +70,37 @@ export async function POST(req: NextRequest) {
   const pickupMonth = new Date(pickupDate).getMonth() + 1;
   const serverRentalDays = calcRentalDays(pickupDate, dropoffDate, pickupTime, dropoffTime);
 
-  const canVerify = !!(rates?.length && extrasConfig);
-  const xRate = (key: string) =>
-    (extrasConfig as ExtrasConfig[] | null)?.find(e => e.key === key)?.daily_rate ?? 0;
-
-  let manipulated = false;
-  let rentalDays = Number(clientRentalDays);
-  let dailyRate = Number(clientDailyRate);
-  let vehicleSubtotal = Number(clientVehicleSubtotal);
-  let extrasSubtotal = Number(clientExtrasSubtotal);
-  let total = Number(clientTotal);
-  let deposit = Number(clientDeposit);
-  let balanceDue = Number(clientBalanceDue);
-
-  if (canVerify) {
-    const serverDailyRate = pricingGroup
-      ? getDailyRate(rates as Rate[], pricingGroup, pickupMonth, serverRentalDays)
-      : 0;
-    const serverVehicleSubtotal = parseFloat((serverDailyRate * serverRentalDays).toFixed(2));
-    const serverExtrasSubtotal = parseFloat((
-      (fdw ? xRate("fdw") : 0) * serverRentalDays +
-      Number(babySeat) * xRate("baby_seat") * serverRentalDays +
-      Number(childSeat) * xRate("child_seat") * serverRentalDays +
-      Number(additionalDrivers) * xRate("additional_drivers") * serverRentalDays
-    ).toFixed(2));
-    const serverTotal = parseFloat((serverVehicleSubtotal + serverExtrasSubtotal).toFixed(2));
-    const serverDeposit = parseFloat((serverTotal * DEPOSIT_RATE).toFixed(2));
-    const serverBalanceDue = parseFloat((serverTotal - serverDeposit).toFixed(2));
-
-    manipulated = serverTotal > 0 && Math.abs(Number(clientTotal) - serverTotal) > TOLERANCE;
-
-    // Always use server-calculated values when available
-    rentalDays = serverRentalDays;
-    dailyRate = serverDailyRate;
-    vehicleSubtotal = serverVehicleSubtotal;
-    extrasSubtotal = serverExtrasSubtotal;
-    total = serverTotal;
-    deposit = serverDeposit;
-    balanceDue = serverBalanceDue;
+  if (!rates?.length || !extrasConfig) {
+    return NextResponse.json({ error: "Unable to verify pricing. Please try again." }, { status: 503 });
   }
 
+  const xRate = (key: string) =>
+    (extrasConfig as ExtrasConfig[]).find(e => e.key === key)?.daily_rate ?? 0;
+
+  const serverDailyRate = pricingGroup
+    ? getDailyRate(rates as Rate[], pricingGroup, pickupMonth, serverRentalDays)
+    : 0;
+  const serverVehicleSubtotal = parseFloat((serverDailyRate * serverRentalDays).toFixed(2));
+  const serverExtrasSubtotal = parseFloat((
+    (fdw ? xRate("fdw") : 0) * serverRentalDays +
+    Number(babySeat) * xRate("baby_seat") * serverRentalDays +
+    Number(childSeat) * xRate("child_seat") * serverRentalDays +
+    Number(additionalDrivers) * xRate("additional_drivers") * serverRentalDays
+  ).toFixed(2));
+  const serverTotal = parseFloat((serverVehicleSubtotal + serverExtrasSubtotal).toFixed(2));
+  const serverDeposit = parseFloat((serverTotal * DEPOSIT_RATE).toFixed(2));
+  const serverBalanceDue = parseFloat((serverTotal - serverDeposit).toFixed(2));
+
+  const manipulated = serverTotal > 0 && Math.abs(Number(clientTotal) - serverTotal) > TOLERANCE;
+
+  // Always use server-calculated values
+  const rentalDays = serverRentalDays;
+  const dailyRate = serverDailyRate;
+  const vehicleSubtotal = serverVehicleSubtotal;
+  const extrasSubtotal = serverExtrasSubtotal;
+  const total = serverTotal;
+  const deposit = serverDeposit;
+  const balanceDue = serverBalanceDue;
   const showPrice = total > 0;
 
   // Rebuild extras rows using server rates (ignoring client extrasLines amounts)
