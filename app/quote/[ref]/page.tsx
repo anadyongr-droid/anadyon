@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { use } from "react";
 import { useSearchParams } from "next/navigation";
+import type { ExtrasConfig } from "@/lib/pricing";
 
 type Quote = {
   ref: string;
@@ -42,6 +43,7 @@ export default function QuoteLookupPage({ params }: { params: Promise<{ ref: str
   const [quote, setQuote] = useState<Quote | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [extrasConfig, setExtrasConfig] = useState<ExtrasConfig[]>([]);
 
   // Auto-fetch when arriving from the landing page with surname in URL
   useEffect(() => {
@@ -50,6 +52,7 @@ export default function QuoteLookupPage({ params }: { params: Promise<{ ref: str
       setSurname(s);
       fetchQuote(ref, s);
     }
+    fetch("/api/admin/rates").then(r => r.json()).then(({ extras }) => setExtrasConfig(extras ?? []));
   }, []);
 
   async function fetchQuote(r: string, s: string) {
@@ -163,10 +166,28 @@ export default function QuoteLookupPage({ params }: { params: Promise<{ ref: str
                     <span>{quote.selected_model} — {quote.rental_days} day{quote.rental_days > 1 ? "s" : ""} × €{Number(quote.daily_rate).toFixed(2)}</span>
                     <span>€{Number(quote.vehicle_subtotal).toFixed(2)}</span>
                   </div>
-                  {Number(quote.extras_subtotal) > 0 && (
+                  {quote.fdw && (
                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                      <span>Extras</span>
-                      <span>€{Number(quote.extras_subtotal).toFixed(2)}</span>
+                      <span>Full Damage Waiver (FDW) — {quote.rental_days} day{quote.rental_days > 1 ? "s" : ""} × €{(extrasConfig.find(e => e.key === "fdw")?.daily_rate ?? 0).toFixed(2)}</span>
+                      <span>€{((extrasConfig.find(e => e.key === "fdw")?.daily_rate ?? 0) * quote.rental_days).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {quote.baby_seat > 0 && (
+                    <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                      <span>Baby Seat ×{quote.baby_seat} — {quote.rental_days} day{quote.rental_days > 1 ? "s" : ""} × €{(extrasConfig.find(e => e.key === "baby_seat")?.daily_rate ?? 0).toFixed(2)}</span>
+                      <span>€{((extrasConfig.find(e => e.key === "baby_seat")?.daily_rate ?? 0) * quote.baby_seat * quote.rental_days).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {quote.child_seat > 0 && (
+                    <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                      <span>Child Seat ×{quote.child_seat} — {quote.rental_days} day{quote.rental_days > 1 ? "s" : ""} × €{(extrasConfig.find(e => e.key === "child_seat")?.daily_rate ?? 0).toFixed(2)}</span>
+                      <span>€{((extrasConfig.find(e => e.key === "child_seat")?.daily_rate ?? 0) * quote.child_seat * quote.rental_days).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {quote.additional_drivers > 0 && (
+                    <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                      <span>Additional Driver ×{quote.additional_drivers} — {quote.rental_days} day{quote.rental_days > 1 ? "s" : ""} × €{(extrasConfig.find(e => e.key === "additional_drivers")?.daily_rate ?? 0).toFixed(2)}</span>
+                      <span>€{((extrasConfig.find(e => e.key === "additional_drivers")?.daily_rate ?? 0) * quote.additional_drivers * quote.rental_days).toFixed(2)}</span>
                     </div>
                   )}
                   <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between font-bold text-gray-900 dark:text-white">

@@ -41,6 +41,21 @@ function localDateStr(d = new Date()) {
 }
 const today = localDateStr();
 const tomorrow = localDateStr(new Date(Date.now() + 86400000));
+const currentYear = new Date().getFullYear();
+
+const DOB_MONTHS = [
+  { value: "01", label: "January" }, { value: "02", label: "February" }, { value: "03", label: "March" },
+  { value: "04", label: "April" }, { value: "05", label: "May" }, { value: "06", label: "June" },
+  { value: "07", label: "July" }, { value: "08", label: "August" }, { value: "09", label: "September" },
+  { value: "10", label: "October" }, { value: "11", label: "November" }, { value: "12", label: "December" },
+];
+function daysInDobMonth(month: string, year: string): number {
+  if (!month) return 31;
+  return new Date(Number(year || currentYear), Number(month), 0).getDate();
+}
+
+type FieldKey = "firstName" | "lastName" | "email" | "dob" | "mobileTel" | "terms" | "captcha";
+const invalidFieldClass = "border-red-500 dark:border-red-500 ring-1 ring-red-500";
 
 type Props = {
   vehicleType: string;
@@ -83,7 +98,22 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [dob, setDob] = useState("");
+  const [dobDay, setDobDay] = useState("");
+  const [dobMonth, setDobMonth] = useState("");
+  const [dobYear, setDobYear] = useState("");
+  const dob = dobDay && dobMonth && dobYear ? `${dobYear}-${dobMonth}-${dobDay}` : "";
+  const dobDayOptions = Array.from({ length: daysInDobMonth(dobMonth, dobYear) }, (_, i) => String(i + 1).padStart(2, "0"));
+  const dobYearOptions = Array.from({ length: 100 }, (_, i) => String(currentYear - 18 - i));
+  function handleDobMonthChange(value: string) {
+    setDobMonth(value);
+    const max = daysInDobMonth(value, dobYear);
+    if (dobDay && Number(dobDay) > max) setDobDay(String(max).padStart(2, "0"));
+  }
+  function handleDobYearChange(value: string) {
+    setDobYear(value);
+    const max = daysInDobMonth(dobMonth, value);
+    if (dobDay && Number(dobDay) > max) setDobDay(String(max).padStart(2, "0"));
+  }
   const [address, setAddress] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
@@ -94,7 +124,22 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [terms, setTerms] = useState(false);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [quoteRef, setQuoteRef] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [stepError, setStepError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, boolean>>>({});
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const dobFieldRef = useRef<HTMLDivElement>(null);
+  const mobileTelRef = useRef<HTMLInputElement>(null);
+  const termsRef = useRef<HTMLInputElement>(null);
+  const captchaFieldRef = useRef<HTMLDivElement>(null);
+  const fieldRefs: Record<FieldKey, React.RefObject<HTMLElement | null>> = {
+    firstName: firstNameRef, lastName: lastNameRef, email: emailRef,
+    dob: dobFieldRef, mobileTel: mobileTelRef, terms: termsRef, captcha: captchaFieldRef,
+  };
+  function clearFieldError(key: FieldKey) {
+    setFieldErrors(prev => (prev[key] ? { ...prev, [key]: false } : prev));
+  }
   const [showTerms, setShowTerms] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
@@ -127,13 +172,13 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   }
 
   function handleContinue() {
-    setFormError(null);
+    setStepError(null);
     if (!pickupDate || !dropoffDate) {
-      setFormError("Please select your rental dates.");
+      setStepError("Please select your rental dates.");
       return;
     }
     if (rentalDays <= 0) {
-      setFormError("Return date must be after pick-up date.");
+      setStepError("Return date must be after pick-up date.");
       return;
     }
     setStep(2);
@@ -141,22 +186,29 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   }
 
   function handleBack() {
-    setFormError(null);
+    setFieldErrors({});
     setStep(1);
     setTimeout(scrollToForm, 50);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setFormError(null);
-
-    if (!firstName.trim()) { setFormError("First name is required."); return; }
-    if (!lastName.trim()) { setFormError("Last name is required."); return; }
-    if (!email.trim()) { setFormError("Email address is required."); return; }
-    if (!dob) { setFormError("Date of birth is required."); return; }
-    if (!mobileTel.trim()) { setFormError("Mobile number is required."); return; }
-    if (!terms) { setFormError("Please accept the Terms & Conditions."); return; }
-    if (!captchaToken) { setFormError("Please complete the reCAPTCHA verification."); return; }
+    const errors: Partial<Record<FieldKey, boolean>> = {};
+    if (!firstName.trim()) errors.firstName = true;
+    if (!lastName.trim()) errors.lastName = true;
+    if (!email.trim()) errors.email = true;
+    if (!dob) errors.dob = true;
+    if (!mobileTel.trim()) errors.mobileTel = true;
+    if (!terms) errors.terms = true;
+    if (!captchaToken) errors.captcha = true;
+    setFieldErrors(errors);
+    const firstInvalid = (Object.keys(errors) as FieldKey[])[0];
+    if (firstInvalid) {
+      const el = fieldRefs[firstInvalid].current;
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      (el as HTMLElement & { focus?: () => void })?.focus?.();
+      return;
+    }
 
     setStatus("sending");
     const res = await fetch("/api/quote", {
@@ -473,8 +525,8 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
               </div>
             )}
 
-            {formError && (
-              <p className="text-red-600 dark:text-red-400 text-sm font-medium bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">{formError}</p>
+            {stepError && (
+              <p className="text-red-600 dark:text-red-400 text-sm font-medium bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">{stepError}</p>
             )}
 
             <button
@@ -520,21 +572,38 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">First Name *</label>
-                  <input type="text" required value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="First name" />
+                  <input ref={firstNameRef} type="text" value={firstName} onChange={e => { setFirstName(e.target.value); clearFieldError("firstName"); }} className={`w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 ${fieldErrors.firstName ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`} placeholder="First name" />
+                  {fieldErrors.firstName && <p className="text-red-500 text-xs mt-1">First name is required.</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name *</label>
-                  <input type="text" required value={lastName} onChange={e => setLastName(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Last name" />
+                  <input ref={lastNameRef} type="text" value={lastName} onChange={e => { setLastName(e.target.value); clearFieldError("lastName"); }} className={`w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 ${fieldErrors.lastName ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`} placeholder="Last name" />
+                  {fieldErrors.lastName && <p className="text-red-500 text-xs mt-1">Last name is required.</p>}
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
-                  <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="your@email.com" />
+                  <input ref={emailRef} type="email" value={email} onChange={e => { setEmail(e.target.value); clearFieldError("email"); }} className={`w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 ${fieldErrors.email ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`} placeholder="your@email.com" />
+                  {fieldErrors.email && <p className="text-red-500 text-xs mt-1">Email address is required.</p>}
                 </div>
-                <div>
+                <div ref={dobFieldRef}>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date of Birth *</label>
-                  <input type="date" required value={dob} onChange={e => setDob(e.target.value)} placeholder="YYYY-MM-DD" className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" />
+                  <div className="grid grid-cols-3 gap-2">
+                    <select value={dobDay} onChange={e => { setDobDay(e.target.value); clearFieldError("dob"); }} className={`border rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 ${fieldErrors.dob ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`}>
+                      <option value="">Day</option>
+                      {dobDayOptions.map(d => <option key={d} value={d}>{Number(d)}</option>)}
+                    </select>
+                    <select value={dobMonth} onChange={e => { handleDobMonthChange(e.target.value); clearFieldError("dob"); }} className={`border rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 ${fieldErrors.dob ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`}>
+                      <option value="">Month</option>
+                      {DOB_MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                    </select>
+                    <select value={dobYear} onChange={e => { handleDobYearChange(e.target.value); clearFieldError("dob"); }} className={`border rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 ${fieldErrors.dob ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`}>
+                      <option value="">Year</option>
+                      {dobYearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                  {fieldErrors.dob && <p className="text-red-500 text-xs mt-1">Date of birth is required.</p>}
                 </div>
               </div>
               <div>
@@ -563,7 +632,8 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mobile *</label>
-                  <input type="tel" required value={mobileTel} onChange={e => setMobileTel(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="+30 or international" />
+                  <input ref={mobileTelRef} type="tel" value={mobileTel} onChange={e => { setMobileTel(e.target.value); clearFieldError("mobileTel"); }} className={`w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 ${fieldErrors.mobileTel ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`} placeholder="+30 or international" />
+                  {fieldErrors.mobileTel && <p className="text-red-500 text-xs mt-1">Mobile number is required.</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Landline</label>
@@ -582,22 +652,26 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             </div>
 
             {/* Terms */}
-            <div className="flex items-start gap-3">
-              <input type="checkbox" id="terms" required checked={terms} onChange={e => setTerms(e.target.checked)} className="mt-1 rounded" />
-              <label htmlFor="terms" className="text-sm text-gray-600 dark:text-gray-400">
-                I accept the{" "}
-                <button type="button" onClick={() => setShowTerms(true)} className="text-orange-600 hover:underline font-medium cursor-pointer">Terms & Conditions</button>
-              </label>
+            <div ref={termsRef} className="flex items-start gap-3">
+              <input type="checkbox" id="terms" checked={terms} onChange={e => { setTerms(e.target.checked); clearFieldError("terms"); }} className={`mt-1 rounded ${fieldErrors.terms ? "ring-2 ring-red-500" : ""}`} />
+              <div>
+                <label htmlFor="terms" className="text-sm text-gray-600 dark:text-gray-400">
+                  I accept the{" "}
+                  <button type="button" onClick={() => setShowTerms(true)} className="text-orange-600 hover:underline font-medium cursor-pointer">Terms & Conditions</button>
+                </label>
+                {fieldErrors.terms && <p className="text-red-500 text-xs mt-1">Please accept the Terms & Conditions.</p>}
+              </div>
             </div>
 
             {/* reCAPTCHA */}
-            <div className="w-full overflow-hidden">
+            <div ref={captchaFieldRef} className="w-full overflow-hidden">
               <ReCAPTCHA
                 ref={recaptchaRef}
                 sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
-                onChange={(token: string | null) => setCaptchaToken(token)}
+                onChange={(token: string | null) => { setCaptchaToken(token); clearFieldError("captcha"); }}
                 onExpired={() => setCaptchaToken(null)}
               />
+              {fieldErrors.captcha && <p className="text-red-500 text-xs mt-1">Please complete the reCAPTCHA verification.</p>}
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                 This site is protected by reCAPTCHA and the Google{" "}
                 <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">Privacy Policy</a>{" "}
@@ -606,10 +680,6 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 apply.
               </p>
             </div>
-
-            {formError && (
-              <p className="text-red-600 dark:text-red-400 text-sm font-medium bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">{formError}</p>
-            )}
 
             {status === "error" && (
               <p className="text-red-500 text-sm">Something went wrong. Please try again or contact us directly.</p>
