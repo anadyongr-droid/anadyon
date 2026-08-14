@@ -28,7 +28,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
-      const r = data.user?.user_metadata?.role ?? data.user?.app_metadata?.role ?? "staff";
+      const r = data.user?.app_metadata?.role ?? "staff";
       setRole(r as string);
     });
   }, []);

@@ -56,7 +56,8 @@ export async function proxy(req: NextRequest) {
   }
 
   // Role-based access — default to "staff" if no role set
-  const role = (user.user_metadata?.role ?? user.app_metadata?.role ?? "staff") as string;
+  // app_metadata is server-only (not editable by the user); never use user_metadata for auth decisions
+  const role = (user.app_metadata?.role ?? "staff") as string;
 
   if (role !== "admin") {
     if (pathname.startsWith("/api/admin/")) {
