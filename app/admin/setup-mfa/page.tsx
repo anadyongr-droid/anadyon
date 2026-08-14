@@ -23,18 +23,28 @@ export default function SetupMFA() {
   const [enrolling, setEnrolling] = useState(true);
 
   useEffect(() => {
-    supabase.auth.mfa
-      .enroll({ factorType: "totp", friendlyName: "Anadyon Admin" })
-      .then(({ data, error: e }) => {
-        setEnrolling(false);
-        if (e || !data) {
-          setError("Failed to start setup. Please sign out and try again.");
-          return;
-        }
-        setFactorId(data.id);
-        setQrCode(data.totp.qr_code);
-        setSecret(data.totp.secret);
+    async function startEnrollment() {
+      // Clear any stale unverified factors from previous failed attempts
+      const { data: existing } = await supabase.auth.mfa.listFactors();
+      const unverified = existing?.totp?.filter(f => f.status === "unverified") ?? [];
+      for (const f of unverified) {
+        await supabase.auth.mfa.unenroll({ factorId: f.id });
+      }
+
+      const { data, error: e } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+        friendlyName: "Anadyon Admin",
       });
+      setEnrolling(false);
+      if (e || !data) {
+        setError("Failed to start setup. Please sign out and try again.");
+        return;
+      }
+      setFactorId(data.id);
+      setQrCode(data.totp.qr_code);
+      setSecret(data.totp.secret);
+    }
+    startEnrollment();
   }, []);
 
   async function handleVerify(e: React.FormEvent) {
