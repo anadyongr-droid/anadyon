@@ -14,7 +14,17 @@ interface Quote {
   rental_days: number;
   total: number;
   created_at: string;
+  quote_status: string;
 }
+
+const STATUS_STYLES: Record<string, string> = {
+  new:       "bg-gray-100 text-gray-500",
+  pending:   "bg-yellow-100 text-yellow-800",
+  confirmed: "bg-blue-100 text-blue-800",
+  active:    "bg-green-100 text-green-800",
+  returned:  "bg-gray-100 text-gray-600",
+  cancelled: "bg-red-100 text-red-600",
+};
 
 export default function QuotesPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -47,12 +57,13 @@ export default function QuotesPage() {
                 <th className="text-left px-4 py-3 font-medium">Return</th>
                 <th className="text-center px-4 py-3 font-medium">Days</th>
                 <th className="text-right px-4 py-3 font-medium">Total</th>
+                <th className="text-center px-4 py-3 font-medium">Status</th>
                 <th className="text-right px-4 py-3 font-medium">Received</th>
               </tr>
             </thead>
             <tbody>
               {quotes.length === 0 && (
-                <tr><td colSpan={8} className="px-5 py-8 text-center text-gray-400 text-sm">No quotes yet.</td></tr>
+                <tr><td colSpan={9} className="px-5 py-8 text-center text-gray-400 text-sm">No quotes yet.</td></tr>
               )}
               {quotes.map((q) => (
                 <tr key={q.ref}
@@ -69,6 +80,11 @@ export default function QuotesPage() {
                   <td className="px-4 py-3 text-center text-gray-600">{q.rental_days}</td>
                   <td className="px-4 py-3 text-right font-medium text-gray-900">
                     {q.total > 0 ? `€${q.total}` : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[q.quote_status] ?? STATUS_STYLES.new}`}>
+                      {q.quote_status}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-right text-xs text-gray-400">
                     {new Date(q.created_at).toLocaleDateString("el-GR")}
