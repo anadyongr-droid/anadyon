@@ -210,7 +210,7 @@ export default function QuoteDetailPage() {
 
       {showModal && (
         <ReservationModal
-          vehicles={vehicles}
+          vehicles={vehicles.filter((v) => v.category === quote.vehicle_type)}
           initialValues={modalDefaults}
           onClose={() => setShowModal(false)}
           onSaved={() => { setShowModal(false); router.push("/admin/reservations"); }}
