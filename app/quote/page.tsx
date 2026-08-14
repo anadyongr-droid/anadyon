@@ -47,7 +47,7 @@ export default function QuoteLookupLanding() {
               type="text"
               value={ref}
               onChange={e => setRef(e.target.value)}
-              placeholder="e.g. ANA-202608-K7F2"
+              placeholder="e.g. AB3K7Z"
               className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 font-mono tracking-wide"
               autoCapitalize="characters"
               autoCorrect="off"
