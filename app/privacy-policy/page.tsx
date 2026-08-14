@@ -84,17 +84,10 @@ export default function PrivacyPolicy() {
                 and{" "}
                 <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline dark:text-blue-400">Terms of Service</a>.
               </li>
-              <li>
-                <strong>Resend</strong> — our transactional email provider, used to send you booking confirmation emails.
-                See{" "}
-                <a href="https://resend.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline dark:text-blue-400">Resend&apos;s Privacy Policy</a>.
-              </li>
-              <li>
-                <strong>Supabase</strong> — our database and authentication provider, used to store quote and contact form submissions securely.
-                Data is processed within the EU (Ireland). See{" "}
-                <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline dark:text-blue-400">Supabase&apos;s Privacy Policy</a>.
-              </li>
             </ul>
+            <p className="mt-3 text-sm">
+              We may also engage trusted third-party service providers to support the operation of this website, including services such as secure data hosting, transactional email delivery, and website infrastructure. These providers are contractually obligated to process personal data only on our instructions and in accordance with applicable data protection law.
+            </p>
             <p className="mt-3 text-sm">We do not sell your personal data to any third party.</p>
           </div>
 
