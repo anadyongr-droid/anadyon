@@ -54,6 +54,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [conflictWarning, setConflictWarning] = useState("");
   const isEdit = !!reservationId;
 
   useEffect(() => {
@@ -99,6 +100,31 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
       }));
     }
   }, [reservationId, vehicleId, date]);
+
+  // Real-time vehicle availability check
+  useEffect(() => {
+    if (!form.vehicle_id || !form.pickup_date || !form.return_date) {
+      setConflictWarning("");
+      return;
+    }
+    const params = new URLSearchParams({
+      vehicle_id: form.vehicle_id,
+      pickup_date: form.pickup_date,
+      return_date: form.return_date,
+      ...(reservationId ? { exclude_id: reservationId } : {}),
+    });
+    fetch(`/api/admin/vehicles/availability?${params}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.available && data.conflict) {
+          setConflictWarning(
+            `Already booked for ${data.conflict.customer_name} (${data.conflict.pickup_date} → ${data.conflict.return_date})`
+          );
+        } else {
+          setConflictWarning("");
+        }
+      });
+  }, [form.vehicle_id, form.pickup_date, form.return_date, reservationId]);
 
   // Computed pricing
   const vehicle = vehicles.find((v) => v.id === form.vehicle_id);
@@ -345,6 +371,11 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
         </div>
 
         {/* Footer */}
+        {conflictWarning && (
+          <div className="mx-6 mb-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+            ⚠️ {conflictWarning}
+          </div>
+        )}
         {saveError && (
           <div className="mx-6 mb-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
             {saveError}
@@ -365,7 +396,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             </button>
             <button
               onClick={handleSave}
-              disabled={saving || !form.vehicle_id || !form.customer_name || !form.pickup_date || !form.return_date}
+              disabled={saving || !!conflictWarning || !form.vehicle_id || !form.customer_name || !form.pickup_date || !form.return_date}
               className="px-5 py-2 bg-blue-700 text-white text-sm font-semibold rounded-lg hover:bg-blue-800 transition disabled:opacity-50"
             >
               {saving ? "Saving…" : isEdit ? "Save changes" : "Create reservation"}

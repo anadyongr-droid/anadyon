@@ -66,6 +66,7 @@ export default function QuoteDetailPage() {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [pendingReservationId, setPendingReservationId] = useState<string | null>(null);
+  const [isConverted, setIsConverted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
@@ -77,10 +78,15 @@ export default function QuoteDetailPage() {
     ]).then(([q, v, reservations]) => {
       setQuote(q);
       setVehicles(v);
-      const pending = Array.isArray(reservations)
-        ? reservations.find((r: { status: string }) => r.status === "pending")
-        : null;
-      setPendingReservationId(pending?.id ?? null);
+      if (Array.isArray(reservations)) {
+        const pending = reservations.find((r: { status: string }) => r.status === "pending");
+        setPendingReservationId(pending?.id ?? null);
+        // Converted = any reservation exists that is not cancelled/voided
+        const converted = reservations.some(
+          (r: { status: string }) => !["cancelled", "voided"].includes(r.status) && r.status !== "pending"
+        );
+        setIsConverted(converted);
+      }
       setLoading(false);
     });
   }, [ref]);
@@ -127,12 +133,18 @@ export default function QuoteDetailPage() {
           </p>
         </div>
         <div className="ml-auto">
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-800 transition"
-          >
-            Convert to reservation <ArrowRight size={14} />
-          </button>
+          {isConverted ? (
+            <span className="flex items-center gap-2 bg-gray-100 text-gray-400 text-sm font-semibold px-4 py-2 rounded-lg cursor-not-allowed">
+              Already converted
+            </span>
+          ) : (
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-800 transition"
+            >
+              Convert to reservation <ArrowRight size={14} />
+            </button>
+          )}
         </div>
       </div>
 
