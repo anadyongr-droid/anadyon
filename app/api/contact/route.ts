@@ -4,6 +4,14 @@ import { verifyRecaptcha } from "@/lib/recaptcha";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+function esc(val: unknown): string {
+  return String(val ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export async function POST(req: NextRequest) {
   const { name, email, message, captchaToken } = await req.json();
 
@@ -20,9 +28,9 @@ export async function POST(req: NextRequest) {
     html: `
       <h2>New Contact Message</h2>
       <table cellpadding="6" style="border-collapse:collapse;">
-        <tr><td><strong>Name:</strong></td><td>${name}</td></tr>
-        <tr><td><strong>Email:</strong></td><td>${email}</td></tr>
-        <tr><td><strong>Message:</strong></td><td>${message}</td></tr>
+        <tr><td><strong>Name:</strong></td><td>${esc(name)}</td></tr>
+        <tr><td><strong>Email:</strong></td><td>${esc(email)}</td></tr>
+        <tr><td><strong>Message:</strong></td><td>${esc(message)}</td></tr>
       </table>
     `,
   });
@@ -33,7 +41,7 @@ export async function POST(req: NextRequest) {
     to: email,
     subject: "We received your message — Anadyon Rentals",
     html: `
-      <p>Dear ${name},</p>
+      <p>Dear ${esc(name)},</p>
       <p>Thank you for contacting Anadyon Rentals. We have received your message and will get back to you as soon as possible.</p>
       <p>If your enquiry is urgent, please call us on <strong>+30 26950 41878</strong> (daily 09:00–21:00).</p>
       <p>Thank you,<br/>Anadyon Rentals<br/>Zakynthos, Greece</p>

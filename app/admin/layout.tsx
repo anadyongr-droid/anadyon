@@ -1,24 +1,48 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { LayoutGrid, CalendarDays, Car, Settings, LogOut, BarChart3 } from "lucide-react";
+import { createBrowserClient } from "@supabase/ssr";
 
-const nav = [
-  { href: "/admin",            label: "Dashboard",    icon: BarChart3 },
-  { href: "/admin/calendar",   label: "Calendar",     icon: CalendarDays },
-  { href: "/admin/reservations", label: "Reservations", icon: LayoutGrid },
-  { href: "/admin/fleet",      label: "Fleet",        icon: Car },
-  { href: "/admin/rates",      label: "Rates",        icon: Settings },
+function createClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
+
+const allNav = [
+  { href: "/admin",               label: "Dashboard",    icon: BarChart3,    adminOnly: true  },
+  { href: "/admin/calendar",      label: "Calendar",     icon: CalendarDays, adminOnly: false },
+  { href: "/admin/reservations",  label: "Reservations", icon: LayoutGrid,   adminOnly: false },
+  { href: "/admin/fleet",         label: "Fleet",        icon: Car,          adminOnly: true  },
+  { href: "/admin/rates",         label: "Rates",        icon: Settings,     adminOnly: true  },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [role, setRole] = useState<string | null>(null);
 
-  if (pathname === "/admin/login") return <>{children}</>;
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      const r = data.user?.user_metadata?.role ?? data.user?.app_metadata?.role ?? "staff";
+      setRole(r as string);
+    });
+  }, []);
+
+  if (pathname === "/admin/login" || pathname === "/admin/setup-mfa") {
+    return <>{children}</>;
+  }
+
+  const isAdmin = role === "admin";
+  const nav = allNav.filter(item => !item.adminOnly || isAdmin);
 
   async function logout() {
-    await fetch("/api/admin/auth", { method: "DELETE" });
+    const supabase = createClient();
+    await supabase.auth.signOut();
     router.push("/admin/login");
   }
 
@@ -28,7 +52,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <aside className="w-52 bg-white border-r border-gray-200 flex flex-col shrink-0">
         <div className="px-5 py-5 border-b border-gray-100">
           <div className="font-bold text-gray-900 text-sm">Anadyon Rentals</div>
-          <div className="text-xs text-gray-400 mt-0.5">Admin Panel</div>
+          <div className="text-xs text-gray-400 mt-0.5">
+            {role === "admin" ? "Admin" : role === "staff" ? "Staff" : ""}
+          </div>
         </div>
         <nav className="flex-1 py-3 space-y-0.5 px-2">
           {nav.map(({ href, label, icon: Icon }) => {

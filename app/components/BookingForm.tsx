@@ -538,7 +538,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
 
             {/* Booking summary */}
             {showPrice && (
-              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-4 max-w-sm">
                 <div className="flex items-baseline justify-between gap-2 mb-3">
                   <p className="font-semibold text-blue-900 dark:text-blue-100">
                     {selectedModel}

@@ -7,12 +7,18 @@ import { calcVehicleSubtotal, calcRentalDays, DEPOSIT_RATE, type Rate, type Extr
 const resend = new Resend(process.env.RESEND_API_KEY);
 const TOLERANCE = 0.02; // allow up to €0.02 rounding difference before flagging
 
+const REF_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 32 chars — no I/O/0/1 to avoid confusion
+
 function generateRef(): string {
-  const now = new Date();
-  const yyyymm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const random = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  return `ANA-${yyyymm}-${random}`;
+  return Array.from({ length: 6 }, () => REF_CHARS[Math.floor(Math.random() * REF_CHARS.length)]).join("");
+}
+
+function esc(val: unknown): string {
+  return String(val ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 export async function POST(req: NextRequest) {
@@ -208,13 +214,13 @@ export async function POST(req: NextRequest) {
 
       <h3>Customer Details</h3>
       <table cellpadding="6" style="border-collapse:collapse;">
-        <tr><td><strong>Name:</strong></td><td>${title} ${firstName} ${lastName}</td></tr>
-        <tr><td><strong>Email:</strong></td><td>${email}</td></tr>
-        <tr><td><strong>Date of Birth:</strong></td><td>${dob}</td></tr>
-        <tr><td><strong>Address:</strong></td><td>${address}, ${postalCode}, ${city}, ${country}</td></tr>
-        <tr><td><strong>Mobile:</strong></td><td>${mobileTel}</td></tr>
-        ${landlineTel ? `<tr><td><strong>Landline:</strong></td><td>${landlineTel}</td></tr>` : ""}
-        ${comments ? `<tr><td><strong>Comments:</strong></td><td>${comments}</td></tr>` : ""}
+        <tr><td><strong>Name:</strong></td><td>${esc(title)} ${esc(firstName)} ${esc(lastName)}</td></tr>
+        <tr><td><strong>Email:</strong></td><td>${esc(email)}</td></tr>
+        <tr><td><strong>Date of Birth:</strong></td><td>${esc(dob)}</td></tr>
+        <tr><td><strong>Address:</strong></td><td>${esc(address)}, ${esc(postalCode)}, ${esc(city)}, ${esc(country)}</td></tr>
+        <tr><td><strong>Mobile:</strong></td><td>${esc(mobileTel)}</td></tr>
+        ${landlineTel ? `<tr><td><strong>Landline:</strong></td><td>${esc(landlineTel)}</td></tr>` : ""}
+        ${comments ? `<tr><td><strong>Comments:</strong></td><td>${esc(comments)}</td></tr>` : ""}
       </table>
 
       <hr/>
@@ -228,7 +234,7 @@ export async function POST(req: NextRequest) {
     to: email,
     subject: `Quote Request — ${lastName}, ${ref}`,
     html: `
-      <p>Dear ${title} ${firstName} ${lastName},</p>
+      <p>Dear ${esc(title)} ${esc(firstName)} ${esc(lastName)},</p>
       <p>Thank you for your quote request. Please note that <strong>this is not a confirmed reservation</strong>. We will contact you as soon as possible with availability and pricing.</p>
       <p>Your reference number is: <strong>${ref}</strong></p>
 

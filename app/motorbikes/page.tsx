@@ -107,6 +107,7 @@ export default function Motorbikes() {
                 "Kymco Agility 50cc": "motorbike_a",
                 "Kymco Agility 125cc": "motorbike_b",
               }}
+              modelTransmissions={Object.fromEntries(models.map(m => [m.name, m.transmission]))}
             />
           </div>
         )}

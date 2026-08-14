@@ -40,9 +40,8 @@ export async function POST(req: NextRequest) {
     return handleEvent(payload);
   }
 
-  // No signing secret configured — process without verification (not recommended for production)
-  const payload = await req.json();
-  return handleEvent(payload);
+  // Signing secret not configured — refuse to process (prevents unauthenticated webhook abuse)
+  return NextResponse.json({ error: "Webhook signing secret not configured" }, { status: 500 });
 }
 
 async function handleEvent(payload: { type: string; data: Record<string, unknown> }) {
