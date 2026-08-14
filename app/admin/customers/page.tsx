@@ -89,7 +89,9 @@ export default function CustomersPage() {
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-900">{c.full_name}</span>
                       {c.do_not_rent && (
-                        <AlertTriangle size={13} className="text-red-500 shrink-0" title={c.dnr_reason ?? "Do Not Rent"} />
+                        <span title={c.dnr_reason ?? "Do Not Rent"}>
+                          <AlertTriangle size={13} className="text-red-500 shrink-0" />
+                        </span>
                       )}
                     </div>
                   </td>
