@@ -105,7 +105,7 @@ export default function CalendarPage() {
   function getResForVehicleDay(vehicleId: string, date: Date): Reservation | undefined {
     const ds = toDateStr(date);
     return reservations.find(
-      (r) => r.vehicle_id === vehicleId && r.pickup_date <= ds && r.return_date > ds
+      (r) => r.vehicle_id === vehicleId && r.pickup_date <= ds && r.return_date >= ds
     );
   }
 
@@ -114,10 +114,10 @@ export default function CalendarPage() {
     return res.pickup_date === toDateStr(date);
   }
 
-  // Calculate bar span (days visible in current view)
+  // Calculate bar span (days visible in current view), return date inclusive
   function barSpan(res: Reservation, date: Date): number {
     const start = new Date(Math.max(parseLocalDate(res.pickup_date).getTime(), date.getTime()));
-    const end = parseLocalDate(res.return_date);
+    const end = addDays(parseLocalDate(res.return_date), 1); // +1 to make return date inclusive
     const viewEnd = addDays(endDate, 1);
     const actualEnd = new Date(Math.min(end.getTime(), viewEnd.getTime()));
     return Math.max(1, Math.ceil((actualEnd.getTime() - start.getTime()) / 86400000));
