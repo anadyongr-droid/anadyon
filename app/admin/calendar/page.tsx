@@ -44,7 +44,16 @@ function addDays(date: Date, n: number) {
 }
 
 function toDateStr(d: Date) {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// Parse a YYYY-MM-DD string as local midnight (avoids UTC shift)
+function parseLocalDate(s: string): Date {
+  const [y, mo, d] = s.split("-").map(Number);
+  return new Date(y, mo - 1, d);
 }
 
 function formatDay(d: Date) {
@@ -107,8 +116,8 @@ export default function CalendarPage() {
 
   // Calculate bar span (days visible in current view)
   function barSpan(res: Reservation, date: Date): number {
-    const start = new Date(Math.max(new Date(res.pickup_date).getTime(), date.getTime()));
-    const end = new Date(res.return_date);
+    const start = new Date(Math.max(parseLocalDate(res.pickup_date).getTime(), date.getTime()));
+    const end = parseLocalDate(res.return_date);
     const viewEnd = addDays(endDate, 1);
     const actualEnd = new Date(Math.min(end.getTime(), viewEnd.getTime()));
     return Math.max(1, Math.ceil((actualEnd.getTime() - start.getTime()) / 86400000));
