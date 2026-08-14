@@ -16,6 +16,7 @@ interface Props {
   vehicleId?: string;
   date?: string;
   reservationId?: string;
+  initialValues?: Partial<typeof EMPTY_FORM>;
   vehicles: Vehicle[];
   onClose: () => void;
   onSaved: () => void;
@@ -45,7 +46,7 @@ const EMPTY_FORM = {
   notes: "",
 };
 
-export default function ReservationModal({ vehicleId, date, reservationId, vehicles, onClose, onSaved }: Props) {
+export default function ReservationModal({ vehicleId, date, reservationId, initialValues, vehicles, onClose, onSaved }: Props) {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [rates, setRates] = useState<Rate[]>([]);
   const [extras, setExtras] = useState<ExtrasConfig[]>([]);
@@ -93,6 +94,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, vehic
         vehicle_id: vehicleId ?? "",
         pickup_date: date ?? "",
         return_date: date ?? "",
+        ...initialValues,
       }));
     }
   }, [reservationId, vehicleId, date]);

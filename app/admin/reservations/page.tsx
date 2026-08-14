@@ -13,6 +13,7 @@ interface Reservation {
   rental_days: number;
   total: number;
   status: string;
+  created_at?: string;
   vehicles?: { name: string; category: string };
 }
 
@@ -47,9 +48,13 @@ export default function ReservationsPage() {
 
   useEffect(() => { load(); }, []);
 
-  const filtered = filter === "all"
-    ? reservations
-    : reservations.filter((r) => r.status === filter);
+  const today = new Date().toISOString().slice(0, 10);
+  const filtered = (() => {
+    if (filter === "all") return reservations;
+    if (filter === "new") return reservations.filter((r) => r.created_at?.slice(0, 10) === today);
+    if (filter === "returned") return reservations.filter((r) => r.status === "returned" && r.return_date === today);
+    return reservations.filter((r) => r.status === filter);
+  })();
 
   return (
     <div className="p-6">
@@ -65,7 +70,7 @@ export default function ReservationsPage() {
 
       {/* Filter tabs */}
       <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
-        {["all", "pending", "confirmed", "active", "returned", "cancelled"].map((s) => (
+        {["new", "all", "pending", "confirmed", "active", "returned", "cancelled"].map((s) => (
           <button
             key={s}
             onClick={() => setFilter(s)}

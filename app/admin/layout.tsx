@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LayoutGrid, CalendarDays, Car, Settings, LogOut, BarChart3 } from "lucide-react";
+import { LayoutGrid, CalendarDays, Car, Settings, LogOut, BarChart3, FileText, Users } from "lucide-react";
 import { createBrowserClient } from "@supabase/ssr";
 
 function createClient() {
@@ -16,6 +16,8 @@ const allNav = [
   { href: "/admin",               label: "Dashboard",    icon: BarChart3,    adminOnly: true  },
   { href: "/admin/calendar",      label: "Calendar",     icon: CalendarDays, adminOnly: false },
   { href: "/admin/reservations",  label: "Reservations", icon: LayoutGrid,   adminOnly: false },
+  { href: "/admin/quotes",        label: "Quotes",       icon: FileText,     adminOnly: false },
+  { href: "/admin/clients",       label: "Clients",      icon: Users,        adminOnly: false },
   { href: "/admin/fleet",         label: "Fleet",        icon: Car,          adminOnly: true  },
   { href: "/admin/rates",         label: "Rates",        icon: Settings,     adminOnly: true  },
 ];
