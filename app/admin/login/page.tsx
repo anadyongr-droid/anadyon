@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
@@ -12,7 +12,7 @@ function createClient() {
 
 type Step = "credentials" | "totp";
 
-export default function AdminLogin() {
+function AdminLogin() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mfaRequired = !!searchParams.get("mfa");
@@ -182,5 +182,13 @@ export default function AdminLogin() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense>
+      <AdminLogin />
+    </Suspense>
   );
 }
