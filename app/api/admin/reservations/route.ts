@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");
   const to = searchParams.get("to");
+  const quoteRef = searchParams.get("quote_ref");
 
   let query = supabaseAdmin
     .from("reservations")
@@ -16,6 +17,7 @@ export async function GET(req: NextRequest) {
 
   if (from) query = query.gte("pickup_date", from);
   if (to) query = query.lte("return_date", to);
+  if (quoteRef) query = query.ilike("notes", `Quote ref: ${quoteRef}%`);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -24,6 +26,25 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
+
+  // Overlap check
+  if (body.vehicle_id && body.pickup_date && body.return_date) {
+    const { data: conflicts } = await supabaseAdmin
+      .from("reservations")
+      .select("id")
+      .eq("vehicle_id", body.vehicle_id)
+      .not("status", "in", '("cancelled","voided","no_show")')
+      .lt("pickup_date", body.return_date)
+      .gt("return_date", body.pickup_date);
+
+    if (conflicts && conflicts.length > 0) {
+      return NextResponse.json(
+        { error: "This vehicle is already booked for those dates." },
+        { status: 409 }
+      );
+    }
+  }
+
   const deposit = parseFloat((body.total * 0.3).toFixed(2));
   const balance_due = parseFloat((body.total - deposit).toFixed(2));
 

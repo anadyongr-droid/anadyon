@@ -15,6 +15,26 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await req.json();
+
+  // Overlap check when a vehicle is assigned
+  if (body.vehicle_id && body.pickup_date && body.return_date) {
+    const { data: conflicts } = await supabaseAdmin
+      .from("reservations")
+      .select("id")
+      .eq("vehicle_id", body.vehicle_id)
+      .not("id", "eq", id)
+      .not("status", "in", '("cancelled","voided","no_show")')
+      .lt("pickup_date", body.return_date)
+      .gt("return_date", body.pickup_date);
+
+    if (conflicts && conflicts.length > 0) {
+      return NextResponse.json(
+        { error: "This vehicle is already booked for those dates." },
+        { status: 409 }
+      );
+    }
+  }
+
   const { data, error } = await supabaseAdmin
     .from("reservations")
     .update({ ...body, updated_at: new Date().toISOString() })

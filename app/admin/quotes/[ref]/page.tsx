@@ -65,6 +65,7 @@ export default function QuoteDetailPage() {
   const router = useRouter();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [pendingReservationId, setPendingReservationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
@@ -72,9 +73,14 @@ export default function QuoteDetailPage() {
     Promise.all([
       fetch(`/api/admin/quotes/${ref}`).then((r) => r.json()),
       fetch("/api/admin/vehicles").then((r) => r.json()),
-    ]).then(([q, v]) => {
+      fetch(`/api/admin/reservations?quote_ref=${ref}`).then((r) => r.json()),
+    ]).then(([q, v, reservations]) => {
       setQuote(q);
       setVehicles(v);
+      const pending = Array.isArray(reservations)
+        ? reservations.find((r: { status: string }) => r.status === "pending")
+        : null;
+      setPendingReservationId(pending?.id ?? null);
       setLoading(false);
     });
   }, [ref]);
@@ -210,8 +216,9 @@ export default function QuoteDetailPage() {
 
       {showModal && (
         <ReservationModal
+          reservationId={pendingReservationId ?? undefined}
           vehicles={vehicles.filter((v) => quote.vehicle_type?.toLowerCase().startsWith(v.category))}
-          initialValues={modalDefaults}
+          initialValues={pendingReservationId ? undefined : modalDefaults}
           onClose={() => setShowModal(false)}
           onSaved={() => { setShowModal(false); router.push("/admin/reservations"); }}
         />

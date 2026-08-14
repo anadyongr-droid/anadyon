@@ -53,6 +53,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const isEdit = !!reservationId;
 
   useEffect(() => {
@@ -129,6 +130,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
   async function handleSave() {
     if (!form.vehicle_id || !form.customer_name || !form.pickup_date || !form.return_date) return;
     setSaving(true);
+    setSaveError("");
     const payload = {
       ...form,
       rental_days: rentalDays,
@@ -139,8 +141,13 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
     };
     const url = isEdit ? `/api/admin/reservations/${reservationId}` : "/api/admin/reservations";
     const method = isEdit ? "PATCH" : "POST";
-    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     setSaving(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setSaveError(body.error ?? "Failed to save. Please try again.");
+      return;
+    }
     onSaved();
   }
 
@@ -338,6 +345,11 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
         </div>
 
         {/* Footer */}
+        {saveError && (
+          <div className="mx-6 mb-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
+            {saveError}
+          </div>
+        )}
         <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
           <div>
             {isEdit && (
