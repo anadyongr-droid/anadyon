@@ -132,6 +132,7 @@ export default function Cars() {
                 "Hyundai i10": "car_a",
                 "Hyundai i20": "car_b",
               }}
+              modelTransmissions={Object.fromEntries(models.map(m => [m.name, m.transmission]))}
             />
           </div>
         )}

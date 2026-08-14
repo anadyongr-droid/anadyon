@@ -27,7 +27,7 @@ const models = [
     seats: 2,
     engine: "125cc",
     transmission: "Automatic",
-    features: ["Underseat storage", "CBS brakes", "Suitable for longer rides"],
+    features: ["Underseat storage", "Top box storage", "CBS brakes", "Suitable for longer rides"],
     imagePadding: "p-4",
   },
 ];

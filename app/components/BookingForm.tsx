@@ -62,9 +62,10 @@ type Props = {
   models: string[];
   initialModel?: string;
   modelPricingGroups?: Record<string, string>;
+  modelTransmissions?: Record<string, string>;
 };
 
-export default function BookingForm({ vehicleType, models, initialModel, modelPricingGroups }: Props) {
+export default function BookingForm({ vehicleType, models, initialModel, modelPricingGroups, modelTransmissions }: Props) {
   const formRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<1 | 2>(1);
 
@@ -87,7 +88,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [dropoffLocation, setDropoffLocation] = useState(locations[0]);
   const [pickupTime, setPickupTime] = useState("09:00");
   const [dropoffTime, setDropoffTime] = useState("09:00");
-  const [transmission, setTransmission] = useState("Any");
+  const transmission = modelTransmissions?.[selectedModel] ?? null;
   const [driverAge, setDriverAge] = useState("26–65");
   const [babySeat, setBabySeat] = useState("0");
   const [childSeat, setChildSeat] = useState("0");
@@ -401,17 +402,6 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
               </div>
             </div>
 
-            {/* Transmission — cars only */}
-            {vehicleType === "Cars" && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Transmission</label>
-                <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={transmission} onChange={e => setTransmission(e.target.value)}>
-                  <option>Any</option>
-                  <option>Manual</option>
-                  <option>Automatic</option>
-                </select>
-              </div>
-            )}
 
             {/* Driver Age */}
             <div>
@@ -570,7 +560,10 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                     </p>
                   </div>
                 </div>
-                <p className="text-xs text-blue-500 dark:text-blue-400">Deposit €{deposit.toFixed(2)} due on confirmation</p>
+                {transmission && (
+                  <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">Transmission: <span className="font-semibold text-blue-700 dark:text-blue-300">{transmission}</span></p>
+                )}
+                <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">Deposit €{deposit.toFixed(2)} due on confirmation</p>
               </div>
             )}
 
