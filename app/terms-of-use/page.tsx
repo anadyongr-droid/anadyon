@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import ContentPage, { ContentCard } from "../components/ContentPage";
+
+export const metadata: Metadata = {
+  title: "Terms of Use | Anadyon Rentals",
+  description: "Terms of use for the Anadyon Rentals website.",
+  alternates: { canonical: "https://anadyon.gr/terms-of-use" },
+};
 
 export default function TermsOfUse() {
   return (

@@ -29,14 +29,14 @@ export default function Home() {
           <p className="text-base md:text-xl mb-8 text-white max-w-xl">
             Car, Motorbike and Bike rentals in Zakynthos
           </p>
-          <div className="flex flex-wrap gap-4 justify-center">
-            <a href="/cars" className="bg-white text-orange-600 font-semibold px-8 py-3 rounded-full hover:bg-orange-50 transition">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center w-full sm:w-auto">
+            <a href="/cars" className="bg-white text-orange-600 font-semibold px-8 py-3 rounded-full hover:bg-orange-50 transition text-center">
               Rent a Car
             </a>
-            <a href="/motorbikes" className="bg-white text-orange-600 font-semibold px-5 py-3 rounded-full hover:bg-orange-50 transition">
+            <a href="/motorbikes" className="bg-white text-orange-600 font-semibold px-8 py-3 rounded-full hover:bg-orange-50 transition text-center">
               Rent a Motorbike
             </a>
-            <a href="/bikes" className="bg-white text-orange-600 font-semibold px-8 py-3 rounded-full hover:bg-orange-50 transition">
+            <a href="/bikes" className="bg-white text-orange-600 font-semibold px-8 py-3 rounded-full hover:bg-orange-50 transition text-center">
               Rent a Bike
             </a>
           </div>

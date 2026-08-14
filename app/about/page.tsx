@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import ContentPage, { ContentCard } from "../components/ContentPage";
+
+export const metadata: Metadata = {
+  title: "About Us | Anadyon Rentals Zakynthos",
+  description: "Family-run vehicle rental company in Zakynthos since 2014. Cars, motorbikes and bikes — personal service, transparent pricing, no hidden fees.",
+  alternates: { canonical: "https://anadyon.gr/about" },
+};
 
 export default function About() {
   return (

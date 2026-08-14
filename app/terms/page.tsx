@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import ContentPage, { ContentCard } from "../components/ContentPage";
+
+export const metadata: Metadata = {
+  title: "Terms & Conditions | Anadyon Rentals",
+  description: "Vehicle rental terms and conditions for Anadyon Rentals, Zakynthos. Driver age, insurance, cancellation policy, and more.",
+  alternates: { canonical: "https://anadyon.gr/terms" },
+};
 
 export default function Terms() {
   return (

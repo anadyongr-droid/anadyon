@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import ContentPage, { ContentCard } from "../components/ContentPage";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy | Anadyon Rentals",
+  description: "How Anadyon Rentals collects, uses, and protects your personal data in accordance with GDPR.",
+  alternates: { canonical: "https://anadyon.gr/privacy-policy" },
+};
 
 export default function PrivacyPolicy() {
   return (
@@ -81,6 +88,11 @@ export default function PrivacyPolicy() {
                 <strong>Resend</strong> — our transactional email provider, used to send you booking confirmation emails.
                 See{" "}
                 <a href="https://resend.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline dark:text-blue-400">Resend&apos;s Privacy Policy</a>.
+              </li>
+              <li>
+                <strong>Supabase</strong> — our database and authentication provider, used to store quote and contact form submissions securely.
+                Data is processed within the EU (Ireland). See{" "}
+                <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline dark:text-blue-400">Supabase&apos;s Privacy Policy</a>.
               </li>
             </ul>
             <p className="mt-3 text-sm">We do not sell your personal data to any third party.</p>

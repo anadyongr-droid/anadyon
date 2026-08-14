@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { Menu, X } from "lucide-react";
 
@@ -12,31 +12,17 @@ const links = [
   { href: "/sights", label: "Zakynthos Sights" },
   { href: "/blog", label: "Blog" },
   { href: "/contact", label: "Contact" },
-  { href: "/quote", label: "My Rental" },
+  { href: "/quote", label: "Track My Booking" },
 ];
 
 export default function Header() {
   const [open, setOpen] = useState(false);
-  const logoRef = useRef<HTMLAnchorElement>(null);
-  const [navLeft, setNavLeft] = useState(16);
-
-  useEffect(() => {
-    function measure() {
-      if (logoRef.current) {
-        const rect = logoRef.current.getBoundingClientRect();
-        setNavLeft(rect.left);
-      }
-    }
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, []);
 
   return (
     <header className="bg-white dark:bg-gray-900 shadow-sm sticky top-0 z-40">
       {/* Logo row */}
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <a href="/" ref={logoRef}>
+        <a href="/">
           <Image
             src="/logo.jpg"
             alt="Anadyon Rentals"
@@ -56,17 +42,14 @@ export default function Header() {
         </button>
       </div>
 
-      {/* Desktop nav */}
+      {/* Desktop nav — aligned to the same content column as the logo */}
       <nav className="hidden md:block bg-orange-600 dark:bg-orange-700 w-full">
-        <div
-          className="flex"
-          style={{ paddingLeft: navLeft, paddingRight: 160 }}
-        >
+        <div className="max-w-6xl mx-auto px-4 flex">
           {links.map(l => (
             <a
               key={l.href}
               href={l.href}
-              className="flex-1 text-center text-sm font-semibold text-white py-3 hover:bg-orange-700 dark:hover:bg-orange-700 transition border-r border-orange-500 dark:border-orange-700 last:border-r-0"
+              className="flex-1 text-center text-sm font-semibold text-white py-3 hover:bg-orange-700 dark:hover:bg-orange-800 transition border-r border-orange-500 dark:border-orange-700 last:border-r-0"
             >
               {l.label}
             </a>
