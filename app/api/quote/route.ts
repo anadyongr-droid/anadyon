@@ -121,7 +121,9 @@ export async function POST(req: NextRequest) {
   // Persist with server-calculated values
   const expiresAt = new Date();
   expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-  await supabaseAdmin.from("quotes").insert({
+
+  await Promise.all([
+  supabaseAdmin.from("quotes").insert({
     ref,
     title,
     first_name: firstName,
@@ -157,7 +159,34 @@ export async function POST(req: NextRequest) {
     balance_due: balanceDue,
     comments: comments || null,
     expires_at: expiresAt.toISOString(),
-  });
+  }),
+  supabaseAdmin.from("reservations").insert({
+    vehicle_id: null,
+    customer_name: `${firstName} ${lastName}`,
+    customer_email: email,
+    customer_phone: mobileTel,
+    pickup_date: pickupDate,
+    pickup_time: pickupTime ?? "09:00",
+    return_date: dropoffDate,
+    return_time: dropoffTime ?? "09:00",
+    pickup_location: pickupLocation ?? null,
+    dropoff_location: dropoffLocation ?? null,
+    rental_days: rentalDays,
+    daily_rate: dailyRate,
+    vehicle_subtotal: vehicleSubtotal,
+    extras_subtotal: extrasSubtotal,
+    baby_seat: Number(babySeat) || 0,
+    child_seat: Number(childSeat) || 0,
+    fdw: !!fdw,
+    additional_drivers: Number(additionalDrivers) || 0,
+    total,
+    deposit,
+    balance_due: balanceDue,
+    status: "pending",
+    source: "website",
+    notes: `Quote ref: ${ref}${comments ? `. Customer notes: ${comments}` : ""}`,
+  }),
+  ]);
 
   const manipulationWarning = manipulated ? `
     <div style="background:#fff3cd;border:2px solid #ff9800;border-radius:8px;padding:16px;margin-bottom:20px;">
