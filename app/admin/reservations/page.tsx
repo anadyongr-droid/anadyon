@@ -14,6 +14,7 @@ interface Reservation {
   total: number;
   status: string;
   created_at?: string;
+  dcl_status?: string;
   vehicles?: { name: string; category: string };
 }
 
@@ -70,7 +71,7 @@ export default function ReservationsPage() {
 
       {/* Filter tabs */}
       <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
-        {["new", "all", "pending", "confirmed", "active", "returned", "cancelled"].map((s) => (
+        {["new", "all", "pending", "confirmed", "active", "returned", "cancelled", "no_show", "voided"].map((s) => (
           <button
             key={s}
             onClick={() => setFilter(s)}
@@ -78,7 +79,7 @@ export default function ReservationsPage() {
               filter === s ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
             }`}
           >
-            {s}
+            {s.replace("_", " ")}
           </button>
         ))}
       </div>
@@ -97,11 +98,12 @@ export default function ReservationsPage() {
                 <th className="text-center px-4 py-3 font-medium">Days</th>
                 <th className="text-right px-4 py-3 font-medium">Total</th>
                 <th className="text-center px-4 py-3 font-medium">Status</th>
+                <th className="text-center px-4 py-3 font-medium">DCL</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400 text-sm">No reservations found.</td></tr>
+                <tr><td colSpan={8} className="px-5 py-8 text-center text-gray-400 text-sm">No reservations found.</td></tr>
               )}
               {filtered.map((r) => (
                 <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition cursor-pointer"
@@ -117,8 +119,19 @@ export default function ReservationsPage() {
                   <td className="px-4 py-3 text-right font-medium text-gray-900">€{r.total}</td>
                   <td className="px-4 py-3 text-center">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_COLORS[r.status]}`}>
-                      {r.status}
+                      {r.status.replace("_", " ")}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {r.dcl_status && r.dcl_status !== "not_submitted" && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                        r.dcl_status === "submitted" ? "bg-green-100 text-green-700" :
+                        r.dcl_status === "error" ? "bg-red-100 text-red-600" :
+                        "bg-yellow-100 text-yellow-700"
+                      }`}>
+                        {r.dcl_status === "submitted" ? "✓" : r.dcl_status === "error" ? "!" : "…"}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

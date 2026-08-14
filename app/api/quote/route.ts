@@ -67,6 +67,19 @@ export async function POST(req: NextRequest) {
     extrasLines,
   } = body;
 
+  // DNR check — block if customer's email is flagged
+  if (email) {
+    const { data: dnr } = await supabaseAdmin
+      .from("customers")
+      .select("id, dnr_reason")
+      .eq("do_not_rent", true)
+      .ilike("email", email.trim())
+      .maybeSingle();
+    if (dnr) {
+      return NextResponse.json({ error: "We are unable to process your request at this time. Please contact us directly." }, { status: 403 });
+    }
+  }
+
   // Server-side verification — recalculate independently from DB
   const [{ data: rates }, { data: extrasConfig }] = await Promise.all([
     supabaseAdmin.from("rates").select("*"),

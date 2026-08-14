@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LayoutGrid, CalendarDays, Car, Settings, LogOut, BarChart3, FileText, Users } from "lucide-react";
+import { LayoutGrid, CalendarDays, Car, Settings, LogOut, BarChart3, FileText, Users, Tag, Percent } from "lucide-react";
 import { createBrowserClient } from "@supabase/ssr";
 
 function createClient() {
@@ -17,9 +17,12 @@ const allNav = [
   { href: "/admin/calendar",      label: "Calendar",     icon: CalendarDays, adminOnly: false },
   { href: "/admin/reservations",  label: "Reservations", icon: LayoutGrid,   adminOnly: false },
   { href: "/admin/quotes",        label: "Quotes",       icon: FileText,     adminOnly: false },
-  { href: "/admin/clients",       label: "Clients",      icon: Users,        adminOnly: false },
-  { href: "/admin/fleet",         label: "Fleet",        icon: Car,          adminOnly: true  },
-  { href: "/admin/rates",         label: "Rates",        icon: Settings,     adminOnly: true  },
+  { href: "/admin/clients",        label: "Clients",         icon: Users,    adminOnly: false },
+  { href: "/admin/customers",     label: "Customers (CRM)", icon: Users,    adminOnly: false },
+  { href: "/admin/fleet",         label: "Fleet",           icon: Car,      adminOnly: true  },
+  { href: "/admin/rates",         label: "Rates",           icon: Settings, adminOnly: true  },
+  { href: "/admin/promo-codes",   label: "Promo Codes",     icon: Tag,      adminOnly: true  },
+  { href: "/admin/discount-rules",label: "Discounts",       icon: Percent,  adminOnly: true  },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

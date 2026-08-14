@@ -4,4 +4,6 @@ export const STATUS_COLORS: Record<string, string> = {
   active:    "bg-green-100 text-green-800",
   returned:  "bg-gray-100 text-gray-600",
   cancelled: "bg-red-100 text-red-600",
+  no_show:   "bg-orange-100 text-orange-700",
+  voided:    "bg-gray-100 text-gray-400",
 };

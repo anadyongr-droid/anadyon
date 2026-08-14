@@ -22,7 +22,7 @@ interface Props {
   onSaved: () => void;
 }
 
-const STATUS_OPTIONS = ["pending", "confirmed", "active", "returned", "cancelled"];
+const STATUS_OPTIONS = ["pending", "confirmed", "active", "returned", "cancelled", "no_show", "voided"];
 const LOCATIONS = ["Airport", "Port (Zakynthos town)", "Our Office"];
 
 const EMPTY_FORM = {
@@ -44,6 +44,9 @@ const EMPTY_FORM = {
   additional_drivers: 0,
   status: "confirmed",
   notes: "",
+  discount_amount: 0,
+  discount_reason: "",
+  dcl_status: "not_submitted",
 };
 
 export default function ReservationModal({ vehicleId, date, reservationId, initialValues, vehicles, onClose, onSaved }: Props) {
@@ -55,6 +58,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
   const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [conflictWarning, setConflictWarning] = useState("");
+  const [originalStatus, setOriginalStatus] = useState("");
   const isEdit = !!reservationId;
 
   useEffect(() => {
@@ -87,7 +91,11 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             additional_drivers: data.additional_drivers,
             status: data.status,
             notes: data.notes ?? "",
+            discount_amount: data.discount_amount ?? 0,
+            discount_reason: data.discount_reason ?? "",
+            dcl_status: data.dcl_status ?? "not_submitted",
           });
+          setOriginalStatus(data.status);
           setLoading(false);
         });
     } else {
@@ -145,7 +153,8 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
         additional_drivers: form.additional_drivers,
       }, rentalDays)
     : 0;
-  const total = parseFloat((vehicleSubtotal + extrasSubtotal).toFixed(2));
+  const discount = parseFloat(String(form.discount_amount || 0));
+  const total = parseFloat((vehicleSubtotal + extrasSubtotal - discount).toFixed(2));
   const deposit = parseFloat((total * DEPOSIT_RATE).toFixed(2));
   const balanceDue = parseFloat((total - deposit).toFixed(2));
 
@@ -164,6 +173,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
       vehicle_subtotal: vehicleSubtotal,
       extras_subtotal: extrasSubtotal,
       total,
+      ...(isEdit && originalStatus ? { _prev_status: originalStatus } : {}),
     };
     const url = isEdit ? `/api/admin/reservations/${reservationId}` : "/api/admin/reservations";
     const method = isEdit ? "PATCH" : "POST";
@@ -339,6 +349,12 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
                     <span>€{extrasSubtotal.toFixed(2)}</span>
                   </div>
                 )}
+                {discount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Discount{form.discount_reason ? ` (${form.discount_reason})` : ""}</span>
+                    <span>−€{discount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="border-t border-gray-200 pt-1.5 flex justify-between font-bold text-gray-900">
                   <span>Total</span>
                   <span>€{total.toFixed(2)}</span>
@@ -360,13 +376,39 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
             <select value={form.status} onChange={(e) => set("status", e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm capitalize">
-              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
             <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none" />
+          </div>
+          {/* Discount */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Discount (€)</label>
+            <input type="number" min="0" step="0.01" value={form.discount_amount || ""}
+              onChange={(e) => set("discount_amount", parseFloat(e.target.value) || 0)}
+              placeholder="0.00"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Discount reason</label>
+            <input type="text" value={form.discount_reason} onChange={(e) => set("discount_reason", e.target.value)}
+              placeholder="e.g. Loyalty, Promo code"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+          </div>
+          {/* AADE DCL status */}
+          <div className="col-span-2">
+            <label className="block text-xs font-medium text-gray-600 mb-1">AADE Digital Client List (DCL)</label>
+            <select value={(form as { dcl_status?: string }).dcl_status ?? "not_submitted"}
+              onChange={(e) => set("dcl_status", e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+              <option value="not_submitted">Not submitted</option>
+              <option value="pending">Pending submission</option>
+              <option value="submitted">Submitted</option>
+              <option value="error">Submission error</option>
+            </select>
           </div>
         </div>
 

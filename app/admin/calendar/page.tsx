@@ -29,6 +29,8 @@ const STATUS_COLORS: Record<string, string> = {
   active:    "bg-green-500 text-white",
   returned:  "bg-gray-400 text-white",
   cancelled: "bg-red-300 text-red-900 line-through opacity-60",
+  no_show:   "bg-orange-400 text-white opacity-70",
+  voided:    "bg-gray-200 text-gray-400 line-through opacity-50",
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
