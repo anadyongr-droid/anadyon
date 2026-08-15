@@ -70,16 +70,21 @@ export async function POST(req: NextRequest) {
     extrasLines,
   } = body;
 
-  // DNR check — block if customer's email is flagged
+  // DNR check — block if customer's email is flagged; also touch last_interaction_at
   if (email) {
-    const { data: dnr } = await supabaseAdmin
+    const { data: existing } = await supabaseAdmin
       .from("customers")
-      .select("id, dnr_reason")
-      .eq("do_not_rent", true)
+      .select("id, do_not_rent, dnr_reason")
       .ilike("email", email.trim())
       .maybeSingle();
-    if (dnr) {
+    if (existing?.do_not_rent) {
       return NextResponse.json({ error: "We are unable to process your request at this time. Please contact us directly." }, { status: 403 });
+    }
+    if (existing?.id) {
+      await supabaseAdmin
+        .from("customers")
+        .update({ last_interaction_at: new Date().toISOString() })
+        .eq("id", existing.id);
     }
   }
 

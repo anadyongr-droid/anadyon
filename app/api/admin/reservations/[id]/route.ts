@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { Resend } from "resend";
 
+async function touchCustomer(customerId: string | null | undefined) {
+  if (!customerId) return;
+  await supabaseAdmin
+    .from("customers")
+    .update({ last_interaction_at: new Date().toISOString() })
+    .eq("id", customerId);
+}
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -45,6 +53,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .select("*, vehicles(name, category)")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await touchCustomer(data.customer_id ?? body.customer_id);
 
   // Status-change emails to customer
   const prevStatus = body._prev_status;

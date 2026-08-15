@@ -23,6 +23,7 @@ interface Customer {
   notes: string;
   created_at: string;
   updated_at: string;
+  last_interaction_at: string | null;
 }
 
 export default function CustomersPage() {
@@ -80,13 +81,14 @@ export default function CustomersPage() {
                 <th className="text-left px-4 py-3 font-medium">Phone</th>
                 <th className="text-left px-4 py-3 font-medium">Nationality</th>
                 <th className="text-left px-4 py-3 font-medium">Licence no.</th>
+                <th className="text-left px-4 py-3 font-medium">Last contact</th>
                 <th className="text-left px-4 py-3 font-medium">Added</th>
                 <th className="text-center px-4 py-3 font-medium">DNR</th>
               </tr>
             </thead>
             <tbody>
               {customers.length === 0 && (
-                <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400 text-sm">No customers found.</td></tr>
+                <tr><td colSpan={8} className="px-5 py-8 text-center text-gray-400 text-sm">No customers found.</td></tr>
               )}
               {customers.map((c) => (
                 <tr
@@ -108,6 +110,11 @@ export default function CustomersPage() {
                   <td className="px-4 py-3 text-gray-600">{c.phone ?? "—"}</td>
                   <td className="px-4 py-3 text-gray-600">{c.nationality ?? "—"}</td>
                   <td className="px-4 py-3 text-gray-600 font-mono text-xs">{c.driving_licence_number ?? "—"}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">
+                    {c.last_interaction_at
+                      ? new Date(c.last_interaction_at).toLocaleDateString("el-GR")
+                      : <span className="text-gray-300">—</span>}
+                  </td>
                   <td className="px-4 py-3 text-gray-400 text-xs">
                     {new Date(c.created_at).toLocaleDateString("el-GR")}
                   </td>

@@ -98,4 +98,7 @@ ALTER TABLE reservations ADD COLUMN IF NOT EXISTS invoice_aa integer;
 -- 10. Customer VAT number (needed for B2B invoicing)
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS vat_number text;
 
+-- 11. Last interaction timestamp (auto-updated on reservation create/update and quote submission)
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_interaction_at timestamptz;
+
 -- Done!
