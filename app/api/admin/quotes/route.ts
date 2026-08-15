@@ -13,7 +13,7 @@ export async function GET() {
   // Build a map from quote ref → best reservation status
   const refStatusMap: Record<string, string> = {};
   for (const r of reservations ?? []) {
-    const match = String(r.notes ?? "").match(/^Quote ref: ([A-Z0-9]+)/);
+    const match = String(r.notes ?? "").match(/^Quote ref: ([A-Z0-9-]+)/);
     if (!match) continue;
     const ref = match[1];
     const prev = refStatusMap[ref];
