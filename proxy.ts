@@ -1,17 +1,35 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 
-// Pages staff can access (exact page, or a nested route beneath it)
-const STAFF_PAGES = ["/admin", "/admin/calendar", "/admin/reservations"];
-// API routes staff can call
-const STAFF_API = ["/api/admin/reservations"];
+// Pages staff can access (exact page, or a nested route beneath it).
+// Must mirror the `adminOnly: false` entries in app/admin/AdminLayoutClient.tsx.
+// Never add a bare "/admin" here — "/admin/" prefix-matches every admin page.
+const STAFF_PAGES = [
+  "/admin/calendar",
+  "/admin/reservations",
+  "/admin/quotes",
+  "/admin/customers",
+  "/admin/inbox",
+];
+
+// API routes staff can call — the data those pages need to function.
+// Deliberately excludes /api/admin/aade, /invoices, /sms, /stripe and /stats.
+const STAFF_API = [
+  "/api/admin/reservations",
+  "/api/admin/vehicles",
+  "/api/admin/quotes",
+  "/api/admin/customers",
+  "/api/admin/emails",
+  "/api/admin/documents",
+];
 
 // Header used to hand the resolved role to server components. Stripped from the
 // incoming request first so a client cannot spoof it.
 const ROLE_HEADER = "x-anadyon-role";
 
-function isAllowedPage(pathname: string) {
-  return STAFF_PAGES.some(p => pathname === p || (p !== "/admin" && pathname.startsWith(p + "/")));
+// Exact segment match: "/x" matches "/x" and "/x/…" but never "/xyz".
+function matchesAny(pathname: string, allowed: string[]) {
+  return allowed.some(p => pathname === p || pathname.startsWith(p + "/"));
 }
 
 export async function proxy(req: NextRequest) {
@@ -97,9 +115,10 @@ export async function proxy(req: NextRequest) {
 
   if (role !== "admin") {
     if (pathname.startsWith("/api/admin/")) {
-      const allowed = STAFF_API.some(p => pathname.startsWith(p));
-      if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    } else if (!isAllowedPage(pathname)) {
+      if (!matchesAny(pathname, STAFF_API)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else if (!matchesAny(pathname, STAFF_PAGES)) {
       const url = req.nextUrl.clone();
       url.pathname = "/admin/reservations";
       return NextResponse.redirect(url);
