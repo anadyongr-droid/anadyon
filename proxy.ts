@@ -87,16 +87,6 @@ export async function proxy(req: NextRequest) {
     }
   }
 
-  // TEMPORARY DIAGNOSTIC — reports only the caller's own resolved role. Remove after verification.
-  if (pathname === "/api/admin/rolecheck-diag") {
-    return NextResponse.json({
-      resolvedRole: role,
-      jwtRole: user.app_metadata?.role ?? null,
-      email: user.email,
-      userId: user.id,
-    });
-  }
-
   // Enforce MFA: all admin users must have a TOTP factor enrolled and verified
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   const { data: factors } = await supabase.auth.mfa.listFactors();

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { Mail, RefreshCw, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Mail, RefreshCw, CheckCircle, XCircle, Download } from "lucide-react";
 
 interface Email {
   id: string;
@@ -29,6 +29,8 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<(typeof STATUS_TABS)[number]>("open");
   const [updating, setUpdating] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncNote, setSyncNote] = useState<{ ok: boolean; text: string } | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -50,6 +52,26 @@ export default function InboxPage() {
     load();
   };
 
+  const syncNow = async () => {
+    setSyncing(true);
+    setSyncNote(null);
+    try {
+      const res = await fetch("/api/admin/emails/sync", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setSyncNote({ ok: false, text: data.error ?? "Sync failed. Check Gmail is connected in Settings." });
+      } else if (data.inserted === 0) {
+        setSyncNote({ ok: true, text: "No new email." });
+      } else {
+        setSyncNote({ ok: true, text: `${data.inserted} new email${data.inserted === 1 ? "" : "s"} imported.` });
+        load();
+      }
+    } catch {
+      setSyncNote({ ok: false, text: "Could not reach the server." });
+    }
+    setSyncing(false);
+  };
+
   const urgencyLabel = (u: number) =>
     u === 3 ? "Urgent" : u === 2 ? "Normal" : "Low";
 
@@ -60,12 +82,27 @@ export default function InboxPage() {
           <Mail size={20} className="text-blue-600" />
           <h1 className="text-xl font-bold text-gray-900">Inbox</h1>
         </div>
-        <button
-          onClick={load}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
-        >
-          <RefreshCw size={14} /> Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          {syncNote && (
+            <span className={`text-xs ${syncNote.ok ? "text-gray-500" : "text-red-600"}`}>
+              {syncNote.text}
+            </span>
+          )}
+          <button
+            onClick={load}
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+          >
+            <RefreshCw size={14} /> Refresh
+          </button>
+          <button
+            onClick={syncNow}
+            disabled={syncing}
+            className="flex items-center gap-1.5 text-sm font-medium text-white bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition"
+          >
+            <Download size={14} className={syncing ? "animate-pulse" : ""} />
+            {syncing ? "Syncing…" : "Sync now"}
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}

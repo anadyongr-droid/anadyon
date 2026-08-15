@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendTelegram } from "@/lib/telegram";
+import { syncEmails } from "@/lib/emailSync";
 
 // Runs daily at 08:00 Greece time (06:00 UTC in winter / 05:00 UTC in summer)
 // Vercel cron configured in vercel.json
@@ -8,6 +9,16 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Pull and classify new mail first, so the briefing's email count is current.
+  // The Vercel Hobby plan allows a single daily cron, so this is also the only
+  // scheduled Gmail sync — a failure here must not block the briefing.
+  let sync = null;
+  try {
+    sync = await syncEmails();
+  } catch (err) {
+    console.error("morning-briefing: email sync failed", err);
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -21,7 +32,7 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   if (existing) {
-    return NextResponse.json({ ok: true, skipped: true });
+    return NextResponse.json({ ok: true, skipped: true, sync });
   }
 
   // Today's pickups
@@ -81,5 +92,5 @@ export async function GET(req: NextRequest) {
     sent_at: new Date().toISOString(),
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, sync });
 }
