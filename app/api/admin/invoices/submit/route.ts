@@ -107,6 +107,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Claim submission atomically — returns false if already issued/issuing
+  const { data: claimed } = await supabaseAdmin.rpc("claim_invoice_submission", { p_reservation_id: id });
+  if (claimed === false) {
+    return NextResponse.json({ error: "Invoice already issued for this reservation" }, { status: 409 });
+  }
+
   const { data: res, error } = await supabaseAdmin
     .from("reservations")
     .select("*, customers(first_name, last_name, vat_number, country)")
@@ -115,15 +121,9 @@ export async function POST(req: NextRequest) {
 
   if (error || !res) return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
 
-  // Auto-increment invoice number within the series for this company
-  const { count } = await supabaseAdmin
-    .from("reservations")
-    .select("id", { count: "exact", head: true })
-    .eq("invoice_series", series)
-    .not("invoice_mark", "is", null);
-
-  const aa = (count ?? 0) + 1;
-  const xml = buildInvoiceXml(res as Reservation, series, aa);
+  // Get the next invoice serial number atomically (row-level lock prevents duplicates)
+  const { data: aa } = await supabaseAdmin.rpc("next_invoice_aa", { p_series: series });
+  const xml = buildInvoiceXml(res as Reservation, series, aa ?? 1);
 
   let aadeRes: Response;
   try {

@@ -81,6 +81,11 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(data, { status: 201 });
 }
 
+function esc(v: unknown): string {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 function buildEmailHtml(r: Record<string, unknown> & { vehicles?: { name: string } }) {
   const extras: string[] = [];
   if (r.gps) extras.push(`GPS Navigation — €5.00/day`);
@@ -92,21 +97,21 @@ function buildEmailHtml(r: Record<string, unknown> & { vehicles?: { name: string
   return `
     <h2>New Reservation</h2>
     <table cellpadding="6" style="border-collapse:collapse;">
-      <tr><td><strong>Vehicle:</strong></td><td>${(r.vehicles as { name: string } | undefined)?.name ?? ""}</td></tr>
-      <tr><td><strong>Customer:</strong></td><td>${r.customer_name}</td></tr>
-      <tr><td><strong>Email:</strong></td><td>${r.customer_email ?? "—"}</td></tr>
-      <tr><td><strong>Phone:</strong></td><td>${r.customer_phone ?? "—"}</td></tr>
-      <tr><td><strong>Pick-up:</strong></td><td>${r.pickup_date} at ${r.pickup_time}</td></tr>
-      <tr><td><strong>Return:</strong></td><td>${r.return_date} at ${r.return_time}</td></tr>
-      <tr><td><strong>Days:</strong></td><td>${r.rental_days}</td></tr>
-      <tr><td><strong>Daily rate:</strong></td><td>€${r.daily_rate}</td></tr>
-      <tr><td><strong>Vehicle subtotal:</strong></td><td>€${r.vehicle_subtotal}</td></tr>
+      <tr><td><strong>Vehicle:</strong></td><td>${esc((r.vehicles as { name: string } | undefined)?.name)}</td></tr>
+      <tr><td><strong>Customer:</strong></td><td>${esc(r.customer_name)}</td></tr>
+      <tr><td><strong>Email:</strong></td><td>${esc(r.customer_email ?? "—")}</td></tr>
+      <tr><td><strong>Phone:</strong></td><td>${esc(r.customer_phone ?? "—")}</td></tr>
+      <tr><td><strong>Pick-up:</strong></td><td>${esc(r.pickup_date)} at ${esc(r.pickup_time)}</td></tr>
+      <tr><td><strong>Return:</strong></td><td>${esc(r.return_date)} at ${esc(r.return_time)}</td></tr>
+      <tr><td><strong>Days:</strong></td><td>${esc(r.rental_days)}</td></tr>
+      <tr><td><strong>Daily rate:</strong></td><td>€${esc(r.daily_rate)}</td></tr>
+      <tr><td><strong>Vehicle subtotal:</strong></td><td>€${esc(r.vehicle_subtotal)}</td></tr>
       ${extras.length ? `<tr><td><strong>Extras:</strong></td><td>${extras.join("<br/>")}</td></tr>` : ""}
-      <tr><td><strong>Extras subtotal:</strong></td><td>€${r.extras_subtotal}</td></tr>
-      <tr><td><strong>Total:</strong></td><td><strong>€${r.total}</strong></td></tr>
-      <tr><td><strong>Deposit (30%):</strong></td><td>€${r.deposit}</td></tr>
-      <tr><td><strong>Balance due:</strong></td><td>€${r.balance_due}</td></tr>
-      ${r.notes ? `<tr><td><strong>Notes:</strong></td><td>${r.notes}</td></tr>` : ""}
+      <tr><td><strong>Extras subtotal:</strong></td><td>€${esc(r.extras_subtotal)}</td></tr>
+      <tr><td><strong>Total:</strong></td><td><strong>€${esc(r.total)}</strong></td></tr>
+      <tr><td><strong>Deposit (30%):</strong></td><td>€${esc(r.deposit)}</td></tr>
+      <tr><td><strong>Balance due:</strong></td><td>€${esc(r.balance_due)}</td></tr>
+      ${r.notes ? `<tr><td><strong>Notes:</strong></td><td>${esc(r.notes)}</td></tr>` : ""}
     </table>
   `;
 }

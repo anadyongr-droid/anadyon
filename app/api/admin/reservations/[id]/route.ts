@@ -82,19 +82,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   return NextResponse.json(data);
 }
 
+function esc(v: unknown): string {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 function buildConfirmedEmail(r: Record<string, unknown> & { vehicles?: { name: string } }) {
   return `
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
       <h2 style="color:#1e3a5f">Reservation Confirmed</h2>
-      <p>Dear ${r.customer_name},</p>
+      <p>Dear ${esc(r.customer_name)},</p>
       <p>Your reservation with Anadyon Rentals is confirmed. Please arrange your deposit payment to secure your booking.</p>
       <table cellpadding="6" style="border-collapse:collapse;margin:16px 0">
-        <tr><td style="color:#666">Vehicle:</td><td><strong>${(r.vehicles as { name: string } | undefined)?.name ?? ""}</strong></td></tr>
-        <tr><td style="color:#666">Pick-up:</td><td>${r.pickup_date} at ${r.pickup_time} — ${r.pickup_location}</td></tr>
-        <tr><td style="color:#666">Return:</td><td>${r.return_date} at ${r.return_time}</td></tr>
-        <tr><td style="color:#666">Total:</td><td><strong>€${r.total}</strong></td></tr>
-        <tr><td style="color:#666">Deposit (30%):</td><td>€${r.deposit}</td></tr>
-        <tr><td style="color:#666">Balance at pick-up:</td><td>€${r.balance_due}</td></tr>
+        <tr><td style="color:#666">Vehicle:</td><td><strong>${esc((r.vehicles as { name: string } | undefined)?.name)}</strong></td></tr>
+        <tr><td style="color:#666">Pick-up:</td><td>${esc(r.pickup_date)} at ${esc(r.pickup_time)} — ${esc(r.pickup_location)}</td></tr>
+        <tr><td style="color:#666">Return:</td><td>${esc(r.return_date)} at ${esc(r.return_time)}</td></tr>
+        <tr><td style="color:#666">Total:</td><td><strong>€${esc(r.total)}</strong></td></tr>
+        <tr><td style="color:#666">Deposit (30%):</td><td>€${esc(r.deposit)}</td></tr>
+        <tr><td style="color:#666">Balance at pick-up:</td><td>€${esc(r.balance_due)}</td></tr>
       </table>
       <p>To pay your deposit, please contact us at <a href="mailto:customerservice@anadyon.gr">customerservice@anadyon.gr</a> or call us directly.</p>
       <p>Thank you for choosing Anadyon Rentals!</p>
@@ -106,13 +111,13 @@ function buildActiveEmail(r: Record<string, unknown> & { vehicles?: { name: stri
   return `
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
       <h2 style="color:#1e3a5f">Your Vehicle Is Ready</h2>
-      <p>Dear ${r.customer_name},</p>
+      <p>Dear ${esc(r.customer_name)},</p>
       <p>Your vehicle is ready for pick-up today. We look forward to welcoming you!</p>
       <table cellpadding="6" style="border-collapse:collapse;margin:16px 0">
-        <tr><td style="color:#666">Vehicle:</td><td><strong>${(r.vehicles as { name: string } | undefined)?.name ?? ""}</strong></td></tr>
-        <tr><td style="color:#666">Pick-up:</td><td>${r.pickup_date} at ${r.pickup_time} — ${r.pickup_location}</td></tr>
-        <tr><td style="color:#666">Return:</td><td>${r.return_date} at ${r.return_time}</td></tr>
-        <tr><td style="color:#666">Balance due:</td><td><strong>€${r.balance_due}</strong></td></tr>
+        <tr><td style="color:#666">Vehicle:</td><td><strong>${esc((r.vehicles as { name: string } | undefined)?.name)}</strong></td></tr>
+        <tr><td style="color:#666">Pick-up:</td><td>${esc(r.pickup_date)} at ${esc(r.pickup_time)} — ${esc(r.pickup_location)}</td></tr>
+        <tr><td style="color:#666">Return:</td><td>${esc(r.return_date)} at ${esc(r.return_time)}</td></tr>
+        <tr><td style="color:#666">Balance due:</td><td><strong>€${esc(r.balance_due)}</strong></td></tr>
       </table>
       <p>Please bring a valid driving licence and the balance payment. See you soon!</p>
       <p>Anadyon Rentals</p>

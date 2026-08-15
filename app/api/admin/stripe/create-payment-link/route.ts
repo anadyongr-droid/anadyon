@@ -47,10 +47,11 @@ export async function POST(req: NextRequest) {
     cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/admin/reservations/${res.id}?deposit=cancelled`,
   });
 
-  // Store the payment intent
+  // Store the payment intent ID (may be null for some payment methods — store session ID as fallback)
+  const piId = typeof session.payment_intent === "string" ? session.payment_intent : session.id;
   await supabaseAdmin
     .from("reservations")
-    .update({ stripe_payment_intent: session.payment_intent as string })
+    .update({ stripe_payment_intent: piId })
     .eq("id", res.id);
 
   return NextResponse.json({ checkoutUrl: session.url, sessionId: session.id });

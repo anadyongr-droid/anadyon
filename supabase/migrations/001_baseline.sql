@@ -5,6 +5,20 @@
 
 -- ─── Core tables ─────────────────────────────────────────────
 
+-- promo_codes must be created BEFORE reservations due to the FK reference
+CREATE TABLE IF NOT EXISTS promo_codes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  code text UNIQUE NOT NULL,
+  description text,
+  type text NOT NULL DEFAULT 'percentage' CHECK (type IN ('percentage','fixed')),
+  value numeric NOT NULL,
+  max_uses integer,
+  used_count integer DEFAULT 0,
+  expires_at date,
+  active boolean DEFAULT true,
+  created_at timestamptz DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS vehicles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -174,19 +188,6 @@ CREATE TABLE IF NOT EXISTS extras_config (
   daily_rate numeric(10,2) NOT NULL,
   enabled boolean DEFAULT true,
   updated_at timestamptz DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS promo_codes (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code text UNIQUE NOT NULL,
-  description text,
-  type text NOT NULL DEFAULT 'percentage' CHECK (type IN ('percentage','fixed')),
-  value numeric NOT NULL,
-  max_uses integer,
-  used_count integer DEFAULT 0,
-  expires_at date,
-  active boolean DEFAULT true,
-  created_at timestamptz DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS discount_rules (

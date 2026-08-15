@@ -101,10 +101,10 @@ export default function SetupMFA() {
               <li>Enter the 6-digit code the app shows</li>
             </ol>
 
-            <div
-              className="flex justify-center rounded-lg border border-gray-200 p-3 bg-white"
-              dangerouslySetInnerHTML={{ __html: qrCode }}
-            />
+            <div className="flex justify-center rounded-lg border border-gray-200 p-3 bg-white">
+              {/* Supabase returns an SVG data URI — render as <img> to avoid inline HTML injection */}
+              <img src={qrCode} alt="MFA QR Code" width={180} height={180} />
+            </div>
 
             <details className="text-xs text-gray-400">
               <summary className="cursor-pointer select-none hover:text-gray-600">

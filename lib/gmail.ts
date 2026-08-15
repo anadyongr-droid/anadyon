@@ -10,13 +10,16 @@ export function createOAuthClient() {
   return new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 }
 
-export function getAuthUrl(): string {
+export function getAuthUrl(): { url: string; state: string } {
   const client = createOAuthClient();
-  return client.generateAuthUrl({
+  const state = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  const url = client.generateAuthUrl({
     access_type: "offline",
     scope: SCOPES,
     prompt: "consent",
+    state,
   });
+  return { url, state };
 }
 
 export async function getStoredTokens() {

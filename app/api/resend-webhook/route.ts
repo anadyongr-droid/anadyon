@@ -57,20 +57,24 @@ async function handleEvent(payload: { type: string; data: Record<string, unknown
     "email.complained": "🚩 Spam Complaint",
   };
 
+  const esc = (v: unknown) =>
+    String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
   const to = String(data.to ?? "unknown");
   const subject = String(data.subject ?? "unknown");
   const createdAt = String(data.created_at ?? new Date().toISOString());
+  const label = esc(labels[type] ?? type);
 
   await resend.emails.send({
     from: "Anadyon Alerts <customerservice@anadyon.gr>",
     to: ["anadyon.gr@gmail.com"],
     subject: `${labels[type]} — ${to}`,
     html: `
-      <h2>${labels[type]}</h2>
+      <h2>${label}</h2>
       <table cellpadding="6" style="border-collapse:collapse;">
-        <tr><td><strong>Event:</strong></td><td>${type}</td></tr>
-        <tr><td><strong>To:</strong></td><td>${to}</td></tr>
-        <tr><td><strong>Subject:</strong></td><td>${subject}</td></tr>
+        <tr><td><strong>Event:</strong></td><td>${esc(type)}</td></tr>
+        <tr><td><strong>To:</strong></td><td>${esc(to)}</td></tr>
+        <tr><td><strong>Subject:</strong></td><td>${esc(subject)}</td></tr>
         <tr><td><strong>Time:</strong></td><td>${new Date(createdAt).toLocaleString("en-GB", { timeZone: "Europe/Athens" })}</td></tr>
       </table>
       <p style="color:#888;font-size:12px;">Check the <a href="https://resend.com/emails">Resend dashboard</a> for full details.</p>
