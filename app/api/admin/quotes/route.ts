@@ -2,31 +2,32 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET() {
-  const { data, error } = await supabaseAdmin
-    .from("quotes")
-    .select("*, reservations(status)")
-    .order("created_at", { ascending: false });
+  // Fetch quotes and all reservations in parallel
+  const [{ data: quotes, error }, { data: reservations }] = await Promise.all([
+    supabaseAdmin.from("quotes").select("*").order("created_at", { ascending: false }),
+    supabaseAdmin.from("reservations").select("status, notes"),
+  ]);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Derive a single representative status per quote
-  const rows = (data ?? []).map((q) => {
-    const reservations: { status: string }[] = Array.isArray(q.reservations) ? q.reservations : [];
-    let quoteStatus = "new";
-    if (reservations.length > 0) {
-      const active = reservations.find((r) => r.status === "active");
-      const confirmed = reservations.find((r) => r.status === "confirmed");
-      const returned = reservations.find((r) => r.status === "returned");
-      const pending = reservations.find((r) => r.status === "pending");
-      const cancelled = reservations.every((r) => ["cancelled", "voided", "no_show"].includes(r.status));
-      if (returned) quoteStatus = "returned";
-      else if (active) quoteStatus = "active";
-      else if (confirmed) quoteStatus = "confirmed";
-      else if (pending) quoteStatus = "pending";
-      else if (cancelled) quoteStatus = "cancelled";
+  // Build a map from quote ref → best reservation status
+  const refStatusMap: Record<string, string> = {};
+  for (const r of reservations ?? []) {
+    const match = String(r.notes ?? "").match(/^Quote ref: ([A-Z0-9]+)/);
+    if (!match) continue;
+    const ref = match[1];
+    const prev = refStatusMap[ref];
+    // Priority: returned > active > confirmed > pending > cancelled
+    const priority = ["cancelled", "voided", "no_show", "pending", "confirmed", "active", "returned"];
+    if (!prev || priority.indexOf(r.status) > priority.indexOf(prev)) {
+      refStatusMap[ref] = r.status;
     }
-    return { ...q, quote_status: quoteStatus };
-  });
+  }
+
+  const rows = (quotes ?? []).map((q) => ({
+    ...q,
+    quote_status: refStatusMap[q.ref] ?? "new",
+  }));
 
   return NextResponse.json(rows);
 }
