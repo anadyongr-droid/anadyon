@@ -145,7 +145,7 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
               {["Mr", "Mrs", "Ms", "Miss", "Dr", "Prof"].map((t) => <option key={t}>{t}</option>)}
             </select>
           </Field>
-          <Field label="First name *">
+          <Field label="First name">
             <input type="text" value={form.first_name} onChange={(e) => set("first_name", e.target.value)} className={inputCls} />
           </Field>
           <Field label="Surname">
