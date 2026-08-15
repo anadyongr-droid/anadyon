@@ -75,7 +75,7 @@ export async function proxy(req: NextRequest) {
   }
 
   // TEMPORARY DIAGNOSTIC — proves the role header reaches server-side handlers. Remove after verification.
-  if (pathname === "/api/admin/__headercheck") {
+  if (pathname === "/api/admin/headercheck-diag") {
     requestHeaders.set(ROLE_HEADER, role);
     const diag = NextResponse.next({ request: { headers: requestHeaders } });
     res.cookies.getAll().forEach(c => diag.cookies.set(c));
