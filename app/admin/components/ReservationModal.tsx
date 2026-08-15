@@ -66,9 +66,15 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
   const [documents, setDocuments] = useState<{ name: string; path: string; created_at: string }[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  // AADE submission
+  // AADE DCL submission
   const [aadeSubmitting, setAadeSubmitting] = useState(false);
   const [aadeResult, setAadeResult] = useState<{ ok?: boolean; mark?: string; error?: string } | null>(null);
+
+  // myDATA Invoice submission
+  const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
+  const [invoiceResult, setInvoiceResult] = useState<{ ok?: boolean; mark?: string; series?: string; aa?: number; error?: string } | null>(null);
+  const [invoiceMark, setInvoiceMark] = useState<string | null>(null);
+  const [invoiceStatus, setInvoiceStatus] = useState<string>("not_issued");
 
   // Customer search / linking
   const [customerSearch, setCustomerSearch] = useState("");
@@ -111,6 +117,8 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             dcl_status: data.dcl_status ?? "not_submitted",
           });
           setOriginalStatus(data.status);
+          setInvoiceStatus(data.invoice_status ?? "not_issued");
+          setInvoiceMark(data.invoice_mark ?? null);
           setLoading(false);
         });
     } else {
@@ -181,6 +189,24 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
     setAadeResult(data);
     setAadeSubmitting(false);
     if (data.ok) set("dcl_status", "submitted");
+  }
+
+  async function handleInvoiceSubmit() {
+    if (!reservationId) return;
+    setInvoiceSubmitting(true);
+    setInvoiceResult(null);
+    const res = await fetch("/api/admin/invoices/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: reservationId }),
+    });
+    const data = await res.json();
+    setInvoiceResult(data);
+    setInvoiceSubmitting(false);
+    if (data.ok) {
+      setInvoiceStatus("issued");
+      setInvoiceMark(data.mark ?? null);
+    }
   }
 
   function linkCustomer(c: { id: string; full_name: string; email: string; phone: string }) {
@@ -505,6 +531,38 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             {aadeResult && (
               <p className={`text-xs mt-1 ${aadeResult.ok ? "text-green-600" : "text-red-600"}`}>
                 {aadeResult.ok ? `✓ Submitted. Mark: ${aadeResult.mark ?? "—"}` : aadeResult.error}
+              </p>
+            )}
+          </div>
+
+          {/* myDATA e-Invoice (Απόδειξη / Τιμολόγιο) */}
+          <div className="col-span-2">
+            <label className="block text-xs font-medium text-gray-600 mb-1">myDATA e-Invoice (Απόδειξη / Τιμολόγιο)</label>
+            <div className="flex gap-2 items-start">
+              <div className={`flex-1 border rounded-lg px-3 py-2 text-sm ${
+                invoiceStatus === "issued" ? "border-green-300 bg-green-50 text-green-800"
+                : invoiceStatus === "error" ? "border-red-200 bg-red-50 text-red-700"
+                : "border-gray-200 bg-gray-50 text-gray-500"
+              }`}>
+                {invoiceStatus === "issued"
+                  ? `✓ Issued — MARK: ${invoiceMark ?? "—"}`
+                  : invoiceStatus === "error"
+                  ? "Submission error — retry below"
+                  : "Not yet issued"}
+              </div>
+              {isEdit && invoiceStatus !== "issued" && (
+                <button onClick={handleInvoiceSubmit} disabled={invoiceSubmitting}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-blue-700 text-white text-xs font-medium rounded-lg hover:bg-blue-800 disabled:opacity-50 transition whitespace-nowrap">
+                  <Send size={12} /> {invoiceSubmitting ? "Issuing…" : "Issue Invoice"}
+                </button>
+              )}
+            </div>
+            {invoiceResult && !invoiceResult.ok && (
+              <p className="text-xs mt-1 text-red-600">{invoiceResult.error}</p>
+            )}
+            {invoiceResult?.ok && (
+              <p className="text-xs mt-1 text-green-600">
+                ✓ Invoice issued — Series {invoiceResult.series}/{invoiceResult.aa}, MARK: {invoiceResult.mark}
               </p>
             )}
           </div>

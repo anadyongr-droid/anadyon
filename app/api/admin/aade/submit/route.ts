@@ -1,44 +1,70 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
-// AADE myDATA DCL (Digital Client List) submission
-// Docs: https://www.aade.gr/epiheiriseis/foroi/mydata
-// Sandbox: https://mydataapidev.aade.gr/myDATA/sendClientListData
-// Production: https://mydatapi.aade.gr/myDATA/sendClientListData
+// AADE myDATA Digital Client List (DCL) v1.1
+// Docs: https://www.aade.gr/en/mydata/technical-specifications-digital-client-list-portal-publications
+// Dev:  https://mydataapidev.aade.gr/DCL/SendClient
+// Prod: https://mydatapi.aade.gr/DCL/SendClient
 
-const AADE_ENDPOINT = process.env.AADE_PRODUCTION === "true"
-  ? "https://mydatapi.aade.gr/myDATA/sendClientListData"
-  : "https://mydataapidev.aade.gr/myDATA/sendClientListData";
+const AADE_DCL_ENDPOINT = process.env.AADE_PRODUCTION === "true"
+  ? "https://mydatapi.aade.gr/DCL/SendClient"
+  : "https://mydataapidev.aade.gr/DCL/SendClient";
 
-function buildXml(r: Record<string, unknown> & { vehicles?: { name: string; plate?: string } }): string {
-  const vehicleName = r.vehicles?.name ?? "";
-  const plate = r.vehicles?.plate ?? "";
-  const pickupDate = String(r.pickup_date ?? "").replace(/-/g, "");  // YYYYMMDD
-  const returnDate = String(r.return_date ?? "").replace(/-/g, "");
+type Reservation = {
+  id: string;
+  customer_name: string;
+  customer_nationality: string;
+  pickup_date: string;
+  return_date: string;
+  total: number;
+  discount_amount: number;
+  vehicles?: { name: string; plate?: string; make?: string; category?: string } | null;
+  customers?: { first_name?: string; last_name?: string; full_name?: string; nationality?: string } | null;
+};
 
-  // Parse first/last name from customer_name
-  const nameParts = String(r.customer_name ?? "").trim().split(" ");
-  const firstName = nameParts[0] ?? "";
-  const lastName = nameParts.slice(1).join(" ") || firstName;
+function buildDclXml(res: Reservation): string {
+  // Prefer linked CRM customer for name / nationality
+  const firstName = res.customers?.first_name
+    ?? String(res.customer_name ?? "").trim().split(" ")[0] ?? "";
+  const lastName = res.customers?.last_name
+    ?? String(res.customer_name ?? "").trim().split(" ").slice(1).join(" ") ?? "";
+  const country = res.customers?.nationality ?? res.customer_nationality ?? "GR";
+
+  const plate = res.vehicles?.plate ?? "";
+  const make = res.vehicles?.make ?? "";
+  // Map internal category to a human-readable vehicle category for AADE
+  const categoryMap: Record<string, string> = { car: "Car", motorbike: "Motorbike", bike: "Bicycle" };
+  const vehicleCategory = categoryMap[res.vehicles?.category ?? ""] ?? res.vehicles?.category ?? "Car";
+
+  const agreedAmount = Math.max(0, (res.total ?? 0) - (res.discount_amount ?? 0));
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<ClientListData xmlns="http://www.aade.gr/myDATA/clientList/v1.0">
-  <Client>
-    <FirstName>${esc(firstName)}</FirstName>
-    <LastName>${esc(lastName)}</LastName>
-    <Country>${esc(String(r.customer_nationality ?? "GR"))}</Country>
-    <VehicleRegistrationNumber>${esc(plate)}</VehicleRegistrationNumber>
-    <VehicleDescription>${esc(vehicleName)}</VehicleDescription>
-    <RentalStartDate>${pickupDate}</RentalStartDate>
-    <RentalEndDate>${returnDate}</RentalEndDate>
-    <RentalDays>${r.rental_days ?? 1}</RentalDays>
-    <TotalRentValue>${r.total ?? 0}</TotalRentValue>
-  </Client>
-</ClientListData>`;
+<ClientDoc xmlns="http://www.aade.gr/myDATA/DCL/v1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <client>
+    <clientServiceType>1</clientServiceType>
+    <counterpartFirstName>${esc(firstName)}</counterpartFirstName>
+    <counterpartLastName>${esc(lastName)}</counterpartLastName>
+    <counterpartCountry>${esc(country)}</counterpartCountry>
+    <vehicleLicensePlate>${esc(plate)}</vehicleLicensePlate>
+    <vehicleCategory>${esc(vehicleCategory)}</vehicleCategory>
+    <vehicleManufacturer>${esc(make)}</vehicleManufacturer>
+    <movementPurpose>1</movementPurpose>
+    <isDiffVehReturnLocation>false</isDiffVehReturnLocation>
+    <agreedAmount>${agreedAmount.toFixed(2)}</agreedAmount>
+    <nonIssueInvoice>true</nonIssueInvoice>
+    <rentalStartDate>${res.pickup_date}</rentalStartDate>
+    <rentalEndDate>${res.return_date}</rentalEndDate>
+  </client>
+</ClientDoc>`;
 }
 
 function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 export async function POST(req: NextRequest) {
@@ -47,53 +73,47 @@ export async function POST(req: NextRequest) {
 
   const aadeUser = process.env.AADE_USER_ID;
   const aadeKey  = process.env.AADE_SUBSCRIPTION_KEY;
-
   if (!aadeUser || !aadeKey) {
     return NextResponse.json(
-      { error: "AADE credentials not configured. Add AADE_USER_ID and AADE_SUBSCRIPTION_KEY to environment variables." },
+      { error: "AADE credentials not configured. Add AADE_USER_ID and AADE_SUBSCRIPTION_KEY to Vercel environment variables." },
       { status: 503 }
     );
   }
 
-  // Fetch reservation with vehicle plate
   const { data: res, error } = await supabaseAdmin
     .from("reservations")
-    .select("*, vehicles(name, plate)")
+    .select("*, vehicles(name, plate, make, category), customers(first_name, last_name, full_name, nationality)")
     .eq("id", id)
     .single();
 
   if (error || !res) return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
 
-  const xml = buildXml(res as Record<string, unknown> & { vehicles?: { name: string; plate?: string } });
+  const xml = buildDclXml(res as Reservation);
 
-  // Submit to AADE
   let aadeRes: Response;
   try {
-    aadeRes = await fetch(AADE_ENDPOINT, {
+    aadeRes = await fetch(AADE_DCL_ENDPOINT, {
       method: "POST",
       headers: {
-        "Content-Type": "application/xml",
+        "Content-Type": "application/xml; charset=utf-8",
         "aade-user-id": aadeUser,
         "Ocp-Apim-Subscription-Key": aadeKey,
       },
       body: xml,
     });
-  } catch (e) {
+  } catch {
     await supabaseAdmin.from("reservations").update({ dcl_status: "error" }).eq("id", id);
-    return NextResponse.json({ error: "Network error reaching AADE API" }, { status: 502 });
+    return NextResponse.json({ error: "Network error reaching AADE DCL API" }, { status: 502 });
   }
 
   const responseText = await aadeRes.text();
 
   if (!aadeRes.ok) {
     await supabaseAdmin.from("reservations").update({ dcl_status: "error" }).eq("id", id);
-    return NextResponse.json(
-      { error: `AADE returned ${aadeRes.status}`, detail: responseText },
-      { status: 422 }
-    );
+    return NextResponse.json({ error: `AADE returned ${aadeRes.status}`, detail: responseText }, { status: 422 });
   }
 
-  // Extract mark from response XML (AADE returns <mark> element)
+  // AADE DCL response contains <mark> on success
   const markMatch = responseText.match(/<mark>([^<]+)<\/mark>/i);
   const mark = markMatch?.[1] ?? null;
 

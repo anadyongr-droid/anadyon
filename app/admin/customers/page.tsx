@@ -6,6 +6,8 @@ import CustomerModal from "../components/CustomerModal";
 interface Customer {
   id: string;
   title: string;
+  first_name: string;
+  last_name: string;
   full_name: string;
   email: string;
   phone: string;
@@ -94,7 +96,7 @@ export default function CustomersPage() {
                 >
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">{c.full_name}</span>
+                      <span className="font-medium text-gray-900">{[c.first_name, c.last_name].filter(Boolean).join(" ") || c.full_name}</span>
                       {c.do_not_rent && (
                         <span title={c.dnr_reason ?? "Do Not Rent"}>
                           <AlertTriangle size={13} className="text-red-500 shrink-0" />

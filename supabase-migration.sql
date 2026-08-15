@@ -66,6 +66,8 @@ ALTER TABLE promo_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE discount_rules ENABLE ROW LEVEL SECURITY;
 
 -- 7. Extended customer fields (run if customers table already exists from step 1)
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS first_name text;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_name text;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS title text DEFAULT 'Mr';
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone_alt text;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS address text;
@@ -80,5 +82,20 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS driving_licence_country text;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS emergency_contact_name text;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS emergency_contact_phone text;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS preferred_vehicle_category text;
+
+-- 8. Vehicle registration plate and make (needed for AADE DCL)
+ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS plate text;
+ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS make text;
+
+-- 9. Invoice fields on reservations (myDATA e-Invoicing, mandatory Oct 2026)
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS invoice_status text DEFAULT 'not_issued';
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS invoice_mark text;
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS invoice_uid text;
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS invoice_auth text;
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS invoice_series text;
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS invoice_aa integer;
+
+-- 10. Customer VAT number (needed for B2B invoicing)
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS vat_number text;
 
 -- Done!

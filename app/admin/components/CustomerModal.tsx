@@ -6,6 +6,8 @@ interface Customer {
   id: string;
   // Personal
   title: string;
+  first_name: string;
+  last_name: string;
   full_name: string;
   email: string;
   phone: string;
@@ -26,6 +28,8 @@ interface Customer {
   // Emergency contact
   emergency_contact_name: string;
   emergency_contact_phone: string;
+  // Tax
+  vat_number: string;
   // Rental preferences
   preferred_vehicle_category: string;
   // Internal
@@ -43,6 +47,8 @@ interface Props {
 const EMPTY: Customer = {
   id: "",
   title: "Mr",
+  first_name: "",
+  last_name: "",
   full_name: "",
   email: "",
   phone: "",
@@ -60,6 +66,7 @@ const EMPTY: Customer = {
   driving_licence_country: "",
   emergency_contact_name: "",
   emergency_contact_phone: "",
+  vat_number: "",
   preferred_vehicle_category: "",
   do_not_rent: false,
   dnr_reason: "",
@@ -97,12 +104,13 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
   }
 
   async function handleSave() {
-    if (!form.full_name.trim()) { setError("Full name is required."); return; }
+    if (!form.first_name.trim()) { setError("First name is required."); return; }
     setSaving(true);
     setError("");
     const url = isEdit ? `/api/admin/customers/${customer!.id}` : "/api/admin/customers";
     const method = isEdit ? "PATCH" : "POST";
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    const payload = { ...form, full_name: [form.first_name, form.last_name].filter(Boolean).join(" ") };
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     setSaving(false);
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -137,8 +145,11 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
               {["Mr", "Mrs", "Ms", "Miss", "Dr", "Prof"].map((t) => <option key={t}>{t}</option>)}
             </select>
           </Field>
-          <Field label="Full name *">
-            <input type="text" value={form.full_name} onChange={(e) => set("full_name", e.target.value)} className={inputCls} />
+          <Field label="First name *">
+            <input type="text" value={form.first_name} onChange={(e) => set("first_name", e.target.value)} className={inputCls} />
+          </Field>
+          <Field label="Surname">
+            <input type="text" value={form.last_name} onChange={(e) => set("last_name", e.target.value)} className={inputCls} />
           </Field>
           <Field label="Date of birth">
             <input type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)} className={inputCls} />
@@ -203,6 +214,13 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
           <Field label="Contact phone">
             <input type="tel" value={form.emergency_contact_phone} onChange={(e) => set("emergency_contact_phone", e.target.value)} className={inputCls} />
           </Field>
+
+          {/* Tax / invoicing */}
+          <Section title="Tax & Invoicing" />
+          <Field label="VAT number (for B2B invoices)">
+            <input type="text" value={form.vat_number} onChange={(e) => set("vat_number", e.target.value)} className={inputCls} placeholder="e.g. EL123456789" />
+          </Field>
+          <div /> {/* spacer */}
 
           {/* Preferences & notes */}
           <Section title="Preferences & Notes" />
