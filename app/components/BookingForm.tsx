@@ -145,6 +145,12 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
 
+  // Promo code
+  const [promoInput, setPromoInput] = useState("");
+  const [promoResult, setPromoResult] = useState<{ valid: boolean; code?: string; id?: string; discount_amount?: number; description?: string; error?: string } | null>(null);
+  const [promoChecking, setPromoChecking] = useState(false);
+  const promoDiscount = promoResult?.valid ? (promoResult.discount_amount ?? 0) : 0;
+
   // Live price calculation
   const pricingGroup = modelPricingGroups?.[selectedModel];
   const rentalDays = pickupDate && dropoffDate ? calcRentalDays(pickupDate, dropoffDate, pickupTime, dropoffTime) : 0;
@@ -165,9 +171,23 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         Number(additionalDrivers) * xRate("additional_drivers", 2.5) * rentalDays
       ).toFixed(2))
     : 0;
-  const total = parseFloat((vehicleSubtotal + extrasSubtotal).toFixed(2));
+  const subtotalBeforePromo = parseFloat((vehicleSubtotal + extrasSubtotal).toFixed(2));
+  const total = parseFloat(Math.max(0, subtotalBeforePromo - promoDiscount).toFixed(2));
   const deposit = parseFloat((total * DEPOSIT_RATE).toFixed(2));
   const balanceDue = parseFloat((total - deposit).toFixed(2));
+
+  async function applyPromo() {
+    if (!promoInput.trim()) return;
+    setPromoChecking(true);
+    const res = await fetch("/api/promo/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: promoInput, total: subtotalBeforePromo }),
+    });
+    const data = await res.json();
+    setPromoResult(data);
+    setPromoChecking(false);
+  }
   const showPrice = !!(pricingGroup && rentalDays > 0 && vehicleSubtotal > 0);
 
   function scrollToForm() {
@@ -241,6 +261,9 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         total,
         deposit,
         balanceDue,
+        promoCode: promoResult?.valid ? promoResult.code : undefined,
+        promoCodeId: promoResult?.valid ? promoResult.id : undefined,
+        discountAmount: promoResult?.valid ? promoResult.discount_amount : undefined,
         extrasLines: [
           ...(fdw ? [{ label: `Full Damage Waiver (FDW) — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("fdw", 5).toFixed(2)}`, amount: (xRate("fdw", 5) * rentalDays).toFixed(2) }] : []),
           ...(Number(babySeat) > 0 ? [{ label: `Baby Seat ×${babySeat} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("baby_seat", 3).toFixed(2)}`, amount: (xRate("baby_seat", 3) * Number(babySeat) * rentalDays).toFixed(2) }] : []),
@@ -500,6 +523,12 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                       <span>€{(xRate("additional_drivers", 2.5) * Number(additionalDrivers) * rentalDays).toFixed(2)}</span>
                     </div>
                   )}
+                  {promoDiscount > 0 && (
+                    <div className="flex justify-between text-green-600 dark:text-green-400">
+                      <span>Promo code ({promoResult?.code})</span>
+                      <span>−€{promoDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between font-bold text-gray-900 dark:text-white">
                     <span>Total</span>
                     <span>€{total.toFixed(2)}</span>
@@ -514,6 +543,35 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                   </div>
                 </div>
                 <p className="text-xs text-blue-700 dark:text-blue-300 mt-3">Final price confirmed upon booking. Includes VAT, extras &amp; all taxes.</p>
+
+                {/* Promo code */}
+                <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
+                  {promoResult?.valid ? (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-green-600 dark:text-green-400 font-medium">✓ Code &ldquo;{promoResult.code}&rdquo; applied</span>
+                      <button onClick={() => { setPromoResult(null); setPromoInput(""); }}
+                        className="text-xs text-gray-400 hover:text-gray-600 underline">Remove</button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={promoInput}
+                        onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoResult(null); }}
+                        onKeyDown={(e) => e.key === "Enter" && applyPromo()}
+                        placeholder="Promo code"
+                        className="flex-1 border border-blue-200 dark:border-blue-700 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-blue-900 text-gray-900 dark:text-white placeholder-gray-400"
+                      />
+                      <button onClick={applyPromo} disabled={promoChecking || !promoInput.trim()}
+                        className="px-3 py-1.5 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800 disabled:opacity-50 transition">
+                        {promoChecking ? "…" : "Apply"}
+                      </button>
+                    </div>
+                  )}
+                  {promoResult && !promoResult.valid && (
+                    <p className="text-xs text-red-500 mt-1">{promoResult.error}</p>
+                  )}
+                </div>
               </div>
             )}
 

@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { X, Trash2 } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { X, Trash2, Upload, FileText, Send, Search } from "lucide-react";
 import { calcRentalDays, getDailyRate, calcExtrasTotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 
@@ -61,6 +61,21 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
   const [originalStatus, setOriginalStatus] = useState("");
   const isEdit = !!reservationId;
 
+  // Document upload
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [documents, setDocuments] = useState<{ name: string; path: string; created_at: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  // AADE submission
+  const [aadeSubmitting, setAadeSubmitting] = useState(false);
+  const [aadeResult, setAadeResult] = useState<{ ok?: boolean; mark?: string; error?: string } | null>(null);
+
+  // Customer search / linking
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerResults, setCustomerResults] = useState<{ id: string; full_name: string; email: string; phone: string }[]>([]);
+  const [linkedCustomerId, setLinkedCustomerId] = useState<string | null>(null);
+  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
+
   useEffect(() => {
     fetch("/api/admin/rates").then((r) => r.json()).then(({ rates: r, extras: e }) => {
       setRates(r ?? []);
@@ -108,6 +123,75 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
       }));
     }
   }, [reservationId, vehicleId, date]);
+
+  // Load documents when editing
+  useEffect(() => {
+    if (!reservationId) return;
+    fetch(`/api/admin/documents?reservation_id=${reservationId}`)
+      .then((r) => r.json())
+      .then((d) => setDocuments(Array.isArray(d) ? d : []));
+  }, [reservationId]);
+
+  // Customer search
+  useEffect(() => {
+    if (!customerSearch.trim()) { setCustomerResults([]); return; }
+    const t = setTimeout(() => {
+      fetch(`/api/admin/customers?q=${encodeURIComponent(customerSearch)}`)
+        .then((r) => r.json())
+        .then((d) => setCustomerResults(Array.isArray(d) ? d.slice(0, 5) : []));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [customerSearch]);
+
+  async function handleUpload(file: File) {
+    if (!reservationId) return;
+    setUploading(true);
+    const res = await fetch("/api/admin/documents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reservation_id: reservationId, file_name: file.name, content_type: file.type }),
+    });
+    const { signedUrl, path } = await res.json();
+    await fetch(signedUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+    setDocuments((d) => [...d, { name: file.name, path, created_at: new Date().toISOString() }]);
+    setUploading(false);
+  }
+
+  async function handleDocumentDelete(path: string) {
+    await fetch("/api/admin/documents", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }) });
+    setDocuments((d) => d.filter((doc) => doc.path !== path));
+  }
+
+  async function handleDocumentDownload(path: string, name: string) {
+    const res = await fetch(`/api/admin/documents/download?path=${encodeURIComponent(path)}`);
+    const { url } = await res.json();
+    const a = document.createElement("a"); a.href = url; a.download = name; a.click();
+  }
+
+  async function handleAadeSubmit() {
+    if (!reservationId) return;
+    setAadeSubmitting(true);
+    setAadeResult(null);
+    const res = await fetch("/api/admin/aade/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: reservationId }),
+    });
+    const data = await res.json();
+    setAadeResult(data);
+    setAadeSubmitting(false);
+    if (data.ok) set("dcl_status", "submitted");
+  }
+
+  function linkCustomer(c: { id: string; full_name: string; email: string; phone: string }) {
+    setLinkedCustomerId(c.id);
+    set("customer_name", c.full_name);
+    set("customer_email", c.email || form.customer_email);
+    set("customer_phone", c.phone || form.customer_phone);
+    setShowCustomerSearch(false);
+    setCustomerSearch("");
+    setCustomerResults([]);
+  }
 
   // Real-time vehicle availability check
   useEffect(() => {
@@ -174,6 +258,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
       extras_subtotal: extrasSubtotal,
       total,
       ...(isEdit && originalStatus ? { _prev_status: originalStatus } : {}),
+      ...(linkedCustomerId ? { customer_id: linkedCustomerId } : {}),
     };
     const url = isEdit ? `/api/admin/reservations/${reservationId}` : "/api/admin/reservations";
     const method = isEdit ? "PATCH" : "POST";
@@ -401,15 +486,92 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
           {/* AADE DCL status */}
           <div className="col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">AADE Digital Client List (DCL)</label>
-            <select value={(form as { dcl_status?: string }).dcl_status ?? "not_submitted"}
-              onChange={(e) => set("dcl_status", e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-              <option value="not_submitted">Not submitted</option>
-              <option value="pending">Pending submission</option>
-              <option value="submitted">Submitted</option>
-              <option value="error">Submission error</option>
-            </select>
+            <div className="flex gap-2 items-start">
+              <select value={(form as { dcl_status?: string }).dcl_status ?? "not_submitted"}
+                onChange={(e) => set("dcl_status", e.target.value)}
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <option value="not_submitted">Not submitted</option>
+                <option value="pending">Pending submission</option>
+                <option value="submitted">Submitted</option>
+                <option value="error">Submission error</option>
+              </select>
+              {isEdit && (
+                <button onClick={handleAadeSubmit} disabled={aadeSubmitting}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-gray-800 text-white text-xs font-medium rounded-lg hover:bg-gray-900 disabled:opacity-50 transition whitespace-nowrap">
+                  <Send size={12} /> {aadeSubmitting ? "Submitting…" : "Submit to AADE"}
+                </button>
+              )}
+            </div>
+            {aadeResult && (
+              <p className={`text-xs mt-1 ${aadeResult.ok ? "text-green-600" : "text-red-600"}`}>
+                {aadeResult.ok ? `✓ Submitted. Mark: ${aadeResult.mark ?? "—"}` : aadeResult.error}
+              </p>
+            )}
           </div>
+
+          {/* Customer linking */}
+          <div className="col-span-2 border-t border-gray-100 pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Link to CRM customer</span>
+              <button onClick={() => setShowCustomerSearch((v) => !v)}
+                className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                <Search size={11} /> {linkedCustomerId ? "Change" : "Search"}
+              </button>
+            </div>
+            {linkedCustomerId && !showCustomerSearch && (
+              <p className="text-xs text-green-600">✓ Linked to customer record</p>
+            )}
+            {showCustomerSearch && (
+              <div className="relative">
+                <input type="text" value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)}
+                  placeholder="Search by name, email or phone…"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" autoFocus />
+                {customerResults.length > 0 && (
+                  <div className="absolute z-10 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1">
+                    {customerResults.map((c) => (
+                      <button key={c.id} onClick={() => linkCustomer(c)}
+                        className="w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                        <div className="text-sm font-medium text-gray-900">{c.full_name}</div>
+                        <div className="text-xs text-gray-400">{c.email} · {c.phone}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Document upload */}
+          {isEdit && (
+            <div className="col-span-2 border-t border-gray-100 pt-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Documents</span>
+                <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:underline disabled:opacity-50">
+                  <Upload size={11} /> {uploading ? "Uploading…" : "Upload"}
+                </button>
+                <input ref={fileInputRef} type="file" className="hidden"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} />
+              </div>
+              {documents.length === 0 ? (
+                <p className="text-xs text-gray-400">No documents uploaded yet.</p>
+              ) : (
+                <div className="space-y-1">
+                  {documents.map((doc) => (
+                    <div key={doc.path} className="flex items-center justify-between text-xs">
+                      <button onClick={() => handleDocumentDownload(doc.path, doc.name)}
+                        className="flex items-center gap-1.5 text-blue-600 hover:underline truncate max-w-[70%]">
+                        <FileText size={11} /> {doc.name}
+                      </button>
+                      <button onClick={() => handleDocumentDelete(doc.path)}
+                        className="text-gray-300 hover:text-red-500 ml-2"><X size={11} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}

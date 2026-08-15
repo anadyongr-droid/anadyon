@@ -56,6 +56,9 @@ export async function POST(req: NextRequest) {
     mobileTel,
     landlineTel,
     comments,
+    promoCode,
+    promoCodeId,
+    discountAmount: clientDiscountAmount,
     // Client-calculated pricing
     rentalDays: clientRentalDays,
     dailyRate: clientDailyRate,
@@ -119,6 +122,28 @@ export async function POST(req: NextRequest) {
   const total = serverTotal;
   const deposit = serverDeposit;
   const balanceDue = serverBalanceDue;
+  // Server-side promo code validation
+  let promoDiscount = 0;
+  let validatedPromoId: string | null = null;
+  if (promoCode) {
+    const { data: promo } = await supabaseAdmin
+      .from("promo_codes")
+      .select("*")
+      .eq("active", true)
+      .ilike("code", promoCode.trim())
+      .single();
+    if (promo && (!promo.expires_at || promo.expires_at >= new Date().toISOString().slice(0, 10))
+      && (promo.max_uses === null || promo.used_count < promo.max_uses)) {
+      promoDiscount = promo.type === "percentage"
+        ? parseFloat(((total * promo.value) / 100).toFixed(2))
+        : parseFloat(Number(promo.value).toFixed(2));
+      validatedPromoId = promo.id;
+    }
+  }
+  const finalTotal = parseFloat(Math.max(0, total - promoDiscount).toFixed(2));
+  const finalDeposit = parseFloat((finalTotal * DEPOSIT_RATE).toFixed(2));
+  const finalBalanceDue = parseFloat((finalTotal - finalDeposit).toFixed(2));
+
   const showPrice = total > 0;
 
   // Rebuild extras rows using server rates (ignoring client extrasLines amounts)
@@ -167,9 +192,11 @@ export async function POST(req: NextRequest) {
     daily_rate: dailyRate,
     vehicle_subtotal: vehicleSubtotal,
     extras_subtotal: extrasSubtotal,
-    total,
-    deposit,
-    balance_due: balanceDue,
+    total: finalTotal,
+    deposit: finalDeposit,
+    balance_due: finalBalanceDue,
+    promo_code: promoCode ?? null,
+    discount_amount: promoDiscount,
     comments: comments || null,
     expires_at: expiresAt.toISOString(),
   }),
@@ -192,14 +219,30 @@ export async function POST(req: NextRequest) {
     child_seat: Number(childSeat) || 0,
     fdw: !!fdw,
     additional_drivers: Number(additionalDrivers) || 0,
-    total,
-    deposit,
-    balance_due: balanceDue,
+    total: finalTotal,
+    deposit: finalDeposit,
+    balance_due: finalBalanceDue,
+    promo_code_id: validatedPromoId,
+    discount_amount: promoDiscount,
+    discount_reason: promoCode ? `Promo: ${promoCode}` : null,
     status: "pending",
     source: "website",
     notes: `Quote ref: ${ref}${comments ? `. Customer notes: ${comments}` : ""}`,
   }),
   ]);
+
+  // Increment promo usage count
+  if (validatedPromoId) {
+    await supabaseAdmin.rpc("increment_promo_used_count", { promo_id: validatedPromoId }).catch(() => {
+      // Fallback if RPC not available
+      supabaseAdmin.from("promo_codes")
+        .select("used_count").eq("id", validatedPromoId).single()
+        .then(({ data }) => {
+          if (data) supabaseAdmin.from("promo_codes")
+            .update({ used_count: (data.used_count ?? 0) + 1 }).eq("id", validatedPromoId);
+        });
+    });
+  }
 
   const manipulationWarning = manipulated ? `
     <div style="background:#fff3cd;border:2px solid #ff9800;border-radius:8px;padding:16px;margin-bottom:20px;">
