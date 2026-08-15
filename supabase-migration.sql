@@ -65,4 +65,20 @@ ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE promo_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE discount_rules ENABLE ROW LEVEL SECURITY;
 
+-- 7. Extended customer fields (run if customers table already exists from step 1)
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS title text DEFAULT 'Mr';
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone_alt text;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS address text;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS city text;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS postal_code text;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS country text;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS passport_number text;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS passport_expiry date;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS driving_licence_number text;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS driving_licence_expiry date;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS driving_licence_country text;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS emergency_contact_name text;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS emergency_contact_phone text;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS preferred_vehicle_category text;
+
 -- Done!

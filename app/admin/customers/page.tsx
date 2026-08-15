@@ -5,11 +5,17 @@ import CustomerModal from "../components/CustomerModal";
 
 interface Customer {
   id: string;
+  title: string;
   full_name: string;
   email: string;
   phone: string;
+  phone_alt: string;
   nationality: string;
   dob: string;
+  country: string;
+  driving_licence_number: string;
+  driving_licence_expiry: string;
+  passport_number: string;
   do_not_rent: boolean;
   dnr_reason: string;
   notes: string;
@@ -71,13 +77,14 @@ export default function CustomersPage() {
                 <th className="text-left px-4 py-3 font-medium">Email</th>
                 <th className="text-left px-4 py-3 font-medium">Phone</th>
                 <th className="text-left px-4 py-3 font-medium">Nationality</th>
+                <th className="text-left px-4 py-3 font-medium">Licence no.</th>
                 <th className="text-left px-4 py-3 font-medium">Added</th>
                 <th className="text-center px-4 py-3 font-medium">DNR</th>
               </tr>
             </thead>
             <tbody>
               {customers.length === 0 && (
-                <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400 text-sm">No customers found.</td></tr>
+                <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400 text-sm">No customers found.</td></tr>
               )}
               {customers.map((c) => (
                 <tr
@@ -98,6 +105,7 @@ export default function CustomersPage() {
                   <td className="px-4 py-3 text-gray-600">{c.email ?? "—"}</td>
                   <td className="px-4 py-3 text-gray-600">{c.phone ?? "—"}</td>
                   <td className="px-4 py-3 text-gray-600">{c.nationality ?? "—"}</td>
+                  <td className="px-4 py-3 text-gray-600 font-mono text-xs">{c.driving_licence_number ?? "—"}</td>
                   <td className="px-4 py-3 text-gray-400 text-xs">
                     {new Date(c.created_at).toLocaleDateString("el-GR")}
                   </td>
