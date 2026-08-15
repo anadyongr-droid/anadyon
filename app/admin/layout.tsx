@@ -33,11 +33,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     const supabase = createClient();
-    // Fetch role from server using service-role key (authoritative, bypasses JWT cache)
-    fetch("/api/admin/me")
-      .then(r => r.ok ? r.json() : { role: "staff" })
-      .then(({ role }) => setRole(role ?? "staff"))
-      .catch(() => setRole("staff"));
+    // Force a new JWT from Supabase, then decode app_metadata from the token
+    supabase.auth.refreshSession().then(async ({ data }) => {
+      // Try to read role from refreshed session token
+      const token = data?.session?.access_token;
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split(".")[1]));
+          const r = payload?.app_metadata?.role ?? payload?.user_metadata?.role ?? "staff";
+          setRole(r as string);
+          return;
+        } catch {}
+      }
+      // Fallback: server route
+      const res = await fetch("/api/admin/me");
+      const json = res.ok ? await res.json() : { role: "staff" };
+      setRole(json.role ?? "staff");
+    });
   }, []);
 
   if (pathname === "/admin/login" || pathname === "/admin/setup-mfa") {
