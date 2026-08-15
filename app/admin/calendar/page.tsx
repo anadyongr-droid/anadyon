@@ -175,11 +175,11 @@ export default function CalendarPage() {
       {loading ? (
         <div className="text-gray-400 text-sm">Loading…</div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <div className="overflow-x-auto overflow-y-auto rounded-xl border border-gray-200 bg-white" style={{ maxHeight: "calc(100vh - 160px)" }}>
           <table className="border-collapse text-xs" style={{ minWidth: `${180 + days * 52}px` }}>
-            <thead>
+            <thead className="sticky top-0 z-20">
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="w-44 px-3 py-2.5 text-left text-gray-500 font-medium sticky left-0 bg-gray-50 z-10 border-r border-gray-200">
+                <th className="w-44 px-3 py-2.5 text-left text-gray-500 font-medium sticky left-0 bg-gray-50 z-30 border-r border-gray-200">
                   Vehicle
                 </th>
                 {dateRange.map((d) => {
