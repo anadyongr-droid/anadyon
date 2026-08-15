@@ -19,8 +19,14 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ role: null }, { status: 401 });
 
-  // Use service role admin API to get authoritative app_metadata (bypasses JWT caching)
-  const { data: adminUser } = await supabaseAdmin.auth.admin.getUserById(user.id);
-  const role = (adminUser?.user?.app_metadata?.role as string | undefined) ?? "staff";
-  return NextResponse.json({ role });
+  // Primary: service-role admin API — always returns current DB value
+  try {
+    const { data: adminUser } = await supabaseAdmin.auth.admin.getUserById(user.id);
+    const adminRole = adminUser?.user?.app_metadata?.role as string | undefined;
+    if (adminRole) return NextResponse.json({ role: adminRole });
+  } catch {}
+
+  // Fallback: role embedded in the validated JWT from getUser()
+  const jwtRole = user.app_metadata?.role as string | undefined;
+  return NextResponse.json({ role: jwtRole ?? "staff" });
 }

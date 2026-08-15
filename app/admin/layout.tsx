@@ -33,23 +33,47 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     const supabase = createClient();
-    // Force a new JWT from Supabase, then decode app_metadata from the token
-    supabase.auth.refreshSession().then(async ({ data }) => {
-      // Try to read role from refreshed session token
-      const token = data?.session?.access_token;
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split(".")[1]));
-          const r = payload?.app_metadata?.role ?? payload?.user_metadata?.role ?? "staff";
-          setRole(r as string);
-          return;
-        } catch {}
+    // Decode role from JWT — handles base64url encoding (- and _ must be replaced)
+    function decodeJwtRole(token: string): string | null {
+      try {
+        const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+        const payload = JSON.parse(atob(b64));
+        return (payload?.app_metadata?.role as string) ?? null;
+      } catch {
+        return null;
       }
-      // Fallback: server route
-      const res = await fetch("/api/admin/me");
-      const json = res.ok ? await res.json() : { role: "staff" };
-      setRole(json.role ?? "staff");
-    });
+    }
+
+    async function resolveRole() {
+      // 1. Try refreshSession to get a fresh JWT with latest app_metadata
+      const { data: refreshData } = await supabase.auth.refreshSession();
+      const freshToken = refreshData?.session?.access_token;
+      if (freshToken) {
+        const role = decodeJwtRole(freshToken);
+        if (role) return role;
+      }
+
+      // 2. Try existing session token
+      const { data: sessionData } = await supabase.auth.getSession();
+      const existingToken = sessionData?.session?.access_token;
+      if (existingToken) {
+        const role = decodeJwtRole(existingToken);
+        if (role) return role;
+      }
+
+      // 3. Fallback: ask server (uses service role key, always authoritative)
+      try {
+        const res = await fetch("/api/admin/me");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.role) return json.role;
+        }
+      } catch {}
+
+      return "staff";
+    }
+
+    resolveRole().then(r => setRole(r));
   }, []);
 
   if (pathname === "/admin/login" || pathname === "/admin/setup-mfa") {
