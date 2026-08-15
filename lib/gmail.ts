@@ -60,6 +60,22 @@ export interface ParsedEmail {
   receivedAt: Date;
 }
 
+/**
+ * Splits an RFC 5322 From header into display name and address.
+ *
+ * Handles `Name <a@b.c>`, `"Last, First" <a@b.c>`, `<a@b.c>` and a bare
+ * `a@b.c`. The bare form is the important one: a single greedy pattern will
+ * happily treat `a@b.c` as name `a@b.` plus address `c`.
+ */
+export function parseFromHeader(from: string): { senderName: string | null; senderEmail: string } {
+  const angle = from.match(/^(.*?)<([^>]*)>\s*$/);
+  if (angle) {
+    const name = angle[1].trim().replace(/^"(.*)"$/s, "$1").trim();
+    return { senderName: name || null, senderEmail: angle[2].trim() };
+  }
+  return { senderName: null, senderEmail: from.trim() };
+}
+
 function decodeBody(payload: { body?: { data?: string }; parts?: unknown[] }): string {
   if (payload.body?.data) {
     return Buffer.from(payload.body.data, "base64url").toString("utf8");
@@ -112,9 +128,7 @@ export async function fetchNewEmails(): Promise<ParsedEmail[]> {
       const get = (name: string) => headers.find(h => h.name?.toLowerCase() === name)?.value ?? null;
 
       const from = get("from") ?? "";
-      const match = from.match(/^(?:"?([^"<]+)"?\s*)?<?([^>]+)>?$/);
-      const senderName = match?.[1]?.trim() || null;
-      const senderEmail = match?.[2]?.trim() ?? from;
+      const { senderName, senderEmail } = parseFromHeader(from);
 
       const internalDate = detail.data.internalDate
         ? new Date(parseInt(detail.data.internalDate))
