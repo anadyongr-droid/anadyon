@@ -28,6 +28,8 @@ const LOCATIONS = ["Airport", "Port (Zakynthos town)", "Our Office"];
 const EMPTY_FORM = {
   vehicle_id: "",
   customer_name: "",
+  customer_first_name: "",
+  customer_last_name: "",
   customer_email: "",
   customer_phone: "",
   customer_nationality: "",
@@ -96,6 +98,8 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
           setForm({
             vehicle_id: data.vehicle_id,
             customer_name: data.customer_name,
+            customer_first_name: data.customer_first_name ?? "",
+            customer_last_name: data.customer_last_name ?? "",
             customer_email: data.customer_email ?? "",
             customer_phone: data.customer_phone ?? "",
             customer_nationality: data.customer_nationality ?? "",
@@ -209,8 +213,10 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
     }
   }
 
-  function linkCustomer(c: { id: string; full_name: string; email: string; phone: string }) {
+  function linkCustomer(c: { id: string; full_name: string; first_name?: string; last_name?: string; email: string; phone: string }) {
     setLinkedCustomerId(c.id);
+    set("customer_first_name", c.first_name ?? c.full_name.split(" ")[0] ?? "");
+    set("customer_last_name", c.last_name ?? c.full_name.split(" ").slice(1).join(" ") ?? "");
     set("customer_name", c.full_name);
     set("customer_email", c.email || form.customer_email);
     set("customer_phone", c.phone || form.customer_phone);
@@ -273,11 +279,13 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
   }
 
   async function handleSave() {
-    if (!form.vehicle_id || !form.customer_name || !form.pickup_date || !form.return_date) return;
+    if (!form.vehicle_id || !form.pickup_date || !form.return_date) return;
     setSaving(true);
     setSaveError("");
+    const fullName = [form.customer_first_name, form.customer_last_name].filter(Boolean).join(" ") || form.customer_name;
     const payload = {
       ...form,
+      customer_name: fullName,
       rental_days: rentalDays,
       daily_rate: dailyRate,
       vehicle_subtotal: vehicleSubtotal,
@@ -387,9 +395,14 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
           <div className="col-span-2 border-t border-gray-100 pt-4">
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer</div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className="block text-xs font-medium text-gray-600 mb-1">Full name *</label>
-                <input type="text" value={form.customer_name} onChange={(e) => set("customer_name", e.target.value)}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">First name</label>
+                <input type="text" value={form.customer_first_name} onChange={(e) => set("customer_first_name", e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Surname</label>
+                <input type="text" value={form.customer_last_name} onChange={(e) => set("customer_last_name", e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
@@ -658,7 +671,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             </button>
             <button
               onClick={handleSave}
-              disabled={saving || !!conflictWarning || !form.vehicle_id || !form.customer_name || !form.pickup_date || !form.return_date}
+              disabled={saving || !!conflictWarning || !form.vehicle_id || !form.pickup_date || !form.return_date}
               className="px-5 py-2 bg-blue-700 text-white text-sm font-semibold rounded-lg hover:bg-blue-800 transition disabled:opacity-50"
             >
               {saving ? "Saving…" : isEdit ? "Save changes" : "Create reservation"}
