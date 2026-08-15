@@ -233,15 +233,19 @@ export async function POST(req: NextRequest) {
 
   // Increment promo usage count
   if (validatedPromoId) {
-    await supabaseAdmin.rpc("increment_promo_used_count", { promo_id: validatedPromoId }).catch(() => {
-      // Fallback if RPC not available
-      supabaseAdmin.from("promo_codes")
-        .select("used_count").eq("id", validatedPromoId).single()
-        .then(({ data }) => {
-          if (data) supabaseAdmin.from("promo_codes")
-            .update({ used_count: (data.used_count ?? 0) + 1 }).eq("id", validatedPromoId);
-        });
-    });
+    try {
+      const { data: promo } = await supabaseAdmin
+        .from("promo_codes")
+        .select("used_count")
+        .eq("id", validatedPromoId)
+        .single();
+      if (promo) {
+        await supabaseAdmin
+          .from("promo_codes")
+          .update({ used_count: (promo.used_count ?? 0) + 1 })
+          .eq("id", validatedPromoId);
+      }
+    } catch (_) {}
   }
 
   const manipulationWarning = manipulated ? `
