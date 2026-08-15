@@ -74,6 +74,14 @@ export async function proxy(req: NextRequest) {
     return NextResponse.json({ role, jwtRole: user.app_metadata?.role ?? null, userId: user.id });
   }
 
+  // TEMPORARY DIAGNOSTIC — proves the role header reaches server-side handlers. Remove after verification.
+  if (pathname === "/api/admin/__headercheck") {
+    requestHeaders.set(ROLE_HEADER, role);
+    const diag = NextResponse.next({ request: { headers: requestHeaders } });
+    res.cookies.getAll().forEach(c => diag.cookies.set(c));
+    return diag;
+  }
+
   // Enforce MFA: all admin users must have a TOTP factor enrolled and verified
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   const { data: factors } = await supabase.auth.mfa.listFactors();
