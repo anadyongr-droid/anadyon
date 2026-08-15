@@ -33,7 +33,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
+    // Force session refresh to pick up latest app_metadata (e.g. after role change)
+    supabase.auth.refreshSession().then(({ data }) => {
       const r = data.user?.app_metadata?.role ?? "staff";
       setRole(r as string);
     });
