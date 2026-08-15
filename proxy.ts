@@ -1,10 +1,18 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 
-// Pages staff can access
+// Pages staff can access (exact page, or a nested route beneath it)
 const STAFF_PAGES = ["/admin", "/admin/calendar", "/admin/reservations"];
 // API routes staff can call
 const STAFF_API = ["/api/admin/reservations"];
+
+// Header used to hand the resolved role to server components. Stripped from the
+// incoming request first so a client cannot spoof it.
+const ROLE_HEADER = "x-anadyon-role";
+
+function isAllowedPage(pathname: string) {
+  return STAFF_PAGES.some(p => pathname === p || (p !== "/admin" && pathname.startsWith(p + "/")));
+}
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -15,7 +23,9 @@ export async function proxy(req: NextRequest) {
   if (pathname === "/api/admin/rates" && req.method === "GET") return NextResponse.next();
 
   // Build a response we can attach cookie refreshes to
-  const res = NextResponse.next({ request: req });
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.delete(ROLE_HEADER);
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,6 +51,27 @@ export async function proxy(req: NextRequest) {
     const url = req.nextUrl.clone();
     url.pathname = "/admin/login";
     return NextResponse.redirect(url);
+  }
+
+  // Resolve role first so it can be reported and reused below.
+  // app_metadata is server-only (not editable by the user); never use user_metadata for auth decisions
+  let role = (user.app_metadata?.role ?? "") as string;
+
+  // A session issued before a role change carries a stale (or absent) claim.
+  // Fall back to the authoritative value in the database.
+  if (!role) {
+    try {
+      const { supabaseAdmin } = await import("@/lib/supabase");
+      const { data: adminUser } = await supabaseAdmin.auth.admin.getUserById(user.id);
+      role = (adminUser?.user?.app_metadata?.role as string | undefined) ?? "staff";
+    } catch {
+      role = "staff";
+    }
+  }
+
+  // TEMPORARY DIAGNOSTIC — reports only the caller's own resolved role. Remove after verification.
+  if (pathname === "/api/admin/__rolecheck") {
+    return NextResponse.json({ role, jwtRole: user.app_metadata?.role ?? null, userId: user.id });
   }
 
   // Enforce MFA: all admin users must have a TOTP factor enrolled and verified
@@ -69,25 +100,23 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Role-based access — default to "staff" if no role set
-  // app_metadata is server-only (not editable by the user); never use user_metadata for auth decisions
-  const role = (user.app_metadata?.role ?? "staff") as string;
-
   if (role !== "admin") {
     if (pathname.startsWith("/api/admin/")) {
       const allowed = STAFF_API.some(p => pathname.startsWith(p));
       if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    } else {
-      const allowed = STAFF_PAGES.some(p => pathname === p || pathname.startsWith(p + "/"));
-      if (!allowed) {
-        const url = req.nextUrl.clone();
-        url.pathname = "/admin/reservations";
-        return NextResponse.redirect(url);
-      }
+    } else if (!isAllowedPage(pathname)) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/admin/reservations";
+      return NextResponse.redirect(url);
     }
   }
 
-  return res;
+  // Hand the resolved role to server components. The proxy is the only place
+  // that can refresh auth cookies, so it is the authoritative resolver.
+  requestHeaders.set(ROLE_HEADER, role);
+  const out = NextResponse.next({ request: { headers: requestHeaders } });
+  res.cookies.getAll().forEach(c => out.cookies.set(c));
+  return out;
 }
 
 export const config = { matcher: ["/admin/:path*", "/api/admin/:path*"] };
