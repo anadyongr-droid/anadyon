@@ -3,19 +3,22 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LayoutGrid, CalendarDays, Car, Settings, LogOut, BarChart3, FileText, Users, Tag, Percent, Mail } from "lucide-react";
 import { createBrowserClient } from "@supabase/ssr";
+import { isStaffPage } from "@/lib/adminAccess";
 
+// Visibility is derived from the allowlist the proxy enforces, so the sidebar
+// can never link somewhere staff will just be redirected away from.
 const allNav = [
-  { href: "/admin",               label: "Dashboard",    icon: BarChart3,    adminOnly: true  },
-  { href: "/admin/calendar",      label: "Calendar",     icon: CalendarDays, adminOnly: false },
-  { href: "/admin/reservations",  label: "Reservations", icon: LayoutGrid,   adminOnly: false },
-  { href: "/admin/quotes",        label: "Quotes",       icon: FileText,     adminOnly: false },
-  { href: "/admin/customers",     label: "Customers",    icon: Users,        adminOnly: false },
-  { href: "/admin/fleet",         label: "Fleet",        icon: Car,          adminOnly: true  },
-  { href: "/admin/rates",         label: "Rates",        icon: Settings,     adminOnly: true  },
-  { href: "/admin/promo-codes",   label: "Promo Codes",  icon: Tag,          adminOnly: true  },
-  { href: "/admin/discount-rules",label: "Discounts",    icon: Percent,      adminOnly: true  },
-  { href: "/admin/inbox",         label: "Inbox",        icon: Mail,         adminOnly: false },
-  { href: "/admin/settings",      label: "Settings",     icon: Settings,     adminOnly: true  },
+  { href: "/admin",               label: "Dashboard",    icon: BarChart3    },
+  { href: "/admin/calendar",      label: "Calendar",     icon: CalendarDays },
+  { href: "/admin/reservations",  label: "Reservations", icon: LayoutGrid   },
+  { href: "/admin/quotes",        label: "Quotes",       icon: FileText     },
+  { href: "/admin/customers",     label: "Customers",    icon: Users        },
+  { href: "/admin/fleet",         label: "Fleet",        icon: Car          },
+  { href: "/admin/rates",         label: "Rates",        icon: Settings     },
+  { href: "/admin/promo-codes",   label: "Promo Codes",  icon: Tag          },
+  { href: "/admin/discount-rules",label: "Discounts",    icon: Percent      },
+  { href: "/admin/inbox",         label: "Inbox",        icon: Mail         },
+  { href: "/admin/settings",      label: "Settings",     icon: Settings     },
 ];
 
 export default function AdminLayoutClient({
@@ -33,7 +36,7 @@ export default function AdminLayoutClient({
   }
 
   const isAdmin = role === "admin";
-  const nav = allNav.filter(item => !item.adminOnly || isAdmin);
+  const nav = allNav.filter(item => isAdmin || isStaffPage(item.href));
 
   async function logout() {
     const supabase = createBrowserClient(
