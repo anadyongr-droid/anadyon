@@ -70,7 +70,7 @@ export interface ParsedEmail {
 export function parseFromHeader(from: string): { senderName: string | null; senderEmail: string } {
   const angle = from.match(/^(.*?)<([^>]*)>\s*$/);
   if (angle) {
-    const name = angle[1].trim().replace(/^"(.*)"$/s, "$1").trim();
+    const name = angle[1].trim().replace(/^"([\s\S]*)"$/, "$1").trim();
     return { senderName: name || null, senderEmail: angle[2].trim() };
   }
   return { senderName: null, senderEmail: from.trim() };
