@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
-import { X, Trash2, Upload, FileText, Send, Search } from "lucide-react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { X, Trash2, Upload, FileText, Send, Search, Link, MessageSquare } from "lucide-react";
 import { calcRentalDays, getDailyRate, calcExtrasTotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 
@@ -580,6 +580,22 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             )}
           </div>
 
+          {/* Stripe Deposit */}
+          {isEdit && (
+            <div className="col-span-2 border-t border-gray-100 pt-4">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Deposit Payment Link</label>
+              <StripeDepositButton reservationId={reservationId!} />
+            </div>
+          )}
+
+          {/* SMS */}
+          {isEdit && (
+            <div className="col-span-2 border-t border-gray-100 pt-4">
+              <label className="block text-xs font-medium text-gray-600 mb-1">SMS to Customer</label>
+              <SmsButton reservationId={reservationId!} />
+            </div>
+          )}
+
           {/* Customer linking */}
           <div className="col-span-2 border-t border-gray-100 pt-4">
             <div className="flex items-center justify-between mb-2">
@@ -679,6 +695,89 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Sub-components ───────────────────────────────────────────
+
+function StripeDepositButton({ reservationId }: { reservationId: string }) {
+  const [loading, setLoading] = useState(false);
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const create = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const res = await fetch("/api/admin/stripe/create-payment-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reservationId }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (data.checkoutUrl) {
+      setUrl(data.checkoutUrl);
+    } else {
+      setError(data.error ?? "Failed to create payment link");
+    }
+  }, [reservationId]);
+
+  if (url) {
+    return (
+      <div className="flex items-center gap-2">
+        <a href={url} target="_blank" rel="noopener noreferrer"
+          className="text-xs text-blue-600 underline break-all">{url}</a>
+        <button onClick={() => navigator.clipboard.writeText(url)}
+          className="text-xs text-gray-500 hover:text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
+          Copy
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <button onClick={create} disabled={loading}
+        className="flex items-center gap-1.5 text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 disabled:opacity-50 transition">
+        <Link size={11} /> {loading ? "Generating…" : "Generate Deposit Link"}
+      </button>
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+    </div>
+  );
+}
+
+function SmsButton({ reservationId }: { reservationId: string }) {
+  const [template, setTemplate] = useState("confirmation");
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  const send = useCallback(async () => {
+    setSending(true);
+    setResult(null);
+    const res = await fetch("/api/admin/sms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reservationId, template }),
+    });
+    const data = await res.json();
+    setSending(false);
+    setResult(data.ok ? "✓ SMS sent" : `Error: ${data.error}`);
+  }, [reservationId, template]);
+
+  return (
+    <div className="flex items-center gap-2">
+      <select value={template} onChange={(e) => setTemplate(e.target.value)}
+        className="text-xs border border-gray-300 rounded px-2 py-1">
+        <option value="confirmation">Booking confirmed</option>
+        <option value="pickup_reminder">Pickup reminder</option>
+        <option value="return_reminder">Return reminder</option>
+      </select>
+      <button onClick={send} disabled={sending}
+        className="flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 disabled:opacity-50 transition">
+        <MessageSquare size={11} /> {sending ? "Sending…" : "Send SMS"}
+      </button>
+      {result && <span className="text-xs text-gray-600">{result}</span>}
     </div>
   );
 }

@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/sync-emails",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/watchdog",
+      "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/morning-briefing",
+      "schedule": "0 5 * * *"
+    }
+  ]
+}

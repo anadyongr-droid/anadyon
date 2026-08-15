@@ -43,9 +43,23 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Enforce MFA completion if the user has enrolled a TOTP factor but hasn't verified it yet
+  // Enforce MFA: all admin users must have a TOTP factor enrolled and verified
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  const { data: factors } = await supabase.auth.mfa.listFactors();
+  const hasFactor = (factors?.totp?.length ?? 0) > 0;
+
+  if (!hasFactor) {
+    // No factor enrolled — force setup
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "MFA setup required" }, { status: 401 });
+    }
+    const url = req.nextUrl.clone();
+    url.pathname = "/admin/setup-mfa";
+    return NextResponse.redirect(url);
+  }
+
   if (aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+    // Factor enrolled but not yet verified in this session
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "MFA verification required" }, { status: 401 });
     }

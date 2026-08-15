@@ -80,6 +80,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Claim submission atomically — returns false if already submitted/in-progress
+  const { data: claimed } = await supabaseAdmin.rpc("claim_dcl_submission", { p_reservation_id: id });
+  if (claimed === false) {
+    return NextResponse.json({ error: "DCL already submitted for this reservation" }, { status: 409 });
+  }
+
   const { data: res, error } = await supabaseAdmin
     .from("reservations")
     .select("*, vehicles(name, plate, make, category), customers(first_name, last_name, full_name, nationality)")

@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRecaptcha } from "@/lib/recaptcha";
 import { supabaseAdmin } from "@/lib/supabase";
+import { checkRateLimit } from "@/lib/rateLimit";
 import { calcVehicleSubtotal, calcRentalDays, DEPOSIT_RATE, type Rate, type ExtrasConfig } from "@/lib/pricing";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -22,7 +23,16 @@ function esc(val: unknown): string {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  const rl = checkRateLimit(req, { limit: 10, windowMs: 15 * 60 * 1000 });
+  if (!rl.ok) return rl.response!;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
 
   if (!await verifyRecaptcha(body.captchaToken)) {
     return NextResponse.json({ error: "reCAPTCHA verification failed" }, { status: 400 });
@@ -127,22 +137,21 @@ export async function POST(req: NextRequest) {
   const total = serverTotal;
   const deposit = serverDeposit;
   const balanceDue = serverBalanceDue;
-  // Server-side promo code validation
+  // Atomically validate and redeem promo code via DB function (prevents race conditions)
   let promoDiscount = 0;
   let validatedPromoId: string | null = null;
   if (promoCode) {
-    const { data: promo } = await supabaseAdmin
-      .from("promo_codes")
-      .select("*")
-      .eq("active", true)
-      .ilike("code", promoCode.trim())
-      .single();
-    if (promo && (!promo.expires_at || promo.expires_at >= new Date().toISOString().slice(0, 10))
-      && (promo.max_uses === null || promo.used_count < promo.max_uses)) {
-      promoDiscount = promo.type === "percentage"
-        ? parseFloat(((total * promo.value) / 100).toFixed(2))
-        : parseFloat(Number(promo.value).toFixed(2));
-      validatedPromoId = promo.id;
+    try {
+      const { data: promoResult } = await supabaseAdmin.rpc("redeem_promo", {
+        p_code: promoCode.trim(),
+        p_total: total,
+      });
+      if (promoResult) {
+        promoDiscount = Number(promoResult.discount_amount);
+        validatedPromoId = promoResult.id;
+      }
+    } catch (_) {
+      // Invalid/expired/exhausted — silently ignore, proceed without discount
     }
   }
   const finalTotal = parseFloat(Math.max(0, total - promoDiscount).toFixed(2));
@@ -235,23 +244,6 @@ export async function POST(req: NextRequest) {
     notes: `Quote ref: ${ref}${comments ? `. Customer notes: ${comments}` : ""}`,
   }),
   ]);
-
-  // Increment promo usage count
-  if (validatedPromoId) {
-    try {
-      const { data: promo } = await supabaseAdmin
-        .from("promo_codes")
-        .select("used_count")
-        .eq("id", validatedPromoId)
-        .single();
-      if (promo) {
-        await supabaseAdmin
-          .from("promo_codes")
-          .update({ used_count: (promo.used_count ?? 0) + 1 })
-          .eq("id", validatedPromoId);
-      }
-    } catch (_) {}
-  }
 
   const manipulationWarning = manipulated ? `
     <div style="background:#fff3cd;border:2px solid #ff9800;border-radius:8px;padding:16px;margin-bottom:20px;">
