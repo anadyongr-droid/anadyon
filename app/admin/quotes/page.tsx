@@ -15,6 +15,8 @@ interface Quote {
   total: number;
   created_at: string;
   quote_status: string;
+  reservation_vehicle_name: string | null;
+  reservation_vehicle_plate: string | null;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -74,7 +76,18 @@ export default function QuotesPage() {
                     <div className="font-medium text-gray-900">{q.first_name} {q.last_name}</div>
                     <div className="text-xs text-gray-400">{q.mobile_tel}</div>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 capitalize">{q.selected_model ?? q.vehicle_type}</td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {q.reservation_vehicle_name ? (
+                      <div>
+                        <div>{q.reservation_vehicle_name}</div>
+                        {q.reservation_vehicle_plate && (
+                          <div className="text-xs font-mono text-gray-400">{q.reservation_vehicle_plate}</div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="capitalize">{q.selected_model ?? q.vehicle_type}</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-gray-600">{q.pickup_date}</td>
                   <td className="px-4 py-3 text-gray-600">{q.dropoff_date}</td>
                   <td className="px-4 py-3 text-center text-gray-600">{q.rental_days}</td>
