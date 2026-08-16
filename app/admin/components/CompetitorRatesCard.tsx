@@ -23,6 +23,8 @@ export default function CompetitorRatesCard() {
   const [error, setError] = useState<string | null>(null);
   const [faros, setFaros] = useState<string | null>(null);
   const [farosRunning, setFarosRunning] = useState(false);
+  const [cr, setCr] = useState<string | null>(null);
+  const [crRunning, setCrRunning] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -96,6 +98,33 @@ export default function CompetitorRatesCard() {
     setFarosRunning(false);
   }
 
+  async function collectCarRentals() {
+    setCrRunning(true);
+    setCr("Starting runs…");
+    try {
+      const start = await fetch("/api/admin/competitors/carrentals", { method: "POST" });
+      const d0 = await start.json();
+      if (!start.ok) { setCr(d0.error ?? "Could not start."); setCrRunning(false); return; }
+      setCr(`${d0.started} of ${d0.total} runs started…`);
+
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 10000));
+        const res = await fetch("/api/admin/competitors/carrentals");
+        const d = await res.json();
+        if (d.status === "DONE") {
+          setCr(d.stored > 0
+            ? `${d.stored} prices stored (USD→EUR ${d.usdToEur?.toFixed(3)}).${d.errors?.length ? " " + d.errors[0] : ""}`
+            : (d.errors?.[0] ?? "Finished with no usable data."));
+          break;
+        }
+        setCr(`Running… ${d.finished}/${d.total} finished`);
+      }
+    } catch {
+      setCr("Could not reach the server.");
+    }
+    setCrRunning(false);
+  }
+
   const pct = progress && progress.total > 0
     ? Math.round((progress.completed / progress.total) * 100)
     : 0;
@@ -163,6 +192,25 @@ export default function CompetitorRatesCard() {
         >
           <Download size={14} className={farosRunning ? "animate-pulse" : ""} />
           {farosRunning ? "Running…" : "Collect Faros"}
+        </button>
+      </div>
+
+      <div className="mt-4 pt-4 border-t border-gray-100 flex items-start justify-between gap-4">
+        <div>
+          <div className="font-medium text-gray-900 text-sm">CarRentals.com</div>
+          <div className="text-xs text-gray-500 mt-0.5">
+            International brands at ZTH — Avis, Budget, Hertz, Enterprise, Sixt. A different
+            segment from the local operators. Priced in USD, converted at the day&apos;s rate.
+          </div>
+          {cr && <div className="text-xs text-gray-500 mt-1.5">{cr}</div>}
+        </div>
+        <button
+          onClick={collectCarRentals}
+          disabled={crRunning}
+          className="shrink-0 flex items-center gap-1.5 text-sm font-medium text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-60 transition"
+        >
+          <Download size={14} className={crRunning ? "animate-pulse" : ""} />
+          {crRunning ? "Running…" : "Collect CarRentals"}
         </button>
       </div>
     </div>
