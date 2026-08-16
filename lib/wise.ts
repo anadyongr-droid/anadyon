@@ -13,20 +13,41 @@
  */
 
 /**
- * Short, human-quotable reference for a reservation.
+ * Wise silently rejects a long description: instead of ignoring or truncating
+ * it, the payment page renders "We are unable to accept payments at this time",
+ * which reads like an account problem rather than a bad parameter.
  *
- * Reservations carry only a uuid, which nobody will retype correctly into a
- * bank transfer. The first eight hex characters give ~4 billion values — ample
- * here — and stay derivable from the id, so no schema change is needed and a
- * payment can later be matched back with a prefix lookup.
+ * Verified against the live page: 20 characters render fine, 36 fail. Spaces
+ * and hyphens are not the issue — length alone is. Kept at the longest value
+ * proven to work.
  */
-export function reservationRef(id: string): string {
-  return `ANA-${id.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+const MAX_DESCRIPTION = 20;
+
+/**
+ * The reference a customer quotes when paying.
+ *
+ * Prefers the booking's own quote reference, which the customer has already
+ * seen in their quote email, so the same code appears everywhere. Reservations
+ * created directly in the admin panel have no quote, so those fall back to a
+ * short code derived from the id.
+ */
+export function reservationRef(id: string, notes?: string | null): string {
+  const fromQuote = notes?.match(/Quote ref:\s*([A-Za-z0-9-]+)/i);
+  if (fromQuote) return fromQuote[1].trim().toUpperCase();
+  return id.replace(/-/g, "").slice(0, 6).toUpperCase();
+}
+
+/** Fits "Deposit <ref>" into Wise's limit, dropping the word before the ref. */
+export function depositDescription(ref: string): string {
+  const withLabel = `Deposit ${ref}`;
+  if (withLabel.length <= MAX_DESCRIPTION) return withLabel;
+  return ref.slice(0, MAX_DESCRIPTION);
 }
 
 export interface WiseDepositLink {
   url: string;
   reference: string;
+  description: string;
   amount: number;
   currency: string;
 }
@@ -35,23 +56,24 @@ export function buildWiseDepositLink(opts: {
   handle: string;
   reservationId: string;
   amount: number;
+  notes?: string | null;
   currency?: string;
 }): WiseDepositLink {
   const currency = opts.currency ?? "EUR";
-  const reference = reservationRef(opts.reservationId);
+  const reference = reservationRef(opts.reservationId, opts.notes);
+  const description = depositDescription(reference);
 
   const params = new URLSearchParams({
     // Wise renders the amount as given; two decimals keeps it unambiguous.
     amount: opts.amount.toFixed(2),
     currency,
-    // The payer sees and carries this through, so it is what reconciliation
-    // will key on later.
-    description: `Anadyon Rentals deposit ${reference}`,
+    description,
   });
 
   return {
     url: `https://wise.com/pay/business/${encodeURIComponent(opts.handle)}?${params.toString()}`,
     reference,
+    description,
     amount: opts.amount,
     currency,
   };
