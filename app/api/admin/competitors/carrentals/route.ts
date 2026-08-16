@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { planRuns, startRun, getRunStatus, ingestDataset, usdToEur, type PlannedRun } from "@/lib/carRentalsRates";
 
@@ -8,6 +8,7 @@ export const maxDuration = 60;
 const STATE_KEY = "carrentals_apify_runs";
 
 interface Slot {
+  residential?: boolean;
   checkIn: string;
   days: number;
   url: string;
@@ -41,14 +42,15 @@ async function writeState(slots: Slot[]) {
   });
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const residential = new URL(req.url).searchParams.get("residential") === "1";
   const token = process.env.APIFY_TOKEN;
   if (!token) return NextResponse.json({ error: "APIFY_TOKEN is not set in Vercel." }, { status: 400 });
 
-  const slots: Slot[] = planRuns().map((r: PlannedRun) => ({ checkIn: r.checkIn, days: r.days, url: r.url }));
+  const slots: Slot[] = planRuns().map((r: PlannedRun) => ({ checkIn: r.checkIn, days: r.days, url: r.url, residential }));
 
   try {
-    const { runId, datasetId } = await startRun(token, slots[0]);
+    const { runId, datasetId } = await startRun(token, slots[0], { residential });
     slots[0].runId = runId;
     slots[0].datasetId = datasetId;
   } catch (err) {
@@ -100,7 +102,7 @@ export async function GET() {
   const next = slots.find(s => !s.runId);
   if (next) {
     try {
-      const { runId, datasetId } = await startRun(token, next);
+      const { runId, datasetId } = await startRun(token, next, { residential: next.residential });
       next.runId = runId;
       next.datasetId = datasetId;
     } catch (err) {

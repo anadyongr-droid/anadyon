@@ -72,7 +72,21 @@ export async function usdToEur(): Promise<number> {
   return 0.86;
 }
 
-export async function startRun(token: string, run: PlannedRun): Promise<{ runId: string; datasetId: string }> {
+/**
+ * Residential proxies route through consumer ISP connections rather than a data
+ * centre. carrentals.com rate-limits Apify's shared datacenter pool with 429s
+ * regardless of browser fingerprint, so they are the only way this Actor
+ * returns data — but they are billed by traffic volume, so they are opt-in per
+ * run rather than the default.
+ *
+ * The country is pinned so results stay comparable: carrentals.com localises
+ * pricing, and an unpinned pool would return a different currency run to run.
+ */
+export async function startRun(
+  token: string,
+  run: PlannedRun,
+  opts: { residential?: boolean; country?: string } = {}
+): Promise<{ runId: string; datasetId: string }> {
   const res = await fetch(`https://api.apify.com/v2/acts/${ACTOR}/runs?token=${encodeURIComponent(token)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -80,10 +94,13 @@ export async function startRun(token: string, run: PlannedRun): Promise<{ runId:
       startUrl: run.url,
       results_wanted: 60,
       max_pages: 3,
-      // Residential proxies are a paid Apify add-on; requesting a group the plan
-      // does not include yields a run that succeeds with an empty dataset.
-      // Default (datacenter) proxies work on every plan.
-      proxyConfiguration: { useApifyProxy: true },
+      proxyConfiguration: opts.residential
+        ? {
+            useApifyProxy: true,
+            apifyProxyGroups: ["RESIDENTIAL"],
+            apifyProxyCountry: opts.country ?? "US",
+          }
+        : { useApifyProxy: true },
     }),
   });
   if (!res.ok) throw new Error(`Apify start failed (${res.status}): ${(await res.text()).slice(0, 180)}`);
