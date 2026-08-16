@@ -158,7 +158,14 @@ export async function fetchNewEmails(): Promise<FetchResult> {
     ? Math.floor(new Date(setting.value).getTime() / 1000)
     : Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60; // last 7 days on first run
 
-  const query = `to:customerservice@anadyon.gr after:${afterTimestamp} -from:customerservice@anadyon.gr`;
+  // Match anything addressed to the service mailbox.
+  //
+  // Deliberately does NOT exclude senders at anadyon.gr: the live WordPress site
+  // submits reservations as `From: WordPress <customerservice@anadyon.gr>` with
+  // Reply-To set to the real customer, so excluding that sender silently dropped
+  // every website booking. Staff replies are not caught by this, because a reply
+  // is addressed to the customer rather than to customerservice@.
+  const query = `to:customerservice@anadyon.gr after:${afterTimestamp}`;
 
   // Enumerate ids across pages so a backlog larger than one page is still seen.
   const ids: { id?: string | null }[] = [];

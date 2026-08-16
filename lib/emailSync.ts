@@ -176,13 +176,18 @@ export async function detectReplies(): Promise<{ checked: number; replied: numbe
  * Replaces the Make.com "Gap Watchdog". Re-alerts at most once per six hours
  * per thread via alert_outbox, so repeated runs do not spam the channel.
  */
-export async function runWatchdog(olderThanHours = 4): Promise<{ unanswered: number; alerted: number }> {
+export async function runWatchdog(olderThanHours = 12): Promise<{ unanswered: number; alerted: number }> {
   const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000).toISOString();
 
+  // Only chase mail that actually needs answering. Alerting on every open email
+  // would page the channel about newsletters and one-time passcodes, which sit
+  // open indefinitely — the original Make.com watchdog filtered to Reservation
+  // for exactly this reason. Cancellation is included since it is time-critical.
   const { data: stale } = await supabaseAdmin
     .from("emails")
     .select("id, gmail_thread_id, sender_email, subject, greek_summary, urgency, received_at")
     .eq("status", "open")
+    .in("category", ["Reservation", "Cancellation"])
     .lt("received_at", cutoff)
     .order("urgency", { ascending: false })
     .order("received_at", { ascending: true })
