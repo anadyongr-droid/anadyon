@@ -792,7 +792,7 @@ function SmsButton({ reservationId }: { reservationId: string }) {
  */
 function WiseDepositButton({ reservationId }: { reservationId: string }) {
   const [loading, setLoading] = useState(false);
-  const [link, setLink] = useState<{ url: string; reference: string } | null>(null);
+  const [link, setLink] = useState<{ url: string; reference: string; qr: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const create = useCallback(async () => {
@@ -805,7 +805,7 @@ function WiseDepositButton({ reservationId }: { reservationId: string }) {
     });
     const data = await res.json();
     setLoading(false);
-    if (res.ok && data.url) setLink({ url: data.url, reference: data.reference });
+    if (res.ok && data.url) setLink({ url: data.url, reference: data.reference, qr: data.qr ?? null });
     else setError(data.error ?? "Failed to build Wise link");
   }, [reservationId]);
 
@@ -820,6 +820,16 @@ function WiseDepositButton({ reservationId }: { reservationId: string }) {
             Copy
           </button>
         </div>
+        {link.qr && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={link.qr}
+            alt={`Wise payment QR for ${link.reference}`}
+            width={160}
+            height={160}
+            className="mt-2 rounded border border-gray-200 bg-white"
+          />
+        )}
         <p className="text-xs text-gray-500 mt-1">
           Reference <strong>{link.reference}</strong> — Wise does not notify us when it is paid,
           so mark the deposit received once it lands.

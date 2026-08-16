@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { buildWiseDepositLink } from "@/lib/wise";
+import QRCode from "qrcode";
 
 // POST /api/admin/wise/deposit-link  { reservationId }
 // Admin-only via proxy.ts.
@@ -29,5 +30,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No deposit amount on this reservation" }, { status: 400 });
   }
 
-  return NextResponse.json(buildWiseDepositLink({ handle, reservationId: res.id, amount: deposit }));
+  const link = buildWiseDepositLink({ handle, reservationId: res.id, amount: deposit });
+
+  // Rendered server-side so the client bundle stays untouched. A data URI is
+  // fine here: the CSP allows img-src data:, and it lets the QR be shown or
+  // screenshotted straight from the reservation without hosting a file.
+  let qr: string | null = null;
+  try {
+    qr = await QRCode.toDataURL(link.url, { width: 320, margin: 1, errorCorrectionLevel: "M" });
+  } catch (err) {
+    console.error("Wise QR generation failed", err);
+  }
+
+  return NextResponse.json({ ...link, qr });
 }
