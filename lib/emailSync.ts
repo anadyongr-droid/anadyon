@@ -1,4 +1,4 @@
-import { fetchNewEmails, advanceSyncCursor } from "@/lib/gmail";
+import { fetchNewEmails, advanceSyncCursor, fetchSentThreadIds } from "@/lib/gmail";
 import { classifyEmail } from "@/lib/emailClassifier";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendTelegram } from "@/lib/telegram";
@@ -134,6 +134,92 @@ export async function syncEmails(): Promise<SyncResult> {
   if (cursor) await advanceSyncCursor(cursor);
 
   return { fetched: emails.length, inserted, alerted, remaining };
+}
+
+/**
+ * Marks open emails as replied once staff have answered the thread from Gmail.
+ *
+ * Replaces the Make.com "Reply Detection" scenario. Matching is by Gmail thread
+ * id, so replying from any device or client counts — nothing has to be clicked
+ * in the admin panel.
+ */
+export async function detectReplies(): Promise<{ checked: number; replied: number }> {
+  const { data: open } = await supabaseAdmin
+    .from("emails")
+    .select("id, gmail_thread_id")
+    .eq("status", "open");
+
+  if (!open?.length) return { checked: 0, replied: 0 };
+
+  const sentThreads = await fetchSentThreadIds();
+  if (!sentThreads.size) return { checked: open.length, replied: 0 };
+
+  const answered = open.filter(e => e.gmail_thread_id && sentThreads.has(e.gmail_thread_id));
+  if (!answered.length) return { checked: open.length, replied: 0 };
+
+  const { error } = await supabaseAdmin
+    .from("emails")
+    .update({ status: "replied", updated_at: new Date().toISOString() })
+    .in("id", answered.map(e => e.id));
+
+  if (error) {
+    console.error("detectReplies update failed", error.message);
+    return { checked: open.length, replied: 0 };
+  }
+
+  return { checked: open.length, replied: answered.length };
+}
+
+/**
+ * Chases open mail that has gone unanswered, alerting Telegram.
+ *
+ * Replaces the Make.com "Gap Watchdog". Re-alerts at most once per six hours
+ * per thread via alert_outbox, so repeated runs do not spam the channel.
+ */
+export async function runWatchdog(olderThanHours = 4): Promise<{ unanswered: number; alerted: number }> {
+  const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000).toISOString();
+
+  const { data: stale } = await supabaseAdmin
+    .from("emails")
+    .select("id, gmail_thread_id, sender_email, subject, greek_summary, urgency, received_at")
+    .eq("status", "open")
+    .lt("received_at", cutoff)
+    .order("urgency", { ascending: false })
+    .order("received_at", { ascending: true })
+    .limit(10);
+
+  if (!stale?.length) return { unanswered: 0, alerted: 0 };
+
+  let alerted = 0;
+  for (const email of stale) {
+    const alertKey = `watchdog:thread:${email.gmail_thread_id}`;
+    const { data: existing } = await supabaseAdmin
+      .from("alert_outbox")
+      .select("id, sent_at")
+      .eq("key", alertKey)
+      .maybeSingle();
+
+    // Only re-alert if not alerted in the last 6 hours
+    if (existing) {
+      const sentAt = new Date(existing.sent_at ?? 0).getTime();
+      if (Date.now() - sentAt < 6 * 60 * 60 * 1000) continue;
+    }
+
+    const age = Math.round((Date.now() - new Date(email.received_at).getTime()) / 3600000);
+    const msg =
+      `⏰ <b>Αναπάντητο Email (${age}h)</b>\n` +
+      `Από: ${esc(email.sender_email)}\n` +
+      `Θέμα: ${esc(email.subject ?? "(χωρίς θέμα)")}\n\n` +
+      `${esc(email.greek_summary ?? "")}`;
+    await sendTelegram(msg);
+    await supabaseAdmin.from("alert_outbox").upsert(
+      { key: alertKey, payload: msg, sent_at: new Date().toISOString() },
+      { onConflict: "key" }
+    );
+    alerted++;
+  }
+
+  return { unanswered: stale.length, alerted };
 }
 
 /**

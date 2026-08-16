@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendTelegram } from "@/lib/telegram";
-import { syncEmails } from "@/lib/emailSync";
+import { syncEmails, detectReplies, runWatchdog } from "@/lib/emailSync";
 
 export const maxDuration = 60;
 
@@ -13,14 +13,29 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Pull and classify new mail first, so the briefing's email count is current.
-  // The Vercel Hobby plan allows a single daily cron, so this is also the only
-  // scheduled Gmail sync — a failure here must not block the briefing.
+  // The Vercel Hobby plan allows a single daily cron, so this route is the
+  // orchestrator for every scheduled job. Each step is isolated: a failure in
+  // one must not stop the others or block the briefing itself.
   let sync = null;
   try {
     sync = await syncEmails();
   } catch (err) {
     console.error("morning-briefing: email sync failed", err);
+  }
+
+  // Mark threads answered from Gmail before counting what is still open.
+  let replies = null;
+  try {
+    replies = await detectReplies();
+  } catch (err) {
+    console.error("morning-briefing: reply detection failed", err);
+  }
+
+  let watchdog = null;
+  try {
+    watchdog = await runWatchdog();
+  } catch (err) {
+    console.error("morning-briefing: watchdog failed", err);
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -34,7 +49,7 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   if (existing) {
-    return NextResponse.json({ ok: true, skipped: true, sync });
+    return NextResponse.json({ ok: true, skipped: true, sync, replies, watchdog });
   }
 
   // Today's pickups
@@ -94,5 +109,5 @@ export async function GET(req: NextRequest) {
     sent_at: new Date().toISOString(),
   });
 
-  return NextResponse.json({ ok: true, sync });
+  return NextResponse.json({ ok: true, sync, replies, watchdog });
 }

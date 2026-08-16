@@ -70,9 +70,10 @@ export default function InboxPage() {
       } else if (kind === "sync") {
         const parts: string[] = [];
         parts.push(data.inserted === 0 ? "No new email" : `${data.inserted} imported`);
+        if (data.replied > 0) parts.push(`${data.replied} marked replied`);
         if (data.remaining > 0) parts.push(`${data.remaining} still queued — press Sync again`);
         setNote({ ok: true, text: parts.join(" · ") });
-        if (data.inserted > 0) load();
+        if (data.inserted > 0 || data.replied > 0) load();
       } else {
         setNote({
           ok: true,

@@ -226,6 +226,37 @@ export async function fetchNewEmails(): Promise<FetchResult> {
 }
 
 /**
+ * Returns the thread ids you have sent mail in recently.
+ *
+ * Replaces the Make.com "Reply Detection" scenario, which watched the Sent
+ * folder and flipped a thread's status once staff replied. Uses metadata format
+ * so only headers are transferred, not message bodies.
+ */
+export async function fetchSentThreadIds(sinceDays = 14): Promise<Set<string>> {
+  const gmail = await getGmailClient();
+  if (!gmail) return new Set();
+
+  const after = Math.floor(Date.now() / 1000) - sinceDays * 24 * 60 * 60;
+  const threadIds = new Set<string>();
+
+  let pageToken: string | undefined;
+  do {
+    const res = await gmail.users.messages.list({
+      userId: "me",
+      q: `in:sent after:${after}`,
+      maxResults: 100,
+      pageToken,
+    });
+    for (const m of res.data.messages ?? []) {
+      if (m.threadId) threadIds.add(m.threadId);
+    }
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken && threadIds.size < 500);
+
+  return threadIds;
+}
+
+/**
  * Moves the sync cursor forward.
  *
  * Called by the sync layer only after messages are stored, and set to the
