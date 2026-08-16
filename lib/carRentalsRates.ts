@@ -39,6 +39,10 @@ function usDate(iso: string): string {
 export function buildSearchUrl(checkIn: string, days: number): string {
   const params = new URLSearchParams({
     locn: LOCATION,
+    // The Actor parses the URL literally and requires both pickup and drop-off:
+    // "Expected locn and dpln parameters in the URL." The site's own JS defaults
+    // the drop-off when it is absent, which is why the page worked without it.
+    dpln: LOCATION,
     date1: usDate(checkIn),
     date2: usDate(addDays(checkIn, days)),
     time1: "1030AM",
