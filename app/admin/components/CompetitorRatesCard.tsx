@@ -21,6 +21,8 @@ export default function CompetitorRatesCard() {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [faros, setFaros] = useState<string | null>(null);
+  const [farosRunning, setFarosRunning] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -63,6 +65,35 @@ export default function CompetitorRatesCard() {
     }
     await refresh();
     setRunning(false);
+  }
+
+  async function collectFaros() {
+    setFarosRunning(true);
+    setFaros("Starting browser run…");
+    try {
+      const start = await fetch("/api/admin/competitors/faros", { method: "POST" });
+      const startData = await start.json();
+      if (!start.ok) { setFaros(startData.error ?? "Could not start."); setFarosRunning(false); return; }
+
+      // The Apify run outlives a serverless request, so poll for it.
+      for (let i = 0; i < 40; i++) {
+        await new Promise(r => setTimeout(r, 8000));
+        const res = await fetch("/api/admin/competitors/faros");
+        const d = await res.json();
+        if (d.status === "SUCCEEDED") {
+          setFaros(d.alreadyIngested ? "Already collected." : `${d.stored} prices from ${d.searches} searches.`);
+          break;
+        }
+        if (d.status === "ERROR" || d.status === "FAILED" || d.status === "ABORTED") {
+          setFaros(d.error ?? `Run ${d.status}.`);
+          break;
+        }
+        setFaros(`Running… (${d.status})`);
+      }
+    } catch {
+      setFaros("Could not reach the server.");
+    }
+    setFarosRunning(false);
   }
 
   const pct = progress && progress.total > 0
@@ -114,6 +145,25 @@ export default function CompetitorRatesCard() {
           Pausing 10 seconds between searches, as ezcar.eu requests. A full pass takes about four minutes.
         </div>
       )}
+
+      <div className="mt-4 pt-4 border-t border-gray-100 flex items-start justify-between gap-4">
+        <div>
+          <div className="font-medium text-gray-900 text-sm">Faros Rentals</div>
+          <div className="text-xs text-gray-500 mt-0.5">
+            Runs through Apify, since Faros refuses non-browser requests. Three-day minimum rental,
+            so no 1–2 day prices.
+          </div>
+          {faros && <div className="text-xs text-gray-500 mt-1.5">{faros}</div>}
+        </div>
+        <button
+          onClick={collectFaros}
+          disabled={farosRunning}
+          className="shrink-0 flex items-center gap-1.5 text-sm font-medium text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-60 transition"
+        >
+          <Download size={14} className={farosRunning ? "animate-pulse" : ""} />
+          {farosRunning ? "Running…" : "Collect Faros"}
+        </button>
+      </div>
     </div>
   );
 }
