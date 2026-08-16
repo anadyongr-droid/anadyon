@@ -79,8 +79,9 @@ export async function usdToEur(): Promise<number> {
  * returns data — but they are billed by traffic volume, so they are opt-in per
  * run rather than the default.
  *
- * The country is pinned so results stay comparable: carrentals.com localises
- * pricing, and an unpinned pool would return a different currency run to run.
+ * The country is pinned so results stay comparable. Greece is the default
+ * because it is the exit point verified to get past their rate limiting;
+ * prices still return in USD regardless, so conversion is still needed.
  */
 export async function startRun(
   token: string,
@@ -98,7 +99,7 @@ export async function startRun(
         ? {
             useApifyProxy: true,
             apifyProxyGroups: ["RESIDENTIAL"],
-            apifyProxyCountry: opts.country ?? "US",
+            apifyProxyCountry: opts.country ?? "GR",
           }
         : { useApifyProxy: true },
     }),
@@ -124,22 +125,36 @@ function num(v: unknown): number | null {
   return null;
 }
 
-function pick(item: Record<string, unknown>, keys: string[]): unknown {
-  for (const k of Object.keys(item)) {
-    if (keys.some(want => k.toLowerCase() === want)) return item[k];
-  }
-  for (const k of Object.keys(item)) {
-    if (keys.some(want => k.toLowerCase().includes(want))) return item[k];
-  }
-  return undefined;
+/** vehicleAttributes reads e.g. "5, 5 Doors, Air Conditioning, Unlimited mileage, Automatic". */
+function transmissionFrom(attrs: unknown): string | null {
+  const t = String(attrs ?? "");
+  if (/automatic/i.test(t)) return "Αυτόματο";
+  if (/manual/i.test(t)) return "Χειροκίνητο";
+  return null;
+}
+
+interface CarRentalsItem {
+  vendorName?: string;
+  vehicleCategory?: string;
+  vehicleDescription?: string;
+  vehicleAttributes?: string;
+  priceLeadAmount?: number;
+  priceTotalAmount?: number;
+  priceCurrency?: string;
 }
 
 /**
  * Maps the actor's dataset into competitor_rates.
  *
- * Field names are matched loosely because this is a community actor whose
- * output shape is not contractual; if nothing maps, the first record is
- * reported back so the mapping can be corrected rather than failing silently.
+ * Fields are mapped explicitly against the shape the actor actually returns.
+ * A loose key search is unsafe here: searching for a key containing "name" to
+ * find the model matches `vendorName` first, which would store every car as
+ * its rental company.
+ *
+ * price_per_day is the total divided by the rental length rather than the
+ * advertised `priceLeadAmount`, because the total is what the customer pays —
+ * carrentals.com states the total "includes taxes and fees", and the two differ
+ * by roughly 9%.
  */
 export async function ingestDataset(
   token: string,
@@ -149,22 +164,17 @@ export async function ingestDataset(
 ): Promise<number> {
   const res = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${encodeURIComponent(token)}&clean=true`);
   if (!res.ok) throw new Error(`Dataset fetch failed (${res.status})`);
-  const items: Record<string, unknown>[] = await res.json();
+  const items: CarRentalsItem[] = await res.json();
   if (!Array.isArray(items) || !items.length) {
-    // Distinguish "the actor returned nothing" from "we could not map the
-    // fields" — they have completely different causes.
     throw new Error(`Actor returned an empty dataset for ${run.checkIn} ${run.days}d — check the run log in Apify.`);
   }
 
   const rows = items.map(it => {
-    const supplier = String(pick(it, ["supplier", "vendor", "company", "agency", "brand"]) ?? "").trim();
-    const model = String(pick(it, ["car", "vehicle", "model", "name", "title"]) ?? "").trim();
-    const category = String(pick(it, ["category", "cartype", "class", "type"]) ?? "").trim();
-    const perDayUsd = num(pick(it, ["priceperday", "perday", "dailyrate", "daily"]));
-    const totalUsd = num(pick(it, ["totalprice", "total"]));
-
-    const perDay = perDayUsd ?? (totalUsd !== null ? totalUsd / run.days : null);
-    const label = [supplier, model].filter(Boolean).join(" — ") || model || supplier;
+    const supplier = (it.vendorName ?? "").trim();
+    const model = (it.vehicleDescription ?? "").trim();
+    const total = num(it.priceTotalAmount);
+    const lead = num(it.priceLeadAmount);
+    const perDay = total !== null && run.days > 0 ? total / run.days : lead;
 
     return {
       competitor: COMPETITOR.slug,
@@ -175,15 +185,15 @@ export async function ingestDataset(
       duration_days: run.days,
       duration_band: durationBand(run.days),
       pickup_location: LOCATION,
-      vehicle_name: label.slice(0, 160),
+      vehicle_name: [supplier, model].filter(Boolean).join(" — ").slice(0, 160),
       manufacturer: supplier || null,
-      car_group: category || null,
-      transmission: String(pick(it, ["transmission"]) ?? "") || null,
+      car_group: (it.vehicleCategory ?? "").trim() || null,
+      transmission: transmissionFrom(it.vehicleAttributes),
       category: "Car",
-      // Stored in EUR so it sits alongside every other competitor.
+      // Converted so it sits alongside every other competitor in EUR.
       price_per_day: perDay === null ? null : Math.round(perDay * rate * 100) / 100,
-      total_price: totalUsd === null ? null : Math.round(totalUsd * rate * 100) / 100,
-      original_price: null,
+      total_price: total === null ? null : Math.round(total * rate * 100) / 100,
+      original_price: lead === null ? null : Math.round(lead * rate * 100) / 100,
       currency: "EUR",
       scraped_at: new Date().toISOString(),
     };
