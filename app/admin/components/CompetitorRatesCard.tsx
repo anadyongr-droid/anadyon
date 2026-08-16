@@ -105,9 +105,9 @@ export default function CompetitorRatesCard() {
       const start = await fetch("/api/admin/competitors/carrentals", { method: "POST" });
       const d0 = await start.json();
       if (!start.ok) { setCr(d0.error ?? "Could not start."); setCrRunning(false); return; }
-      setCr(`${d0.started} of ${d0.total} runs started…`);
+      setCr(`Started — 1 of ${d0.total} searches (one at a time)…`);
 
-      for (let i = 0; i < 60; i++) {
+      for (let i = 0; i < 90; i++) {
         await new Promise(r => setTimeout(r, 10000));
         const res = await fetch("/api/admin/competitors/carrentals");
         const d = await res.json();
@@ -117,7 +117,7 @@ export default function CompetitorRatesCard() {
             : (d.errors?.[0] ?? "Finished with no usable data."));
           break;
         }
-        setCr(`Running… ${d.finished}/${d.total} finished`);
+        setCr(`Running… ${d.finished}/${d.total} done, ${d.stored ?? 0} prices${d.current ? " · " + d.current : ""}`);
       }
     } catch {
       setCr("Could not reach the server.");

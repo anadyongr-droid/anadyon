@@ -1,121 +1,124 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { planRuns, startRun, getRunStatus, ingestDataset, usdToEur } from "@/lib/carRentalsRates";
+import { planRuns, startRun, getRunStatus, ingestDataset, usdToEur, type PlannedRun } from "@/lib/carRentalsRates";
 
 // Admin-only via proxy.ts.
 export const maxDuration = 60;
 
 const STATE_KEY = "carrentals_apify_runs";
 
-interface RunState {
-  runId: string;
-  datasetId: string;
+interface Slot {
   checkIn: string;
   days: number;
   url: string;
-  ingested?: boolean;
+  runId?: string;
+  datasetId?: string;
+  done?: boolean;
   stored?: number;
   error?: string;
 }
 
 /**
- * The actor takes one search URL per run, so a full sweep is nine runs. They
- * are started together and Apify queues whatever exceeds the account's
- * concurrency; GET then polls and ingests each as it finishes.
+ * Runs are started one at a time rather than all nine at once.
+ *
+ * A browser Actor needs a sizeable memory slot, and a constrained Apify plan
+ * has few of them — launching nine together leaves the later ones to fail
+ * outright rather than queue. Sequential costs about a minute per search and
+ * survives any plan.
  */
+async function readState(): Promise<Slot[] | null> {
+  const { data } = await supabaseAdmin
+    .from("system_settings").select("value").eq("key", STATE_KEY).maybeSingle();
+  if (!data?.value) return null;
+  try { return JSON.parse(data.value); } catch { return null; }
+}
+
+async function writeState(slots: Slot[]) {
+  await supabaseAdmin.from("system_settings").upsert({
+    key: STATE_KEY,
+    value: JSON.stringify(slots),
+    updated_at: new Date().toISOString(),
+  });
+}
+
 export async function POST() {
   const token = process.env.APIFY_TOKEN;
   if (!token) return NextResponse.json({ error: "APIFY_TOKEN is not set in Vercel." }, { status: 400 });
 
-  const planned = planRuns();
-  const states: RunState[] = [];
-  const failures: string[] = [];
+  const slots: Slot[] = planRuns().map((r: PlannedRun) => ({ checkIn: r.checkIn, days: r.days, url: r.url }));
 
-  for (const run of planned) {
-    try {
-      const { runId, datasetId } = await startRun(token, run);
-      states.push({ runId, datasetId, checkIn: run.checkIn, days: run.days, url: run.url });
-    } catch (err) {
-      failures.push(`${run.checkIn} ${run.days}d: ${err instanceof Error ? err.message : "start failed"}`);
-    }
+  try {
+    const { runId, datasetId } = await startRun(token, slots[0]);
+    slots[0].runId = runId;
+    slots[0].datasetId = datasetId;
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Could not start the first run" },
+      { status: 500 }
+    );
   }
 
-  if (!states.length) {
-    return NextResponse.json({ error: failures[0] ?? "Could not start any run." }, { status: 500 });
-  }
-
-  await supabaseAdmin.from("system_settings").upsert({
-    key: STATE_KEY,
-    value: JSON.stringify(states),
-    updated_at: new Date().toISOString(),
-  });
-
-  return NextResponse.json({ ok: true, started: states.length, total: planned.length, failures });
+  await writeState(slots);
+  return NextResponse.json({ ok: true, total: slots.length, started: 1 });
 }
 
 export async function GET() {
   const token = process.env.APIFY_TOKEN;
   if (!token) return NextResponse.json({ error: "APIFY_TOKEN is not set in Vercel." }, { status: 400 });
 
-  const { data } = await supabaseAdmin
-    .from("system_settings")
-    .select("value")
-    .eq("key", STATE_KEY)
-    .maybeSingle();
+  const slots = await readState();
+  if (!slots) return NextResponse.json({ status: "IDLE" });
 
-  if (!data?.value) return NextResponse.json({ status: "IDLE" });
+  const current = slots.find(s => s.runId && !s.done);
 
-  let states: RunState[];
-  try {
-    states = JSON.parse(data.value);
-  } catch {
-    return NextResponse.json({ status: "IDLE" });
-  }
-
-  const rate = await usdToEur();
-  let finished = 0;
-  let stored = 0;
-  let running = 0;
-  const errors: string[] = [];
-
-  for (const s of states) {
-    if (s.ingested) { finished++; stored += s.stored ?? 0; continue; }
-    if (s.error) { finished++; errors.push(s.error); continue; }
-
+  if (current) {
     try {
-      const { status, datasetId } = await getRunStatus(token, s.runId);
-      if (status === "RUNNING" || status === "READY") { running++; continue; }
+      const { status, datasetId } = await getRunStatus(token, current.runId!);
+      if (status === "RUNNING" || status === "READY") {
+        return NextResponse.json({
+          status: "RUNNING",
+          total: slots.length,
+          finished: slots.filter(s => s.done).length,
+          stored: slots.reduce((n, s) => n + (s.stored ?? 0), 0),
+          current: `${current.checkIn} ${current.days}d`,
+        });
+      }
 
       if (status === "SUCCEEDED") {
-        const n = await ingestDataset(token, datasetId || s.datasetId, s, rate);
-        s.ingested = true;
-        s.stored = n;
-        stored += n;
+        const rate = await usdToEur();
+        current.stored = await ingestDataset(token, datasetId || current.datasetId!, current, rate);
       } else {
-        s.error = `${s.checkIn} ${s.days}d: run ${status}`;
-        errors.push(s.error);
+        current.error = `${current.checkIn} ${current.days}d: run ${status}`;
       }
-      finished++;
     } catch (err) {
-      s.error = `${s.checkIn} ${s.days}d: ${err instanceof Error ? err.message : "ingest failed"}`;
-      errors.push(s.error);
-      finished++;
+      current.error = `${current.checkIn} ${current.days}d: ${err instanceof Error ? err.message : "failed"}`;
+    }
+    current.done = true;
+  }
+
+  // Start the next queued search, if any.
+  const next = slots.find(s => !s.runId);
+  if (next) {
+    try {
+      const { runId, datasetId } = await startRun(token, next);
+      next.runId = runId;
+      next.datasetId = datasetId;
+    } catch (err) {
+      next.error = `${next.checkIn} ${next.days}d: ${err instanceof Error ? err.message : "start failed"}`;
+      next.done = true;
     }
   }
 
-  await supabaseAdmin.from("system_settings").upsert({
-    key: STATE_KEY,
-    value: JSON.stringify(states),
-    updated_at: new Date().toISOString(),
-  });
+  await writeState(slots);
+
+  const finished = slots.filter(s => s.done).length;
+  const errors = slots.filter(s => s.error).map(s => s.error!) as string[];
 
   return NextResponse.json({
-    status: running > 0 ? "RUNNING" : "DONE",
-    total: states.length,
+    status: finished >= slots.length ? "DONE" : "RUNNING",
+    total: slots.length,
     finished,
-    running,
-    stored,
-    usdToEur: rate,
+    stored: slots.reduce((n, s) => n + (s.stored ?? 0), 0),
     errors: errors.slice(0, 3),
   });
 }
