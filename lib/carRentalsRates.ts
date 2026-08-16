@@ -185,7 +185,14 @@ export async function ingestDataset(
       duration_days: run.days,
       duration_band: durationBand(run.days),
       pickup_location: LOCATION,
-      vehicle_name: [supplier, model].filter(Boolean).join(" — ").slice(0, 160),
+      // Transmission belongs in the name: the same vendor and model is listed
+      // twice, once manual once automatic, at materially different prices.
+      // Without it both rows collide on the storage key and Postgres rejects
+      // the whole batch with "ON CONFLICT DO UPDATE command cannot affect row
+      // a second time".
+      vehicle_name: [supplier, model].filter(Boolean).join(" — ").slice(0, 140) +
+        (transmissionFrom(it.vehicleAttributes) === "Αυτόματο" ? " (Automatic)"
+          : transmissionFrom(it.vehicleAttributes) === "Χειροκίνητο" ? " (Manual)" : ""),
       manufacturer: supplier || null,
       car_group: (it.vehicleCategory ?? "").trim() || null,
       transmission: transmissionFrom(it.vehicleAttributes),
@@ -199,6 +206,17 @@ export async function ingestDataset(
     };
   }).filter(r => r.vehicle_name && r.price_per_day !== null);
 
+  // Belt and braces: any remaining key collision would still abort the batch,
+  // so keep the cheapest offer per vehicle.
+  const unique = new Map<string, (typeof rows)[number]>();
+  for (const r of rows) {
+    const prev = unique.get(r.vehicle_name);
+    if (!prev || (r.price_per_day ?? Infinity) < (prev.price_per_day ?? Infinity)) {
+      unique.set(r.vehicle_name, r);
+    }
+  }
+  const deduped = [...unique.values()];
+
   if (!rows.length) {
     throw new Error(
       `No usable rows. First record had keys: ${Object.keys(items[0]).slice(0, 12).join(", ")}`
@@ -207,8 +225,8 @@ export async function ingestDataset(
 
   const { error } = await supabaseAdmin
     .from("competitor_rates")
-    .upsert(rows, { onConflict: "competitor,pickup_date,duration_days,vehicle_name" });
+    .upsert(deduped, { onConflict: "competitor,pickup_date,duration_days,vehicle_name" });
   if (error) throw new Error(`Storing CarRentals rates failed: ${error.message}`);
 
-  return rows.length;
+  return deduped.length;
 }
