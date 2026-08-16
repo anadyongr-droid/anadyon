@@ -233,13 +233,24 @@ export async function fetchNewEmails(): Promise<FetchResult> {
 }
 
 /**
- * Returns the thread ids you have sent mail in recently.
+ * Returns the thread ids that have been answered on behalf of the business.
  *
- * Replaces the Make.com "Reply Detection" scenario, which watched the Sent
- * folder and flipped a thread's status once staff replied. Uses metadata format
- * so only headers are transferred, not message bodies.
+ * Replaces the Make.com "Reply Detection" scenario. Matching on sender rather
+ * than on the Sent folder is deliberate — replies reach this mailbox two ways:
+ *
+ *   - the owner replying from Gmail using the customerservice@ alias, which
+ *     lands in Sent
+ *   - staff replying from webmail, which never touches this mailbox's Sent
+ *     folder; it arrives as the Bcc copy the office adds to every reply
+ *
+ * An `in:sent` search sees only the first and would leave the watchdog chasing
+ * threads staff had already answered.
+ *
+ * The `-to:` clause excludes website form submissions, which are also sent
+ * *from* customerservice@ but addressed *to* it — without that they would be
+ * mistaken for replies and close a reservation the moment it arrived.
  */
-export async function fetchSentThreadIds(sinceDays = 14): Promise<Set<string>> {
+export async function fetchRepliedThreadIds(sinceDays = 14): Promise<Set<string>> {
   const gmail = await getGmailClient();
   if (!gmail) return new Set();
 
@@ -250,7 +261,7 @@ export async function fetchSentThreadIds(sinceDays = 14): Promise<Set<string>> {
   do {
     const res = await gmail.users.messages.list({
       userId: "me",
-      q: `in:sent after:${after}`,
+      q: `from:customerservice@anadyon.gr -to:customerservice@anadyon.gr after:${after}`,
       maxResults: 100,
       pageToken,
     });

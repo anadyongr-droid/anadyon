@@ -1,4 +1,4 @@
-import { fetchNewEmails, advanceSyncCursor, fetchSentThreadIds } from "@/lib/gmail";
+import { fetchNewEmails, advanceSyncCursor, fetchRepliedThreadIds } from "@/lib/gmail";
 import { classifyEmail } from "@/lib/emailClassifier";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendTelegram } from "@/lib/telegram";
@@ -151,10 +151,10 @@ export async function detectReplies(): Promise<{ checked: number; replied: numbe
 
   if (!open?.length) return { checked: 0, replied: 0 };
 
-  const sentThreads = await fetchSentThreadIds();
-  if (!sentThreads.size) return { checked: open.length, replied: 0 };
+  const repliedThreads = await fetchRepliedThreadIds();
+  if (!repliedThreads.size) return { checked: open.length, replied: 0 };
 
-  const answered = open.filter(e => e.gmail_thread_id && sentThreads.has(e.gmail_thread_id));
+  const answered = open.filter(e => e.gmail_thread_id && repliedThreads.has(e.gmail_thread_id));
   if (!answered.length) return { checked: open.length, replied: 0 };
 
   const { error } = await supabaseAdmin
