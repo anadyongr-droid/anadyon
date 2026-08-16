@@ -7,6 +7,7 @@ interface GroupRow {
   competitor_label: string;
   car_group: string;
   samples: string[];
+  transmission: string | null;
   observations: number;
   min_price: number | null;
   max_price: number | null;
@@ -150,6 +151,7 @@ export default function MarketPage() {
               <th className="text-left px-5 py-2 font-medium">Competitor</th>
               <th className="text-left px-3 py-2 font-medium">Their group</th>
               <th className="text-left px-3 py-2 font-medium">Vehicles</th>
+              <th className="text-left px-3 py-2 font-medium">Transmission</th>
               <th className="text-right px-3 py-2 font-medium">€/day range</th>
               <th className="text-left px-4 py-2 font-medium">Maps to</th>
             </tr>
@@ -160,6 +162,21 @@ export default function MarketPage() {
                 <td className="px-5 py-2 text-gray-500 text-xs">{g.competitor_label}</td>
                 <td className="px-3 py-2 font-mono text-xs text-gray-700">{g.car_group}</td>
                 <td className="px-3 py-2 text-gray-600 text-xs">{g.samples.join(", ")}</td>
+                <td className="px-3 py-2">
+                  {g.transmission ? (
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
+                        g.transmission === "Automatic"
+                          ? "bg-amber-50 text-amber-700"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {g.transmission}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-300">—</span>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-right text-gray-500 text-xs tabular-nums">
                   {g.min_price !== null
                     ? g.min_price === g.max_price

@@ -9,10 +9,24 @@ export interface GroupRow {
   competitor_label: string;
   car_group: string;
   samples: string[];
+  transmission: string | null;
   observations: number;
   min_price: number | null;
   max_price: number | null;
   pricing_group: string | null;
+}
+
+/**
+ * EzCar reports transmission in Greek. Every observed group is uniform, so one
+ * value per group is accurate; the English label keeps it consistent with the
+ * rest of the admin UI.
+ */
+function normaliseTransmission(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const v = value.trim();
+  if (v.startsWith("Αυτόμ")) return "Automatic";
+  if (v.startsWith("Χειρ")) return "Manual";
+  return v;
 }
 
 /** Groups observed in the collected data, with any mapping already assigned. */
@@ -20,7 +34,7 @@ export async function GET() {
   const [{ data: rates, error }, { data: map }] = await Promise.all([
     supabaseAdmin
       .from("competitor_rates")
-      .select("competitor, competitor_label, car_group, manufacturer, vehicle_name, price_per_day"),
+      .select("competitor, competitor_label, car_group, manufacturer, vehicle_name, price_per_day, transmission"),
     supabaseAdmin.from("competitor_group_map").select("competitor, car_group, pricing_group"),
   ]);
 
@@ -40,6 +54,7 @@ export async function GET() {
         competitor_label: r.competitor_label,
         car_group: r.car_group ?? "?",
         samples: [],
+        transmission: normaliseTransmission(r.transmission),
         observations: 0,
         min_price: null,
         max_price: null,
