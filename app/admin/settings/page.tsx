@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Settings, Mail, CheckCircle, AlertTriangle, ExternalLink } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import CompetitorRatesCard from "@/app/admin/components/CompetitorRatesCard";
 
 function SettingsContent() {
   const searchParams = useSearchParams();
@@ -41,6 +42,8 @@ function SettingsContent() {
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+        <CompetitorRatesCard />
+
         {/* Gmail Integration */}
         <div className="p-5">
           <div className="flex items-start justify-between">
