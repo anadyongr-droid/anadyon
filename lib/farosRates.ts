@@ -28,8 +28,21 @@ const APIFY_ACTOR = "apify~web-scraper";
 const DRIVER_AGE = 30;
 const CAR_TYPE = 16;
 
-/** Faros requires a minimum of three days, so the 1-2 day band has no counterpart. */
-export const FAROS_DURATIONS = [5, 10] as const;
+/**
+ * Faros enforces a three-day minimum, so a genuine 1-2 day quote is impossible.
+ * The three-day booking is collected as the closest available stand-in: its
+ * per-day figure is the total divided by three.
+ *
+ * Treat that comparison as conservative rather than like-for-like. Per-day
+ * rates fall as duration rises, so a three-day rate sits below whatever Faros
+ * would charge for one or two days — which understates them at short lengths.
+ */
+export const FAROS_DURATIONS = [3, 5, 10] as const;
+
+/** The three-day booking stands in for the short band; the rest map normally. */
+function farosBand(days: number): "1_2" | "3_6" | "7plus" {
+  return days === 3 ? "1_2" : durationBand(days);
+}
 
 export function farosPickupDates(): string[] {
   return ["2026-08-25", "2026-09-15", "2026-10-15"];
@@ -156,7 +169,7 @@ export async function ingestFarosDataset(token: string, datasetId: string): Prom
           pickup_date: block.checkIn,
           return_date: block.checkOut,
           duration_days: block.days,
-          duration_band: durationBand(block.days),
+          duration_band: farosBand(block.days),
           pickup_location: "Zakynthos Airport",
           vehicle_name: String(v.title).trim().replace(/\s+/g, " "),
           manufacturer: null,
