@@ -71,6 +71,8 @@ export async function GET() {
   const slots = await readState();
   if (!slots) return NextResponse.json({ status: "IDLE" });
 
+  const rate = await usdToEur();
+
   const current = slots.find(s => s.runId && !s.done);
 
   if (current) {
@@ -87,7 +89,6 @@ export async function GET() {
       }
 
       if (status === "SUCCEEDED") {
-        const rate = await usdToEur();
         current.stored = await ingestDataset(token, datasetId || current.datasetId!, current, rate);
       } else {
         current.error = `${current.checkIn} ${current.days}d: run ${status}`;
@@ -121,6 +122,8 @@ export async function GET() {
     total: slots.length,
     finished,
     stored: slots.reduce((n, s) => n + (s.stored ?? 0), 0),
+    // Reported so the conversion applied to the stored figures is visible.
+    usdToEur: rate,
     errors: errors.slice(0, 3),
   });
 }
