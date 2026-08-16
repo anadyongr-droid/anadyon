@@ -54,37 +54,66 @@ function addDays(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Runs in the Apify browser; must be self-contained. */
+/**
+ * Runs INSIDE the browser page, not in Node.
+ *
+ * apify/web-scraper evaluates this in the page context, so there is no
+ * `page` object — that belongs to puppeteer-scraper. Same-origin `fetch` and
+ * the page's own `csrf_token` global are directly available here.
+ */
 function buildPageFunction(searches: { checkIn: string; checkOut: string; days: number }[]): string {
   return `async function pageFunction(context) {
-  const { page, log } = context;
   const searches = ${JSON.stringify(searches)};
-  const results = [];
+  const log = context && context.log;
+
+  // Surfaced in the dataset so a failed run explains itself instead of
+  // returning an empty set with no error.
+  const diagnostics = {
+    diagnostic: true,
+    title: document.title,
+    hasCsrf: typeof csrf_token !== 'undefined',
+    blocked: /403|forbidden|access denied/i.test(document.title || ''),
+    url: location.href
+  };
+
+  if (typeof csrf_token === 'undefined') {
+    return [diagnostics];
+  }
+
+  const results = [diagnostics];
 
   for (let i = 0; i < searches.length; i++) {
     const s = searches[i];
     // Honour the Crawl-delay Faros publishes.
     if (i > 0) await new Promise(r => setTimeout(r, 10000));
 
-    const items = await page.evaluate(async (s) => {
-      const body = 'key=getVehicles&csrf_token=' + csrf_token +
-        '&format=json&checkInDate=' + encodeURIComponent(s.checkIn + ' 10:00:00') +
-        '&checkOutDate=' + encodeURIComponent(s.checkOut + ' 10:00:00') +
-        '&passengers=${DRIVER_AGE}&type=${CAR_TYPE}';
+    const body = 'key=getVehicles&csrf_token=' + csrf_token +
+      '&format=json&checkInDate=' + encodeURIComponent(s.checkIn + ' 10:00:00') +
+      '&checkOutDate=' + encodeURIComponent(s.checkOut + ' 10:00:00') +
+      '&passengers=${DRIVER_AGE}&type=${CAR_TYPE}';
+
+    let items = [];
+    let error = null;
+    try {
       const r = await fetch('includes/ajax.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
           'X-Requested-With': 'XMLHttpRequest'
         },
-        body
+        body: body
       });
       const t = await r.text();
-      try { const j = JSON.parse(t); return Array.isArray(j) ? j : []; } catch { return []; }
-    }, s);
+      try {
+        const j = JSON.parse(t);
+        if (Array.isArray(j)) items = j; else error = t.slice(0, 160);
+      } catch (e) { error = t.slice(0, 160); }
+    } catch (e) {
+      error = String(e).slice(0, 160);
+    }
 
-    log.info('Faros ' + s.checkIn + ' ' + s.days + 'd -> ' + items.length + ' vehicles');
-    results.push({ checkIn: s.checkIn, checkOut: s.checkOut, days: s.days, vehicles: items });
+    if (log) log.info('Faros ' + s.checkIn + ' ' + s.days + 'd -> ' + items.length);
+    results.push({ checkIn: s.checkIn, checkOut: s.checkOut, days: s.days, vehicles: items, error: error });
   }
 
   return results;
@@ -153,8 +182,28 @@ export async function ingestFarosDataset(token: string, datasetId: string): Prom
   const payload = await res.json();
 
   // web-scraper wraps each pageFunction return value; ours returns an array.
-  const blocks: { checkIn: string; checkOut: string; days: number; vehicles: FarosVehicle[] }[] =
-    Array.isArray(payload) ? payload.flat().filter(b => b && Array.isArray(b.vehicles)) : [];
+  const flat = Array.isArray(payload) ? payload.flat().filter(Boolean) : [];
+  const diagnostic = flat.find((b: { diagnostic?: boolean }) => b?.diagnostic) as
+    | { title?: string; hasCsrf?: boolean; blocked?: boolean; url?: string }
+    | undefined;
+
+  const blocks: { checkIn: string; checkOut: string; days: number; vehicles: FarosVehicle[]; error?: string }[] =
+    flat.filter((b: { vehicles?: unknown }) => Array.isArray(b?.vehicles));
+
+  if (!blocks.length) {
+    // Explain why rather than reporting a silent zero.
+    if (diagnostic && diagnostic.hasCsrf === false) {
+      throw new Error(
+        `Faros page loaded but no csrf_token — likely blocked. Title: "${diagnostic.title ?? "?"}"`
+      );
+    }
+    throw new Error("Apify returned no search blocks. The page function may not have run.");
+  }
+
+  const firstError = blocks.find(b => b.error)?.error;
+  if (firstError && blocks.every(b => !b.vehicles.length)) {
+    throw new Error(`Faros API rejected every search: ${firstError}`);
+  }
 
   let stored = 0;
   for (const block of blocks) {

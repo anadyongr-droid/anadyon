@@ -22,7 +22,7 @@ export async function POST() {
     const { runId, datasetId } = await startFarosRun(token);
     await supabaseAdmin.from("system_settings").upsert({
       key: RUN_KEY,
-      value: JSON.stringify({ runId, datasetId, startedAt: new Date().toISOString() }),
+      value: JSON.stringify({ runId, datasetId, startedAt: new Date().toISOString(), ingested: false }),
       updated_at: new Date().toISOString(),
     });
     return NextResponse.json({ ok: true, runId, status: "RUNNING" });
