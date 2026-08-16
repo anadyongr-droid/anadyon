@@ -65,6 +65,41 @@ type Props = {
   modelTransmissions?: Record<string, string>;
 };
 
+// Defined at module scope: declaring a component inside the render body makes
+// React remount the whole modal subtree on every parent render.
+function TermsModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b dark:border-gray-700">
+          <h2 className="text-lg font-semibold dark:text-white">Vehicle Reservation Terms & Conditions</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl leading-none">&times;</button>
+        </div>
+        <div className="overflow-y-auto p-6 space-y-5 text-sm text-gray-700 dark:text-gray-300">
+          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">1. Driver&apos;s Licence</h3><p>A valid driving licence recognised by the Greek authorities must be held by the driver.</p></div>
+          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">2. Driver&apos;s Age</h3><p>Minimum driver&apos;s age is 21 years. A young driver surcharge may apply for drivers aged 21–25.</p></div>
+          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">3. Credit Card</h3><p>The driver must hold a valid credit card.</p></div>
+          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">4. Delivery / Collection Fees</h3><p>All deliveries and collections at the Airport, Zakynthos Port and our Office during office hours (09:00–21:00) are free of charge. Outside office hours a fee of €20 applies. Bicycles can only be delivered/collected at our office.</p></div>
+          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">5. Unlimited Mileage</h3><p>Unlimited mileage applies to all rentals.</p></div>
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-1">6. Insurance</h3>
+            <p>All our rentals include:</p>
+            <ul className="list-disc ml-5 mt-1 space-y-1"><li>Third party insurance</li><li>Theft insurance</li><li>Collision Damage Waiver (CDW)</li></ul>
+            <p className="mt-2">Additional cover such as Full Damage Waiver (FDW) is available for an additional fee. Bicycles are not covered by the above.</p>
+          </div>
+          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">7. Cancellation</h3><p>All cancellations received more than 24 hours prior to the start of the rental are free of charge. All other cancellations will be subject to one day&apos;s rental charge.</p></div>
+          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">8. Taxes</h3><p>Our fees include VAT and all local taxes.</p></div>
+          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">9. Road Assistance</h3><p>We provide free 24-hour roadside assistance.</p></div>
+          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">10. Customer Service</h3><p>Our staff will go above and beyond to ensure you get a hassle-free rental experience. For any additional information please contact us.</p></div>
+        </div>
+        <div className="p-6 border-t dark:border-gray-700">
+          <button onClick={onClose} className="w-full bg-blue-700 text-white font-semibold py-2.5 rounded-lg hover:bg-blue-800 transition">Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function BookingForm({ vehicleType, models, initialModel, modelPricingGroups, modelTransmissions }: Props) {
   const formRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<1 | 2>(1);
@@ -293,37 +328,6 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
     }
   }
 
-  const TermsModal = () => (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b dark:border-gray-700">
-          <h2 className="text-lg font-semibold dark:text-white">Vehicle Reservation Terms & Conditions</h2>
-          <button onClick={() => setShowTerms(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl leading-none">&times;</button>
-        </div>
-        <div className="overflow-y-auto p-6 space-y-5 text-sm text-gray-700 dark:text-gray-300">
-          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">1. Driver's Licence</h3><p>A valid driving licence recognised by the Greek authorities must be held by the driver.</p></div>
-          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">2. Driver's Age</h3><p>Minimum driver's age is 21 years. A young driver surcharge may apply for drivers aged 21–25.</p></div>
-          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">3. Credit Card</h3><p>The driver must hold a valid credit card.</p></div>
-          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">4. Delivery / Collection Fees</h3><p>All deliveries and collections at the Airport, Zakynthos Port and our Office during office hours (09:00–21:00) are free of charge. Outside office hours a fee of €20 applies. Bicycles can only be delivered/collected at our office.</p></div>
-          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">5. Unlimited Mileage</h3><p>Unlimited mileage applies to all rentals.</p></div>
-          <div>
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-1">6. Insurance</h3>
-            <p>All our rentals include:</p>
-            <ul className="list-disc ml-5 mt-1 space-y-1"><li>Third party insurance</li><li>Theft insurance</li><li>Collision Damage Waiver (CDW)</li></ul>
-            <p className="mt-2">Additional cover such as Full Damage Waiver (FDW) is available for an additional fee. Bicycles are not covered by the above.</p>
-          </div>
-          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">7. Cancellation</h3><p>All cancellations received more than 24 hours prior to the start of the rental are free of charge. All other cancellations will be subject to one day's rental charge.</p></div>
-          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">8. Taxes</h3><p>Our fees include VAT and all local taxes.</p></div>
-          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">9. Road Assistance</h3><p>We provide free 24-hour roadside assistance.</p></div>
-          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">10. Customer Service</h3><p>Our staff will go above and beyond to ensure you get a hassle-free rental experience. For any additional information please contact us.</p></div>
-        </div>
-        <div className="p-6 border-t dark:border-gray-700">
-          <button onClick={() => setShowTerms(false)} className="w-full bg-blue-700 text-white font-semibold py-2.5 rounded-lg hover:bg-blue-800 transition">Close</button>
-        </div>
-      </div>
-    </div>
-  );
-
   if (status === "sent") {
     return (
       <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl p-8 shadow-sm text-center space-y-3">
@@ -347,7 +351,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
 
   return (
     <>
-      {showTerms && <TermsModal />}
+      {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
       <div ref={formRef} className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl shadow-sm scroll-mt-[168px]">
 
         {/* Step indicator */}

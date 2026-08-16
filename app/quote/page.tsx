@@ -79,7 +79,7 @@ export default function QuoteLookupLanding() {
         </form>
 
         <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">
-          Can't find your reference? Check your confirmation email from <span className="font-medium">customerservice@anadyon.gr</span> or{" "}
+          Can&apos;t find your reference? Check your confirmation email from <span className="font-medium">customerservice@anadyon.gr</span> or{" "}
           <a href="/contact" className="text-orange-600 dark:text-orange-400 underline">contact us</a>.
         </p>
       </div>

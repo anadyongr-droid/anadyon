@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Menu, X } from "lucide-react";
 
 const links = [
@@ -22,7 +23,7 @@ export default function Header() {
     <header className="bg-white dark:bg-gray-900 shadow-sm sticky top-0 z-40">
       {/* Logo row */}
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <a href="/">
+        <Link href="/">
           <Image
             src="/logo.jpg"
             alt="Anadyon Rentals"
@@ -30,7 +31,7 @@ export default function Header() {
             height={80}
             className="object-contain"
           />
-        </a>
+        </Link>
 
         {/* Mobile hamburger */}
         <button

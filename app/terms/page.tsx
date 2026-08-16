@@ -16,13 +16,13 @@ export default function Terms() {
       <ContentCard>
 
         <div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">1. Driver's Licence</h2>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">1. Driver&apos;s Licence</h2>
           <p>A valid driving licence recognised by the Greek authorities must be held by the driver.</p>
         </div>
 
         <div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">2. Driver's Age</h2>
-          <p>Minimum driver's age is 21 years. A young driver surcharge may apply for drivers aged 21–25.</p>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">2. Driver&apos;s Age</h2>
+          <p>Minimum driver&apos;s age is 21 years. A young driver surcharge may apply for drivers aged 21–25.</p>
         </div>
 
         <div>
@@ -53,7 +53,7 @@ export default function Terms() {
 
         <div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">7. Cancellation</h2>
-          <p>All cancellations received more than 24 hours prior to the start of the rental are free of charge. All other cancellations will be subject to one day's rental charge.</p>
+          <p>All cancellations received more than 24 hours prior to the start of the rental are free of charge. All other cancellations will be subject to one day&apos;s rental charge.</p>
         </div>
 
         <div>
