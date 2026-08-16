@@ -585,6 +585,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             <div className="col-span-2 border-t border-gray-100 pt-4">
               <label className="block text-xs font-medium text-gray-600 mb-1">Deposit Payment Link</label>
               <StripeDepositButton reservationId={reservationId!} />
+              <WiseDepositButton reservationId={reservationId!} />
             </div>
           )}
 
@@ -778,6 +779,62 @@ function SmsButton({ reservationId }: { reservationId: string }) {
         <MessageSquare size={11} /> {sending ? "Sending…" : "Send SMS"}
       </button>
       {result && <span className="text-xs text-gray-600">{result}</span>}
+    </div>
+  );
+}
+
+/**
+ * Wise deposit request.
+ *
+ * Unlike Stripe there is no callback when the customer pays, so the reservation
+ * will not confirm itself — the payment has to be reconciled in Wise. The
+ * button says so rather than leaving that as a surprise.
+ */
+function WiseDepositButton({ reservationId }: { reservationId: string }) {
+  const [loading, setLoading] = useState(false);
+  const [link, setLink] = useState<{ url: string; reference: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const create = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const res = await fetch("/api/admin/wise/deposit-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reservationId }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (res.ok && data.url) setLink({ url: data.url, reference: data.reference });
+    else setError(data.error ?? "Failed to build Wise link");
+  }, [reservationId]);
+
+  if (link) {
+    return (
+      <div>
+        <div className="flex items-center gap-2">
+          <a href={link.url} target="_blank" rel="noopener noreferrer"
+            className="text-xs text-green-700 underline break-all">{link.url}</a>
+          <button onClick={() => navigator.clipboard.writeText(link.url)}
+            className="text-xs text-gray-500 hover:text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
+            Copy
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mt-1">
+          Reference <strong>{link.reference}</strong> — Wise does not notify us when it is paid,
+          so mark the deposit received once it lands.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <button onClick={create} disabled={loading}
+        className="flex items-center gap-1.5 text-xs bg-green-700 text-white px-3 py-1.5 rounded-lg hover:bg-green-800 disabled:opacity-50 transition">
+        <Link size={11} /> {loading ? "Building…" : "Wise Deposit Link"}
+      </button>
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </div>
   );
 }
