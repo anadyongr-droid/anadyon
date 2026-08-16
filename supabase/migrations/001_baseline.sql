@@ -258,6 +258,17 @@ CREATE TABLE IF NOT EXISTS rate_limits (
 );
 CREATE INDEX IF NOT EXISTS rate_limits_key_idx ON rate_limits (key, window_start);
 
+-- Progressive lockout for public quote lookups (/api/quote/[ref]).
+-- Created by hand in production before this baseline existed; recorded here so
+-- a rebuild from migrations does not silently disable the lockout.
+CREATE TABLE IF NOT EXISTS quote_rate_limits (
+  ip text PRIMARY KEY,
+  fail_count int NOT NULL DEFAULT 0,
+  blocked_until timestamptz,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS quote_rate_limits_blocked_idx ON quote_rate_limits (blocked_until);
+
 -- ─── RLS — enable on all tables ──────────────────────────────
 
 ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
