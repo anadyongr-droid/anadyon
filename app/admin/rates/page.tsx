@@ -11,7 +11,6 @@ const GROUP_LABELS: Record<string, string> = {
 };
 
 const GROUP_ORDER = ["car_a", "car_b", "motorbike_a", "motorbike_b", "bike"];
-const SEASON_ORDER = ["May", "June", "July", "August", "September", "Oct–Apr"];
 
 export default function RatesPage() {
   const [rates, setRates] = useState<Rate[]>([]);
@@ -46,10 +45,20 @@ export default function RatesPage() {
     setTimeout(() => setSaved(false), 2500);
   }
 
+  // Order seasons by the month they start, taken from the data itself.
+  // A hardcoded name list previously hid the Oct-Apr row for years: the list
+  // spelled it with an en dash while the database uses a hyphen, so the exact
+  // match failed and .filter(Boolean) silently dropped a season that was still
+  // being charged to customers. Deriving order from season_months means a name
+  // can never desync from the data again.
+  const seasonRank = (r: Rate) => Math.min(...r.season_months.map(m => (m < 5 ? m + 12 : m)));
+
   const grouped = GROUP_ORDER.map((group) => ({
     group,
     label: GROUP_LABELS[group],
-    seasons: SEASON_ORDER.map((name) => rates.find((r) => r.pricing_group === group && r.season_name === name)).filter(Boolean) as Rate[],
+    seasons: rates
+      .filter((r) => r.pricing_group === group)
+      .sort((a, b) => seasonRank(a) - seasonRank(b)),
   }));
 
   return (
