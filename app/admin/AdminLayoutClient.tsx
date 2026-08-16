@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutGrid, CalendarDays, Car, Settings, LogOut, BarChart3, FileText, Users, Tag, Percent, Mail } from "lucide-react";
+import { LayoutGrid, CalendarDays, Car, Settings, LogOut, BarChart3, FileText, Users, Tag, Percent, Mail, TrendingUp } from "lucide-react";
 import { createBrowserClient } from "@supabase/ssr";
 
 const allNav = [
@@ -14,6 +14,7 @@ const allNav = [
   { href: "/admin/rates",         label: "Rates",        icon: Settings,     adminOnly: true  },
   { href: "/admin/promo-codes",   label: "Promo Codes",  icon: Tag,          adminOnly: true  },
   { href: "/admin/discount-rules",label: "Discounts",    icon: Percent,      adminOnly: true  },
+  { href: "/admin/market",        label: "Market",       icon: TrendingUp,   adminOnly: true  },
   { href: "/admin/inbox",         label: "Inbox",        icon: Mail,         adminOnly: false },
   { href: "/admin/settings",      label: "Settings",     icon: Settings,     adminOnly: true  },
 ];
