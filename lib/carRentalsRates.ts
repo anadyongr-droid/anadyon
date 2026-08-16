@@ -76,8 +76,10 @@ export async function startRun(token: string, run: PlannedRun): Promise<{ runId:
       startUrl: run.url,
       results_wanted: 60,
       max_pages: 3,
-      // The site defends heavily; residential proxies are what the actor recommends.
-      proxyConfiguration: { useApifyProxy: true, apifyProxyGroups: ["RESIDENTIAL"] },
+      // Residential proxies are a paid Apify add-on; requesting a group the plan
+      // does not include yields a run that succeeds with an empty dataset.
+      // Default (datacenter) proxies work on every plan.
+      proxyConfiguration: { useApifyProxy: true },
     }),
   });
   if (!res.ok) throw new Error(`Apify start failed (${res.status}): ${(await res.text()).slice(0, 180)}`);
@@ -127,7 +129,11 @@ export async function ingestDataset(
   const res = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${encodeURIComponent(token)}&clean=true`);
   if (!res.ok) throw new Error(`Dataset fetch failed (${res.status})`);
   const items: Record<string, unknown>[] = await res.json();
-  if (!Array.isArray(items) || !items.length) return 0;
+  if (!Array.isArray(items) || !items.length) {
+    // Distinguish "the actor returned nothing" from "we could not map the
+    // fields" — they have completely different causes.
+    throw new Error(`Actor returned an empty dataset for ${run.checkIn} ${run.days}d — check the run log in Apify.`);
+  }
 
   const rows = items.map(it => {
     const supplier = String(pick(it, ["supplier", "vendor", "company", "agency", "brand"]) ?? "").trim();
