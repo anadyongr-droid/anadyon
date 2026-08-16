@@ -54,7 +54,7 @@ const models = [
     category: "Automatic City Car",
     image: "/peugeot-107.jpg",
     seats: 4,
-    doors: 5,
+    doors: 3,
     luggage: "139 lt.",
     transmission: "Automatic",
     features: ["A/C", "ABS", "Automatic gearbox"],
