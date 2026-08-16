@@ -20,7 +20,7 @@ const CAT_LABELS: Record<string, string> = {
   car: "Cars", motorbike: "Motorbikes", bike: "Bikes",
 };
 const GROUP_LABELS: Record<string, string> = {
-  car_a: "Cat A", car_b: "Cat B",
+  car_a: "Cat A", car_b: "Cat B", car_c: "Cat C (Auto)",
   motorbike_a: "Cat A (50cc)", motorbike_b: "Cat B (125cc+)",
   bike: "Bicycle",
 };

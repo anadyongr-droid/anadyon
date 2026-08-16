@@ -1,4 +1,4 @@
-export type PricingGroup = "car_a" | "car_b" | "motorbike_a" | "motorbike_b" | "bike";
+export type PricingGroup = "car_a" | "car_b" | "car_c" | "motorbike_a" | "motorbike_b" | "bike";
 
 export const DEPOSIT_RATE = 0.3;
 

@@ -49,6 +49,16 @@ const models = [
     transmission: "Manual",
     features: ["A/C", "ABS", "2 large bags"],
   },
+  {
+    name: "Peugeot 107",
+    category: "Automatic City Car",
+    image: "/peugeot-107.jpg",
+    seats: 4,
+    doors: 5,
+    luggage: "139 lt.",
+    transmission: "Automatic",
+    features: ["A/C", "ABS", "Automatic gearbox"],
+  },
 ];
 
 export default function CarsClient() {
@@ -131,6 +141,7 @@ export default function CarsClient() {
                 "Hyundai Getz": "car_a",
                 "Hyundai i10": "car_a",
                 "Hyundai i20": "car_b",
+                "Peugeot 107": "car_c",
               }}
               modelTransmissions={Object.fromEntries(models.map(m => [m.name, m.transmission]))}
             />

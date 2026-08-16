@@ -5,12 +5,13 @@ import type { Rate, ExtrasConfig } from "@/lib/pricing";
 const GROUP_LABELS: Record<string, string> = {
   car_a:       "Car — Category A (Nissan Micra)",
   car_b:       "Car — Category B (Hyundai i20)",
+  car_c:       "Car — Category C (Automatic)",
   motorbike_a: "Motorbike — Category A (50cc)",
   motorbike_b: "Motorbike — Category B (125cc+)",
   bike:        "Bicycle",
 };
 
-const GROUP_ORDER = ["car_a", "car_b", "motorbike_a", "motorbike_b", "bike"];
+const GROUP_ORDER = ["car_a", "car_b", "car_c", "motorbike_a", "motorbike_b", "bike"];
 
 export default function RatesPage() {
   const [rates, setRates] = useState<Rate[]>([]);

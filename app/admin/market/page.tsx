@@ -34,6 +34,7 @@ const OUR_GROUPS = [
   { value: "", label: "— unmapped —" },
   { value: "car_a", label: "Car A (Micra)" },
   { value: "car_b", label: "Car B (i20)" },
+  { value: "car_c", label: "Car C (Automatic)" },
   { value: "motorbike_a", label: "Motorbike A (50cc)" },
   { value: "motorbike_b", label: "Motorbike B (125cc+)" },
   { value: "bike", label: "Bicycle" },
@@ -43,6 +44,7 @@ const OUR_GROUPS = [
 const GROUP_LABEL: Record<string, string> = {
   car_a: "Car A (Micra)",
   car_b: "Car B (i20)",
+  car_c: "Car C (Automatic)",
   motorbike_a: "Motorbike A",
   motorbike_b: "Motorbike B",
   bike: "Bicycle",
