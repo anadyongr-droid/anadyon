@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { sendTelegram } from "@/lib/telegram";
 import { syncEmails } from "@/lib/emailSync";
 
+export const maxDuration = 60;
+
 // Runs daily at 08:00 Greece time (06:00 UTC in winter / 05:00 UTC in summer)
 // Vercel cron configured in vercel.json
 export async function GET(req: NextRequest) {

@@ -3,6 +3,8 @@ import { syncEmails } from "@/lib/emailSync";
 
 // Manual "Sync now" from the Inbox. Auth is enforced by proxy.ts, which admits
 // signed-in staff and admins to /api/admin/emails/*.
+export const maxDuration = 60;
+
 export async function POST() {
   try {
     const result = await syncEmails();

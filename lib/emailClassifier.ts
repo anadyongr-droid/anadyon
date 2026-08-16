@@ -6,8 +6,22 @@ function getClient() {
   return _client;
 }
 
+// Mirrors the category set used by the original Make.com scenario so the Inbox
+// stays consistent with the historical Google Sheet.
+export const CATEGORIES = [
+  "Reservation",
+  "Cancellation",
+  "Accounting",
+  "Insurance",
+  "Vendor",
+  "Regulatory",
+  "Other",
+] as const;
+
+export type EmailCategory = (typeof CATEGORIES)[number];
+
 export interface EmailClassification {
-  category: "Reservation" | "Cancellation" | "General" | "Internal" | "Spam";
+  category: EmailCategory;
   greek_summary: string;
   urgency: 1 | 2 | 3;
   reservation_date?: string;
@@ -21,31 +35,26 @@ export async function classifyEmail(
 ): Promise<EmailClassification | null> {
   if (!process.env.ANTHROPIC_API_KEY) return null;
 
-  const prompt = `You are an assistant for Anadyon Rentals, a vehicle rental company in Greece.
+  const prompt = `You are an assistant for a small car rental agency based in Greece called Anadyon Rentals. Analyze the following email and return ONLY a raw JSON object with these fields: category (one of: Reservation, Cancellation, Accounting, Insurance, Vendor, Regulatory, Other), greek_summary (2-3 sentences in Greek), urgency (1=low, 2=medium, 3=urgent), reservation_date (date string if mentioned, otherwise null), suggested_action (in Greek, 1 sentence).
 
-Classify this incoming email and respond with JSON only, no markdown.
+Urgency rules: 3 = new reservation request, cancellation, pickup within 48 hours, complaint, legal deadline. 2 = needs response within 24 hours. 1 = informational.
+If subject contains 'Reservation Request' or body contains vehicle/date booking fields: category = Reservation, urgency = 3.
+If email mentions cancelling or cancel: category = Cancellation, urgency = 3.
 
-Email:
+IMPORTANT: Return ONLY the raw JSON. No markdown. No code blocks. No backticks. Start with { and end with }.
+
+IMPORTANT: This email may be a threaded reply. Focus ONLY on the newest message — the text that appears BEFORE any line containing "wrote:", "Sent:", or "-----Original Message-----". Ignore all quoted previous emails completely.
+
 From: ${senderEmail}
 Subject: ${subject ?? "(no subject)"}
-Body: ${(body ?? "").slice(0, 2000)}
-
-Respond with exactly this JSON structure:
-{
-  "category": "Reservation" | "Cancellation" | "General" | "Internal" | "Spam",
-  "greek_summary": "1-2 sentence summary in Greek",
-  "urgency": 1 | 2 | 3,
-  "reservation_date": "YYYY-MM-DD or null",
-  "suggested_action": "Brief action in English"
-}
-
-Urgency: 1=low (FYI), 2=medium (respond within 24h), 3=high (respond immediately — same-day pickup, complaint, cancellation).
-Category: Reservation=booking request or modification, Cancellation=wants to cancel, General=other customer inquiry, Internal=from your own staff/system, Spam=unwanted.`;
+Body: ${(body ?? "").slice(0, 6000)}`;
 
   try {
     const msg = await getClient().messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 512,
+      // Matches the model the Make.com scenario used, so classification quality
+      // is consistent with the results already in the Sheet.
+      model: "claude-sonnet-4-6",
+      max_tokens: 1000,
       messages: [{ role: "user", content: prompt }],
     });
     const text = msg.content[0].type === "text" ? msg.content[0].text.trim() : "";
@@ -90,27 +99,25 @@ function sliceOuterObject(text: string): string | null {
   return start !== -1 && end > start ? text.slice(start, end + 1) : null;
 }
 
-const CATEGORIES = ["Reservation", "Cancellation", "General", "Internal", "Spam"] as const;
-
 /** Coerces model output into a shape the database will accept. */
 function normalise(raw: Record<string, unknown>): EmailClassification {
-  const category = CATEGORIES.includes(raw.category as (typeof CATEGORIES)[number])
-    ? (raw.category as EmailClassification["category"])
-    : "General";
+  const category = CATEGORIES.includes(raw.category as EmailCategory)
+    ? (raw.category as EmailCategory)
+    : "Other";
 
   const urgencyNum = Number(raw.urgency);
   const urgency = ([1, 2, 3].includes(urgencyNum) ? urgencyNum : 2) as 1 | 2 | 3;
 
-  // The model is told to send "YYYY-MM-DD or null" and sometimes sends the
-  // string "null" or free text — either would break a date column.
+  // The model is told to send a date "or null" and sometimes sends the string
+  // "null", "N/A" or free text. Keep anything date-like, drop the rest.
   const rawDate = typeof raw.reservation_date === "string" ? raw.reservation_date.trim() : "";
-  const reservation_date = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : undefined;
+  const looksLikeDate = rawDate.length > 0 && !/^(null|none|n\/a|-)$/i.test(rawDate);
 
   return {
     category,
     greek_summary: typeof raw.greek_summary === "string" ? raw.greek_summary : "",
     urgency,
-    ...(reservation_date ? { reservation_date } : {}),
+    ...(looksLikeDate ? { reservation_date: rawDate } : {}),
     suggested_action: typeof raw.suggested_action === "string" ? raw.suggested_action : "",
   };
 }

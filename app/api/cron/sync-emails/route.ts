@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncEmails } from "@/lib/emailSync";
 
+export const maxDuration = 60;
+
 // Vercel cron calls this route — secured via CRON_SECRET
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
