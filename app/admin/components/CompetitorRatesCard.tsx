@@ -21,6 +21,7 @@ export default function CompetitorRatesCard() {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bikes, setBikes] = useState<string | null>(null);
   const [faros, setFaros] = useState<string | null>(null);
   const [farosRunning, setFarosRunning] = useState(false);
   const [cr, setCr] = useState<string | null>(null);
@@ -60,6 +61,9 @@ export default function CompetitorRatesCard() {
           rowsStored: progress?.rowsStored ?? 0,
         });
         if (data.errors?.length) setError(data.errors[0]);
+        if (data.bicycles) {
+          setBikes(`Bicycles: ${data.bicycles.models} models, ${data.bicycles.stored} prices (${data.bicycles.segments.join(", ")}).`);
+        }
         if (data.done) break;
       }
     } catch {
@@ -137,7 +141,9 @@ export default function CompetitorRatesCard() {
           <div>
             <div className="font-medium text-gray-900 text-sm">Competitor rates</div>
             <div className="text-xs text-gray-500 mt-0.5">
-              Ionian Rentals and Motor Club Zante, via EzCar — August, September and October.
+              Cars and scooters from Ionian Rentals and Motor Club Zante via EzCar — August,
+              September and October. Bicycles from Podilatadiko run at the end of the pass.
+              Motor Club lists no scooters, so those searches are skipped.
             </div>
             {progress && (
               <div className="text-xs text-gray-500 mt-2">
@@ -146,6 +152,7 @@ export default function CompetitorRatesCard() {
                 {progress.done && progress.completed > 0 && " · complete"}
               </div>
             )}
+            {bikes && <div className="text-xs text-gray-500 mt-1">{bikes}</div>}
             {error && <div className="text-xs text-red-600 mt-1.5">{error}</div>}
           </div>
         </div>

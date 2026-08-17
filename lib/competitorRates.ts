@@ -21,6 +21,13 @@ export interface EzcarTenant {
    */
   pickupLoc: string;
   locationLabel: string;
+  /**
+   * Whether `is_bike=1` returns anything for this tenant. Verified live on
+   * 2026-08-17: Ionian lists three scooters, Motor Club Zante returns an empty
+   * set. Skipping the tenants that have none keeps nine pointless requests —
+   * and ninety seconds of crawl delay — out of every pass.
+   */
+  hasBikes: boolean;
 }
 
 export const EZCAR_TENANTS: EzcarTenant[] = [
@@ -30,6 +37,7 @@ export const EZCAR_TENANTS: EzcarTenant[] = [
     path: "ionianrentals",
     pickupLoc: "2",
     locationLabel: "Airport Office",
+    hasBikes: true,
   },
   {
     slug: "motorclubzante",
@@ -37,6 +45,7 @@ export const EZCAR_TENANTS: EzcarTenant[] = [
     path: "motorclubzante",
     pickupLoc: "49",
     locationLabel: "Zakynthos Airport (Our Office)",
+    hasBikes: false,
   },
 ];
 
@@ -76,7 +85,13 @@ function toIsoDate(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-export function buildSearchUrl(tenant: EzcarTenant, pickup: Date, days: number): string {
+/**
+ * `is_bike` is EzCar's own switch between the car fleet and the two-wheeler
+ * fleet — the two are never returned together, so each has to be asked for
+ * separately. On Ionian it yields the 50cc, 125cc and 300cc scooters that sit
+ * against our motorbike_a and motorbike_b groups.
+ */
+export function buildSearchUrl(tenant: EzcarTenant, pickup: Date, days: number, isBike = false): string {
   const dropoff = new Date(pickup);
   dropoff.setDate(dropoff.getDate() + days);
 
@@ -88,7 +103,7 @@ export function buildSearchUrl(tenant: EzcarTenant, pickup: Date, days: number):
     pickuploc: tenant.pickupLoc,
     dropoffloc: tenant.pickupLoc,
     drivers_age: "30",
-    is_bike: "0",
+    is_bike: isBike ? "1" : "0",
   });
 
   return `https://www.ezcar.eu/${tenant.path}/vehicle.results.php?${params.toString()}`;
@@ -139,18 +154,29 @@ export interface ScrapeTask {
   tenant: EzcarTenant;
   pickup: Date;
   days: number;
+  isBike: boolean;
 }
 
 /**
- * The full set of searches to run: every tenant, month and duration.
- * Deterministic, so a cursor into it survives across batched runs.
+ * The full set of searches to run: every tenant, month, duration and fleet.
+ * Deterministic, so a cursor into it survives across batched runs — which also
+ * means the bike searches must be appended after the car ones rather than
+ * interleaved, so a cursor saved by an earlier version still points at the same
+ * car search it did before.
  */
 export function buildTaskMatrix(pickupDates: Date[]): ScrapeTask[] {
   const tasks: ScrapeTask[] = [];
   for (const tenant of EZCAR_TENANTS) {
     for (const pickup of pickupDates) {
       for (const days of DURATIONS) {
-        tasks.push({ tenant, pickup, days });
+        tasks.push({ tenant, pickup, days, isBike: false });
+      }
+    }
+  }
+  for (const tenant of EZCAR_TENANTS.filter(t => t.hasBikes)) {
+    for (const pickup of pickupDates) {
+      for (const days of DURATIONS) {
+        tasks.push({ tenant, pickup, days, isBike: true });
       }
     }
   }
@@ -179,7 +205,7 @@ export interface TaskResult {
 }
 
 export async function runScrapeTask(task: ScrapeTask): Promise<TaskResult> {
-  const { tenant, pickup, days } = task;
+  const { tenant, pickup, days, isBike } = task;
   const base: TaskResult = {
     competitor: tenant.slug,
     pickup: toIsoDate(pickup),
@@ -189,7 +215,7 @@ export async function runScrapeTask(task: ScrapeTask): Promise<TaskResult> {
   };
 
   try {
-    const html = await fetchResults(buildSearchUrl(tenant, pickup, days));
+    const html = await fetchResults(buildSearchUrl(tenant, pickup, days, isBike));
     const vehicles = extractVehicles(html);
     base.vehicles = vehicles.length;
     if (!vehicles.length) return base;
@@ -212,7 +238,11 @@ export async function runScrapeTask(task: ScrapeTask): Promise<TaskResult> {
         manufacturer: v.manufacturer ?? null,
         car_group: v.carGroup ?? null,
         transmission: v.transmission ?? null,
-        category: v.category ?? null,
+        // EzCar calls its scooters "Bikes", which on our own site means bicycles.
+        // Storing their label verbatim would put a €12.54 scooter in the same
+        // bucket as a €7 bicycle, so the category is set from which fleet was
+        // actually requested rather than from what EzCar chose to call it.
+        category: isBike ? "Motorbike" : "Car",
         price_per_day: typeof v.pricePerDay === "number" ? v.pricePerDay : null,
         total_price: typeof v.totalPrice === "number" ? v.totalPrice : null,
         original_price: typeof v.originalPrice === "number" ? v.originalPrice : null,

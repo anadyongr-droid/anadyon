@@ -6,6 +6,7 @@ import {
   CRAWL_DELAY_MS,
   type TaskResult,
 } from "@/lib/competitorRates";
+import { collectPodilatadiko, type PodilatadikoResult } from "@/lib/podilatadikoRates";
 
 // Admin-only: proxy.ts admits only admins to /api/admin/competitors/*.
 export const maxDuration = 60;
@@ -77,14 +78,31 @@ export async function POST(req: NextRequest) {
   await writeCursor(cursor);
 
   const done = cursor >= tasks.length;
+  const errors = results.filter(r => r.error).map(r => `${r.competitor} ${r.pickup} ${r.days}d: ${r.error}`);
+  let bicycles: PodilatadikoResult | null = null;
+
+  // Podilatadiko rides along on the final call rather than getting its own
+  // button. It is a published tariff on three static pages, not a date search,
+  // so it costs three fetches and needs no cursor — running it every batch
+  // would just re-fetch the same prices a dozen times over.
+  if (done) {
+    try {
+      bicycles = await collectPodilatadiko();
+      errors.push(...bicycles.errors);
+    } catch (err) {
+      errors.push(`Podilatadiko: ${err instanceof Error ? err.message : "collection failed"}`);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     done,
     total: tasks.length,
     completed: cursor,
     remaining: Math.max(0, tasks.length - cursor),
-    stored: results.reduce((sum, r) => sum + r.stored, 0),
-    errors: results.filter(r => r.error).map(r => `${r.competitor} ${r.pickup} ${r.days}d: ${r.error}`),
+    stored: results.reduce((sum, r) => sum + r.stored, 0) + (bicycles?.stored ?? 0),
+    bicycles: bicycles ? { models: bicycles.models, stored: bicycles.stored, segments: bicycles.segments } : null,
+    errors,
     results,
   });
 }
