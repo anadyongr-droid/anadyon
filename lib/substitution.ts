@@ -46,6 +46,35 @@ const FAMILY_LABEL: Record<string, string> = {
   bike: "bicycle",
 };
 
+/**
+ * Transmission implied by a model name, for quotes whose transmission field
+ * says "Any".
+ *
+ * "Any" on the public form means the customer expressed no preference between
+ * the choices offered — it does not mean they are indifferent to what they end
+ * up driving. Someone who picked a Fiat Panda picked a manual car, and handing
+ * them an automatic is a change whether or not they touched the dropdown.
+ *
+ * Derived from the model rather than assumed, so a fleet change moves this
+ * automatically. Names are matched loosely because the quote stores a model
+ * ("Fiat Panda") while the fleet stores individual vehicles ("Fiat Panda #2").
+ */
+const MODEL_TRANSMISSION: { pattern: RegExp; transmission: string }[] = [
+  { pattern: /peugeot\s*107/i,               transmission: "Automatic" },
+  { pattern: /panda|micra|getz|i10|i20/i,    transmission: "Manual" },
+  { pattern: /kymco|agility|scooter/i,       transmission: "Automatic" },
+];
+
+/** What the customer should end up driving: the stated preference, else the model's own. */
+export function expectedTransmission(quoted: Quoted): string | null {
+  const stated = (quoted.transmission ?? "").trim();
+  if (stated && !/^any$/i.test(stated)) return stated;
+
+  const model = (quoted.model ?? "").trim();
+  if (!model) return null;
+  return MODEL_TRANSMISSION.find(m => m.pattern.test(model))?.transmission ?? null;
+}
+
 export type Verdict = "ok" | "upgrade" | "downgrade" | "blocked";
 
 export interface SubstitutionCheck {
@@ -74,31 +103,35 @@ export interface Assigned {
  * expressed no transmission preference, since there is then nothing to breach.
  */
 export function checkSubstitution(quoted: Quoted, assigned: Assigned): SubstitutionCheck {
+  // Transmission is settled FIRST and independently of category.
+  //
+  // It used to sit behind the pricing-group lookup, which meant a quote with no
+  // pricing_group — every quote taken before migration 010, i.e. all of them —
+  // returned "ok" without the transmission ever being examined. The rule that
+  // matters most was the one most easily skipped.
+  const wanted = expectedTransmission(quoted);
+  const giving = (assigned.transmission ?? "").trim();
+
+  if (wanted && giving && wanted.toLowerCase() !== giving.toLowerCase()) {
+    return {
+      verdict: "blocked",
+      message: wanted.toLowerCase() === "automatic"
+        ? `The customer's booking is for an automatic and this vehicle is manual. They may not be able to drive it — assign an automatic, or agree the change with them first.`
+        : `The customer's booking is for a manual and this vehicle is automatic. Not every driver is comfortable in an automatic, and it carries a premium they have not paid — assign a manual, or agree the change with them first.`,
+    };
+  }
+
   const from = quoted.pricing_group ? RANK[quoted.pricing_group] : undefined;
   const to = assigned.pricing_group ? RANK[assigned.pricing_group] : undefined;
 
-  // Nothing to compare against — a walk-in booked directly, not from a quote.
+  // No category on either side — a walk-in, or a quote predating pricing_group.
+  // Transmission has already been checked above, so this is safe to pass.
   if (!from || !to) return { verdict: "ok", message: "" };
 
   if (from.family !== to.family) {
     return {
       verdict: "blocked",
       message: `The quote was for a ${FAMILY_LABEL[from.family]}, but this is a ${FAMILY_LABEL[to.family]}. That is not a substitution — raise a new quote instead.`,
-    };
-  }
-
-  // Rule 1, checked before category: transmission outranks size. "Any" means
-  // the customer stated no preference, so there is no expectation to breach.
-  const wanted = (quoted.transmission ?? "").trim();
-  const giving = (assigned.transmission ?? "").trim();
-  const expressed = wanted && !/^any$/i.test(wanted);
-
-  if (expressed && giving && wanted.toLowerCase() !== giving.toLowerCase()) {
-    return {
-      verdict: "blocked",
-      message: wanted.toLowerCase() === "automatic"
-        ? `The customer booked an automatic and this vehicle is manual. They may not be able to drive it — assign an automatic, or agree a change with them first.`
-        : `The customer booked a manual and this vehicle is automatic. Automatics carry a premium they have not paid — assign a manual, or agree the change with them first.`,
     };
   }
 
