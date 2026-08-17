@@ -2,67 +2,91 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Menu, X, Globe } from "lucide-react";
+import { translator, localePath, type Locale } from "@/lib/i18n";
 
-const links = [
-  { href: "/", label: "Home" },
-  { href: "/cars", label: "Cars" },
-  { href: "/motorbikes", label: "Motorbikes" },
-  { href: "/bikes", label: "Bikes" },
-  { href: "/about", label: "About Us" },
-  { href: "/sights", label: "Zakynthos Sights" },
-  { href: "/blog", label: "Blog" },
-  { href: "/contact", label: "Contact" },
-  { href: "/quote", label: "My Rental" },
+const routes = [
+  { path: "/",           key: "nav.home" },
+  { path: "/cars",       key: "nav.cars" },
+  { path: "/motorbikes", key: "nav.motorbikes" },
+  { path: "/bikes",      key: "nav.bikes" },
+  { path: "/about",      key: "nav.about" },
+  { path: "/sights",     key: "nav.sights" },
+  { path: "/blog",       key: "nav.blog" },
+  { path: "/contact",    key: "nav.contact" },
+  { path: "/quote",      key: "nav.quote" },
 ];
 
-export default function Header() {
+export default function Header({ locale = "en" }: { locale?: Locale }) {
   const [open, setOpen] = useState(false);
+  const tr = translator(locale);
+  const pathname = usePathname() ?? "/";
+
+  // Links stay within the current language, so a Greek visitor clicking through
+  // the navigation is not silently returned to English half way round the site.
+  const href = (p: string) => localePath(p, locale);
+  const other: Locale = locale === "en" ? "el" : "en";
 
   return (
     <header className="bg-white dark:bg-gray-900 shadow-sm sticky top-0 z-40">
-      {/* Logo row */}
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         {/* The logo is a JPEG with a white background. On the dark header that
             renders as a bare white rectangle, so in dark mode it is given a
             padded white plate with rounded corners — it then reads as a
             deliberate brand lockup rather than a broken image. Replace with a
             transparent PNG/SVG and this wrapper can go. */}
-        <Link href="/" className="dark:bg-white dark:rounded-lg dark:px-3 dark:py-1.5 inline-block">
+        <Link href={href("/")} className="dark:bg-white dark:rounded-lg dark:px-3 dark:py-1.5 inline-block">
           <Image
             src="/logo.jpg"
             alt="Anadyon Rentals"
             width={270}
             height={80}
+            sizes="270px"
+            quality={82}
             className="object-contain"
             priority
           />
         </Link>
 
-        {/* Mobile hamburger */}
-        {/* p-2.5 lifts the tap area from the icon's bare 24px to 44px, the
-            minimum in WCAG 2.5.5 and the Apple HIG. The matching negative
-            margin keeps the icon optically aligned with the container padding. */}
-        <button
-          className="md:hidden text-gray-700 dark:text-gray-300 p-2.5 -mr-2.5"
-          onClick={() => setOpen(!open)}
-          aria-label="Toggle menu"
-          aria-expanded={open}
-        >
-          {open ? <X size={24} /> : <Menu size={24} />}
-        </button>
+        <div className="flex items-center gap-1">
+          {/* Switches language on the page the visitor is actually reading,
+              rather than returning them to the home page to find their way back. */}
+          <Link
+            href={localePath(pathname, other)}
+            hrefLang={other}
+            className="flex items-center gap-1.5 min-h-11 px-3 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-orange-600 dark:hover:text-orange-400 transition"
+            aria-label={other === "el" ? "Αλλαγή γλώσσας στα Ελληνικά" : "Switch language to English"}
+          >
+            <Globe size={15} />
+            <span className="hidden sm:inline">{tr("nav.language")}</span>
+            <span className="sm:hidden">{other.toUpperCase()}</span>
+          </Link>
+
+          {/* p-2.5 lifts the tap area from the icon's bare 24px to 44px, the
+              minimum in WCAG 2.5.5 and the Apple HIG. The matching negative
+              margin keeps the icon optically aligned with the container padding. */}
+          <button
+            className="md:hidden text-gray-700 dark:text-gray-300 p-2.5 -mr-2.5"
+            onClick={() => setOpen(!open)}
+            aria-label={tr("nav.toggleMenu")}
+            aria-expanded={open}
+          >
+            {open ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
       </div>
 
       {/* Desktop nav — aligned to the same content column as the logo */}
       <nav className="hidden md:block bg-orange-600 dark:bg-orange-700 w-full">
         <div className="max-w-6xl mx-auto px-4 flex">
-          {links.map(l => (
+          {routes.map(r => (
             <a
-              key={l.href}
-              href={l.href}
+              key={r.path}
+              href={href(r.path)}
               className="flex-1 text-center text-sm font-semibold text-white py-3 hover:bg-orange-700 dark:hover:bg-orange-800 transition border-r border-orange-500 dark:border-orange-700 last:border-r-0"
             >
-              {l.label}
+              {tr(r.key)}
             </a>
           ))}
         </div>
@@ -71,14 +95,14 @@ export default function Header() {
       {/* Mobile menu */}
       {open && (
         <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 px-4 py-2 space-y-1">
-          {links.map(l => (
+          {routes.map(r => (
             <a
-              key={l.href}
-              href={l.href}
+              key={r.path}
+              href={href(r.path)}
               className="flex items-center min-h-11 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-orange-600 dark:hover:text-orange-400 visited:text-gray-700 dark:visited:text-gray-300"
               onClick={() => setOpen(false)}
             >
-              {l.label}
+              {tr(r.key)}
             </a>
           ))}
         </div>

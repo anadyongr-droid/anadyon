@@ -2,36 +2,19 @@
 import { motion, type Variants } from "framer-motion";
 import Image from "next/image";
 import { CheckCircle, MapPin, Headphones, Shield } from "lucide-react";
+import { translator, localePath, type Locale } from "@/lib/i18n";
 
 const benefits = [
-  { icon: CheckCircle, title: "Unlimited Mileage", desc: "Drive as far as you want with no extra charges" },
-  { icon: MapPin, title: "Free Delivery", desc: "Free delivery & collection during office hours*" },
-  { icon: Shield, title: "All Taxes Included", desc: "No hidden fees — price is what you pay" },
-  { icon: Headphones, title: "24h Road Assistance", desc: "We're always available if you need us" },
+  { icon: CheckCircle, key: "mileage" },
+  { icon: MapPin,      key: "delivery" },
+  { icon: Shield,      key: "taxes" },
+  { icon: Headphones,  key: "assistance" },
 ];
 
 const fleet = [
-  {
-    name: "Cars",
-    desc: "Economy cars perfect for exploring the island",
-    bestFor: "Best for families, couples & longer trips",
-    href: "/cars",
-    image: "/hyundai-i20.jpg",
-  },
-  {
-    name: "Motorbikes",
-    desc: "Scooters for zipping around Zakynthos",
-    bestFor: "Best for solo riders & quick island hops",
-    href: "/motorbikes",
-    image: "/kymco-50cc-fleet.jpg",
-  },
-  {
-    name: "Bikes",
-    desc: "City, trekking and mountain bikes",
-    bestFor: "Best for active explorers & scenic routes",
-    href: "/bikes",
-    image: "/ktm-manhattan.jpeg",
-  },
+  { key: "cars",       path: "/cars",       image: "/hyundai-i20.jpg" },
+  { key: "motorbikes", path: "/motorbikes", image: "/kymco-50cc-fleet.jpg" },
+  { key: "bikes",      path: "/bikes",      image: "/ktm-manhattan.jpeg" },
 ];
 
 const fadeUp: Variants = {
@@ -43,13 +26,14 @@ const fadeUp: Variants = {
   }),
 };
 
-export function Benefits() {
+export function Benefits({ locale = "en" }: { locale?: Locale }) {
+  const tr = translator(locale);
   return (
     <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
         {benefits.map((b, i) => (
           <motion.div
-            key={b.title}
+            key={b.key}
             custom={i}
             initial="hidden"
             whileInView="visible"
@@ -58,31 +42,32 @@ export function Benefits() {
             className="flex flex-col items-center text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-xl"
           >
             <b.icon size={32} className="text-orange-500 mb-3" />
-            <h3 className="font-bold text-gray-900 dark:text-white mb-1">{b.title}</h3>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">{b.desc}</p>
+            <h3 className="font-bold text-gray-900 dark:text-white mb-1">{tr(`benefit.${b.key}`)}</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{tr(`benefit.${b.key}Desc`)}</p>
           </motion.div>
         ))}
       </div>
       <p className="text-xs text-gray-400 dark:text-gray-500 mt-4 text-center">
-        * Delivery & collection conditions apply. See our{" "}
-        <a href="/faq" className="underline hover:text-gray-600 dark:hover:text-gray-300">FAQ</a>{" "}
-        for details.
+        {tr("benefit.footnote")}{" "}
+        <a href={localePath("/faq", locale)} className="underline hover:text-gray-600 dark:hover:text-gray-300">{tr("benefit.footnoteFaq")}</a>{" "}
+        {tr("benefit.footnoteEnd")}
       </p>
     </div>
   );
 }
 
-export function Fleet() {
+export function Fleet({ locale = "en" }: { locale?: Locale }) {
+  const tr = translator(locale);
   return (
     <div className="bg-gray-50 dark:bg-gray-900 py-12 md:py-16 px-4">
       <div className="max-w-6xl mx-auto">
-        <h2 className="text-3xl font-bold text-center mb-2 text-gray-900 dark:text-white">Our Fleet</h2>
-        <p className="text-center text-gray-500 dark:text-gray-400 mb-10">Choose your ride and discover the island</p>
+        <h2 className="text-3xl font-bold text-center mb-2 text-gray-900 dark:text-white">{tr("fleet.title")}</h2>
+        <p className="text-center text-gray-500 dark:text-gray-400 mb-10">{tr("fleet.subtitle")}</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {fleet.map((v, i) => (
             <motion.a
-              key={v.name}
-              href={v.href}
+              key={v.key}
+              href={localePath(v.path, locale)}
               custom={i}
               initial="hidden"
               whileInView="visible"
@@ -94,7 +79,7 @@ export function Fleet() {
               <div className="relative h-48 bg-white dark:bg-gray-800">
                 <Image
                   src={v.image}
-                  alt={v.name}
+                  alt={tr(`fleet.${v.key}`)}
                   fill
                   sizes="(max-width: 768px) 100vw, 33vw"
                   quality={82}
@@ -102,10 +87,10 @@ export function Fleet() {
                 />
               </div>
               <div className="p-5 border-t border-gray-100 dark:border-gray-700">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{v.name}</h3>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">{v.desc}</p>
-                <p className="text-xs text-orange-600 dark:text-orange-400 font-medium mb-3">{v.bestFor}</p>
-                <span className="text-orange-600 dark:text-orange-400 text-sm font-semibold">View fleet →</span>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{tr(`fleet.${v.key}`)}</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">{tr(`fleet.${v.key}Desc`)}</p>
+                <p className="text-xs text-orange-600 dark:text-orange-400 font-medium mb-3">{tr(`fleet.${v.key}Best`)}</p>
+                <span className="text-orange-600 dark:text-orange-400 text-sm font-semibold">{tr("fleet.view")}</span>
               </div>
             </motion.a>
           ))}
@@ -115,7 +100,8 @@ export function Fleet() {
   );
 }
 
-export function WhyAnadyon() {
+export function WhyAnadyon({ locale = "en" }: { locale?: Locale }) {
+  const tr = translator(locale);
   return (
     <div className="max-w-6xl mx-auto px-4 py-12 md:py-16 text-center">
       <motion.div
@@ -124,20 +110,16 @@ export function WhyAnadyon() {
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
       >
-        <h2 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Why Choose Anadyon?</h2>
-        <p className="text-lg font-semibold text-orange-600 dark:text-orange-400 mb-2">Family-run since 2014</p>
+        <h2 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">{tr("why.title")}</h2>
+        <p className="text-lg font-semibold text-orange-600 dark:text-orange-400 mb-2">{tr("why.tagline")}</p>
         <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-8">
-          We know Zakynthos inside out. Our team is dedicated to making your rental experience as smooth as possible — from the moment you land to the moment you leave.
+          {tr("why.intro")}
         </p>
       </motion.div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-        {[
-          { title: "Local Expertise", desc: "We know every road, beach and sight on the island. Ask us anything." },
-          { title: "Transparent Pricing", desc: "No surprises. All taxes, CDW and unlimited mileage are included." },
-          { title: "Personal Service", desc: "You deal directly with us — not a call centre. We pick up the phone." },
-        ].map((item, i) => (
+        {["local", "pricing", "service"].map((item, i) => (
           <motion.div
-            key={item.title}
+            key={item}
             custom={i}
             initial="hidden"
             whileInView="visible"
@@ -145,8 +127,8 @@ export function WhyAnadyon() {
             variants={fadeUp}
             className="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 border border-gray-100 dark:border-gray-700"
           >
-            <h3 className="font-bold text-gray-900 dark:text-white mb-2">{item.title}</h3>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">{item.desc}</p>
+            <h3 className="font-bold text-gray-900 dark:text-white mb-2">{tr(`why.${item}`)}</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">{tr(`why.${item}Desc`)}</p>
           </motion.div>
         ))}
       </div>

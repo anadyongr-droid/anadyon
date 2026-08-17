@@ -1,13 +1,15 @@
 "use client";
 import { useState, useEffect } from "react";
 import Script from "next/script";
+import { translator, type Locale } from "@/lib/i18n";
 
 const GA_ID = "G-00X72SCDNW";
 const STORAGE_KEY = "cookie_consent";
 
 type Consent = "essential" | "all" | "declined" | null;
 
-export default function CookieBanner() {
+export default function CookieBanner({ locale = "en" }: { locale?: Locale }) {
+  const tr = translator(locale);
   const [consent, setConsent] = useState<Consent>(null);
   const [visible, setVisible] = useState(false);
   const [showPrefs, setShowPrefs] = useState(false);
@@ -51,8 +53,8 @@ export default function CookieBanner() {
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900 text-white px-4 py-4 shadow-lg safe-bottom">
           <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <p className="text-sm text-gray-300 flex-1">
-              We use cookies to improve your experience and analyse site traffic.{" "}
-              <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline hover:text-blue-300 transition">Learn more</a>.
+              {tr("cookie.text")}{" "}
+              <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline hover:text-blue-300 transition">{tr("cookie.learnMore")}</a>.
             </p>
             <div className="flex flex-wrap gap-3 shrink-0">
               <button
@@ -76,21 +78,21 @@ export default function CookieBanner() {
       {visible && showPrefs && (
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900 text-white px-4 py-5 shadow-lg safe-bottom">
           <div className="max-w-4xl mx-auto space-y-4">
-            <h2 className="text-sm font-semibold text-white">Cookie preferences</h2>
+            <h2 className="text-sm font-semibold text-white">{tr("cookie.prefsTitle")}</h2>
 
             <div className="space-y-3 text-sm">
               <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-800">
                 <div className="flex-1">
-                  <p className="font-medium text-white">Essential cookies</p>
-                  <p className="text-gray-400 text-xs mt-0.5">Required for the site to function. Cannot be disabled.</p>
+                  <p className="font-medium text-white">{tr("cookie.essential")}</p>
+                  <p className="text-gray-400 text-xs mt-0.5">{tr("cookie.essentialDesc")}</p>
                 </div>
-                <span className="text-xs text-gray-400 mt-0.5 flex-shrink-0">Always on</span>
+                <span className="text-xs text-gray-400 mt-0.5 flex-shrink-0">{tr("cookie.alwaysOn")}</span>
               </div>
 
               <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-800">
                 <div className="flex-1">
-                  <p className="font-medium text-white">Analytics cookies</p>
-                  <p className="text-gray-400 text-xs mt-0.5">Google Analytics — helps us understand how visitors use the site. No personal data is sold.</p>
+                  <p className="font-medium text-white">{tr("cookie.analytics")}</p>
+                  <p className="text-gray-400 text-xs mt-0.5">{tr("cookie.analyticsDesc")}</p>
                 </div>
               </div>
             </div>
