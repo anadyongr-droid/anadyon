@@ -431,15 +431,15 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
   );
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center pt-8 pb-8 px-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start sm:items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[calc(100vh-2rem)] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <h2 className="font-bold text-gray-900">{isEdit ? "Edit Reservation" : "New Reservation"}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
-        <div className="p-6 grid grid-cols-2 gap-x-6 gap-y-4">
+        <div className="p-6 grid grid-cols-2 gap-x-6 gap-y-4 overflow-y-auto flex-1 min-h-0">
           {/* Vehicle */}
           <div className="col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">Vehicle</label>
@@ -841,7 +841,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             Saves fine — still missing {incomplete.join(", ")}. Needed before the rental agreement.
           </div>
         )}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 shrink-0">
           <div>
             {isEdit && (
               <button onClick={handleDelete} disabled={deleting}

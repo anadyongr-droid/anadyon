@@ -158,14 +158,14 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center pt-6 pb-8 px-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start sm:items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[calc(100vh-2rem)] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <h2 className="font-bold text-gray-900">{isEdit ? "Edit Customer" : "New Customer"}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
-        <div className="p-6 grid grid-cols-2 gap-4">
+        <div className="p-6 grid grid-cols-2 gap-4 overflow-y-auto flex-1 min-h-0">
 
           {/* Personal */}
           <Section title="Personal Information" />
@@ -340,7 +340,7 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
           <div className="mx-6 mb-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</div>
         )}
 
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 shrink-0">
           <div>
             {isEdit && (
               <button onClick={handleDelete} disabled={deleting}

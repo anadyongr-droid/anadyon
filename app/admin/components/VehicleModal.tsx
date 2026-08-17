@@ -124,10 +124,10 @@ export default function VehicleModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center pt-6 pb-8 px-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start sm:items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[calc(100vh-2rem)] flex flex-col">
 
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <div>
             <h2 className="font-bold text-gray-900">{form.name}</h2>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -145,7 +145,7 @@ export default function VehicleModal({
           </div>
         )}
 
-        <div className="px-6 pt-4 flex gap-1 border-b border-gray-100">
+        <div className="px-6 pt-4 flex gap-1 border-b border-gray-100 shrink-0">
           {(["details","costs","damages"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-3 py-2 text-sm font-medium rounded-t-lg -mb-px border-b-2 transition ${
@@ -158,7 +158,7 @@ export default function VehicleModal({
         </div>
 
         {tab === "details" && (
-          <div className="p-6 space-y-5">
+          <div className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
             <div className="grid grid-cols-2 gap-3">
               {statuses.map(s => (
                 <div key={s.key} className={`text-xs px-3 py-2 rounded-lg border ${SEV_STYLE[s.severity]}`}>
@@ -248,7 +248,7 @@ export default function VehicleModal({
 
         {error && <div className="mx-6 mb-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</div>}
 
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100">
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 shrink-0">
           <button onClick={onClose} className="text-sm text-gray-600 px-4 py-2 hover:text-gray-900">Cancel</button>
           <button onClick={save} disabled={saving}
             className="text-sm font-medium text-white bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60">
@@ -269,7 +269,7 @@ function CostsTab({ ledger, restricted, onAdd, onRemove }: {
   if (!ledger) return <div className="p-6 text-sm text-gray-400">Loading…</div>;
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
       <div className="grid grid-cols-12 gap-2 items-end">
         <div className="col-span-3">
           <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
@@ -335,7 +335,7 @@ function DamagesTab({ ledger, restricted, onAdd, onRemove }: {
   if (!ledger) return <div className="p-6 text-sm text-gray-400">Loading…</div>;
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
       <div className="grid grid-cols-12 gap-2 items-end">
         <div className="col-span-5">
           <label className="block text-xs font-medium text-gray-600 mb-1">What is damaged</label>
