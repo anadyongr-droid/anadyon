@@ -1,5 +1,13 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import ContentPage from "../components/ContentPage";
+
+export const metadata: Metadata = {
+  title: "Blog",
+  description: "Guides and tips for driving and exploring Zakynthos from Anadyon Rentals.",
+  alternates: { canonical: "/blog" },
+};
+
 
 const posts = [
   {

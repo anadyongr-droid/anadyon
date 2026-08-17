@@ -4,6 +4,7 @@ import { verifyRecaptcha } from "@/lib/recaptcha";
 import { supabaseAdmin } from "@/lib/supabase";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { calcVehicleSubtotal, calcRentalDays, DEPOSIT_RATE, type Rate, type ExtrasConfig } from "@/lib/pricing";
+import { z } from "zod";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const TOLERANCE = 0.02; // allow up to €0.02 rounding difference before flagging
@@ -22,6 +23,66 @@ function esc(val: unknown): string {
     .replace(/"/g, "&quot;");
 }
 
+
+/**
+ * Shape validation for the public booking endpoint.
+ *
+ * Deliberately validates types and formats only — it never recomputes a price.
+ * All pricing is calculated in BookingForm.tsx and this route formats and
+ * stores what it is given; recalculating here would create a second pricing
+ * implementation that silently drifts from the first.
+ *
+ * Optional fields stay permissive so a valid booking is never rejected over a
+ * field the form may legitimately omit.
+ */
+const money = z.coerce.number().nonnegative().finite();
+const QuoteSchema = z.object({
+  // Required to identify the booking
+  vehicleType: z.string().min(1),
+  pickupDate: z.string().min(1),
+  dropoffDate: z.string().min(1),
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+  email: z.string().email().max(200),
+
+  // Required numerically — these are stored and emailed as the price
+  rentalDays: z.coerce.number().int().positive(),
+  total: money,
+  deposit: money,
+  balanceDue: money,
+
+  // Present but not critical to reject on
+  selectedModel: z.string().max(120).optional(),
+  pricingGroup: z.string().max(40).optional(),
+  pickupLocation: z.string().max(120).optional(),
+  dropoffLocation: z.string().max(120).optional(),
+  pickupTime: z.string().max(20).optional(),
+  dropoffTime: z.string().max(20).optional(),
+  transmission: z.string().max(40).optional(),
+  driverAge: z.coerce.number().int().min(16).max(120).optional(),
+  babySeat: z.coerce.number().int().min(0).max(10).optional(),
+  childSeat: z.coerce.number().int().min(0).max(10).optional(),
+  fdw: z.boolean().optional(),
+  additionalDrivers: z.coerce.number().int().min(0).max(10).optional(),
+  dailyRate: money.optional(),
+  vehicleSubtotal: money.optional(),
+  extrasSubtotal: money.optional(),
+  discountAmount: money.optional(),
+  promoCode: z.string().max(40).optional().nullable(),
+  promoCodeId: z.string().max(60).optional().nullable(),
+  extrasLines: z.array(z.unknown()).optional(),
+  title: z.string().max(20).optional(),
+  dob: z.string().max(40).optional(),
+  address: z.string().max(300).optional(),
+  postalCode: z.string().max(30).optional(),
+  city: z.string().max(120).optional(),
+  country: z.string().max(120).optional(),
+  mobileTel: z.string().max(40).optional(),
+  landlineTel: z.string().max(40).optional(),
+  comments: z.string().max(2000).optional(),
+  captchaToken: z.string().optional(),
+}).passthrough();
+
 export async function POST(req: NextRequest) {
   const rl = checkRateLimit(req, { limit: 10, windowMs: 15 * 60 * 1000 });
   if (!rl.ok) return rl.response!;
@@ -37,6 +98,16 @@ export async function POST(req: NextRequest) {
   if (!await verifyRecaptcha(body.captchaToken)) {
     return NextResponse.json({ error: "reCAPTCHA verification failed" }, { status: 400 });
   }
+
+  const parsed = QuoteSchema.safeParse(body);
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    return NextResponse.json(
+      { error: `Invalid ${first?.path.join(".") || "request"}: ${first?.message ?? "check your details"}` },
+      { status: 400 }
+    );
+  }
+  body = parsed.data;
 
   const {
     vehicleType,

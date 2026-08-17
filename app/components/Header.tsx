@@ -23,13 +23,19 @@ export default function Header() {
     <header className="bg-white dark:bg-gray-900 shadow-sm sticky top-0 z-40">
       {/* Logo row */}
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link href="/">
+        {/* The logo is a JPEG with a white background. On the dark header that
+            renders as a bare white rectangle, so in dark mode it is given a
+            padded white plate with rounded corners — it then reads as a
+            deliberate brand lockup rather than a broken image. Replace with a
+            transparent PNG/SVG and this wrapper can go. */}
+        <Link href="/" className="dark:bg-white dark:rounded-lg dark:px-3 dark:py-1.5 inline-block">
           <Image
             src="/logo.jpg"
             alt="Anadyon Rentals"
             width={270}
             height={80}
             className="object-contain"
+            priority
           />
         </Link>
 

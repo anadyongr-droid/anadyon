@@ -12,7 +12,7 @@ const models = [
   {
     name: "Kymco Agility 50cc",
     category: "Scooter",
-    image: "/kymco-50cc.png",
+    image: "/kymco-50cc.jpg",
     seats: 2,
     engine: "50cc",
     transmission: "Automatic",

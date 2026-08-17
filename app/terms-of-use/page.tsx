@@ -64,18 +64,12 @@ export default function TermsOfUse() {
           </div>
 
           <div className="border-t dark:border-gray-700 pt-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Privacy Policy</h2>
-            <p className="mb-3">Your privacy is very important to us. Accordingly, we have developed this Policy in order for you to understand how we collect, use, communicate and disclose and make use of personal information.</p>
-            <ul className="list-disc ml-6 space-y-2 text-sm">
-              <li>Before or at the time of collecting personal information, we will identify the purposes for which information is being collected.</li>
-              <li>We will collect and use personal information solely with the objective of fulfilling those purposes specified by us and for other compatible purposes, unless we obtain the consent of the individual concerned or as required by law.</li>
-              <li>We will only retain personal information as long as necessary for the fulfilment of those purposes.</li>
-              <li>We will collect personal information by lawful and fair means and, where appropriate, with the knowledge or consent of the individual concerned.</li>
-              <li>Personal data should be relevant to the purposes for which it is to be used, and, to the extent necessary for those purposes, should be accurate, complete, and up-to-date.</li>
-              <li>We will protect personal information by reasonable security safeguards against loss or theft, as well as unauthorised access, disclosure, copying, use or modification.</li>
-              <li>We will make readily available to customers information about our policies and practices relating to the management of personal information.</li>
-            </ul>
-            <p className="mt-3">We are committed to conducting our business in accordance with these principles in order to ensure that the confidentiality of personal information is protected and maintained.</p>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Privacy &amp; Personal Data</h2>
+            <p>
+              How we collect, use, store and share personal data — and the rights you
+              have over it — is set out in full in our{" "}
+              <a href="/privacy-policy" className="text-orange-600 dark:text-orange-400 hover:underline font-medium">Privacy Policy</a>.
+            </p>
           </div>
 
           <p>

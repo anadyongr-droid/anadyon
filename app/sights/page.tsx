@@ -1,5 +1,13 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import ContentPage from "../components/ContentPage";
+
+export const metadata: Metadata = {
+  title: "Zakynthos Sights",
+  description: "Navagio, the Blue Caves, Keri and more — where to go on Zakynthos and how to get there by car, motorbike or bike.",
+  alternates: { canonical: "/sights" },
+};
+
 
 const sights = [
   {

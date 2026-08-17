@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 const sections = [
   {
     title: "Rent a Car in Zakynthos",
@@ -37,6 +38,13 @@ const sections = [
 ];
 
 import ContentPage from "../components/ContentPage";
+
+export const metadata: Metadata = {
+  title: "Site Map",
+  description: "Every page on the Anadyon Rentals website — cars, motorbikes, bikes, quotes and contact details for Zakynthos.",
+  alternates: { canonical: "/sitemap" },
+};
+
 
 export default function Sitemap() {
   return (

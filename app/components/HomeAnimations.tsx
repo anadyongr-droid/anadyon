@@ -23,7 +23,7 @@ const fleet = [
     desc: "Scooters for zipping around Zakynthos",
     bestFor: "Best for solo riders & quick island hops",
     href: "/motorbikes",
-    image: "/kymco-50cc-fleet.png",
+    image: "/kymco-50cc-fleet.jpg",
   },
   {
     name: "Bikes",
