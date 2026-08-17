@@ -155,6 +155,26 @@ export function validateCustomer(form: CustomerLike): string | null {
   return null;
 }
 
+/**
+ * What a customer record still needs before a rental agreement can be produced.
+ *
+ * Not required to save, for the same reason date of birth is not required on a
+ * reservation: a record is often created from an email enquiry, before anyone
+ * has seen a passport or a licence. But it must not go unnoticed either — the
+ * agreement cannot be issued without a birth date, and the licence expiry is
+ * what the insurance rests on.
+ */
+export function customerStillNeeds(form: {
+  dob?: string; driving_licence_number?: string; driving_licence_expiry?: string; nationality?: string;
+}): string[] {
+  const missing: string[] = [];
+  if (!String(form.dob ?? "").trim()) missing.push("date of birth");
+  if (!String(form.driving_licence_number ?? "").trim()) missing.push("driving licence number");
+  else if (!String(form.driving_licence_expiry ?? "").trim()) missing.push("licence expiry date");
+  if (!String(form.nationality ?? "").trim()) missing.push("nationality");
+  return missing;
+}
+
 /** Which deferrable fields are still blank, for the "incomplete" marker. */
 export function missingDeferrable(form: ReservationLike): string[] {
   return RESERVATION_DEFERRABLE

@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { X, Trash2 } from "lucide-react";
-import { validateCustomer, normaliseForStorage } from "@/lib/bookingFields";
+import Select from "./Select";
+import { validateCustomer, normaliseForStorage, customerStillNeeds } from "@/lib/bookingFields";
 
 interface Customer {
   id: string;
@@ -115,6 +116,7 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const isEdit = !!customer?.id;
+  const stillNeeds = customerStillNeeds(form);
 
   function set(key: keyof Customer, value: unknown) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -168,9 +170,9 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
           {/* Personal */}
           <Section title="Personal Information" />
           <Field label="Title">
-            <select value={form.title} onChange={(e) => set("title", e.target.value)} className={inputCls}>
+            <Select value={form.title} onChange={(e) => set("title", e.target.value)} className={inputCls}>
               {["Mr", "Mrs", "Ms", "Miss", "Dr", "Prof"].map((t) => <option key={t}>{t}</option>)}
-            </select>
+            </Select>
           </Field>
           <Field label="First name" required>
             <input type="text" value={form.first_name} onChange={(e) => set("first_name", e.target.value)} className={inputCls} />
@@ -254,7 +256,7 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
           <Field label="How did they find Anadyon?">
             {/* Free text underneath, so the desk can record what was actually
                 said; the options are the common answers, not a closed list. */}
-            <select value={form.referral_source} onChange={(e) => set("referral_source", e.target.value)} className={inputCls}>
+            <Select value={form.referral_source} onChange={(e) => set("referral_source", e.target.value)} className={inputCls}>
               <option value="">— Not asked —</option>
               <option value="google">Google search</option>
               <option value="returning">Returning customer</option>
@@ -264,7 +266,7 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
               <option value="booking_site">Booking site / OTA</option>
               <option value="hotel">Hotel or villa referral</option>
               <option value="other">Other</option>
-            </select>
+            </Select>
           </Field>
           <Field label="Detail (who referred, which site…)">
             <input type="text" value={form.referral_detail} onChange={(e) => set("referral_detail", e.target.value)} className={inputCls} />
@@ -297,12 +299,12 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
           {/* Preferences & notes */}
           <Section title="Preferences & Notes" />
           <Field label="Preferred vehicle category">
-            <select value={form.preferred_vehicle_category} onChange={(e) => set("preferred_vehicle_category", e.target.value)} className={inputCls}>
+            <Select value={form.preferred_vehicle_category} onChange={(e) => set("preferred_vehicle_category", e.target.value)} className={inputCls}>
               <option value="">— No preference —</option>
               <option value="car">Cars</option>
               <option value="motorbike">Motorbikes</option>
               <option value="bike">Bikes</option>
-            </select>
+            </Select>
           </Field>
           <div className="col-span-2">
             <Field label="Internal notes">
@@ -327,6 +329,13 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
           </div>
         </div>
 
+        {/* Named rather than merely absent, matching the reservation form: the
+            record saves without these, but the agreement cannot be produced. */}
+        {!error && stillNeeds.length > 0 && (
+          <div className="mx-6 mb-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+            Saves fine — still missing {stillNeeds.join(", ")}. Needed before the rental agreement.
+          </div>
+        )}
         {error && (
           <div className="mx-6 mb-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</div>
         )}

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { X, Plus, Trash2, AlertTriangle } from "lucide-react";
+import Select from "./Select";
 import { vehicleDateStatuses, rentalBar, type Severity } from "@/lib/fleetStatus";
 
 export interface FleetVehicle {
@@ -272,9 +273,9 @@ function CostsTab({ ledger, restricted, onAdd, onRemove }: {
       <div className="grid grid-cols-12 gap-2 items-end">
         <div className="col-span-3">
           <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
-          <select className={input} value={row.cost_type} onChange={e => setRow(r => ({ ...r, cost_type: e.target.value }))}>
+          <Select className={input} value={row.cost_type} onChange={e => setRow(r => ({ ...r, cost_type: e.target.value }))}>
             {COST_TYPES.map(t => <option key={t} value={t}>{t.replace("_"," ")}</option>)}
-          </select>
+          </Select>
         </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Amount €</label>
@@ -343,9 +344,9 @@ function DamagesTab({ ledger, restricted, onAdd, onRemove }: {
         </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Severity</label>
-          <select className={input} value={row.severity} onChange={e => setRow(r => ({ ...r, severity: e.target.value }))}>
+          <Select className={input} value={row.severity} onChange={e => setRow(r => ({ ...r, severity: e.target.value }))}>
             {["minor","moderate","major"].map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          </Select>
         </div>
         <div className="col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">Repair €</label>

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { X, Trash2, Upload, FileText, Send, Search, Link, MessageSquare } from "lucide-react";
+import Select from "./Select";
 import { calcRentalDays, getDailyRate, calcExtrasTotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "@/app/components/DateRangePicker";
@@ -442,7 +443,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
           {/* Vehicle */}
           <div className="col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">Vehicle</label>
-            <select
+            <Select
               value={form.vehicle_id}
               onChange={(e) => set("vehicle_id", e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
@@ -459,7 +460,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
                   </optgroup>
                 );
               })}
-            </select>
+            </Select>
           </div>
 
           {/* Dates — the same calendar the customer books through, so a date
@@ -477,33 +478,33 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             {/* Half-hour options rather than a free-form time field: the public
                 form only ever offers these, so accepting 10:17 here produced a
                 reservation the customer could not have made themselves. */}
-            <select value={form.pickup_time} onChange={(e) => set("pickup_time", e.target.value)}
+            <Select value={form.pickup_time} onChange={(e) => set("pickup_time", e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
               {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Return time</label>
-            <select value={form.return_time} onChange={(e) => set("return_time", e.target.value)}
+            <Select value={form.return_time} onChange={(e) => set("return_time", e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
               {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+            </Select>
           </div>
 
           {/* Locations */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Pick-up location</label>
-            <select value={form.pickup_location} onChange={(e) => set("pickup_location", e.target.value)}
+            <Select value={form.pickup_location} onChange={(e) => set("pickup_location", e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
               {LOCATIONS.map((l) => <option key={l}>{l}</option>)}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Drop-off location</label>
-            <select value={form.dropoff_location} onChange={(e) => set("dropoff_location", e.target.value)}
+            <Select value={form.dropoff_location} onChange={(e) => set("dropoff_location", e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
               {LOCATIONS.map((l) => <option key={l}>{l}</option>)}
-            </select>
+            </Select>
           </div>
 
           {/* Customer */}
@@ -579,21 +580,21 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
               {extras.filter((e) => e.enabled && ["baby_seat", "child_seat"].includes(e.key)).map((e) => (
                 <div key={e.key} className="flex items-center gap-2 text-sm text-gray-700">
                   <label>{e.label} <span className="text-gray-400 text-xs">€{e.daily_rate}/day</span></label>
-                  <select value={form[e.key as keyof typeof form] as number}
+                  <Select value={form[e.key as keyof typeof form] as number}
                     onChange={(ev) => set(e.key, Number(ev.target.value))}
                     className="border border-gray-300 rounded px-2 py-1 text-sm ml-auto">
                     {[0, 1, 2, 3].map((n) => <option key={n} value={n}>{n}</option>)}
-                  </select>
+                  </Select>
                 </div>
               ))}
               {extras.filter((e) => e.enabled && e.key === "additional_drivers").map((e) => (
                 <div key={e.key} className="flex items-center gap-2 text-sm text-gray-700">
                   <label>{e.label} <span className="text-gray-400 text-xs">€{e.daily_rate}/day</span></label>
-                  <select value={form.additional_drivers}
+                  <Select value={form.additional_drivers}
                     onChange={(ev) => set("additional_drivers", Number(ev.target.value))}
                     className="border border-gray-300 rounded px-2 py-1 text-sm ml-auto">
                     {[0, 1, 2, 3].map((n) => <option key={n} value={n}>{n}</option>)}
-                  </select>
+                  </Select>
                 </div>
               ))}
             </div>
@@ -639,10 +640,10 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
           {/* Status + Notes */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
-            <select value={form.status} onChange={(e) => set("status", e.target.value)}
+            <Select value={form.status} onChange={(e) => set("status", e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm capitalize">
               {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
@@ -667,14 +668,14 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
           <div className="col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">AADE Digital Client List (DCL)</label>
             <div className="flex gap-2 items-start">
-              <select value={(form as { dcl_status?: string }).dcl_status ?? "not_submitted"}
+              <Select value={(form as { dcl_status?: string }).dcl_status ?? "not_submitted"}
                 onChange={(e) => set("dcl_status", e.target.value)}
                 className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
                 <option value="not_submitted">Not submitted</option>
                 <option value="pending">Pending submission</option>
                 <option value="submitted">Submitted</option>
                 <option value="error">Submission error</option>
-              </select>
+              </Select>
               {isEdit && (
                 <button onClick={handleAadeSubmit} disabled={aadeSubmitting}
                   className="flex items-center gap-1.5 px-3 py-2 bg-gray-800 text-white text-xs font-medium rounded-lg hover:bg-gray-900 disabled:opacity-50 transition whitespace-nowrap">
@@ -935,12 +936,12 @@ function SmsButton({ reservationId }: { reservationId: string }) {
 
   return (
     <div className="flex items-center gap-2">
-      <select value={template} onChange={(e) => setTemplate(e.target.value)}
+      <Select value={template} onChange={(e) => setTemplate(e.target.value)}
         className="text-xs border border-gray-300 rounded px-2 py-1">
         <option value="confirmation">Booking confirmed</option>
         <option value="pickup_reminder">Pickup reminder</option>
         <option value="return_reminder">Return reminder</option>
-      </select>
+      </Select>
       <button onClick={send} disabled={sending}
         className="flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 disabled:opacity-50 transition">
         <MessageSquare size={11} /> {sending ? "Sending…" : "Send SMS"}
