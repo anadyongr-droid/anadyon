@@ -125,3 +125,46 @@ export function missingDeferrable(form: ReservationLike): string[] {
     .filter(f => !String(form[f] ?? "").trim())
     .map(f => DEFERRABLE_LABELS[f] ?? f);
 }
+
+/**
+ * Columns typed `date` or `numeric` in Postgres. An untouched HTML input yields
+ * an empty string, and the form object is posted wholesale, so `""` arrives
+ * where a date or a number is expected and the insert fails with
+ * `invalid input syntax for type date: ""`.
+ *
+ * Listing them is deliberate. Blanking every empty string in the payload would
+ * also turn a cleared text field into NULL, which is a different thing from an
+ * empty note and would quietly discard an edit that meant to erase one.
+ */
+const NULLABLE_NON_TEXT = [
+  "customer_dob",
+  "discount_amount",
+  "purchase_price",
+  "odometer_km",
+  "service_interval_km",
+  "registration_date",
+  "road_tax_paid_until",
+  "kteo_expiry",
+  "insurance_expiry",
+  "last_service_date",
+  "next_service_due",
+  "purchase_date",
+  "repair_cost",
+  "repaired_on",
+  "period_start",
+  "period_end",
+] as const;
+
+/**
+ * Prepares a form object for storage: empty date and numeric fields become
+ * NULL, everything else is passed through untouched.
+ */
+export function normaliseForStorage<T extends Record<string, unknown>>(form: T): T {
+  const out: Record<string, unknown> = { ...form };
+  for (const field of NULLABLE_NON_TEXT) {
+    if (field in out && typeof out[field] === "string" && out[field] === "") {
+      out[field] = null;
+    }
+  }
+  return out as T;
+}

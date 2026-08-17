@@ -4,7 +4,7 @@ import { X, Trash2, Upload, FileText, Send, Search, Link, MessageSquare } from "
 import { calcRentalDays, getDailyRate, calcExtrasTotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "@/app/components/DateRangePicker";
-import { TIME_OPTIONS, validateReservation, missingDeferrable } from "@/lib/bookingFields";
+import { TIME_OPTIONS, validateReservation, missingDeferrable, normaliseForStorage } from "@/lib/bookingFields";
 
 interface Vehicle {
   id: string;
@@ -313,7 +313,10 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
     setSaving(true);
     setSaveError("");
     const fullName = [form.customer_first_name, form.customer_last_name].filter(Boolean).join(" ") || form.customer_name;
-    const payload = {
+    // An untouched date input yields "", and the whole form is posted, so the
+    // empty string reaches a `date` column and Postgres rejects the insert with
+    // `invalid input syntax for type date: ""`.
+    const payload = normaliseForStorage({
       ...form,
       customer_name: fullName,
       rental_days: rentalDays,
@@ -323,7 +326,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
       total,
       ...(isEdit && originalStatus ? { _prev_status: originalStatus } : {}),
       ...(linkedCustomerId ? { customer_id: linkedCustomerId } : {}),
-    };
+    });
     const url = isEdit ? `/api/admin/reservations/${reservationId}` : "/api/admin/reservations";
     const method = isEdit ? "PATCH" : "POST";
     const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
