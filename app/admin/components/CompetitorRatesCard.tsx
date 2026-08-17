@@ -25,7 +25,6 @@ export default function CompetitorRatesCard() {
   const [farosRunning, setFarosRunning] = useState(false);
   const [cr, setCr] = useState<string | null>(null);
   const [crRunning, setCrRunning] = useState(false);
-  const [residential, setResidential] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -103,7 +102,7 @@ export default function CompetitorRatesCard() {
     setCrRunning(true);
     setCr("Starting runs…");
     try {
-      const start = await fetch(`/api/admin/competitors/carrentals${residential ? "?residential=1" : ""}`, { method: "POST" });
+      const start = await fetch("/api/admin/competitors/carrentals", { method: "POST" });
       const d0 = await start.json();
       if (!start.ok) { setCr(d0.error ?? "Could not start."); setCrRunning(false); return; }
       setCr(`Started — 1 of ${d0.total} searches (one at a time)…`);
@@ -202,16 +201,9 @@ export default function CompetitorRatesCard() {
           <div className="text-xs text-gray-500 mt-0.5">
             International brands at ZTH — Avis, Budget, Hertz, Enterprise, Sixt. A different
             segment from the local operators. Priced in USD, converted at the day&apos;s rate.
+            Runs through residential proxies — billed by traffic, but the only way past their
+            rate limit.
           </div>
-          <label className="flex items-center gap-1.5 text-xs text-gray-600 mt-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={residential}
-              onChange={e => setResidential(e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            Use residential proxies — billed by traffic, but the only way past their rate limit
-          </label>
           {cr && <div className="text-xs text-gray-500 mt-1.5">{cr}</div>}
         </div>
         <button

@@ -76,8 +76,9 @@ export async function usdToEur(): Promise<number> {
  * Residential proxies route through consumer ISP connections rather than a data
  * centre. carrentals.com rate-limits Apify's shared datacenter pool with 429s
  * regardless of browser fingerprint, so they are the only way this Actor
- * returns data — but they are billed by traffic volume, so they are opt-in per
- * run rather than the default.
+ * returns data at all. They bill by traffic volume, which is why they were
+ * once a per-run choice — but a run without them collects nothing, so the
+ * choice only ever produced failed runs and is no longer offered.
  *
  * The country is pinned so results stay comparable. Greece is the default
  * because it is the exit point verified to get past their rate limiting;
@@ -86,7 +87,7 @@ export async function usdToEur(): Promise<number> {
 export async function startRun(
   token: string,
   run: PlannedRun,
-  opts: { residential?: boolean; country?: string } = {}
+  opts: { country?: string } = {}
 ): Promise<{ runId: string; datasetId: string }> {
   const res = await fetch(`https://api.apify.com/v2/acts/${ACTOR}/runs?token=${encodeURIComponent(token)}`, {
     method: "POST",
@@ -95,13 +96,11 @@ export async function startRun(
       startUrl: run.url,
       results_wanted: 60,
       max_pages: 3,
-      proxyConfiguration: opts.residential
-        ? {
-            useApifyProxy: true,
-            apifyProxyGroups: ["RESIDENTIAL"],
-            apifyProxyCountry: opts.country ?? "GR",
-          }
-        : { useApifyProxy: true },
+      proxyConfiguration: {
+        useApifyProxy: true,
+        apifyProxyGroups: ["RESIDENTIAL"],
+        apifyProxyCountry: opts.country ?? "GR",
+      },
     }),
   });
   if (!res.ok) throw new Error(`Apify start failed (${res.status}): ${(await res.text()).slice(0, 180)}`);
