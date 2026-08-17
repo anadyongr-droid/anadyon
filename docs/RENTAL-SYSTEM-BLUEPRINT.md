@@ -120,6 +120,7 @@ money is won and lost.
 | Promotions, discount rules | ✅ | Wheelsys, IOS Rentals |
 | **Live competitor rate collection** | ✅ | **none** |
 | Card tokenization, no PAN stored | ✅ | Wheelsys, Coastr |
+| **Server-side price verification** | ✅ | not advertised by any |
 | Greek fiscalisation (AADE myDATA) | ✅ | Wheelsys, IOS Rentals |
 | AADE Digital Client List | ⚠️ columns present, unproven | IOS Rentals |
 | **Multi-asset (car + motorbike + bicycle)** | ✅ | only Rent Centric |
@@ -355,7 +356,33 @@ Decisions, not omissions:
   defensible; automated detection adds cost and its own dispute surface.
 - **Multi-currency, franchise, multi-location, subscription, P2P sharing, toll
   processing.** Answers to problems a single-island operator does not have.
-- **Server-side price recalculation.** Pricing is computed once, client-side.
+
+---
+
+## 8b. Pricing — how it actually works
+
+Worth stating plainly, because the second draft of this document got it wrong
+and claimed server-side recalculation was deliberately absent.
+
+`BookingForm.tsx` calculates client-side so figures update instantly with no
+round trip. On submit, `/api/quote/route.ts` recalculates **everything**
+independently from the `rates` and `extras_config` tables — rental days, daily
+rate, vehicle subtotal, extras, total, deposit, balance — and the server's
+values are the ones stored and emailed, always, whether or not they agree with
+the client's.
+
+The submitted client total is kept only for comparison. A difference above
+€0.02 sets a `manipulated` flag, which prefixes the internal email subject with
+`⚠️ [ALERT]` and adds a banner showing client-submitted against
+server-calculated figures.
+
+None of the eleven systems advertises this. It is a stronger position than
+"pricing is client-side" implies: the customer gets instant feedback, and a
+tampered payload cannot change what is charged or recorded.
+
+**The cost:** two implementations of the same rules. A rate change made in one
+and not the other will not produce a wrong price — the server always wins — but
+it will make every quote trip the manipulation alert. Keep them in step.
 
 ---
 
