@@ -11,6 +11,8 @@ export default function Home() {
             src="/hero-zakynthos.jpg"
             alt="Zakynthos Shipwreck Beach"
             fill
+            sizes="100vw"
+            quality={82}
             className="object-cover opacity-95"
             priority
           />

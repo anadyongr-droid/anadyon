@@ -38,10 +38,12 @@ export default function PublicShell({ children }: { children: React.ReactNode })
         <div className="max-w-6xl mx-auto px-4 text-center text-xs space-y-2 py-6 text-gray-300">
           <p>Copyright © 2014–2026 Anadyon Rentals. All Rights Reserved.</p>
           <p>20 Lomvardou Str. (Seafront Road, Zakynthos Town), 29100, Zakynthos, Greece</p>
-          <p className="flex flex-wrap justify-center gap-4">
-            <a href="tel:+302695041878" className="hover:text-white transition">+30 26950 41878</a>
-            <a href="tel:+306988010188" className="hover:text-white transition">+30 6988 010188</a>
-            <a href="mailto:customerservice@anadyon.gr" className="hover:text-white transition">customerservice@anadyon.gr</a>
+          {/* Tapping a number to call is a primary action on mobile, so these
+              get a 44px target rather than the 16px the bare text would give. */}
+          <p className="flex flex-wrap justify-center gap-x-4">
+            <a href="tel:+302695041878" className="inline-flex items-center min-h-11 px-2 hover:text-white transition">+30 26950 41878</a>
+            <a href="tel:+306988010188" className="inline-flex items-center min-h-11 px-2 hover:text-white transition">+30 6988 010188</a>
+            <a href="mailto:customerservice@anadyon.gr" className="inline-flex items-center min-h-11 px-2 hover:text-white transition">customerservice@anadyon.gr</a>
           </p>
         </div>
       </footer>

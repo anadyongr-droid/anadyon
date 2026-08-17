@@ -92,6 +92,8 @@ export default function BikesClient() {
                     src={bike.image}
                     alt={bike.name}
                     fill
+                    sizes="(max-width: 768px) 100vw, 288px"
+                    quality={82}
                     className="object-contain p-4"
                   />
                 ) : (

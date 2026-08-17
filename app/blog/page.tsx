@@ -33,6 +33,8 @@ export default function Blog() {
                   src={post.image}
                   alt={post.title}
                   fill
+                  sizes="(max-width: 640px) 100vw, 224px"
+                  quality={82}
                   className="object-cover"
                 />
               </div>

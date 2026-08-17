@@ -96,6 +96,8 @@ export function Fleet() {
                   src={v.image}
                   alt={v.name}
                   fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  quality={82}
                   className="object-contain p-4 group-hover:scale-105 transition-transform duration-300"
                 />
               </div>

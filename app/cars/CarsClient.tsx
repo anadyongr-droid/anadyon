@@ -73,10 +73,15 @@ export default function CarsClient() {
           {models.map((car) => (
             <Card key={car.name} className="overflow-hidden flex flex-col md:flex-row">
               <div className="relative w-full md:w-72 h-52 md:h-auto flex-shrink-0 bg-white dark:bg-gray-800">
+                {/* sizes is required alongside `fill`: without it Next.js assumes
+                    100vw and the browser fetches the widest variant in the srcset
+                    for a card that is only 288px across. */}
                 <Image
                   src={car.image}
                   alt={car.name}
                   fill
+                  sizes="(max-width: 768px) 100vw, 288px"
+                  quality={82}
                   className="object-contain p-4"
                 />
               </div>

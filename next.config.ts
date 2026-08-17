@@ -40,6 +40,32 @@ const nextConfig: NextConfig = {
     // competitor's) that nothing referenced, which widened the image-optimiser
     // surface for no benefit.
     remotePatterns: [],
+
+    // AVIF first, WebP for anything that cannot take it. AVIF runs roughly
+    // 30-50% smaller than JPEG at matching visual quality, which is what lets
+    // the source photos stay high-resolution without the pages getting heavier.
+    // Order matters — the browser is offered the first format it accepts.
+    formats: ["image/avif", "image/webp"],
+
+    // Next 16 only honours quality values declared here, so 75 has to stay: it
+    // is the built-in default and dropping it would reject any <Image> that does
+    // not name a quality. 82 is the vehicle-photo setting — clean panel
+    // gradients and legible badge text, well short of the point where the extra
+    // bytes stop being visible.
+    qualities: [75, 82],
+
+    // The stock list runs to 3840px. Nothing here is served above 1600, and the
+    // largest layout slot is the full-bleed hero, so the wider entries would only
+    // add cache permutations that never get a hit.
+    deviceSizes: [640, 750, 828, 1080, 1200, 1600],
+
+    // Card artwork sits at 224-352px depending on breakpoint; 288 and 384 cover
+    // the 1x and the retina case for the md:w-72 slots.
+    imageSizes: [96, 128, 224, 288, 384],
+
+    // Vehicle photography is replaced rarely, so a long immutable cache is safe
+    // and keeps repeat visits off the optimiser entirely.
+    minimumCacheTTL: 60 * 60 * 24 * 365,
   },
 };
 

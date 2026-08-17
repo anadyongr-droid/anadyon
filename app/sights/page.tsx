@@ -61,6 +61,8 @@ export default function Sights() {
                     src={s.image}
                     alt={s.name}
                     fill
+                    sizes="(max-width: 768px) 100vw, 768px"
+                    quality={82}
                     className="object-cover"
                   />
                 </div>

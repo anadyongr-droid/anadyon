@@ -48,6 +48,8 @@ export default function MotorbikesClient() {
                   src={bike.image}
                   alt={bike.name}
                   fill
+                  sizes="(max-width: 768px) 100vw, 288px"
+                  quality={82}
                   className={`object-contain ${bike.imagePadding}`}
                 />
               </div>

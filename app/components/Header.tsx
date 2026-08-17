@@ -40,10 +40,14 @@ export default function Header() {
         </Link>
 
         {/* Mobile hamburger */}
+        {/* p-2.5 lifts the tap area from the icon's bare 24px to 44px, the
+            minimum in WCAG 2.5.5 and the Apple HIG. The matching negative
+            margin keeps the icon optically aligned with the container padding. */}
         <button
-          className="md:hidden text-gray-700 dark:text-gray-300"
+          className="md:hidden text-gray-700 dark:text-gray-300 p-2.5 -mr-2.5"
           onClick={() => setOpen(!open)}
           aria-label="Toggle menu"
+          aria-expanded={open}
         >
           {open ? <X size={24} /> : <Menu size={24} />}
         </button>
@@ -66,12 +70,12 @@ export default function Header() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 px-4 py-4 space-y-3">
+        <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 px-4 py-2 space-y-1">
           {links.map(l => (
             <a
               key={l.href}
               href={l.href}
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-orange-600 dark:hover:text-orange-400 visited:text-gray-700 dark:visited:text-gray-300 py-1"
+              className="flex items-center min-h-11 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-orange-600 dark:hover:text-orange-400 visited:text-gray-700 dark:visited:text-gray-300"
               onClick={() => setOpen(false)}
             >
               {l.label}
