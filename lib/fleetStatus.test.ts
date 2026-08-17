@@ -37,6 +37,25 @@ describe("the statutory dates are not equal in consequence", () => {
   });
 });
 
+describe("judged at the pick-up date, not today", () => {
+  // A booking taken in March for August must be judged on August. A certificate
+  // valid today but lapsed by collection is no use to the customer standing at
+  // the desk, and the availability route passes the pick-up instant for exactly
+  // this reason.
+  it("allows a booking that starts before the certificate lapses", () => {
+    const collectsBeforeExpiry = new Date("2026-08-20T09:00:00");
+    const r = rentalBar({ kteo_expiry: "2026-08-25", insurance_expiry: day(300) }, collectsBeforeExpiry);
+    expect(r.barred).toBe(false);
+  });
+
+  it("refuses a booking that starts after it lapses, even though it is valid today", () => {
+    const collectsAfterExpiry = new Date("2026-09-10T09:00:00");
+    const r = rentalBar({ kteo_expiry: "2026-08-25", insurance_expiry: day(300) }, collectsAfterExpiry);
+    expect(r.barred).toBe(true);
+    expect(r.reason).toMatch(/KTEO/);
+  });
+});
+
 describe("status overrides paperwork", () => {
   it.each(["maintenance", "retired"])("bars a %s vehicle even with valid papers", (status) => {
     const r = rentalBar(

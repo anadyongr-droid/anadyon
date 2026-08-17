@@ -72,6 +72,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
   const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [downgradeAcknowledged, setDowngradeAcknowledged] = useState(false);
+  const [statutoryBar, setStatutoryBar] = useState("");
   const [conflictWarning, setConflictWarning] = useState("");
   const [originalStatus, setOriginalStatus] = useState("");
   const isEdit = !!reservationId;
@@ -259,16 +260,21 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
       .then((data) => {
         if (!data.available && data.conflict) {
           const c = data.conflict;
-          // A double-booking is impossible; too short a turnaround is a
-          // judgement call, so it is worded as a caution and says when the
-          // vehicle is actually ready rather than just refusing.
+          // A statutory lapse is absolute — no cover, so it blocks the save.
+          // A double-booking is impossible. A short turnaround is a judgement
+          // call, so it is worded as a caution and says when the vehicle is
+          // actually ready rather than simply refusing.
+          setStatutoryBar(c.reason === "statutory" ? c.message : "");
           setConflictWarning(
-            c.reason === "turnaround"
+            c.reason === "statutory"
+              ? c.message
+              : c.reason === "turnaround"
               ? `Tight turnaround — ${c.customer_name} returns it ${c.returns_at}. Allowing ${c.turnaround_minutes} min to clean and prepare, it is ready ${c.ready_at}.`
               : `Already booked for ${c.customer_name} (${c.pickup_date} → ${c.return_date})`
           );
         } else {
           setConflictWarning("");
+          setStatutoryBar("");
         }
       });
   }, [
@@ -325,6 +331,14 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
     const problem = validateReservation(form, total);
     if (problem) {
       setSaveError(problem);
+      return;
+    }
+
+    // No insurance cover means no rental, whatever else is true. Checked before
+    // the substitution rules because a valid substitution onto an uninsured
+    // vehicle is still an uninsured vehicle.
+    if (statutoryBar) {
+      setSaveError(`${statutoryBar}. Assign a different vehicle, or clear the paperwork on the Fleet screen first.`);
       return;
     }
 

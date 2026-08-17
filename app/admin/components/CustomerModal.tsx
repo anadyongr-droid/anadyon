@@ -31,6 +31,14 @@ interface Customer {
   emergency_contact_phone: string;
   // Tax
   vat_number: string;
+  // Attribution
+  referral_source: string;
+  referral_detail: string;
+  // Payment — Stripe references only, never a card number
+  card_brand: string | null;
+  card_last4: string | null;
+  card_exp_month: number | null;
+  card_exp_year: number | null;
   // Rental preferences
   preferred_vehicle_category: string;
   // Internal
@@ -68,6 +76,12 @@ const EMPTY: Customer = {
   emergency_contact_name: "",
   emergency_contact_phone: "",
   vat_number: "",
+  referral_source: "",
+  referral_detail: "",
+  card_brand: null,
+  card_last4: null,
+  card_exp_month: null,
+  card_exp_year: null,
   preferred_vehicle_category: "",
   do_not_rent: false,
   dnr_reason: "",
@@ -234,6 +248,51 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
             <input type="text" value={form.vat_number} onChange={(e) => set("vat_number", e.target.value)} className={inputCls} placeholder="e.g. EL123456789" />
           </Field>
           <div /> {/* spacer */}
+
+          {/* How they found us, and the card on file */}
+          <Section title="Attribution & Payment" />
+          <Field label="How did they find Anadyon?">
+            {/* Free text underneath, so the desk can record what was actually
+                said; the options are the common answers, not a closed list. */}
+            <select value={form.referral_source} onChange={(e) => set("referral_source", e.target.value)} className={inputCls}>
+              <option value="">— Not asked —</option>
+              <option value="google">Google search</option>
+              <option value="returning">Returning customer</option>
+              <option value="word_of_mouth">Word of mouth / recommendation</option>
+              <option value="walk_in">Walk-in / passing</option>
+              <option value="social">Social media</option>
+              <option value="booking_site">Booking site / OTA</option>
+              <option value="hotel">Hotel or villa referral</option>
+              <option value="other">Other</option>
+            </select>
+          </Field>
+          <Field label="Detail (who referred, which site…)">
+            <input type="text" value={form.referral_detail} onChange={(e) => set("referral_detail", e.target.value)} className={inputCls} />
+          </Field>
+          <div className="col-span-2">
+            {/* Read-only by design. The card is captured through Stripe's own
+                hosted fields, so the number never reaches this application, its
+                logs or the database — only a token, the brand and the last four.
+                A text input here would invite someone to type a PAN into it. */}
+            <div className="border border-gray-200 rounded-lg px-4 py-3 bg-gray-50">
+              <div className="text-xs font-medium text-gray-600 mb-1">Card on file</div>
+              {form.card_last4 ? (
+                <div className="text-sm text-gray-800">
+                  {form.card_brand ?? "Card"} ···· {form.card_last4}
+                  {form.card_exp_month && form.card_exp_year &&
+                    <span className="text-gray-400 text-xs ml-2">
+                      expires {String(form.card_exp_month).padStart(2, "0")}/{form.card_exp_year}
+                    </span>}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-400">No card saved</div>
+              )}
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                Cards are held by Stripe, never in this system. Only the brand and last four digits are stored,
+                so staff can identify the card in conversation.
+              </p>
+            </div>
+          </div>
 
           {/* Preferences & notes */}
           <Section title="Preferences & Notes" />

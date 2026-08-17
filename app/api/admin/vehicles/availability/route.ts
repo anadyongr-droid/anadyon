@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { rentalBar } from "@/lib/fleetStatus";
 
 // GET /api/admin/vehicles/availability
 //   ?vehicle_id=&pickup_date=&return_date=&pickup_time=&return_time=&exclude_id=
@@ -54,9 +55,34 @@ export async function GET(req: NextRequest) {
 
   const { data: vehicle } = await supabaseAdmin
     .from("vehicles")
-    .select("turnaround_minutes")
+    .select("turnaround_minutes, status, kteo_expiry, insurance_expiry, road_tax_paid_until, next_service_due")
     .eq("id", vehicle_id)
     .maybeSingle();
+
+  // Statutory state is settled before any date arithmetic. A vehicle whose KTEO
+  // or insurance has lapsed carries no cover, so whether it happens to be free
+  // that week is beside the point — and a vehicle in maintenance or retired is
+  // not a candidate either, which the availability check previously ignored
+  // entirely, leaving the status dropdown as decoration.
+  //
+  // Measured against the pick-up date rather than today: a certificate valid now
+  // but expired by the time the customer collects is no use, and a booking taken
+  // in March for August must be judged on August.
+  if (vehicle) {
+    const bar = rentalBar(vehicle, toInstant(pickup_date, pickup_time));
+    if (bar.barred) {
+      return NextResponse.json({
+        available: false,
+        conflict: {
+          customer_name: "",
+          pickup_date,
+          return_date,
+          reason: "statutory",
+          message: bar.reason,
+        },
+      });
+    }
+  }
 
   // Falls back to the car default if the column has not been migrated yet, so
   // a pending migration degrades to the old behaviour rather than to no check.
