@@ -4,12 +4,13 @@ import Image from "next/image";
 import { User, Check } from "lucide-react";
 import BookingForm from "../components/BookingForm";
 import { Card } from "@/components/ui/card";
+import { translator, type Locale } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
 
 const models = [
   {
     name: "Cinzia Bombi Retro Women",
-    category: "City Bike — Women's",
+    categoryKey: "cat.cityWomen",
     image: "/bottecchia.webp",
     gears: "3-speed Shimano Nexus",
     wheels: '26"',
@@ -17,7 +18,7 @@ const models = [
   },
   {
     name: "Cinzia Bombi Retro Men",
-    category: "City Bike — Men's",
+    categoryKey: "cat.cityMen",
     image: "/giant-bike.jpg",
     gears: "3-speed Shimano Nexus",
     wheels: '28"',
@@ -25,7 +26,7 @@ const models = [
   },
   {
     name: "Scott Sportster 50",
-    category: "Trekking Bike — Women's",
+    categoryKey: "cat.trekkingWomen",
     image: "/scott-bike.jpg",
     gears: "21-speed Shimano",
     wheels: "700c",
@@ -33,7 +34,7 @@ const models = [
   },
   {
     name: "Ideal Crossmo",
-    category: "Trekking Bike — Men's",
+    categoryKey: "cat.trekkingMen",
     image: "/crossmo-bike.jpg",
     gears: "21-speed Shimano",
     wheels: '28"',
@@ -41,7 +42,7 @@ const models = [
   },
   {
     name: "Kona Lanai",
-    category: "Mountain Bike",
+    categoryKey: "cat.mountain",
     image: "/kona-bike.jpg",
     gears: "21-speed Shimano",
     wheels: '27.5"',
@@ -49,7 +50,7 @@ const models = [
   },
   {
     name: "KTM Manhattan XC",
-    category: "Trekking Bike — Men's",
+    categoryKey: "cat.trekkingMen",
     image: "/ktm-manhattan.jpeg",
     gears: "24-speed Shimano",
     wheels: '28"',
@@ -57,7 +58,7 @@ const models = [
   },
   {
     name: "Specialized Ariel",
-    category: "Trekking Bike — Men's",
+    categoryKey: "cat.trekkingMen",
     image: "/specialized.jpg",
     gears: "21-speed Shimano",
     wheels: "700c",
@@ -71,13 +72,14 @@ const placeholderColors: Record<string, string> = {
   "Specialized Ariel": "bg-yellow-50",
 };
 
-export default function BikesClient() {
+export default function BikesClient({ locale = "en" }: { locale?: Locale }) {
+  const tr = translator(locale);
   const { selectedModel, formVisible, selectAndScroll } = useVehicleSelection();
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
       <div className="max-w-5xl mx-auto px-4 py-16">
-        <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Rent a Bike in Zakynthos</h1>
+        <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">{tr("vehicles.bikesTitle")}</h1>
 
         <div className="space-y-5">
           {models.map((bike) => (
@@ -97,7 +99,7 @@ export default function BikesClient() {
                     className="object-contain p-4"
                   />
                 ) : (
-                  <span className="text-gray-400 text-sm">Photo coming soon</span>
+                  <span className="text-gray-400 text-sm">{tr("spec.photoSoon")}</span>
                 )}
               </div>
 
@@ -106,7 +108,7 @@ export default function BikesClient() {
               <div className="flex flex-col md:flex-row flex-1 p-6 gap-6">
                 <div className="flex-1">
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white">{bike.name}</h3>
-                  <Badge variant="secondary" className="mt-1 mb-4">{bike.category}</Badge>
+                  <Badge variant="secondary" className="mt-1 mb-4">{tr(bike.categoryKey)}</Badge>
 
                   <div className="flex flex-wrap gap-5 text-sm text-gray-600 dark:text-gray-200 mb-5">
                     <span className="text-sm text-gray-600 dark:text-gray-200">
@@ -114,7 +116,7 @@ export default function BikesClient() {
                     </span>
                     <span className="flex items-center gap-1.5">
                       <User size={15} className="text-blue-600" />
-                      1 rider
+                      1 {tr("vehicles.rider")}
                     </span>
                   </div>
 
@@ -133,7 +135,7 @@ export default function BikesClient() {
                     onClick={() => selectAndScroll(bike.name)}
                     className="w-full md:w-36 bg-orange-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-orange-700 transition text-sm"
                   >
-                    Get Quote
+                    {tr("vehicles.getQuote")}
                   </button>
                 </div>
               </div>

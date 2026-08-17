@@ -6,68 +6,70 @@ import { GearStickIcon } from "../components/GearStickIcon";
 import { CarDoorIcon } from "../components/CarDoorIcon";
 import BookingForm from "../components/BookingForm";
 import { Card } from "@/components/ui/card";
+import { translator, type Locale } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
 
 const models = [
   {
     name: "Fiat Panda",
-    category: "Economy Car",
+    categoryKey: "cat.economy",
     image: "/fiat-panda.jpg",
     seats: 5,
     doors: 5,
     luggage: "225 lt.",
-    transmission: "Manual",
+    transmissionKey: "spec.manual",
     features: ["A/C", "ABS", "1 large + 1 small bag"],
   },
   {
     name: "Hyundai Getz",
-    category: "Economy Car",
+    categoryKey: "cat.economy",
     image: "/hyundai-getz.jpg",
     seats: 5,
     doors: 5,
     luggage: "288 lt.",
-    transmission: "Manual",
+    transmissionKey: "spec.manual",
     features: ["A/C", "ABS", "1 large + 1 small bag"],
   },
   {
     name: "Hyundai i10",
-    category: "Economy Car",
+    categoryKey: "cat.economy",
     image: "/hyundai-i10.jpg",
     seats: 5,
     doors: 5,
     luggage: "252 lt.",
-    transmission: "Manual",
+    transmissionKey: "spec.manual",
     features: ["A/C", "ABS", "1 large + 1 small bag"],
   },
   {
     name: "Hyundai i20",
-    category: "Compact Car",
+    categoryKey: "cat.compact",
     image: "/hyundai-i20.jpg",
     seats: 5,
     doors: 5,
     luggage: "311 lt.",
-    transmission: "Manual",
+    transmissionKey: "spec.manual",
     features: ["A/C", "ABS", "2 large bags"],
   },
   {
     name: "Peugeot 107",
-    category: "Automatic City Car",
+    categoryKey: "cat.automatic",
     image: "/peugeot-107.jpg",
     seats: 4,
     doors: 5,
     luggage: "139 lt.",
-    transmission: "Automatic",
+    transmissionKey: "spec.automatic",
     features: ["A/C", "ABS", "Automatic gearbox"],
   },
 ];
 
-export default function CarsClient() {
+export default function CarsClient({ locale = "en" }: { locale?: Locale }) {
+  const tr = translator(locale);
   const { selectedModel, formVisible, selectAndScroll } = useVehicleSelection();
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
       <div className="max-w-5xl mx-auto px-4 py-16">
-        <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Rent a Car in Zakynthos</h1>
+        <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">{tr("vehicles.carsTitle")}</h1>
 
         <div className="space-y-5">
           {models.map((car) => (
@@ -91,20 +93,20 @@ export default function CarsClient() {
               <div className="flex flex-col md:flex-row flex-1 p-6 gap-6">
                 <div className="flex-1">
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white">{car.name}</h3>
-                  <Badge variant="secondary" className="mt-1 mb-4">{car.category}</Badge>
+                  <Badge variant="secondary" className="mt-1 mb-4">{tr(car.categoryKey)}</Badge>
 
                   <div className="flex flex-wrap gap-5 text-sm text-gray-600 dark:text-gray-200 mb-5">
                     <span className="flex items-center gap-1.5">
                       <GearStickIcon size={15} className="text-blue-600" />
-                      {car.transmission}
+                      {tr(car.transmissionKey)}
                     </span>
                     <span className="flex items-center gap-1.5">
                       <User size={15} className="text-blue-600" />
-                      {car.seats} seats
+                      {car.seats} {tr("vehicles.seats")}
                     </span>
                     <span className="flex items-center gap-1.5">
                       <CarDoorIcon size={15} className="text-blue-600" />
-                      {car.doors} doors
+                      {car.doors} {tr("vehicles.doors")}
                     </span>
                     <span className="flex items-center gap-1.5">
                       <Briefcase size={15} className="text-blue-600" />
@@ -127,7 +129,7 @@ export default function CarsClient() {
                     onClick={() => selectAndScroll(car.name)}
                     className="w-full md:w-36 bg-orange-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-orange-700 transition text-sm"
                   >
-                    Get Quote
+                    {tr("vehicles.getQuote")}
                   </button>
                 </div>
               </div>
@@ -148,7 +150,7 @@ export default function CarsClient() {
                 "Hyundai i20": "car_b",
                 "Peugeot 107": "car_c",
               }}
-              modelTransmissions={Object.fromEntries(models.map(m => [m.name, m.transmission]))}
+              modelTransmissions={Object.fromEntries(models.map(m => [m.name, m.transmissionKey === "spec.automatic" ? "Automatic" : "Manual"]))}
             />
           </div>
         )}

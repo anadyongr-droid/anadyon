@@ -103,6 +103,21 @@ const en: Dict = {
   "vehicles.rider": "rider",
   "vehicles.riders": "riders",
 
+
+  // ── Vehicle categories and specs ──
+  "cat.economy": "Economy Car",
+  "cat.compact": "Compact Car",
+  "cat.automatic": "Automatic City Car",
+  "cat.scooter": "Scooter",
+  "cat.cityWomen": "City Bike — Women's",
+  "cat.cityMen": "City Bike — Men's",
+  "cat.trekkingWomen": "Trekking Bike — Women's",
+  "cat.trekkingMen": "Trekking Bike — Men's",
+  "cat.mountain": "Mountain Bike",
+  "spec.manual": "Manual",
+  "spec.automatic": "Automatic",
+  "spec.photoSoon": "Photo coming soon",
+
   // ── Footer ──
   "footer.faq": "FAQ",
   "footer.terms": "Terms & Conditions",
@@ -158,7 +173,7 @@ const el: Dict = {
   // ── Παροχές ──
   "benefit.mileage": "Απεριόριστα Χιλιόμετρα",
   "benefit.mileageDesc": "Οδηγήστε όσο θέλετε, χωρίς επιπλέον χρέωση",
-  "benefit.delivery": "Δωρεάν Παράδοση",
+  "benefit.delivery": "Δωρεάν Παράδοση & Παραλαβή",
   "benefit.deliveryDesc": "Δωρεάν παράδοση και παραλαβή εντός ωραρίου λειτουργίας*",
   "benefit.taxes": "Όλοι οι Φόροι Συμπεριλαμβάνονται",
   "benefit.taxesDesc": "Χωρίς κρυφές χρεώσεις — πληρώνετε ό,τι βλέπετε",
@@ -202,6 +217,21 @@ const el: Dict = {
   "vehicles.doors": "πόρτες",
   "vehicles.rider": "αναβάτης",
   "vehicles.riders": "αναβάτες",
+
+
+  // ── Κατηγορίες και χαρακτηριστικά οχημάτων ──
+  "cat.economy": "Οικονομικό Αυτοκίνητο",
+  "cat.compact": "Μικρομεσαίο Αυτοκίνητο",
+  "cat.automatic": "Αυτόματο Αυτοκίνητο Πόλης",
+  "cat.scooter": "Σκούτερ",
+  "cat.cityWomen": "Ποδήλατο Πόλης — Γυναικείο",
+  "cat.cityMen": "Ποδήλατο Πόλης — Ανδρικό",
+  "cat.trekkingWomen": "Ποδήλατο Περιήγησης — Γυναικείο",
+  "cat.trekkingMen": "Ποδήλατο Περιήγησης — Ανδρικό",
+  "cat.mountain": "Ποδήλατο Βουνού",
+  "spec.manual": "Χειροκίνητο",
+  "spec.automatic": "Αυτόματο",
+  "spec.photoSoon": "Η φωτογραφία έρχεται σύντομα",
 
   // ── Υποσέλιδο ──
   "footer.faq": "Συχνές Ερωτήσεις",
