@@ -33,6 +33,7 @@ const EMPTY_FORM = {
   customer_email: "",
   customer_phone: "",
   customer_nationality: "",
+  flight_number: "",
   pickup_date: "",
   pickup_time: "09:00",
   return_date: "",
@@ -103,6 +104,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             customer_email: data.customer_email ?? "",
             customer_phone: data.customer_phone ?? "",
             customer_nationality: data.customer_nationality ?? "",
+            flight_number: data.flight_number ?? "",
             pickup_date: data.pickup_date,
             pickup_time: data.pickup_time,
             return_date: data.return_date,
@@ -235,20 +237,35 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
       vehicle_id: form.vehicle_id,
       pickup_date: form.pickup_date,
       return_date: form.return_date,
+      pickup_time: form.pickup_time || "09:00",
+      return_time: form.return_time || "09:00",
       ...(reservationId ? { exclude_id: reservationId } : {}),
     });
     fetch(`/api/admin/vehicles/availability?${params}`)
       .then((r) => r.json())
       .then((data) => {
         if (!data.available && data.conflict) {
+          const c = data.conflict;
+          // A double-booking is impossible; too short a turnaround is a
+          // judgement call, so it is worded as a caution and says when the
+          // vehicle is actually ready rather than just refusing.
           setConflictWarning(
-            `Already booked for ${data.conflict.customer_name} (${data.conflict.pickup_date} → ${data.conflict.return_date})`
+            c.reason === "turnaround"
+              ? `Tight turnaround — ${c.customer_name} returns it ${c.returns_at}. Allowing ${c.turnaround_minutes} min to clean and prepare, it is ready ${c.ready_at}.`
+              : `Already booked for ${c.customer_name} (${c.pickup_date} → ${c.return_date})`
           );
         } else {
           setConflictWarning("");
         }
       });
-  }, [form.vehicle_id, form.pickup_date, form.return_date, reservationId]);
+  }, [
+    form.vehicle_id,
+    form.pickup_date,
+    form.return_date,
+    form.pickup_time,
+    form.return_time,
+    reservationId,
+  ]);
 
   // Computed pricing
   const vehicle = vehicles.find((v) => v.id === form.vehicle_id);
@@ -280,6 +297,15 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
 
   async function handleSave() {
     if (!form.vehicle_id || !form.pickup_date || !form.return_date) return;
+
+    // Given name and surname are held separately because the rental agreement,
+    // the DCL filing and the invoice each need them apart, and splitting a
+    // single field afterwards guesses wrong on multi-part surnames.
+    if (!form.customer_first_name.trim() || !form.customer_last_name.trim()) {
+      setSaveError("First name and surname are both required.");
+      return;
+    }
+
     setSaving(true);
     setSaveError("");
     const fullName = [form.customer_first_name, form.customer_last_name].filter(Boolean).join(" ") || form.customer_name;
@@ -396,13 +422,17 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer</div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">First name</label>
-                <input type="text" value={form.customer_first_name} onChange={(e) => set("customer_first_name", e.target.value)}
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  First name <span className="text-red-500">*</span>
+                </label>
+                <input type="text" required value={form.customer_first_name} onChange={(e) => set("customer_first_name", e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Surname</label>
-                <input type="text" value={form.customer_last_name} onChange={(e) => set("customer_last_name", e.target.value)}
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Surname <span className="text-red-500">*</span>
+                </label>
+                <input type="text" required value={form.customer_last_name} onChange={(e) => set("customer_last_name", e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
@@ -419,6 +449,15 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
                 <label className="block text-xs font-medium text-gray-600 mb-1">Nationality</label>
                 <input type="text" value={form.customer_nationality} onChange={(e) => set("customer_nationality", e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Flight number</label>
+                <input type="text" value={form.flight_number} onChange={(e) => set("flight_number", e.target.value.toUpperCase())}
+                  placeholder="e.g. A3 320"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                {/* Optional, as at the majors: it exists so a delayed arrival can
+                    be tracked and the vehicle held, not as a booking gate. */}
+                <p className="text-[11px] text-gray-400 mt-1">Optional — lets us hold the vehicle if the flight is delayed.</p>
               </div>
             </div>
           </div>

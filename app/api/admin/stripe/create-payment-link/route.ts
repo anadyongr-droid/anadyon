@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getStripe } from "@/lib/stripe";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://anadyon.gr";
+
 // POST /api/admin/stripe/create-payment-link  { reservationId }
 export async function POST(req: NextRequest) {
   const { reservationId } = await req.json();
@@ -43,8 +45,11 @@ export async function POST(req: NextRequest) {
       },
     ],
     metadata: { reservation_id: res.id },
-    success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/admin/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/admin/reservations/${res.id}?deposit=cancelled`,
+    // Falls back to the production origin rather than interpolating `undefined`
+    // into the URL: Stripe rejects the malformed result, so a missing variable
+    // took out deposit links entirely instead of degrading.
+    success_url: `${SITE_URL}/api/admin/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${SITE_URL}/admin/reservations/${res.id}?deposit=cancelled`,
   });
 
   // Store the payment intent ID (may be null for some payment methods — store session ID as fallback)
