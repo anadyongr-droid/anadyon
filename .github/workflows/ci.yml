@@ -40,3 +40,26 @@ jobs:
           RESEND_API_KEY: placeholder
           RECAPTCHA_SECRET_KEY: placeholder
         run: npm run build
+
+      # Catches a column the migrations declare but the database never received.
+      # That drift is invisible at build time — the code compiles, and the query
+      # only fails when a request reaches it. It once meant the Stripe webhook
+      # could not record a paid deposit, with no symptom until someone asked why
+      # a confirmed payment still showed as pending.
+      #
+      # Skipped unless a real service-role key is configured, since the rest of
+      # CI deliberately runs on placeholders and never contacts Supabase. Adding
+      # that secret widens what a compromised Actions run could reach, so it is
+      # opt-in: without it this step passes quietly and the check stays a manual
+      # `npm run check:schema` before deploying anything schema-dependent.
+      - name: Schema drift check
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] || [ -z "$NEXT_PUBLIC_SUPABASE_URL" ]; then
+            echo "Supabase credentials not configured — skipping schema drift check."
+            echo "Run 'npm run check:schema' locally before deploying schema changes."
+            exit 0
+          fi
+          npm run check:schema

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check:schema": "node scripts/check-schema-drift.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
