@@ -18,7 +18,7 @@ const models = [
     doors: 5,
     luggage: "225 lt.",
     transmissionKey: "spec.manual",
-    features: ["A/C", "ABS", "1 large + 1 small bag"],
+    featureKeys: ["feat.ac", "feat.abs", "feat.bag1"],
   },
   {
     name: "Hyundai Getz",
@@ -28,7 +28,7 @@ const models = [
     doors: 5,
     luggage: "288 lt.",
     transmissionKey: "spec.manual",
-    features: ["A/C", "ABS", "1 large + 1 small bag"],
+    featureKeys: ["feat.ac", "feat.abs", "feat.bag1"],
   },
   {
     name: "Hyundai i10",
@@ -38,7 +38,7 @@ const models = [
     doors: 5,
     luggage: "252 lt.",
     transmissionKey: "spec.manual",
-    features: ["A/C", "ABS", "1 large + 1 small bag"],
+    featureKeys: ["feat.ac", "feat.abs", "feat.bag1"],
   },
   {
     name: "Hyundai i20",
@@ -48,7 +48,7 @@ const models = [
     doors: 5,
     luggage: "311 lt.",
     transmissionKey: "spec.manual",
-    features: ["A/C", "ABS", "2 large bags"],
+    featureKeys: ["feat.ac", "feat.abs", "feat.bag2"],
   },
   {
     name: "Peugeot 107",
@@ -58,7 +58,7 @@ const models = [
     doors: 5,
     luggage: "139 lt.",
     transmissionKey: "spec.automatic",
-    features: ["A/C", "ABS", "Automatic gearbox"],
+    featureKeys: ["feat.ac", "feat.abs", "feat.autoGearbox"],
   },
 ];
 
@@ -115,10 +115,10 @@ export default function CarsClient({ locale = "en" }: { locale?: Locale }) {
                   </div>
 
                   <div className="space-y-1.5">
-                    {car.features.map((f) => (
+                    {car.featureKeys.map((f) => (
                       <div key={f} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                         <Check size={14} className="text-green-500 flex-shrink-0" />
-                        {f}
+                        {tr(f)}
                       </div>
                     ))}
                   </div>

@@ -14,7 +14,7 @@ const models = [
     image: "/bottecchia.webp",
     gears: "3-speed Shimano Nexus",
     wheels: '26"',
-    features: ["Step-through frame", "Mudguards & chain guard", "Rear luggage carrier"],
+    featureKeys: ["feat.stepThrough", "feat.mudguards", "feat.carrier"],
   },
   {
     name: "Cinzia Bombi Retro Men",
@@ -22,7 +22,7 @@ const models = [
     image: "/giant-bike.jpg",
     gears: "3-speed Shimano Nexus",
     wheels: '28"',
-    features: ["Classic steel frame", "Mudguards & chain guard", "Rear luggage carrier"],
+    featureKeys: ["feat.steelFrame", "feat.mudguards", "feat.carrier"],
   },
   {
     name: "Scott Sportster 50",
@@ -30,7 +30,7 @@ const models = [
     image: "/scott-bike.jpg",
     gears: "21-speed Shimano",
     wheels: "700c",
-    features: ["Lightweight aluminium frame", "Front suspension", "Flat handlebar"],
+    featureKeys: ["feat.lightAlu", "feat.frontSusp", "feat.flatBar"],
   },
   {
     name: "Ideal Crossmo",
@@ -38,7 +38,7 @@ const models = [
     image: "/crossmo-bike.jpg",
     gears: "21-speed Shimano",
     wheels: '28"',
-    features: ["Aluminium frame", "Shimano hydraulic disc brakes", "Front suspension"],
+    featureKeys: ["feat.aluFrame", "feat.shimanoDisc", "feat.frontSusp"],
   },
   {
     name: "Kona Lanai",
@@ -46,7 +46,7 @@ const models = [
     image: "/kona-bike.jpg",
     gears: "21-speed Shimano",
     wheels: '27.5"',
-    features: ["Aluminium frame", "Front suspension", "All-terrain tyres"],
+    featureKeys: ["feat.aluFrame", "feat.frontSusp", "feat.allTerrain"],
   },
   {
     name: "KTM Manhattan XC",
@@ -54,7 +54,7 @@ const models = [
     image: "/ktm-manhattan.jpeg",
     gears: "24-speed Shimano",
     wheels: '28"',
-    features: ["Front suspension with lock", "Hydraulic disc brakes", "XLarge frame"],
+    featureKeys: ["feat.frontSuspLock", "feat.hydraulicDisc", "feat.xlFrame"],
   },
   {
     name: "Specialized Ariel",
@@ -62,7 +62,7 @@ const models = [
     image: "/specialized.jpg",
     gears: "21-speed Shimano",
     wheels: "700c",
-    features: ["Aluminium frame", "Front suspension", "Flat handlebar"],
+    featureKeys: ["feat.aluFrame", "feat.frontSusp", "feat.flatBar"],
   },
 ];
 
@@ -121,10 +121,10 @@ export default function BikesClient({ locale = "en" }: { locale?: Locale }) {
                   </div>
 
                   <div className="space-y-1.5">
-                    {bike.features.map((f) => (
+                    {bike.featureKeys.map((f) => (
                       <div key={f} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                         <Check size={14} className="text-green-500 flex-shrink-0" />
-                        {f}
+                        {tr(f)}
                       </div>
                     ))}
                   </div>

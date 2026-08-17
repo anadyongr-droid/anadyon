@@ -17,7 +17,7 @@ const models = [
     seats: 2,
     engine: "50cc",
     transmissionKey: "spec.automatic",
-    features: ["Underseat storage", "Fuel efficient", "Easy to ride"],
+    featureKeys: ["feat.underseat", "feat.fuelEfficient", "feat.easyRide"],
     imagePadding: "p-4",
     whiteBg: true,
   },
@@ -28,7 +28,7 @@ const models = [
     seats: 2,
     engine: "125cc",
     transmissionKey: "spec.automatic",
-    features: ["Underseat storage", "Top box storage", "CBS brakes", "Suitable for longer rides"],
+    featureKeys: ["feat.underseat", "feat.topBox", "feat.cbs", "feat.longerRides"],
     imagePadding: "p-4",
   },
 ];
@@ -79,10 +79,10 @@ export default function MotorbikesClient({ locale = "en" }: { locale?: Locale })
                   </div>
 
                   <div className="space-y-1.5">
-                    {bike.features.map((f) => (
+                    {bike.featureKeys.map((f) => (
                       <div key={f} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                         <Check size={14} className="text-green-500 flex-shrink-0" />
-                        {f}
+                        {tr(f)}
                       </div>
                     ))}
                   </div>

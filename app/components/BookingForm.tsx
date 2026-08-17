@@ -5,6 +5,7 @@ import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, DEPOSIT_RATE 
 import type { Rate, ExtrasConfig, PricingGroup, RateSegment } from "@/lib/pricing";
 import DateRangePicker from "./DateRangePicker";
 import { TIME_OPTIONS } from "@/lib/bookingFields";
+import { translator, localePath, type Locale } from "@/lib/i18n";
 
 const locations = [
   "Zakynthos Airport",
@@ -61,12 +62,14 @@ type Props = {
   models: string[];
   initialModel?: string;
   modelPricingGroups?: Record<string, string>;
+  locale?: Locale;
   modelTransmissions?: Record<string, string>;
 };
 
 // Defined at module scope: declaring a component inside the render body makes
 // React remount the whole modal subtree on every parent render.
-function TermsModal({ onClose }: { onClose: () => void }) {
+function TermsModal({ onClose, locale = "en" }: { onClose: () => void; locale?: Locale }) {
+  const tr = translator(locale);
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
@@ -77,17 +80,17 @@ function TermsModal({ onClose }: { onClose: () => void }) {
         <div className="overflow-y-auto p-6 space-y-5 text-sm text-gray-700 dark:text-gray-300">
           <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">1. Driver&apos;s Licence</h3><p>A valid driving licence recognised by the Greek authorities must be held by the driver.</p></div>
           <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">2. Driver&apos;s Age</h3><p>Minimum driver&apos;s age is 21 years. A young driver surcharge may apply for drivers aged 21–25.</p></div>
-          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">3. Credit Card</h3><p>The driver must hold a valid credit card.</p></div>
+          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">3. Credit Card</h3><p>{tr("form.creditCard")}</p></div>
           <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">4. Delivery / Collection Fees</h3><p>All deliveries and collections at the Airport, Zakynthos Port and our Office during office hours (09:00–21:00) are free of charge. Outside office hours a fee of €20 applies. Bicycles can only be delivered/collected at our office.</p></div>
           <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">5. Unlimited Mileage</h3><p>Unlimited mileage applies to all rentals.</p></div>
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-white mb-1">6. Insurance</h3>
             <p>All our rentals include:</p>
-            <ul className="list-disc ml-5 mt-1 space-y-1"><li>Third party insurance</li><li>Theft insurance</li><li>Collision Damage Waiver (CDW)</li></ul>
+            <ul className="list-disc ml-5 mt-1 space-y-1"><li>Third party insurance</li><li>Theft insurance</li><li>{tr("extra.cdw")}</li></ul>
             <p className="mt-2">Additional cover such as Full Damage Waiver (FDW) is available for an additional fee. Bicycles are not covered by the above.</p>
           </div>
           <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">7. Cancellation</h3><p>All cancellations received more than 24 hours prior to the start of the rental are free of charge. All other cancellations will be subject to one day&apos;s rental charge.</p></div>
-          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">8. Taxes</h3><p>Our fees include VAT and all local taxes.</p></div>
+          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">8. Taxes</h3><p>{tr("form.vatNote")}</p></div>
           <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">9. Road Assistance</h3><p>We provide free 24-hour roadside assistance.</p></div>
           <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">10. Customer Service</h3><p>Our staff will go above and beyond to ensure you get a hassle-free rental experience. For any additional information please contact us.</p></div>
         </div>
@@ -99,7 +102,8 @@ function TermsModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-export default function BookingForm({ vehicleType, models, initialModel, modelPricingGroups, modelTransmissions }: Props) {
+export default function BookingForm({ vehicleType, models, initialModel, modelPricingGroups, modelTransmissions, locale = "en" }: Props) {
+  const tr = translator(locale);
   const formRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<1 | 2>(1);
 
@@ -350,30 +354,30 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
 
   return (
     <>
-      {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
+      {showTerms && <TermsModal locale={locale} onClose={() => setShowTerms(false)} />}
       <div ref={formRef} className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl shadow-sm scroll-mt-[168px]">
 
         {/* Step indicator */}
         <div className="flex items-center border-b dark:border-gray-700 px-8 py-4 gap-3">
           <div className="flex items-center gap-2">
             <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${step === 1 ? "bg-orange-600 text-white" : "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400"}`}>1</span>
-            <span className={`text-sm font-medium ${step === 1 ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}`}>Rental Details</span>
+            <span className={`text-sm font-medium ${step === 1 ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}`}>{tr("form.stepRental")}</span>
           </div>
           <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
           <div className="flex items-center gap-2">
             <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${step === 2 ? "bg-orange-600 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500"}`}>2</span>
-            <span className={`text-sm font-medium ${step === 2 ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}`}>Your Details</span>
+            <span className={`text-sm font-medium ${step === 2 ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}`}>{tr("form.stepDetails")}</span>
           </div>
         </div>
 
         {/* ── STEP 1: Rental details ── */}
         {step === 1 && (
           <div className="p-8 space-y-6">
-            <h2 className="text-xl font-semibold dark:text-white">Get a Quote</h2>
+            <h2 className="text-xl font-semibold dark:text-white">{tr("form.stepQuote")}</h2>
 
             {/* Vehicle Model */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vehicle</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.vehicle")}</label>
               <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={selectedModel} onChange={e => setSelectedModel(e.target.value)}>
                 {models.map(m => <option key={m}>{m}</option>)}
               </select>
@@ -381,7 +385,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
 
             {/* Pick-up Location */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pick-up Location</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.pickupLocation")}</label>
               <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={pickupLocation} onChange={e => setPickupLocation(e.target.value)}>
                 {locations.map(l => <option key={l}>{l}</option>)}
               </select>
@@ -394,7 +398,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             {/* Drop-off Location */}
             {differentDropoff && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Drop-off Location</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.dropoffLocation")}</label>
                 <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={dropoffLocation} onChange={e => setDropoffLocation(e.target.value)}>
                   {locations.map(l => <option key={l}>{l}</option>)}
                 </select>
@@ -403,7 +407,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
 
             {/* Dates */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rental Dates</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{tr("form.rentalDates")}</label>
               <DateRangePicker
                 pickupDate={pickupDate}
                 returnDate={dropoffDate}
@@ -415,13 +419,13 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             {/* Times */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pick-up Time</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.pickupTime")}</label>
                 <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={pickupTime} onChange={e => setPickupTime(e.target.value)}>
                   {times.map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Return Time</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.returnTime")}</label>
                 <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={dropoffTime} onChange={e => setDropoffTime(e.target.value)}>
                   {times.map(t => <option key={t}>{t}</option>)}
                 </select>
@@ -431,7 +435,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
 
             {/* Driver Age */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Driver Age</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.driverAge")}</label>
               <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={driverAge} onChange={e => setDriverAge(e.target.value)}>
                 <option>21–25</option>
                 <option>26–65</option>
@@ -442,19 +446,19 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             {/* Extras — cars only */}
             {vehicleType === "Cars" && (
               <div className="border-t dark:border-gray-700 pt-6">
-                <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-4">Extras</h3>
+                <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-4">{tr("form.extras")}</h3>
                 <div className="border dark:border-gray-600 rounded-lg overflow-hidden">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-gray-700 text-xs uppercase text-gray-500 dark:text-gray-400">
                       <tr>
-                        <th className="text-left px-4 py-3">Description</th>
-                        <th className="text-center px-4 py-3">Price per day</th>
-                        <th className="text-center px-4 py-3">Selection</th>
+                        <th className="text-left px-4 py-3">{tr("form.description")}</th>
+                        <th className="text-center px-4 py-3">{tr("form.pricePerDay")}</th>
+                        <th className="text-center px-4 py-3">{tr("form.selection")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                       <tr>
-                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Baby Seat (0–9 months)</td>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{tr("extra.babySeat")}</td>
                         <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("baby_seat", 3).toFixed(2)}</td>
                         <td className="px-4 py-3 text-center">
                           <select className="border dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={babySeat} onChange={e => setBabySeat(e.target.value)}>
@@ -463,7 +467,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                         </td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Child Seat (9+ months)</td>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{tr("extra.childSeat")}</td>
                         <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("child_seat", 3).toFixed(2)}</td>
                         <td className="px-4 py-3 text-center">
                           <select className="border dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={childSeat} onChange={e => setChildSeat(e.target.value)}>
@@ -472,14 +476,14 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                         </td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Full Damage Waiver (FDW)</td>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{tr("extra.fdw")}</td>
                         <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("fdw", 5).toFixed(2)}</td>
                         <td className="px-4 py-3 text-center">
                           <input type="checkbox" checked={fdw} onChange={e => setFdw(e.target.checked)} className="rounded" />
                         </td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">Additional Drivers</td>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{tr("extra.additionalDrivers")}</td>
                         <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("additional_drivers", 2.5).toFixed(2)}</td>
                         <td className="px-4 py-3 text-center">
                           <select className="border dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={additionalDrivers} onChange={e => setAdditionalDrivers(e.target.value)}>
@@ -496,7 +500,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             {/* Price Estimate */}
             {showPrice && (
               <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
-                <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">Price Estimate</h3>
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">{tr("form.priceEstimate")}</h3>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between text-gray-700 dark:text-gray-300">
                     <span>{selectedModel} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{rentalDays > 0 ? (vehicleSubtotal / rentalDays).toFixed(2) : "0.00"}/day</span>
@@ -533,15 +537,15 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                     </div>
                   )}
                   <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between font-bold text-gray-900 dark:text-white">
-                    <span>Total</span>
+                    <span>{tr("form.total")}</span>
                     <span>€{total.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-gray-500 dark:text-gray-400 text-xs">
-                    <span>Deposit (30%) due on confirmation</span>
+                    <span>{tr("form.depositDue")}</span>
                     <span>€{deposit.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-gray-500 dark:text-gray-400 text-xs">
-                    <span>Balance due at pick-up</span>
+                    <span>{tr("form.balanceDue")}</span>
                     <span>€{balanceDue.toFixed(2)}</span>
                   </div>
                 </div>
@@ -595,7 +599,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         {/* ── STEP 2: Your details ── */}
         {step === 2 && (
           <form onSubmit={handleSubmit} className="p-8 space-y-6">
-            <h2 className="text-xl font-semibold dark:text-white">Your Details</h2>
+            <h2 className="text-xl font-semibold dark:text-white">{tr("form.stepDetails")}</h2>
 
             {/* Booking summary */}
             {showPrice && (
@@ -631,7 +635,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.title")}</label>
                   <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={title} onChange={e => setTitle(e.target.value)}>
                     <option>Mr</option><option>Mrs</option><option>Ms</option>
                   </select>
@@ -639,19 +643,19 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">First Name *</label>
                   <input ref={firstNameRef} type="text" value={firstName} onChange={e => { setFirstName(e.target.value); clearFieldError("firstName"); }} className={`w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 ${fieldErrors.firstName ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`} placeholder="First name" />
-                  {fieldErrors.firstName && <p className="text-red-500 text-xs mt-1">First name is required.</p>}
+                  {fieldErrors.firstName && <p className="text-red-500 text-xs mt-1">{tr("err.firstName")}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name *</label>
                   <input ref={lastNameRef} type="text" value={lastName} onChange={e => { setLastName(e.target.value); clearFieldError("lastName"); }} className={`w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 ${fieldErrors.lastName ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`} placeholder="Last name" />
-                  {fieldErrors.lastName && <p className="text-red-500 text-xs mt-1">Last name is required.</p>}
+                  {fieldErrors.lastName && <p className="text-red-500 text-xs mt-1">{tr("err.lastName")}</p>}
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
                   <input ref={emailRef} type="email" value={email} onChange={e => { setEmail(e.target.value); clearFieldError("email"); }} className={`w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 ${fieldErrors.email ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`} placeholder="your@email.com" />
-                  {fieldErrors.email && <p className="text-red-500 text-xs mt-1">Email address is required.</p>}
+                  {fieldErrors.email && <p className="text-red-500 text-xs mt-1">{tr("err.email")}</p>}
                 </div>
                 <div ref={dobFieldRef}>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date of Birth *</label>
@@ -661,7 +665,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                       {dobDayOptions.map(d => <option key={d} value={d}>{Number(d)}</option>)}
                     </select>
                     <select value={dobMonth} onChange={e => { handleDobMonthChange(e.target.value); clearFieldError("dob"); }} className={`border rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 ${fieldErrors.dob ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`}>
-                      <option value="">Month</option>
+                      <option value="">{tr("form.month")}</option>
                       {DOB_MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                     </select>
                     <select value={dobYear} onChange={e => { handleDobYearChange(e.target.value); clearFieldError("dob"); }} className={`border rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 ${fieldErrors.dob ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`}>
@@ -669,24 +673,24 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                       {dobYearOptions.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                   </div>
-                  {fieldErrors.dob && <p className="text-red-500 text-xs mt-1">Date of birth is required.</p>}
+                  {fieldErrors.dob && <p className="text-red-500 text-xs mt-1">{tr("err.dob")}</p>}
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.address")}</label>
                 <input type="text" value={address} onChange={e => setAddress(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Street address" />
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Postal Code</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.postalCode")}</label>
                   <input type="text" value={postalCode} onChange={e => setPostalCode(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Postal code" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">City</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.city")}</label>
                   <input type="text" value={city} onChange={e => setCity(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="City" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.country")}</label>
                   <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={country} onChange={e => setCountry(e.target.value)}>
                     <option>Greece</option>
                     <optgroup label="─────────────">
@@ -699,10 +703,10 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mobile *</label>
                   <input ref={mobileTelRef} type="tel" value={mobileTel} onChange={e => { setMobileTel(e.target.value); clearFieldError("mobileTel"); }} className={`w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 ${fieldErrors.mobileTel ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`} placeholder="+30 or international" />
-                  {fieldErrors.mobileTel && <p className="text-red-500 text-xs mt-1">Mobile number is required.</p>}
+                  {fieldErrors.mobileTel && <p className="text-red-500 text-xs mt-1">{tr("err.mobile")}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Landline</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.landline")}</label>
                   <input type="tel" value={landlineTel} onChange={e => setLandlineTel(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Optional" />
                 </div>
               </div>
@@ -711,7 +715,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 <input type="text" className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Comments or Special Requests</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.comments")}</label>
                 <textarea rows={3} value={comments} onChange={e => setComments(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder="Any special requests?" />
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">* Required fields</p>
               </div>
@@ -725,7 +729,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                   I accept the{" "}
                   <button type="button" onClick={() => setShowTerms(true)} className="text-orange-600 hover:underline font-medium cursor-pointer">Terms & Conditions</button>
                 </label>
-                {fieldErrors.terms && <p className="text-red-500 text-xs mt-1">Please accept the Terms & Conditions.</p>}
+                {fieldErrors.terms && <p className="text-red-500 text-xs mt-1">{tr("err.terms")}</p>}
               </div>
             </div>
 
@@ -737,7 +741,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 onChange={(token: string | null) => { setCaptchaToken(token); clearFieldError("captcha"); }}
                 onExpired={() => setCaptchaToken(null)}
               />
-              {fieldErrors.captcha && <p className="text-red-500 text-xs mt-1">Please complete the reCAPTCHA verification.</p>}
+              {fieldErrors.captcha && <p className="text-red-500 text-xs mt-1">{tr("err.recaptcha")}</p>}
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                 This site is protected by reCAPTCHA and the Google{" "}
                 <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">Privacy Policy</a>{" "}
