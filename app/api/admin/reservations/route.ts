@@ -69,13 +69,22 @@ export async function POST(req: NextRequest) {
   // Send notification email
   try {
     await resend.emails.send({
-      from: "Anadyon Admin <onboarding@resend.dev>",
+      // Was onboarding@resend.dev — Resend's sandbox sender, which only ever
+      // delivers to the account owner's own address. Combined with the silent
+      // catch below, this staff alert had no way of reporting that it was not
+      // arriving. no-reply@ is used elsewhere in the codebase, is covered by the
+      // verified send.anadyon.gr setup, and avoids customerservice@ mailing
+      // itself, which is what a from/to on the same box would do.
+      from: "Anadyon Alerts <no-reply@anadyon.gr>",
       to: ["customerservice@anadyon.gr", "anadyon.gr@gmail.com"],
       subject: `New Reservation — ${data.vehicles?.name} — ${data.customer_name}`,
       html: buildEmailHtml(data),
     });
-  } catch (_) {
-    // Email failure should not block the reservation
+  } catch (err) {
+    // A failed notification must not roll back a saved reservation, but it should
+    // not vanish either — the previous silent catch is why the sandbox sender
+    // went unnoticed.
+    console.error("Reservation notification email failed:", err);
   }
 
   return NextResponse.json(data, { status: 201 });
