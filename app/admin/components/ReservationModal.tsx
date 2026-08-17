@@ -5,6 +5,7 @@ import { calcRentalDays, getDailyRate, calcExtrasTotal, DEPOSIT_RATE } from "@/l
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "@/app/components/DateRangePicker";
 import { TIME_OPTIONS, validateReservation, missingDeferrable, normaliseForStorage } from "@/lib/bookingFields";
+import { checkSubstitution, type Quoted } from "@/lib/substitution";
 
 interface Vehicle {
   id: string;
@@ -12,6 +13,7 @@ interface Vehicle {
   category: string;
   pricing_group: string;
   status?: string;
+  transmission?: string | null;
 }
 
 interface Props {
@@ -20,6 +22,12 @@ interface Props {
   reservationId?: string;
   initialValues?: Partial<typeof EMPTY_FORM>;
   vehicles: Vehicle[];
+  /**
+   * What the customer was quoted, when the reservation comes from one. Lets the
+   * form say whether the vehicle being assigned is the same category, a free
+   * upgrade, or a downgrade that needs their agreement.
+   */
+  quoted?: Quoted;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -55,7 +63,7 @@ const EMPTY_FORM = {
   dcl_status: "not_submitted",
 };
 
-export default function ReservationModal({ vehicleId, date, reservationId, initialValues, vehicles, onClose, onSaved }: Props) {
+export default function ReservationModal({ vehicleId, date, reservationId, initialValues, vehicles, quoted, onClose, onSaved }: Props) {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [rates, setRates] = useState<Rate[]>([]);
   const [extras, setExtras] = useState<ExtrasConfig[]>([]);
@@ -63,6 +71,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [downgradeAcknowledged, setDowngradeAcknowledged] = useState(false);
   const [conflictWarning, setConflictWarning] = useState("");
   const [originalStatus, setOriginalStatus] = useState("");
   const isEdit = !!reservationId;
@@ -291,6 +300,15 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
       }, rentalDays)
     : 0;
   const incomplete = missingDeferrable(form);
+
+  // Compared against the quote, if there was one: same category, a free
+  // upgrade, or a downgrade needing the customer's agreement.
+  const assignedVehicle = vehicles.find(v => v.id === form.vehicle_id);
+  const substitution = checkSubstitution(quoted ?? {}, {
+    pricing_group: assignedVehicle?.pricing_group,
+    transmission: assignedVehicle?.transmission,
+    name: assignedVehicle?.name,
+  });
   const discount = parseFloat(String(form.discount_amount || 0));
   const total = parseFloat((vehicleSubtotal + extrasSubtotal - discount).toFixed(2));
   const deposit = parseFloat((total * DEPOSIT_RATE).toFixed(2));
@@ -307,6 +325,19 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
     const problem = validateReservation(form, total);
     if (problem) {
       setSaveError(problem);
+      return;
+    }
+
+    // Transmission and cross-family swaps are refused outright. A downgrade is
+    // allowed but must be deliberate, so it asks once rather than blocking —
+    // the customer's agreement happens on the phone, not in this form.
+    if (substitution.verdict === "blocked") {
+      setSaveError(substitution.message);
+      return;
+    }
+    if (substitution.verdict === "downgrade" && !downgradeAcknowledged) {
+      setSaveError(`${substitution.message} Press Save again to confirm you have done both.`);
+      setDowngradeAcknowledged(true);
       return;
     }
 
@@ -738,9 +769,21 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             {saveError}
           </div>
         )}
+        {/* Substitution against the quote, shown before saving rather than
+            discovered at the desk. Blocked cases are surfaced by saveError. */}
+        {!saveError && substitution.verdict === "upgrade" && (
+          <div className="mx-6 mb-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2">
+            {substitution.message}
+          </div>
+        )}
+        {!saveError && substitution.verdict === "downgrade" && (
+          <div className="mx-6 mb-2 text-xs text-amber-800 bg-amber-50 border border-amber-300 rounded-lg px-4 py-2">
+            {substitution.message}
+          </div>
+        )}
         {/* Deferred fields are named rather than merely absent, so a booking
             taken in a hurry can still be saved without the gap being forgotten. */}
-        {!saveError && incomplete.length > 0 && (
+        {!saveError && substitution.verdict === "ok" && incomplete.length > 0 && (
           <div className="mx-6 mb-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
             Saves fine — still missing {incomplete.join(", ")}. Needed before the rental agreement.
           </div>

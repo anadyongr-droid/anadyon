@@ -19,6 +19,8 @@ interface Quote {
   landline_tel: string;
   /** Added by migration 007; optional so a quote taken before it still types. */
   flight_number?: string | null;
+  /** Added by migration 010; null on quotes taken before it. */
+  pricing_group?: string | null;
   vehicle_type: string;
   selected_model: string;
   pickup_location: string;
@@ -239,6 +241,14 @@ export default function QuoteDetailPage() {
 
       {showModal && (
         <ReservationModal
+          // Lets the form judge the vehicle being assigned against what was
+          // actually sold: same category, a free upgrade, or a downgrade that
+          // needs the customer's agreement and a lower price.
+          quoted={{
+            pricing_group: quote.pricing_group,
+            transmission: quote.transmission,
+            model: quote.selected_model,
+          }}
           reservationId={pendingReservationId ?? undefined}
           vehicles={vehicles.filter((v) => quote.vehicle_type?.toLowerCase().startsWith(v.category))}
           initialValues={pendingReservationId ? undefined : modalDefaults}
