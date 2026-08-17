@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
 // Must mirror the `adminOnly: false` entries in app/admin/AdminLayoutClient.tsx.
 // Never add a bare "/admin" here — "/admin/" prefix-matches every admin page.
 const STAFF_PAGES = [
+  // The screen staff work from; nothing financial is shown on it.
+  "/admin/today",
   "/admin/calendar",
   "/admin/reservations",
   "/admin/quotes",
@@ -15,6 +17,7 @@ const STAFF_PAGES = [
 // API routes staff can call — the data those pages need to function.
 // Deliberately excludes /api/admin/aade, /invoices, /sms, /stripe and /stats.
 const STAFF_API = [
+  "/api/admin/operations",
   "/api/admin/reservations",
   "/api/admin/vehicles",
   "/api/admin/quotes",
