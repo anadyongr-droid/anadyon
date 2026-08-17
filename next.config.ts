@@ -32,6 +32,18 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: securityHeaders,
       },
+      {
+        // Photographs in /public are served with Vercel's default
+        // `max-age=0, must-revalidate` and carry no ETag, so a visitor moving
+        // from /cars to /motorbikes to /quote re-downloads every shared image.
+        // A day of freshness plus a month of stale-while-revalidate makes the
+        // second page view free while still letting a replaced photo roll out
+        // on its own — and renaming the file publishes one immediately.
+        source: "/:path*.(jpg|jpeg|png|webp|avif|svg|ico)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=2592000" },
+        ],
+      },
     ];
   },
   images: {

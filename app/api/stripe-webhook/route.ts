@@ -3,9 +3,11 @@ import { getStripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendTelegram } from "@/lib/telegram";
 
-export const config = { api: { bodyParser: false } };
-
 export async function POST(req: NextRequest) {
+  // Stripe verifies the signature against the exact bytes it sent, so the body
+  // must be read raw. In the App Router `req.text()` already gives that — the
+  // Pages Router `config.api.bodyParser` switch that used to sit here was
+  // silently ignored and only made it look like parsing was being configured.
   const body = await req.text();
   const sig = req.headers.get("stripe-signature");
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
