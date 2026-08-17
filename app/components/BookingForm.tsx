@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import { DRIVER_AGE_POLICY } from "@/lib/rentalPolicy";
 import ReCAPTCHA from "react-google-recaptcha";
 import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup, RateSegment } from "@/lib/pricing";
@@ -79,7 +80,7 @@ function TermsModal({ onClose, locale = "en" }: { onClose: () => void; locale?: 
         </div>
         <div className="overflow-y-auto p-6 space-y-5 text-sm text-gray-700 dark:text-gray-300">
           <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">1. Driver&apos;s Licence</h3><p>A valid driving licence recognised by the Greek authorities must be held by the driver.</p></div>
-          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">2. Driver&apos;s Age</h3><p>Minimum driver&apos;s age is 21 years. A young driver surcharge may apply for drivers aged 21–25.</p></div>
+          <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">2. Driver&apos;s Age</h3><p>{DRIVER_AGE_POLICY}</p></div>
           <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">3. Credit Card</h3><p>{tr("form.creditCard")}</p></div>
           <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">4. Delivery / Collection Fees</h3><p>All deliveries and collections at the Airport, Zakynthos Port and our Office during office hours (09:00–21:00) are free of charge. Outside office hours a fee of €20 applies. Bicycles can only be delivered/collected at our office.</p></div>
           <div><h3 className="font-semibold text-gray-900 dark:text-white mb-1">5. Unlimited Mileage</h3><p>Unlimited mileage applies to all rentals.</p></div>

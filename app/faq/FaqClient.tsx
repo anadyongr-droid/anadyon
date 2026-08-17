@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import ContentPage from "../components/ContentPage";
+import { DRIVER_AGE_FAQ } from "@/lib/rentalPolicy";
 
 const faqs = [
   {
@@ -10,7 +11,7 @@ const faqs = [
   },
   {
     q: "What is the minimum age to rent a car, motorbike or bike?",
-    a: "To rent a car you need to be above 21 years. 18 years is the minimum age for motorbikes and bikes. A young driver surcharge may apply for drivers aged 21–25.",
+    a: DRIVER_AGE_FAQ,
   },
   {
     q: "Is there a daily/weekly limit on the miles/kilometres driven?",

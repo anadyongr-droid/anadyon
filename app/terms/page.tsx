@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DRIVER_AGE_POLICY } from "@/lib/rentalPolicy";
 import ContentPage, { ContentCard } from "../components/ContentPage";
 
 export const metadata: Metadata = {
@@ -22,7 +23,7 @@ export default function Terms() {
 
         <div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">2. Driver&apos;s Age</h2>
-          <p>Minimum driver&apos;s age is 21 years. A young driver surcharge may apply for drivers aged 21–25.</p>
+          <p>{DRIVER_AGE_POLICY}</p>
         </div>
 
         <div>
