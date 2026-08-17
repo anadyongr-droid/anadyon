@@ -122,9 +122,84 @@ export default function MarketPage() {
         <h1 className="text-xl font-bold text-gray-900">Market</h1>
       </div>
       <p className="text-sm text-gray-500 mb-6">
-        Competitor pricing collected from EzCar. Assign each of their categories to one of yours,
-        then the comparison below becomes meaningful.
+        Cars and scooters from EzCar, bicycles from Podilatadiko, international brands from
+        CarRentals.com. Each comparison covers only the categories mapped at the foot of this page.
       </p>
+
+      {/* Comparison */}
+      <h2 className="font-semibold text-gray-900 text-sm mb-3">Comparison</h2>
+      {rows.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 text-sm text-gray-400 text-center">
+          Nothing to compare yet — map at least one of their categories to one of yours in
+          the mapping table below, then save.
+        </div>
+      ) : (
+        Object.entries(byGroup).map(([group, groupRows]) => (
+          <div key={group} className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-5">
+            <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
+              <h3 className="font-semibold text-gray-900 text-sm">{GROUP_LABEL[group] ?? group}</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 text-xs text-gray-500">
+                    <th className="text-left px-5 py-2 font-medium">Month</th>
+                    <th className="text-left px-3 py-2 font-medium">Duration</th>
+                    <th className="text-right px-3 py-2 font-medium">You</th>
+                    {competitors.map(c => (
+                      <th key={c.slug} className="text-right px-4 py-2 font-medium whitespace-nowrap">
+                        {c.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupRows.map((r, i) => (
+                    <tr key={i} className="border-b border-gray-50">
+                      <td className="px-5 py-2 text-gray-700">{r.month_name}</td>
+                      <td className="px-3 py-2 text-gray-500 text-xs">{r.band_label}</td>
+                      <td className="px-3 py-2 text-right font-medium text-gray-900 tabular-nums">
+                        €{r.ours}
+                      </td>
+                      {r.competitors.map(c => (
+                        <td key={c.competitor} className="px-4 py-2 text-right tabular-nums">
+                          {c.price === null ? (
+                            <span className="text-gray-300">—</span>
+                          ) : (
+                            <>
+                              <span className="text-gray-700">€{c.price}</span>
+                              {c.diffPct !== null && (
+                                <span
+                                  className={`ml-2 text-xs ${
+                                    c.diffPct < -10
+                                      ? "text-amber-600"
+                                      : c.diffPct > 10
+                                      ? "text-blue-600"
+                                      : "text-gray-400"
+                                  }`}
+                                >
+                                  {c.diffPct > 0 ? "+" : ""}
+                                  {c.diffPct}%
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))
+      )}
+      {rows.length > 0 && (
+        <p className="text-xs text-gray-400">
+          Percentages show your price against theirs. Amber means you are more than 10% below;
+          blue means more than 10% above.
+        </p>
+      )}
 
       {/* Mapping */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-8">
@@ -202,80 +277,6 @@ export default function MarketPage() {
           </tbody>
         </table>
       </div>
-
-      {/* Comparison */}
-      <h2 className="font-semibold text-gray-900 text-sm mb-3">Comparison</h2>
-      {rows.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 text-sm text-gray-400 text-center">
-          Map at least one category above and save to see the comparison.
-        </div>
-      ) : (
-        Object.entries(byGroup).map(([group, groupRows]) => (
-          <div key={group} className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-5">
-            <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
-              <h3 className="font-semibold text-gray-900 text-sm">{GROUP_LABEL[group] ?? group}</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-xs text-gray-500">
-                    <th className="text-left px-5 py-2 font-medium">Month</th>
-                    <th className="text-left px-3 py-2 font-medium">Duration</th>
-                    <th className="text-right px-3 py-2 font-medium">You</th>
-                    {competitors.map(c => (
-                      <th key={c.slug} className="text-right px-4 py-2 font-medium whitespace-nowrap">
-                        {c.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {groupRows.map((r, i) => (
-                    <tr key={i} className="border-b border-gray-50">
-                      <td className="px-5 py-2 text-gray-700">{r.month_name}</td>
-                      <td className="px-3 py-2 text-gray-500 text-xs">{r.band_label}</td>
-                      <td className="px-3 py-2 text-right font-medium text-gray-900 tabular-nums">
-                        €{r.ours}
-                      </td>
-                      {r.competitors.map(c => (
-                        <td key={c.competitor} className="px-4 py-2 text-right tabular-nums">
-                          {c.price === null ? (
-                            <span className="text-gray-300">—</span>
-                          ) : (
-                            <>
-                              <span className="text-gray-700">€{c.price}</span>
-                              {c.diffPct !== null && (
-                                <span
-                                  className={`ml-2 text-xs ${
-                                    c.diffPct < -10
-                                      ? "text-amber-600"
-                                      : c.diffPct > 10
-                                      ? "text-blue-600"
-                                      : "text-gray-400"
-                                  }`}
-                                >
-                                  {c.diffPct > 0 ? "+" : ""}
-                                  {c.diffPct}%
-                                </span>
-                              )}
-                            </>
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))
-      )}
-      {rows.length > 0 && (
-        <p className="text-xs text-gray-400">
-          Percentages show your price against theirs. Amber means you are more than 10% below;
-          blue means more than 10% above.
-        </p>
-      )}
     </div>
   );
 }
