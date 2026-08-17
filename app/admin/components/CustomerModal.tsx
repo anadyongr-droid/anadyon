@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { X, Trash2 } from "lucide-react";
+import { useScrollLock } from "./useScrollLock";
 import Select from "./Select";
 import { validateCustomer, normaliseForStorage, customerStillNeeds } from "@/lib/bookingFields";
 
@@ -111,6 +112,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
 const inputCls = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm";
 
 export default function CustomerModal({ customer, onClose, onSaved }: Props) {
+  useScrollLock();
   const [form, setForm] = useState<Customer>({ ...EMPTY, ...(customer ?? {}) });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -165,7 +167,7 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
-        <div className="p-6 grid grid-cols-2 gap-4 overflow-y-auto flex-1 min-h-0">
+        <div className="p-6 grid grid-cols-2 gap-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
 
           {/* Personal */}
           <Section title="Personal Information" />

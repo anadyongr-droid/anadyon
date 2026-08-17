@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { X, Trash2, Upload, FileText, Send, Search, Link, MessageSquare } from "lucide-react";
+import { useScrollLock } from "./useScrollLock";
 import Select from "./Select";
 import { calcRentalDays, getDailyRate, calcExtrasTotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
@@ -66,6 +67,7 @@ const EMPTY_FORM = {
 };
 
 export default function ReservationModal({ vehicleId, date, reservationId, initialValues, vehicles, quoted, onClose, onSaved }: Props) {
+  useScrollLock();
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [rates, setRates] = useState<Rate[]>([]);
   const [extras, setExtras] = useState<ExtrasConfig[]>([]);
@@ -439,7 +441,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
-        <div className="p-6 grid grid-cols-2 gap-x-6 gap-y-4 overflow-y-auto flex-1 min-h-0">
+        <div className="p-6 grid grid-cols-2 gap-x-6 gap-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
           {/* Vehicle */}
           <div className="col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">Vehicle</label>
