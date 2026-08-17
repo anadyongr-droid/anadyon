@@ -67,7 +67,38 @@ Tables are never granted to the anonymous role. Row-level security filters
 rows, not columns, so a readable table is a readable table — the protection has
 to be that the anonymous key cannot reach it at all.
 
-## 7. Claims about the system are verified, not assumed
+## 7. Build for the owned fleet; at a crossroads, take the option that keeps brokerage open
+
+Anadyon owns every vehicle it rents, and the system is built for that. Nothing
+is designed speculatively for a brokerage model that does not exist.
+
+But where two designs are equally good for the fleet as it stands, take the one
+that would survive partner vehicles. That costs nothing today and avoids a
+rebuild if the business shifts.
+
+**Concretely, at a crossroads:**
+
+- **Sellable category over physical unit.** A customer buys "Economy Manual" and
+  is *allocated* a specific car. Where logic can key on the category, prefer it
+  — a partner sells categories, never registration plates.
+- **Availability behind a boundary.** Own-fleet availability is *computed* from
+  our reservations; partner availability would be *asserted* by someone else.
+  Keep the question "is this free?" answerable through one place rather than
+  inlined wherever it is asked.
+- **Money as revenue and cost, not "what we charged".** As a broker the revenue
+  is commission, not the rental price. Margin arithmetic that assumes the two
+  are the same would silently report a partner rental as pure profit.
+- **Neutral names.** `supplier` costs nothing over hardcoding Anadyon. Ownership
+  assumptions baked into a column name are the expensive kind to unpick.
+
+**What this does not license:** building commissions, partner portals,
+allocation models or settlement now. The abstraction, not the feature.
+
+**Why now:** the fleet economics being built are the instrument for deciding
+whether owning vehicles is worth continuing. Run a season, read contribution per
+vehicle, then choose — rather than deciding the strategy before the data exists.
+
+## 8. Claims about the system are verified, not assumed
 
 Schema questions are answered against the live database, DNS against live
 resolvers, vendor behaviour against vendor documentation, performance against

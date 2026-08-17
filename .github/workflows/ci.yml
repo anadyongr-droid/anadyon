@@ -27,6 +27,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Runs before the build: a logic regression should stop the pipeline at
+      # the cheapest point, not after a full Next.js compile.
+      - name: Unit tests
+        run: npm test
+
       - name: Build
         env:
           # CI only proves the project compiles — it never talks to Supabase.
