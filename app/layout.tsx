@@ -1,9 +1,22 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import PublicShell from "./components/PublicShell";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"] });
+
+// Opts the document into both schemes so the browser renders native controls —
+// date pickers, selects, scrollbars, form fields — in the matching theme. The
+// CSS already responded to prefers-color-scheme, but without this the computed
+// color-scheme stayed "normal" and native widgets kept rendering light on a
+// dark page.
+export const viewport: Viewport = {
+  colorScheme: "light dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)",  color: "#111827" },
+  ],
+};
 
 export const metadata: Metadata = {
   title: "Anadyon Rentals | Zakynthos",

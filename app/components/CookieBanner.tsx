@@ -4,6 +4,15 @@ import Script from "next/script";
 import { translator, type Locale } from "@/lib/i18n";
 
 const GA_ID = "G-00X72SCDNW";
+
+/** Bump when the cookie policy changes materially, to re-ask everyone. */
+const CONSENT_VERSION = "2026-08-18";
+
+/** Reopens the preferences panel from anywhere — the footer link uses it. */
+export const COOKIE_SETTINGS_EVENT = "anadyon:cookie-settings";
+export function openCookieSettings() {
+  window.dispatchEvent(new Event(COOKIE_SETTINGS_EVENT));
+}
 const STORAGE_KEY = "cookie_consent";
 
 type Consent = "essential" | "all" | "declined" | null;
@@ -15,16 +24,29 @@ export default function CookieBanner({ locale = "en" }: { locale?: Locale }) {
   const [showPrefs, setShowPrefs] = useState(false);
 
   useEffect(() => {
+    // Withdrawal must be as easy as consent, so the panel can be reopened at
+    // any time rather than only by clearing site storage.
+    const reopen = () => { setShowPrefs(true); setVisible(true); };
+    window.addEventListener(COOKIE_SETTINGS_EVENT, reopen);
+
     const stored = localStorage.getItem(STORAGE_KEY) as Consent;
     if (stored === "all" || stored === "essential" || stored === "declined") {
       setConsent(stored);
     } else {
       setVisible(true);
     }
+    return () => window.removeEventListener(COOKIE_SETTINGS_EVENT, reopen);
   }, []);
 
   function save(choice: Consent) {
     localStorage.setItem(STORAGE_KEY, choice as string);
+    // A consent that cannot be dated or tied to a policy version cannot be
+    // evidenced later, and cannot be re-asked when the policy changes.
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_record`, JSON.stringify({
+        choice, at: new Date().toISOString(), policyVersion: CONSENT_VERSION,
+      }));
+    } catch { /* storage unavailable — the choice itself still applies */ }
     setConsent(choice);
     setVisible(false);
     setShowPrefs(false);

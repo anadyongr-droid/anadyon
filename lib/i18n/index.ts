@@ -243,6 +243,7 @@ const en: Dict = {
   "cookie.analyticsDesc": "Google Analytics — helps us understand how visitors use the site. No personal data is sold.",
   "cookie.declineAll": "Decline all",
   "cookie.essentialOnly": "Essential only",
+  "cookie.settings": "Cookie settings",
 };
 
 const el: Dict = {
@@ -460,6 +461,7 @@ const el: Dict = {
   "cookie.analyticsDesc": "Google Analytics — μας βοηθά να κατανοήσουμε πώς χρησιμοποιείται ο ιστότοπος. Δεν πωλούνται προσωπικά δεδομένα.",
   "cookie.declineAll": "Απόρριψη όλων",
   "cookie.essentialOnly": "Μόνο τα απαραίτητα",
+  "cookie.settings": "Ρυθμίσεις cookies",
 };
 
 const dictionaries: Record<Locale, Dict> = { en, el };

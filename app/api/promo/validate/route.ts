@@ -9,7 +9,7 @@ const ValidateSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const rl = checkRateLimit(req, { limit: 20, windowMs: 60_000 });
+  const rl = await checkRateLimit(req, { limit: 20, windowMs: 60_000 });
   if (!rl.ok) return rl.response!;
 
   let body: unknown;

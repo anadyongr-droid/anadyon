@@ -1,7 +1,7 @@
 "use client";
 import { usePathname } from "next/navigation";
 import Header from "./Header";
-import CookieBanner from "./CookieBanner";
+import CookieBanner, { openCookieSettings } from "./CookieBanner";
 import { translator, localePath, isLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
 
 export default function PublicShell({ children }: { children: React.ReactNode }) {
@@ -54,7 +54,17 @@ export default function PublicShell({ children }: { children: React.ReactNode })
               target carries ~14px of invisible padding above and below, which is
               what opened the gap under the address — the negative margin takes it
               back visually without shrinking the touch area. */}
-          <p className="flex flex-wrap justify-center gap-x-4 -mt-1.5">
+          {/* Withdrawal has to be as easy as giving consent; without this the
+              only way to change a choice was to clear site storage. */}
+          <p className="-mt-1.5">
+            <button
+              onClick={openCookieSettings}
+              className="inline-flex items-center min-h-11 px-2 underline hover:text-white transition"
+            >
+              {tr("cookie.settings")}
+            </button>
+          </p>
+          <p className="flex flex-wrap justify-center gap-x-4 -mt-3">
             <a href="tel:+302695041878" className="inline-flex items-center min-h-11 px-2 hover:text-white transition">+30 26950 41878</a>
             <a href="tel:+306988010188" className="inline-flex items-center min-h-11 px-2 hover:text-white transition">+30 6988 010188</a>
             <a href="mailto:customerservice@anadyon.gr" className="inline-flex items-center min-h-11 px-2 hover:text-white transition">customerservice@anadyon.gr</a>

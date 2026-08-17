@@ -24,7 +24,7 @@ function esc(val: unknown): string {
 }
 
 export async function POST(req: NextRequest) {
-  const rl = checkRateLimit(req, { limit: 5, windowMs: 15 * 60 * 1000 });
+  const rl = await checkRateLimit(req, { limit: 5, windowMs: 15 * 60 * 1000 });
   if (!rl.ok) return rl.response!;
 
   let body: unknown;

@@ -84,7 +84,7 @@ const QuoteSchema = z.object({
 }).passthrough();
 
 export async function POST(req: NextRequest) {
-  const rl = checkRateLimit(req, { limit: 10, windowMs: 15 * 60 * 1000 });
+  const rl = await checkRateLimit(req, { limit: 10, windowMs: 15 * 60 * 1000 });
   if (!rl.ok) return rl.response!;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
