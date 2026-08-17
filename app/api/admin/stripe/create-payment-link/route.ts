@@ -21,9 +21,27 @@ export async function POST(req: NextRequest) {
   // Checked explicitly. getStripe() passes "" when the variable is unset, and
   // Stripe then answers with an authentication error that reads as though the
   // key were wrong rather than absent.
-  if (!process.env.STRIPE_SECRET_KEY) {
+  //
+  // The message names where it is running and what it can see, because the
+  // earlier wording assumed localhost and read as nonsense on the deployed
+  // site — which is exactly where it needed to be useful.
+  const key = process.env.STRIPE_SECRET_KEY ?? "";
+  if (!key.trim()) {
+    const where = process.env.VERCEL_ENV
+      ? `the Vercel ${process.env.VERCEL_ENV} environment`
+      : "this local environment";
+    const alsoMissing = ["STRIPE_WEBHOOK_SECRET", "NEXT_PUBLIC_SITE_URL"]
+      .filter(v => !process.env[v]);
     return NextResponse.json(
-      { error: "STRIPE_SECRET_KEY is not set in this environment. It is configured in Vercel, so this will fail on localhost but work on the deployed site." },
+      {
+        error:
+          `STRIPE_SECRET_KEY is empty in ${where}.` +
+          (process.env.VERCEL_ENV
+            ? " It is listed in Vercel, so either the value was never saved, or this deployment was built before it changed — env vars are read at build time, so a redeploy is needed after any edit."
+            : " Add it to .env.local for local testing.") +
+          (alsoMissing.length ? ` Also empty here: ${alsoMissing.join(", ")}.` : ""),
+        environment: process.env.VERCEL_ENV ?? "local",
+      },
       { status: 400 }
     );
   }
