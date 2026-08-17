@@ -261,6 +261,11 @@ export async function POST(req: NextRequest) {
     landline_tel: landlineTel,
     vehicle_type: vehicleType,
     selected_model: selectedModel,
+    // The client already sends this and the route already validates against it;
+    // it simply was never stored. Without it every quote reached the admin with
+    // no category, so the reservation form could not tell an upgrade from a
+    // downgrade and silently treated both as unremarkable.
+    pricing_group: pricingGroup ?? null,
     pickup_location: pickupLocation,
     dropoff_location: dropoffLocation,
     pickup_date: pickupDate,

@@ -119,6 +119,42 @@ export function validateReservation(
   return null;
 }
 
+export interface CustomerLike {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
+}
+
+/**
+ * The customer record answers to the same minimum as a reservation.
+ *
+ * It previously demanded a first name alone, so a customer could be filed with
+ * no surname, no email and no phone — a record that cannot be invoiced, cannot
+ * be contacted about a delayed return, and cannot be told apart from the next
+ * "Maria". The reservation form asks for four fields; there is no reason the
+ * customer behind it should be held to less.
+ *
+ * Everything beyond these — passport, licence, address, emergency contact — is
+ * deliberately optional. Those are taken at the desk when documents are
+ * physically presented, not while someone is on the phone.
+ */
+export function validateCustomer(form: CustomerLike): string | null {
+  const labels: [keyof CustomerLike, string][] = [
+    ["first_name", "First name"],
+    ["last_name", "Surname"],
+    ["email", "Email"],
+    ["phone", "Mobile phone"],
+  ];
+  for (const [field, label] of labels) {
+    if (!String(form[field] ?? "").trim()) return `${label} is required.`;
+  }
+  if (!EMAIL_RE.test(String(form.email).trim())) {
+    return "That email address does not look right.";
+  }
+  return null;
+}
+
 /** Which deferrable fields are still blank, for the "incomplete" marker. */
 export function missingDeferrable(form: ReservationLike): string[] {
   return RESERVATION_DEFERRABLE
@@ -138,6 +174,11 @@ export function missingDeferrable(form: ReservationLike): string[] {
  */
 const NULLABLE_NON_TEXT = [
   "customer_dob",
+  // Customer record: three more date inputs that are blank far more often than
+  // they are filled, since a passport is only recorded when one is presented.
+  "dob",
+  "passport_expiry",
+  "driving_licence_expiry",
   "discount_amount",
   "purchase_price",
   "odometer_km",

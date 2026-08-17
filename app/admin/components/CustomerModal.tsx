@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { X, Trash2 } from "lucide-react";
+import { validateCustomer, normaliseForStorage } from "@/lib/bookingFields";
 
 interface Customer {
   id: string;
@@ -81,10 +82,12 @@ function Section({ title }: { title: string }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-gray-600 mb-1">
+        {label}{required && <span className="text-red-500"> *</span>}
+      </label>
       {children}
     </div>
   );
@@ -104,12 +107,22 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
   }
 
   async function handleSave() {
-    if (!form.first_name.trim()) { setError("First name is required."); return; }
+    // Same minimum as a reservation — a customer who cannot be named, invoiced
+    // or telephoned is not a usable record.
+    const problem = validateCustomer(form);
+    if (problem) { setError(problem); return; }
+
     setSaving(true);
     setError("");
     const url = isEdit ? `/api/admin/customers/${customer!.id}` : "/api/admin/customers";
     const method = isEdit ? "PATCH" : "POST";
-    const payload = { ...form, full_name: [form.first_name, form.last_name].filter(Boolean).join(" ") };
+    // Blank date inputs arrive as "", which Postgres rejects for a `date`
+    // column: `invalid input syntax for type date: ""`. Passport and licence
+    // expiry are blank far more often than not.
+    const payload = normaliseForStorage({
+      ...form,
+      full_name: [form.first_name, form.last_name].filter(Boolean).join(" "),
+    });
     const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     setSaving(false);
     if (!res.ok) {
@@ -145,10 +158,10 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
               {["Mr", "Mrs", "Ms", "Miss", "Dr", "Prof"].map((t) => <option key={t}>{t}</option>)}
             </select>
           </Field>
-          <Field label="First name">
+          <Field label="First name" required>
             <input type="text" value={form.first_name} onChange={(e) => set("first_name", e.target.value)} className={inputCls} />
           </Field>
-          <Field label="Surname">
+          <Field label="Surname" required>
             <input type="text" value={form.last_name} onChange={(e) => set("last_name", e.target.value)} className={inputCls} />
           </Field>
           <Field label="Date of birth">
@@ -157,10 +170,10 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
           <Field label="Nationality">
             <input type="text" value={form.nationality} onChange={(e) => set("nationality", e.target.value)} className={inputCls} placeholder="e.g. British" />
           </Field>
-          <Field label="Email">
+          <Field label="Email" required>
             <input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} className={inputCls} />
           </Field>
-          <Field label="Mobile phone">
+          <Field label="Mobile phone" required>
             <input type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} className={inputCls} placeholder="+30..." />
           </Field>
           <Field label="Alternative phone">
