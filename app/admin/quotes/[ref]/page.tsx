@@ -17,6 +17,8 @@ interface Quote {
   country: string;
   mobile_tel: string;
   landline_tel: string;
+  /** Added by migration 007; optional so a quote taken before it still types. */
+  flight_number?: string | null;
   vehicle_type: string;
   selected_model: string;
   pickup_location: string;
@@ -102,11 +104,20 @@ export default function QuoteDetailPage() {
     return "Our Office";
   };
 
-  // Pre-fill values for the ReservationModal
+  // Pre-fill values for the ReservationModal.
+  //
+  // The quote already holds the name in two fields, and the reservation form
+  // now requires both, so they are carried across separately as well as joined.
+  // Passing only the combined customer_name left the two required inputs empty
+  // and the conversion refused itself with "First name and surname are both
+  // required" — on a quote that plainly had both.
   const modalDefaults = {
-    customer_name: `${quote.first_name} ${quote.last_name}`,
+    customer_name: `${quote.first_name} ${quote.last_name}`.trim(),
+    customer_first_name: quote.first_name ?? "",
+    customer_last_name: quote.last_name ?? "",
     customer_email: quote.email,
     customer_phone: quote.mobile_tel,
+    flight_number: quote.flight_number ?? "",
     pickup_date: quote.pickup_date,
     pickup_time: quote.pickup_time ?? "09:00",
     return_date: quote.dropoff_date,
