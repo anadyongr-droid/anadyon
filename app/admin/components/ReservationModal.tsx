@@ -3,6 +3,8 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { X, Trash2, Upload, FileText, Send, Search, Link, MessageSquare } from "lucide-react";
 import { calcRentalDays, getDailyRate, calcExtrasTotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
+import DateRangePicker from "@/app/components/DateRangePicker";
+import { TIME_OPTIONS, validateReservation, missingDeferrable } from "@/lib/bookingFields";
 
 interface Vehicle {
   id: string;
@@ -33,6 +35,7 @@ const EMPTY_FORM = {
   customer_email: "",
   customer_phone: "",
   customer_nationality: "",
+  customer_dob: "",
   flight_number: "",
   pickup_date: "",
   pickup_time: "09:00",
@@ -104,6 +107,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             customer_email: data.customer_email ?? "",
             customer_phone: data.customer_phone ?? "",
             customer_nationality: data.customer_nationality ?? "",
+            customer_dob: data.customer_dob ?? "",
             flight_number: data.flight_number ?? "",
             pickup_date: data.pickup_date,
             pickup_time: data.pickup_time,
@@ -286,6 +290,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
         additional_drivers: form.additional_drivers,
       }, rentalDays)
     : 0;
+  const incomplete = missingDeferrable(form);
   const discount = parseFloat(String(form.discount_amount || 0));
   const total = parseFloat((vehicleSubtotal + extrasSubtotal - discount).toFixed(2));
   const deposit = parseFloat((total * DEPOSIT_RATE).toFixed(2));
@@ -296,13 +301,12 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
   }
 
   async function handleSave() {
-    if (!form.vehicle_id || !form.pickup_date || !form.return_date) return;
-
-    // Given name and surname are held separately because the rental agreement,
-    // the DCL filing and the invoice each need them apart, and splitting a
-    // single field afterwards guesses wrong on multi-part surnames.
-    if (!form.customer_first_name.trim() || !form.customer_last_name.trim()) {
-      setSaveError("First name and surname are both required.");
+    // Shared with the public form's field list so the two cannot drift. The
+    // rule set differs by design — staff may leave date of birth, nationality
+    // and flight number for later — but the fields themselves are the same.
+    const problem = validateReservation(form, total);
+    if (problem) {
+      setSaveError(problem);
       return;
     }
 
@@ -379,26 +383,32 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             </select>
           </div>
 
-          {/* Dates */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Pick-up date</label>
-            <input type="date" value={form.pickup_date} onChange={(e) => set("pickup_date", e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+          {/* Dates — the same calendar the customer books through, so a date
+              read out over the phone is picked the same way it was quoted. */}
+          <div className="col-span-2">
+            <DateRangePicker
+              pickupDate={form.pickup_date}
+              returnDate={form.return_date}
+              onPickupChange={(d) => set("pickup_date", d)}
+              onReturnChange={(d) => set("return_date", d)}
+            />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Pick-up time</label>
-            <input type="time" value={form.pickup_time} onChange={(e) => set("pickup_time", e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Return date</label>
-            <input type="date" value={form.return_date} onChange={(e) => set("return_date", e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            {/* Half-hour options rather than a free-form time field: the public
+                form only ever offers these, so accepting 10:17 here produced a
+                reservation the customer could not have made themselves. */}
+            <select value={form.pickup_time} onChange={(e) => set("pickup_time", e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+              {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Return time</label>
-            <input type="time" value={form.return_time} onChange={(e) => set("return_time", e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            <select value={form.return_time} onChange={(e) => set("return_time", e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+              {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
           </div>
 
           {/* Locations */}
@@ -436,14 +446,27 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
-                <input type="email" value={form.customer_email} onChange={(e) => set("customer_email", e.target.value)}
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input type="email" required value={form.customer_email} onChange={(e) => set("customer_email", e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
-                <input type="tel" value={form.customer_phone} onChange={(e) => set("customer_phone", e.target.value)}
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Phone <span className="text-red-500">*</span>
+                </label>
+                <input type="tel" required value={form.customer_phone} onChange={(e) => set("customer_phone", e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Date of birth</label>
+                <input type="date" value={form.customer_dob} onChange={(e) => set("customer_dob", e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                {/* Not enforced — a phone booking rarely yields a birth date on
+                    the spot — but the agreement cannot be produced without it,
+                    so the reservation is flagged incomplete until it arrives. */}
+                <p className="text-[11px] text-gray-400 mt-1">Needed before the rental agreement.</p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Nationality</label>
@@ -710,6 +733,13 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
         {saveError && (
           <div className="mx-6 mb-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
             {saveError}
+          </div>
+        )}
+        {/* Deferred fields are named rather than merely absent, so a booking
+            taken in a hurry can still be saved without the gap being forgotten. */}
+        {!saveError && incomplete.length > 0 && (
+          <div className="mx-6 mb-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+            Saves fine — still missing {incomplete.join(", ")}. Needed before the rental agreement.
           </div>
         )}
         <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">

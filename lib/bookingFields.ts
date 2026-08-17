@@ -1,0 +1,127 @@
+/**
+ * Field definitions shared by the customer booking form and the admin
+ * reservation form.
+ *
+ * The two forms had drifted: customers picked from half-hour options while
+ * staff could type any minute, and the customer form demanded a date of birth
+ * that the reservation had nowhere to put. A quote that collects a field the
+ * reservation cannot accept is a dead end, so anything both sides need lives
+ * here rather than being declared twice.
+ *
+ * Parity is about *what is collected*, not about how strictly. The public form
+ * is a gate — it refuses an incomplete booking because there is no one to
+ * chase the detail later. The admin form is a workbench: staff take bookings
+ * over the phone with a customer reading out a passport number, so it holds the
+ * same fields but lets the non-essential ones be filled in afterwards.
+ */
+
+/** Pick-up and drop-off times, in half-hour steps across the full day. */
+export const TIME_OPTIONS: string[] = Array.from({ length: 48 }, (_, i) => {
+  const h = String(Math.floor(i / 2)).padStart(2, "0");
+  const m = i % 2 === 0 ? "00" : "30";
+  return `${h}:${m}`;
+});
+
+/**
+ * Fields the admin form refuses to save without.
+ *
+ * Chosen so a reservation is always actionable: staff can find the vehicle,
+ * know when it leaves and returns, reach the customer on either channel, and
+ * charge the right amount. Everything else can follow.
+ */
+export const RESERVATION_REQUIRED = [
+  "vehicle_id",
+  "pickup_date",
+  "pickup_time",
+  "return_date",
+  "return_time",
+  "customer_first_name",
+  "customer_last_name",
+  "customer_email",
+  "customer_phone",
+] as const;
+
+/**
+ * Collected but not enforced, so a rushed phone booking can still be saved.
+ * Surfaced as an "incomplete" marker rather than silently forgotten — date of
+ * birth in particular is needed before the rental agreement can be produced.
+ */
+export const RESERVATION_DEFERRABLE = [
+  "customer_dob",
+  "customer_nationality",
+  "flight_number",
+] as const;
+
+export const DEFERRABLE_LABELS: Record<string, string> = {
+  customer_dob: "date of birth",
+  customer_nationality: "nationality",
+  flight_number: "flight number",
+};
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+export interface ReservationLike {
+  vehicle_id?: string;
+  pickup_date?: string;
+  pickup_time?: string;
+  return_date?: string;
+  return_time?: string;
+  customer_first_name?: string;
+  customer_last_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  customer_dob?: string;
+  customer_nationality?: string;
+  flight_number?: string;
+  discount_reason?: string;
+}
+
+/**
+ * Returns the reason a reservation cannot be saved, or null when it can.
+ *
+ * `total` is checked because a vehicle whose pricing group has no rate for the
+ * season silently prices at zero, and a €0 reservation looks deliberate once it
+ * is in the calendar. A zero total is allowed only when a discount reason has
+ * been written down, which is what a genuine comped rental looks like.
+ */
+export function validateReservation(
+  form: ReservationLike,
+  total: number
+): string | null {
+  const labels: Record<string, string> = {
+    vehicle_id: "Vehicle",
+    pickup_date: "Pick-up date",
+    pickup_time: "Pick-up time",
+    return_date: "Return date",
+    return_time: "Return time",
+    customer_first_name: "First name",
+    customer_last_name: "Surname",
+    customer_email: "Email",
+    customer_phone: "Phone",
+  };
+
+  for (const field of RESERVATION_REQUIRED) {
+    const value = String(form[field] ?? "").trim();
+    if (!value) return `${labels[field]} is required.`;
+  }
+
+  if (!EMAIL_RE.test(String(form.customer_email).trim())) {
+    return "That email address does not look right.";
+  }
+
+  if (total < 0) {
+    return "The discount is larger than the rental — check the amount.";
+  }
+  if (total === 0 && !String(form.discount_reason ?? "").trim()) {
+    return "Total is €0. Add a discount reason if that is deliberate, otherwise check the vehicle has a rate for these dates.";
+  }
+
+  return null;
+}
+
+/** Which deferrable fields are still blank, for the "incomplete" marker. */
+export function missingDeferrable(form: ReservationLike): string[] {
+  return RESERVATION_DEFERRABLE
+    .filter(f => !String(form[f] ?? "").trim())
+    .map(f => DEFERRABLE_LABELS[f] ?? f);
+}

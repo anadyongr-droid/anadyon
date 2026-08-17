@@ -4,6 +4,7 @@ import ReCAPTCHA from "react-google-recaptcha";
 import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup, RateSegment } from "@/lib/pricing";
 import DateRangePicker from "./DateRangePicker";
+import { TIME_OPTIONS } from "@/lib/bookingFields";
 
 const locations = [
   "Zakynthos Airport",
@@ -11,11 +12,9 @@ const locations = [
   "Anadyon Office",
 ];
 
-const times = Array.from({ length: 48 }, (_, i) => {
-  const h = String(Math.floor(i / 2)).padStart(2, "0");
-  const m = i % 2 === 0 ? "00" : "30";
-  return `${h}:${m}`;
-});
+// Shared with the admin reservation form so staff and customers can never end
+// up choosing from different sets of times.
+const times = TIME_OPTIONS;
 
 const countries = [
   "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
