@@ -10,7 +10,9 @@ import { supabaseAdmin } from "@/lib/supabase";
 // now part of the comparison, and each vehicle's turnaround window is added to
 // the end of every existing rental before the overlap is measured.
 
-const DEFAULT_TURNAROUND_MIN = 180;
+// Only used if the column is somehow absent; matches the car default so the
+// fallback behaves like the fleet rather than inventing a stricter rule.
+const DEFAULT_TURNAROUND_MIN = 120;
 
 /** Reservation times are stored as 'HH:MM' text; anything unparseable falls back to 09:00. */
 function toInstant(date: string, time: string | null | undefined): Date {
