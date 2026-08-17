@@ -92,56 +92,96 @@ export interface LicenceHolder {
 }
 
 export interface LicenceStatus {
-  severity: "expired" | "expiring" | "missing" | "ok";
+  severity: "expired" | "expires-during" | "tight" | "missing" | "ok";
   message: string;
   /** True where the rental should not proceed without staff intervention. */
   blocks: boolean;
+  /** Days between licence expiry and the end of the rental. Negative = expires first. */
+  daysAfterReturn: number | null;
 }
 
 /**
- * Licence state as at a given date — the pick-up date, not today.
+ * Margin required between the licence expiring and the vehicle coming back.
+ *
+ * A licence that runs out on the return date leaves no room at all. A rental
+ * that overruns by an afternoon, or a customer who asks for two more days —
+ * both routine — put the driver on the road unlicensed, and the insurer will
+ * take the same view whether or not the overrun was anyone's fault.
+ *
+ * Seven days covers a short extension and a late return without refusing every
+ * licence that happens to expire that season.
+ */
+export const LICENCE_BUFFER_DAYS = 7;
+
+function wholeDaysBetween(from: Date, to: Date): number {
+  const a = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const b = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
+}
+
+/**
+ * Licence state across a whole rental, measured against the RETURN date.
+ *
+ * Checking the pick-up date alone was wrong: the customer drives on the last day
+ * too. A licence valid at collection and expired by the return means an
+ * uninsured driver for part of the rental — and the earlier version would have
+ * waved that through.
  *
  * Renting against an expired licence is an insurance problem rather than a
- * paperwork one: the cover is written on the basis that the driver is licensed.
- * This is the cheap half of the live verification the larger systems sell; it
+ * paperwork one: cover is written on the basis that the driver is licensed.
+ * This is the cheap half of the live verification the larger systems sell — it
  * catches a licence that has plainly run out without calling any authority.
  */
-export function licenceStatus(c: LicenceHolder, asAt = new Date()): LicenceStatus {
+export function licenceStatus(
+  c: LicenceHolder,
+  /** The end of the rental. A pick-up date may be passed for a quick sanity check. */
+  returnAt: Date = new Date(),
+  bufferDays: number = LICENCE_BUFFER_DAYS
+): LicenceStatus {
   const number = String(c.driving_licence_number ?? "").trim();
   const expiry = String(c.driving_licence_expiry ?? "").trim();
 
   if (!number && !expiry) {
-    return { severity: "missing", message: "No driving licence recorded", blocks: false };
+    return { severity: "missing", message: "No driving licence recorded", blocks: false, daysAfterReturn: null };
   }
   if (!expiry) {
-    return { severity: "missing", message: "Licence number held, but no expiry date", blocks: false };
+    return { severity: "missing", message: "Licence number held, but no expiry date", blocks: false, daysAfterReturn: null };
   }
 
   const due = new Date(`${expiry}T00:00:00`);
   if (Number.isNaN(due.getTime())) {
-    return { severity: "missing", message: "Licence expiry unreadable", blocks: false };
+    return { severity: "missing", message: "Licence expiry unreadable", blocks: false, daysAfterReturn: null };
   }
 
-  const a = new Date(asAt.getFullYear(), asAt.getMonth(), asAt.getDate());
-  const b = new Date(due.getFullYear(), due.getMonth(), due.getDate());
-  const days = Math.round((b.getTime() - a.getTime()) / 86_400_000);
+  const daysAfterReturn = wholeDaysBetween(returnAt, due);
 
-  if (days < 0) {
+  if (daysAfterReturn < 0) {
     return {
-      severity: "expired",
-      message: `Driving licence expired ${Math.abs(days)} days before pick-up — insurance would not cover this driver`,
+      severity: "expires-during",
+      message: `Driving licence expires ${Math.abs(daysAfterReturn)} ${Math.abs(daysAfterReturn) === 1 ? "day" : "days"} before the vehicle is due back — the driver would be uninsured for part of the rental`,
       blocks: true,
+      daysAfterReturn,
     };
   }
-  if (days <= 30) {
+  if (daysAfterReturn === 0) {
     return {
-      severity: "expiring",
-      message: `Driving licence expires ${days === 0 ? "on the day of pick-up" : `${days} days after pick-up`}`,
-      // Valid on the day is still valid; worth seeing, not worth refusing.
-      blocks: false,
+      severity: "expires-during",
+      message: "Driving licence expires on the day the vehicle is due back — a late return would leave the driver unlicensed",
+      blocks: true,
+      daysAfterReturn,
     };
   }
-  return { severity: "ok", message: "Licence valid", blocks: false };
+  if (daysAfterReturn <= bufferDays) {
+    return {
+      severity: "tight",
+      // Not blocked: the licence does cover the rental as booked. But it cannot
+      // absorb an extension, which is the common request.
+      message: `Driving licence expires ${daysAfterReturn} ${daysAfterReturn === 1 ? "day" : "days"} after the return — the rental cannot be extended, and a delay would leave the driver unlicensed`,
+      blocks: false,
+      daysAfterReturn,
+    };
+  }
+  return { severity: "ok", message: "Licence valid", blocks: false, daysAfterReturn };
 }
 
 // ── Service due by distance ─────────────────────────────────────────────────

@@ -47,40 +47,62 @@ describe("overdue returns", () => {
   });
 });
 
-describe("driving licence", () => {
-  const pickup = new Date("2026-08-20T09:00:00");
+describe("driving licence — measured against the RETURN, not the pick-up", () => {
+  const licence = (expiry: string) => ({ driving_licence_number: "X1", driving_licence_expiry: expiry });
+  const returnOn = (d: string) => new Date(`${d}T10:00:00`);
 
-  it("blocks a licence that expired before pick-up", () => {
-    const s = licenceStatus({ driving_licence_number: "X1", driving_licence_expiry: "2026-08-01" }, pickup);
-    expect(s.severity).toBe("expired");
+  it("REGRESSION: blocks a licence valid at pick-up but expired by the return", () => {
+    // The whole point. Collect on the 20th, return on the 27th, licence dies on
+    // the 24th — legal on day one, uninsured for the last three days. The
+    // earlier version checked pick-up only and waved this through.
+    const s = licenceStatus(licence("2026-08-24"), returnOn("2026-08-27"));
     expect(s.blocks).toBe(true);
-    expect(s.message).toMatch(/insurance would not cover/i);
+    expect(s.severity).toBe("expires-during");
+    expect(s.message).toMatch(/uninsured for part of the rental/i);
   });
 
-  it("does not block one expiring soon but still valid at pick-up", () => {
-    const s = licenceStatus({ driving_licence_number: "X1", driving_licence_expiry: "2026-09-05" }, pickup);
-    expect(s.severity).toBe("expiring");
+  it("blocks when the licence expires on the very day of return", () => {
+    // No margin at all: an afternoon's delay puts them on the road unlicensed.
+    const s = licenceStatus(licence("2026-08-27"), returnOn("2026-08-27"));
+    expect(s.blocks).toBe(true);
+    expect(s.daysAfterReturn).toBe(0);
+    expect(s.message).toMatch(/late return/i);
+  });
+
+  it("warns but does not block inside the buffer", () => {
+    // Covers the rental as booked, so it is not refused — but it cannot absorb
+    // an extension, which is the common request.
+    const s = licenceStatus(licence("2026-08-30"), returnOn("2026-08-27"));
+    expect(s.severity).toBe("tight");
+    expect(s.blocks).toBe(false);
+    expect(s.daysAfterReturn).toBe(3);
+    expect(s.message).toMatch(/cannot be extended/i);
+  });
+
+  it("passes with clear margin beyond the buffer", () => {
+    const s = licenceStatus(licence("2027-05-01"), returnOn("2026-08-27"));
+    expect(s.severity).toBe("ok");
     expect(s.blocks).toBe(false);
   });
 
-  it("treats valid on the day of pick-up as valid", () => {
-    const s = licenceStatus({ driving_licence_number: "X1", driving_licence_expiry: "2026-08-20" }, pickup);
-    expect(s.blocks).toBe(false);
+  it("takes the buffer as a parameter", () => {
+    // Same licence, same rental, different appetite for risk.
+    const l = licence("2026-09-03"); // 7 days after a 27 Aug return
+    expect(licenceStatus(l, returnOn("2026-08-27"), 7).severity).toBe("tight");
+    expect(licenceStatus(l, returnOn("2026-08-27"), 3).severity).toBe("ok");
+    expect(licenceStatus(l, returnOn("2026-08-27"), 30).severity).toBe("tight");
   });
 
   it("reports missing rather than blocking when nothing is recorded", () => {
-    const s = licenceStatus({}, pickup);
+    const s = licenceStatus({}, returnOn("2026-08-27"));
     expect(s.severity).toBe("missing");
     expect(s.blocks).toBe(false);
   });
 
-  it("judges against pick-up, not today", () => {
-    // Valid today, lapsed by collection.
-    const today = new Date("2026-08-17T00:00:00");
-    const later = new Date("2026-10-01T09:00:00");
-    const licence = { driving_licence_number: "X1", driving_licence_expiry: "2026-09-01" };
-    expect(licenceStatus(licence, today).blocks).toBe(false);
-    expect(licenceStatus(licence, later).blocks).toBe(true);
+  it("reports missing when a number is held but no expiry", () => {
+    const s = licenceStatus({ driving_licence_number: "X1" }, returnOn("2026-08-27"));
+    expect(s.severity).toBe("missing");
+    expect(s.blocks).toBe(false);
   });
 });
 

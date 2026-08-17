@@ -6,6 +6,7 @@ import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "@/app/components/DateRangePicker";
 import { TIME_OPTIONS, validateReservation, missingDeferrable, normaliseForStorage } from "@/lib/bookingFields";
 import { checkSubstitution, type Quoted } from "@/lib/substitution";
+import { licenceStatus, instant } from "@/lib/operations";
 
 interface Vehicle {
   id: string;
@@ -94,7 +95,11 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
 
   // Customer search / linking
   const [customerSearch, setCustomerSearch] = useState("");
-  const [customerResults, setCustomerResults] = useState<{ id: string; full_name: string; email: string; phone: string }[]>([]);
+  const [customerResults, setCustomerResults] = useState<{
+    id: string; full_name: string; first_name?: string; last_name?: string; email: string; phone: string;
+    dob?: string | null; driving_licence_number?: string | null; driving_licence_expiry?: string | null;
+  }[]>([]);
+  const [linkedLicence, setLinkedLicence] = useState<{ driving_licence_number: string | null; driving_licence_expiry: string | null } | null>(null);
   const [linkedCustomerId, setLinkedCustomerId] = useState<string | null>(null);
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
 
@@ -229,8 +234,19 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
     }
   }
 
-  function linkCustomer(c: { id: string; full_name: string; first_name?: string; last_name?: string; email: string; phone: string }) {
+  function linkCustomer(c: {
+    id: string; full_name: string; first_name?: string; last_name?: string; email: string; phone: string;
+    dob?: string | null; driving_licence_number?: string | null; driving_licence_expiry?: string | null;
+  }) {
     setLinkedCustomerId(c.id);
+    // The licence lives on the customer, not the reservation, so it has to be
+    // carried across when one is linked — otherwise the expiry check below has
+    // nothing to examine.
+    setLinkedLicence({
+      driving_licence_number: c.driving_licence_number ?? null,
+      driving_licence_expiry: c.driving_licence_expiry ?? null,
+    });
+    if (c.dob && !form.customer_dob) set("customer_dob", c.dob);
     set("customer_first_name", c.first_name ?? c.full_name.split(" ")[0] ?? "");
     set("customer_last_name", c.last_name ?? c.full_name.split(" ").slice(1).join(" ") ?? "");
     set("customer_name", c.full_name);
@@ -307,6 +323,13 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
     : 0;
   const incomplete = missingDeferrable(form);
 
+  // Measured against the return, so a licence valid at collection but expired
+  // by the time the vehicle is due back is caught before the keys are handed
+  // over rather than after.
+  const licence = linkedLicence && form.return_date
+    ? licenceStatus(linkedLicence, instant(form.return_date, form.return_time))
+    : null;
+
   // Compared against the quote, if there was one: same category, a free
   // upgrade, or a downgrade needing the customer's agreement.
   const assignedVehicle = vehicles.find(v => v.id === form.vehicle_id);
@@ -331,6 +354,14 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
     const problem = validateReservation(form, total);
     if (problem) {
       setSaveError(problem);
+      return;
+    }
+
+    // The driver must be licensed for the WHOLE rental, not just at collection.
+    // A licence that expires mid-hire leaves them uninsured for the rest of it,
+    // and the insurer takes the same view whether or not anyone noticed.
+    if (licence?.blocks) {
+      setSaveError(`${licence.message}. Check the licence at the desk before confirming.`);
       return;
     }
 
@@ -781,6 +812,13 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
         {saveError && (
           <div className="mx-6 mb-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
             {saveError}
+          </div>
+        )}
+        {/* A licence that covers the booking but cannot absorb an extension or a
+            late return. Not refused — worth knowing before the keys go out. */}
+        {!saveError && licence?.severity === "tight" && (
+          <div className="mx-6 mb-2 text-xs text-amber-800 bg-amber-50 border border-amber-300 rounded-lg px-4 py-2">
+            {licence.message}.
           </div>
         )}
         {/* Substitution against the quote, shown before saving rather than

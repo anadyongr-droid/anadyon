@@ -51,9 +51,12 @@ export async function GET() {
     const v = e.reservation.vehicle_id ? vehicleById.get(e.reservation.vehicle_id) : null;
     const c = e.reservation.customer_id ? customerById.get(e.reservation.customer_id) : null;
 
-    // Judged at this movement's own time, not at "now" — a licence valid this
-    // morning may not be at a collection three days out.
-    const licence = c ? licenceStatus(c, e.at) : null;
+    // Judged against the END of the rental, not this movement. The customer
+    // drives on the last day too, so a licence valid at collection and expired
+    // by the return leaves them uninsured for part of the hire.
+    const licence = c && e.reservation.return_date
+      ? licenceStatus(c, instant(e.reservation.return_date, e.reservation.return_time))
+      : null;
 
     // Only meaningful for a collection: what stops this vehicle leaving.
     const bar = v && e.kind === "pickup" ? rentalBar(v, e.at) : null;
