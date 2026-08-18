@@ -21,6 +21,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
   };
   const dateFor = (path: string) => new Date(CONTENT_UPDATED[path] ?? "2026-08-11");
 
+  // Every Greek page was written or completed on 19 August. Reporting the
+  // English page's older date against the Greek URL would understate a genuine
+  // change; reporting today against the English one would overstate it.
+  const GREEK_COMPLETED = new Date("2026-08-19");
+  const greekDateFor = (path: string) =>
+    dateFor(path) > GREEK_COMPLETED ? dateFor(path) : GREEK_COMPLETED;
+
   // Paths only, so the Greek set is derived rather than maintained twice — a
   // second hand-written list would drift the moment a page is added.
   const paths: { path: string; changeFrequency: "weekly" | "monthly" | "yearly"; priority: number }[] = [
@@ -59,11 +66,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${base}/el${path}`,
-      lastModified: dateFor(path),
+      lastModified: greekDateFor(path),
       changeFrequency,
-      // Slightly below the English equivalent while the Greek copy is still
-      // being completed, so the finished pages are preferred.
-      priority: Math.round(priority * 0.9 * 10) / 10,
+      // Equal to the English. The 10% reduction here dated from when the Greek
+      // copy was half-finished and the complete pages deserved preference —
+      // both languages are now complete, and for a Greek business telling
+      // search engines the Greek pages matter less is the wrong way round.
+      priority,
       alternates: {
         languages: {
           en: `${base}${path}` || base,
