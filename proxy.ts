@@ -83,9 +83,21 @@ export async function proxy(req: NextRequest) {
   if (!role) {
     try {
       const { supabaseAdmin } = await import("@/lib/supabase");
-      const { data: adminUser } = await supabaseAdmin.auth.admin.getUserById(user.id);
+      const { data: adminUser, error } = await supabaseAdmin.auth.admin.getUserById(user.id);
+      if (error) throw error;
       role = (adminUser?.user?.app_metadata?.role as string | undefined) ?? "staff";
-    } catch {
+    } catch (err) {
+      // Denying privilege on error is the right default — never resolve upward
+      // when the authoritative answer is unavailable. But it used to happen in
+      // total silence, which is why an admin could load the staff menu, refresh,
+      // and see the full one: the first request had no role claim in its token,
+      // this lookup failed transiently, and nothing anywhere recorded it.
+      //
+      // The downgrade stands. It is now visible.
+      console.error(
+        `[proxy] role lookup failed for ${user.id}; defaulting to staff:`,
+        err instanceof Error ? err.message : err
+      );
       role = "staff";
     }
   }

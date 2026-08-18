@@ -13,10 +13,13 @@ describe("phase 0 — baseline and safety rig", () => {
     expect(data).toEqual([]);
   });
 
-  it("has mail redirection armed, so no office inbox can be hit", async () => {
-    expect(process.env.MAIL_REDIRECT_TO).toBe("a.maroudas@gmail.com");
+  it("cannot deliver mail to anyone", async () => {
+    // Redirection alone was the old guarantee and it was not enough: mail still
+    // left the building, it just all went to one person. The transport is now
+    // stubbed in setup.ts — see 00-no-mail-escapes.e2e.ts for the proof.
     const { mailIsRedirected } = await import("@/lib/mailer");
     expect(mailIsRedirected).toBe(true);
+    expect(process.env.MAIL_REDIRECT_TO).toBe("blackhole@example.invalid");
   });
 
   it("records the live counts this run must return to", async () => {

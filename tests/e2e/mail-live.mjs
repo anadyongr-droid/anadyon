@@ -8,6 +8,16 @@ for (const line of readFileSync(".env.local", "utf8").split("\n")) {
 }
 process.env.MAIL_REDIRECT_TO = "a.maroudas@gmail.com";
 
+// This is the one script in the repo that sends genuine email. It now refuses
+// to run unless asked explicitly, because the automated suite was quietly doing
+// the same thing and filled a real inbox with hundreds of messages.
+if (process.env.CONFIRM_LIVE_MAIL !== "yes") {
+  console.error("Refusing to send live email.");
+  console.error("This despatches real messages via Resend to " + process.env.MAIL_REDIRECT_TO + ".");
+  console.error("Run with:  CONFIRM_LIVE_MAIL=yes node tests/e2e/mail-live.mjs");
+  process.exit(1);
+}
+
 const { createClient } = await import("@supabase/supabase-js");
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 const { sendMail } = await import("./mailer-shim.mjs");
