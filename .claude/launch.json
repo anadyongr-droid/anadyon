@@ -5,9 +5,7 @@
       "name": "anadyon-dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 3000,
-      "autoPort": true,
-      "cwd": "/Users/macminitasos/Desktop/anadyon"
+      "port": 3000
     }
   ]
 }

@@ -83,13 +83,13 @@ export default function CookieBanner({ locale = "en" }: { locale?: Locale }) {
                 onClick={() => setShowPrefs(true)}
                 className="px-4 py-2 text-sm border border-gray-500 text-gray-300 rounded-lg hover:border-gray-300 hover:text-white transition"
               >
-                Manage preferences
+                {tr("cookie.manage")}
               </button>
               <button
                 onClick={() => save("all")}
                 className="px-4 py-2 text-sm bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-500 transition"
               >
-                Accept all
+                {tr("cookie.acceptAll")}
               </button>
             </div>
           </div>
@@ -124,19 +124,19 @@ export default function CookieBanner({ locale = "en" }: { locale?: Locale }) {
                 onClick={() => save("declined")}
                 className="px-4 py-2 text-sm border border-gray-500 text-gray-300 rounded-lg hover:border-gray-300 hover:text-white transition"
               >
-                Decline all
+                {tr("cookie.declineAll")}
               </button>
               <button
                 onClick={() => save("essential")}
                 className="px-4 py-2 text-sm border border-orange-500 text-orange-400 rounded-lg hover:bg-orange-900/30 transition"
               >
-                Essential only
+                {tr("cookie.essentialOnly")}
               </button>
               <button
                 onClick={() => save("all")}
                 className="px-4 py-2 text-sm bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-500 transition"
               >
-                Accept all
+                {tr("cookie.acceptAll")}
               </button>
             </div>
           </div>

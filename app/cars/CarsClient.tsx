@@ -16,7 +16,7 @@ const models = [
     image: "/fiat-panda.jpg",
     seats: 5,
     doors: 5,
-    luggage: "225 lt.",
+    luggage: 225,
     transmissionKey: "spec.manual",
     featureKeys: ["feat.ac", "feat.abs", "feat.bag1"],
   },
@@ -26,7 +26,7 @@ const models = [
     image: "/hyundai-getz.jpg",
     seats: 5,
     doors: 5,
-    luggage: "288 lt.",
+    luggage: 288,
     transmissionKey: "spec.manual",
     featureKeys: ["feat.ac", "feat.abs", "feat.bag1"],
   },
@@ -36,7 +36,7 @@ const models = [
     image: "/hyundai-i10.jpg",
     seats: 5,
     doors: 5,
-    luggage: "252 lt.",
+    luggage: 252,
     transmissionKey: "spec.manual",
     featureKeys: ["feat.ac", "feat.abs", "feat.bag1"],
   },
@@ -46,7 +46,7 @@ const models = [
     image: "/hyundai-i20.jpg",
     seats: 5,
     doors: 5,
-    luggage: "311 lt.",
+    luggage: 311,
     transmissionKey: "spec.manual",
     featureKeys: ["feat.ac", "feat.abs", "feat.bag2"],
   },
@@ -56,7 +56,7 @@ const models = [
     image: "/peugeot-107.jpg",
     seats: 4,
     doors: 5,
-    luggage: "139 lt.",
+    luggage: 139,
     transmissionKey: "spec.automatic",
     featureKeys: ["feat.ac", "feat.abs", "feat.autoGearbox"],
   },
@@ -110,7 +110,7 @@ export default function CarsClient({ locale = "en" }: { locale?: Locale }) {
                     </span>
                     <span className="flex items-center gap-1.5">
                       <Briefcase size={15} className="text-blue-600" />
-                      {car.luggage}
+                      {car.luggage} {tr("vehicles.litres")}
                     </span>
                   </div>
 
@@ -140,6 +140,7 @@ export default function CarsClient({ locale = "en" }: { locale?: Locale }) {
         {formVisible && (
           <div id="booking-form" className="mt-12 scroll-mt-[168px]">
             <BookingForm
+              locale={locale}
               vehicleType="Cars"
               models={models.map((m) => m.name)}
               initialModel={selectedModel ?? models[0].name}
@@ -150,7 +151,7 @@ export default function CarsClient({ locale = "en" }: { locale?: Locale }) {
                 "Hyundai i20": "car_b",
                 "Peugeot 107": "car_c",
               }}
-              modelTransmissions={Object.fromEntries(models.map(m => [m.name, m.transmissionKey === "spec.automatic" ? "Automatic" : "Manual"]))}
+              modelTransmissions={Object.fromEntries(models.map(m => [m.name, m.transmissionKey]))}
             />
           </div>
         )}

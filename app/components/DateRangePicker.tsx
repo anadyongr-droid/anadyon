@@ -1,10 +1,12 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { DayPicker } from "react-day-picker";
+import { translator, type Locale } from "@/lib/i18n";
 import { CalendarDays, ChevronRight } from "lucide-react";
 import "react-day-picker/style.css";
 
 interface Props {
+  locale?: Locale;
   pickupDate: string;
   returnDate: string;
   onPickupChange: (date: string) => void;
@@ -22,14 +24,15 @@ function toStr(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function fmt(str: string): string {
-  if (!str) return "Select date";
-  return new Date(str + "T00:00:00").toLocaleDateString("en-GB", {
+function fmt(str: string, locale: Locale, placeholder: string): string {
+  if (!str) return placeholder;
+  return new Date(str + "T00:00:00").toLocaleDateString(locale === "el" ? "el-GR" : "en-GB", {
     day: "numeric", month: "short", year: "numeric",
   });
 }
 
-export default function DateRangePicker({ pickupDate, returnDate, onPickupChange, onReturnChange }: Props) {
+export default function DateRangePicker({ pickupDate, returnDate, onPickupChange, onReturnChange, locale = "en" }: Props) {
+  const tr = translator(locale);
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"pickup" | "return">("pickup");
   const ref = useRef<HTMLDivElement>(null);
@@ -117,8 +120,8 @@ export default function DateRangePicker({ pickupDate, returnDate, onPickupChange
         >
           <CalendarDays size={16} className="text-blue-600 shrink-0" />
           <div className="min-w-0">
-            <div className="text-xs text-gray-400 dark:text-gray-500">Pick-up</div>
-            <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{fmt(pickupDate)}</div>
+            <div className="text-xs text-gray-400 dark:text-gray-500">{tr("form.pickup")}</div>
+            <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{fmt(pickupDate, locale, tr("form.selectDate"))}</div>
           </div>
         </button>
 
@@ -133,8 +136,8 @@ export default function DateRangePicker({ pickupDate, returnDate, onPickupChange
         >
           <CalendarDays size={16} className="text-blue-600 shrink-0" />
           <div className="min-w-0">
-            <div className="text-xs text-gray-400 dark:text-gray-500">Return</div>
-            <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{fmt(returnDate)}</div>
+            <div className="text-xs text-gray-400 dark:text-gray-500">{tr("form.return")}</div>
+            <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{fmt(returnDate, locale, tr("form.selectDate"))}</div>
           </div>
         </button>
       </div>
@@ -143,7 +146,7 @@ export default function DateRangePicker({ pickupDate, returnDate, onPickupChange
       {rentalDays > 0 && (
         <div className="flex items-center gap-1.5 mt-2 text-xs text-blue-700 dark:text-blue-300 font-medium">
           <ChevronRight size={12} />
-          {rentalDays} day{rentalDays > 1 ? "s" : ""} rental
+          {rentalDays} {tr(rentalDays === 1 ? "form.dayRental" : "form.daysRental")}
         </div>
       )}
 
@@ -151,7 +154,7 @@ export default function DateRangePicker({ pickupDate, returnDate, onPickupChange
       {open && (
         <div className="absolute z-50 mt-2 left-0 right-0 sm:right-auto sm:left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 overflow-x-auto">
           <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-2 px-1">
-            {step === "pickup" ? "Select pick-up date" : "Select return date"}
+            {tr(step === "pickup" ? "form.selectPickupDate" : "form.selectReturnDate")}
           </p>
           <DayPicker
             mode="range"

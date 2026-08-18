@@ -146,6 +146,7 @@ export default function BikesClient({ locale = "en" }: { locale?: Locale }) {
         {formVisible && (
           <div id="booking-form" className="mt-12 scroll-mt-[168px]">
             <BookingForm
+              locale={locale}
               vehicleType="Bikes"
               models={models.map((m) => m.name)}
               initialModel={selectedModel ?? models[0].name}

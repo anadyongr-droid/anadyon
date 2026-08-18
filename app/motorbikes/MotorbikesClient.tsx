@@ -104,6 +104,7 @@ export default function MotorbikesClient({ locale = "en" }: { locale?: Locale })
         {formVisible && (
           <div id="booking-form" className="mt-12 scroll-mt-[168px]">
             <BookingForm
+              locale={locale}
               vehicleType="Motorbikes"
               models={models.map((m) => m.name)}
               initialModel={selectedModel ?? models[0].name}
@@ -111,7 +112,7 @@ export default function MotorbikesClient({ locale = "en" }: { locale?: Locale })
                 "Kymco Agility 50cc": "motorbike_a",
                 "Kymco Agility 125cc": "motorbike_b",
               }}
-              modelTransmissions={Object.fromEntries(models.map(m => [m.name, m.transmissionKey === "spec.automatic" ? "Automatic" : "Manual"]))}
+              modelTransmissions={Object.fromEntries(models.map(m => [m.name, m.transmissionKey]))}
             />
           </div>
         )}

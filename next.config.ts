@@ -1,5 +1,30 @@
 import type { NextConfig } from "next";
 
+// Script origins the site genuinely loads, confirmed by watching the network on
+// a rendered page rather than by reading the source: reCAPTCHA pulls from
+// www.google.com and www.gstatic.com, and Google Tag Manager only after cookie
+// consent.
+const SCRIPT_SOURCES =
+  "'self' https://www.google.com https://www.gstatic.com https://www.googletagmanager.com https://www.google-analytics.com https://www.recaptcha.net";
+
+/** Directives shared by the enforced and the report-only policy. */
+const BASE_CSP = [
+  "default-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  // Tightened from `https:`, which allowed an image from any origin on the web.
+  // next.config's remotePatterns is empty and every image on the site is served
+  // from /public through /_next/image, so nothing legitimate needs the wildcard.
+  // Verified on a rendered page: zero external images, zero url() in CSS.
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.supabase.co https://www.google-analytics.com https://www.googletagmanager.com",
+  "frame-src https://www.google.com https://www.recaptcha.net",
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+];
+
 const securityHeaders = [
   { key: "X-DNS-Prefetch-Control", value: "on" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
@@ -10,18 +35,42 @@ const securityHeaders = [
   {
     key: "Content-Security-Policy",
     value: [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://www.googletagmanager.com https://www.google-analytics.com https://www.recaptcha.net",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https:",
-      "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co https://www.google-analytics.com https://www.googletagmanager.com",
-      "frame-src https://www.google.com https://www.recaptcha.net",
-      "frame-ancestors 'none'",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
+      ...BASE_CSP,
+      // Next.js injects inline bootstrap and hydration scripts. Removing this
+      // needs per-request nonces, which is what the Report-Only policy below is
+      // measuring the cost of.
+      `script-src ${SCRIPT_SOURCES} 'unsafe-inline'`,
+      // Violations of the ENFORCED policy are real breakage and worth seeing.
+      "report-uri /api/csp-report",
+      "report-to csp",
     ].join("; "),
+  },
+  {
+    // The policy we want, measured rather than enforced: identical to the
+    // enforced one but without 'unsafe-inline' for scripts.
+    //
+    // Deliberately NOT 'strict-dynamic' and NOT require-trusted-types-for.
+    // Both were tried and both report every script on the page as a violation —
+    // strict-dynamic ignores the host allowlist unless each script carries a
+    // nonce, and neither Next.js nor React emits Trusted Types assignments. The
+    // result is a report stream that says "everything", which answers nothing.
+    //
+    // Dropping only 'unsafe-inline' reports exactly the inline scripts that
+    // would need a nonce, which is the one fact needed to decide whether the
+    // strict policy can be enforced. Nothing here can break the site.
+    key: "Content-Security-Policy-Report-Only",
+    value: [
+      ...BASE_CSP,
+      `script-src ${SCRIPT_SOURCES}`,
+      "report-uri /api/csp-report",
+      "report-to csp",
+    ].join("; "),
+  },
+  {
+    // Endpoint declaration for the modern Reporting API; report-uri above
+    // covers browsers that still use the Level 2 mechanism.
+    key: "Reporting-Endpoints",
+    value: 'csp="/api/csp-report"',
   },
 ];
 

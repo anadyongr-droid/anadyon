@@ -9,7 +9,7 @@
  *
  * Run after `npm run build`.
  */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const OUT = ".next/server/app";
@@ -120,4 +120,60 @@ for (const [route, file] of PAGES) {
 
 console.log("  ─────────────────────────────────────────────────────────");
 console.log(`  ${checked}/${PAGES.length} pages checked, ${failures} with problems`);
+
+
+// ── Source check ────────────────────────────────────────────────────────────
+//
+// The page scan above reads prerendered HTML, which is everything a visitor
+// sees on load — but not the booking form, which only renders after a vehicle
+// is chosen. That gap is how the entire form shipped in English while every
+// page reported clean: the translations existed, and one missing `locale` prop
+// meant nothing reached them.
+//
+// So the components are also checked directly for English UI text that never
+// passes through the dictionary.
+
+const COMPONENT_ROOTS = ["app/components", "app/contact", "app/faq", "app/cars", "app/bikes", "app/motorbikes"];
+
+function walk(dir) {
+  const out = [];
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) out.push(...walk(full));
+    else if (full.endsWith(".tsx")) out.push(full);
+  }
+  return out;
+}
+
+const IGNORE = /^(Mr|Mrs|Ms|OK|ID|VAT|CDW|FDW|GPS|ABS|Anadyon|Rentals|Zakynthos|Email|Blog|Google|reCAPTCHA)$/;
+
+let sourceProblems = 0;
+console.log("\n  component                                  hardcoded English");
+console.log("  ─────────────────────────────────────────────────────────");
+
+for (const root of COMPONENT_ROOTS) {
+  if (!existsSync(root)) continue;
+  for (const file of walk(root)) {
+    const src = readFileSync(file, "utf8");
+    const hits = new Set();
+
+    // JSX text nodes: >Some English Text<
+    for (const m of src.matchAll(/>\s*([A-Z][A-Za-z][A-Za-z ,.'’!?()&-]{3,60})\s*</g)) {
+      const text = m[1].trim();
+      if (!IGNORE.test(text) && /[a-z]{3}/.test(text)) hits.add(text);
+    }
+    // Literal placeholders
+    for (const m of src.matchAll(/placeholder="([^"]{3,60})"/g)) hits.add(`placeholder: ${m[1]}`);
+
+    if (hits.size) {
+      sourceProblems += hits.size;
+      const list = [...hits].slice(0, 3).join(" · ");
+      console.log(`  ${file.padEnd(42)} ${list}${hits.size > 3 ? ` (+${hits.size - 3})` : ""}`);
+    }
+  }
+}
+
+console.log("  ─────────────────────────────────────────────────────────");
+console.log(`  ${sourceProblems} hardcoded string(s) in translated components`);
+if (sourceProblems > 0) failures++;
 process.exit(failures === 0 ? 0 : 1);
