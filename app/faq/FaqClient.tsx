@@ -2,58 +2,9 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import ContentPage from "../components/ContentPage";
-import { DRIVER_AGE_FAQ } from "@/lib/rentalPolicy";
+import { faqs as faqsFor, FAQ_TITLE } from "@/lib/i18n/content/faq";
+import type { Locale } from "@/lib/i18n";
 
-const faqs = [
-  {
-    q: "Do I need an International driver's licence?",
-    a: "You don't need an International driver's licence if your driving permit is issued by an EU or EFTA country. For all other countries please contact us for more details. If your licence is printed in an alphabet other than Greek or Latin you would need to present an International licence.",
-  },
-  {
-    q: "What is the minimum age to rent a car, motorbike or bike?",
-    a: DRIVER_AGE_FAQ,
-  },
-  {
-    q: "Is there a daily/weekly limit on the miles/kilometres driven?",
-    a: "No, unlimited mileage applies to all our rentals.",
-  },
-  {
-    q: "Are taxes included on your rental fees?",
-    a: "Yes, all taxes are already included on the rental fees we quote.",
-  },
-  {
-    q: "Do you charge delivery/collection fees?",
-    a: "All deliveries and collections (Airport, Zakynthos Port and our office) during office hours (09:00–21:00) are free of charge. Outside office hours a fee of €20 applies. Bicycles can only be delivered/collected at our office.",
-  },
-  {
-    q: "What do I need to do if my car/motorbike breaks down?",
-    a: "Give us a call and stay where you are. We will come to assist you as soon as possible.",
-  },
-  {
-    q: "What type of insurance is included in your standard fees?",
-    a: "Our standard fees include Collision Damage Waiver (CDW), Theft insurance, and Third Party insurance.",
-  },
-  {
-    q: "Do you offer any additional insurance?",
-    a: "Yes, for an additional fee we offer Full Damage Waiver (FDW).",
-  },
-  {
-    q: "If I buy all insurance packages, am I fully covered?",
-    a: "The insurance does not cover damages to the bottom of the vehicle, wheels, tyres, mirrors, loss or theft of keys, windows and the interior of the vehicle.",
-  },
-  {
-    q: "Are there any hidden extras I will need to pay?",
-    a: "No hidden extras — our fees are all inclusive.",
-  },
-  {
-    q: "What if I have to cancel my reservation?",
-    a: "If you let us know more than 24 hours prior to the start date of the rental we will not charge any cancellation fee. In all other cases we will charge a day's rental.",
-  },
-  {
-    q: "Can my partner/friend drive the car/motorbike too?",
-    a: "Yes, you would just need to tell us at the start of the rental and pay the additional driver's fee.",
-  },
-];
 
 /**
  * Structured data built from the same `faqs` array the page renders.
@@ -62,7 +13,7 @@ const faqs = [
  * page does not actually display is a guidelines violation, and hand-maintained
  * duplicates drift the first time an answer is edited.
  */
-function FaqJsonLd() {
+function FaqJsonLd({ faqs }: { faqs: { q: string; a: string }[] }) {
   const data = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -80,13 +31,14 @@ function FaqJsonLd() {
   );
 }
 
-export default function FaqClient() {
+export default function FaqClient({ locale = "en" }: { locale?: Locale }) {
+  const faqs = faqsFor(locale);
   const [open, setOpen] = useState<number | null>(null);
 
   return (
     <ContentPage>
-      <FaqJsonLd />
-        <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Frequently Asked Questions</h1>
+      <FaqJsonLd faqs={faqs} />
+        <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">{FAQ_TITLE[locale]}</h1>
         <p className="text-gray-500 dark:text-gray-400 mb-10">
           Everything you need to know about renting with Anadyon. Can&apos;t find the answer?{" "}
           <a href="/contact" className="text-orange-600 dark:text-orange-400 hover:underline">Contact us</a>.

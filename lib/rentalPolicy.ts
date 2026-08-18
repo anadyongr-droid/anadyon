@@ -22,3 +22,7 @@ export const DRIVER_AGE_POLICY =
 /** FAQ phrasing — same rule, answered as a question. */
 export const DRIVER_AGE_FAQ =
   `Minimum driver's age is ${MIN_DRIVER_AGE} years for all our vehicles. A young driver surcharge may apply for drivers aged ${YOUNG_DRIVER_BAND}.`;
+
+/** Greek rendering of the same rule. Kept beside it so the two cannot diverge. */
+export const DRIVER_AGE_FAQ_EL =
+  `Το ελάχιστο όριο ηλικίας οδηγού είναι ${MIN_DRIVER_AGE} ετών για όλα τα οχήματά μας. Ενδέχεται να ισχύει επιβάρυνση νέου οδηγού για οδηγούς ηλικίας ${YOUNG_DRIVER_BAND}.`;
