@@ -204,19 +204,42 @@ export default function CalendarPage() {
             <tbody>
               {grouped.map(({ category, vehicles: cvehicles }) => (
                 <React.Fragment key={category}>
-                  {/* Category header row */}
-                  <tr className="bg-gray-50 border-y border-gray-100">
+                  {/*
+                    Category header row.
+
+                    Three levels of separation now share this table, and they
+                    have to rank unambiguously or none of them reads: the
+                    category header is strongest, a change of model next, an
+                    ordinary row lightest. So this is bold on a darker grey with
+                    a solid rule above, sitting clearly above the 2px rule that
+                    marks a model change.
+
+                    The weight alone was not the problem — it was already
+                    semibold. At gray-500 on a gray-50 row it simply had too
+                    little contrast to register as a heading.
+                  */}
+                  <tr className="bg-gray-100 border-t-2 border-t-gray-400 border-b border-b-gray-200">
                     <td
                       colSpan={days + 1}
-                      className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wide sticky left-0"
+                      className="px-3 py-1.5 text-xs font-bold text-gray-700 uppercase tracking-wider sticky left-0 bg-gray-100"
                     >
                       {CATEGORY_LABELS[category]}
                     </td>
                   </tr>
-                  {cvehicles.map((vehicle) => (
+                  {cvehicles.map((vehicle, i) => {
+                    // A heavier rule where the model changes, so a block of six
+                    // Kymco 50ccs reads as one block rather than six unrelated
+                    // rows. The category header already separates cars from
+                    // motorbikes; this separates models within a category.
+                    const newModel = i > 0 && cvehicles[i - 1].name !== vehicle.name;
+                    return (
                     <tr
                       key={vehicle.id}
-                      className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors"
+                      className={`hover:bg-gray-50/50 transition-colors ${
+                        newModel
+                          ? "border-t-2 border-t-gray-300 border-b border-b-gray-100"
+                          : "border-b border-gray-100"
+                      }`}
                     >
                       {/* Vehicle name */}
                       <td className="px-3 py-1.5 text-gray-700 font-medium sticky left-0 bg-white border-r border-gray-200 z-10">
@@ -226,15 +249,18 @@ export default function CalendarPage() {
                               <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
                             )}
                             {/*
-                              The model and plate are one unit and must not
-                              break across lines — a plate wrapped onto its own
-                              row reads as a second vehicle in a dense table.
+                              The model and plate are one unit and must not break
+                              across lines — a plate wrapped onto its own row
+                              reads as a second vehicle in a dense table.
                             */}
                             <span className="whitespace-nowrap">{vehicleLabel(vehicle)}</span>
                           </div>
                           {/*
-                            The badge sits on its own line beneath, so it can
-                            never be what pushes the plate onto a second one.
+                            Its own line, against the right edge: on a line of
+                            its own it cannot push the plate into wrapping, and
+                            against the right edge every badge lands on the same
+                            vertical line, so they are found by scanning one
+                            column rather than by reading each row.
 
                             Cars only. Every scooter in the fleet is automatic,
                             so marking those would put a badge on two thirds of
@@ -245,12 +271,14 @@ export default function CalendarPage() {
                           */}
                           {vehicle.category === "car" &&
                             vehicle.transmission?.toLowerCase().startsWith("auto") && (
-                              <span
-                                title="Automatic gearbox"
-                                className="mt-0.5 inline-block rounded bg-blue-100 px-1 py-0.5 text-[10px] font-semibold leading-none text-blue-700"
-                              >
-                                AUT
-                              </span>
+                              <div className="flex justify-end">
+                                <span
+                                  title="Automatic gearbox"
+                                  className="mt-0.5 rounded bg-blue-100 px-1 py-0.5 text-[10px] font-semibold leading-none text-blue-700"
+                                >
+                                  AUT
+                                </span>
+                              </div>
                             )}
                         </div>
                       </td>
@@ -301,7 +329,8 @@ export default function CalendarPage() {
                         );
                       })}
                     </tr>
-                  ))}
+                    );
+                  })}
                 </React.Fragment>
               ))}
             </tbody>
