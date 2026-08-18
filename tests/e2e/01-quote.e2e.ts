@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeAll } from "vitest";
-import { db, req, MARK, TEST_EMAIL, futureDates } from "./helpers";
+import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
+import { db, req, MARK, TEST_EMAIL, futureDates, cleanup } from "./helpers";
 
 // The limiter buckets by IP. Sharing one across the phase made every case after
 // the tenth fail with 429 — the limiter working, not the endpoint failing.
@@ -27,7 +27,10 @@ const base = {
   pickupLocation: "Our Office",
   dropoffLocation: "Our Office",
   transmission: "Manual",
-  driverAge: 35,
+  // The band the form actually sends. This test used to send the number 35,
+  // which the form never produces — so the suite passed while every genuine
+  // submission was rejected as NaN.
+  driverAge: "26–65",
   firstName: "Automated",
   lastName: `Tester ${MARK}`,
   email: TEST_EMAIL,
@@ -45,6 +48,10 @@ const base = {
 let serverTotal = 0;
 
 describe("phase 1 — public quote funnel", () => {
+  // This phase creates quotes and a customer; without this they accumulate and
+  // the next run collides with them.
+  afterAll(async () => { await cleanup(); });
+
   beforeAll(async () => {
     // What the server will independently arrive at, from the live rate card.
     const { calcVehicleSubtotal, calcRentalDays } = await import("@/lib/pricing");
@@ -70,9 +77,19 @@ describe("phase 1 — public quote funnel", () => {
     expect(res.status).toBe(400);
   });
 
-  it("rejects a driver below the minimum age the schema allows", async () => {
-    const res = await POST(req("/api/quote", "POST", { ...base, driverAge: 12 }, nextIp()));
+  it("rejects an age band it does not recognise", async () => {
+    const res = await POST(req("/api/quote", "POST", { ...base, driverAge: "12-15" }, nextIp()));
     expect(res.status).toBe(400);
+  });
+
+  it("accepts every band the booking form offers", async () => {
+    // Driven from the shared list, so the form and the schema cannot drift
+    // apart again. Note the en dash — these must match byte for byte.
+    const { DRIVER_AGE_BANDS } = await import("@/lib/rentalPolicy");
+    for (const band of DRIVER_AGE_BANDS) {
+      const res = await POST(req("/api/quote", "POST", { ...base, driverAge: band }, nextIp()));
+      expect(res.status, `band ${JSON.stringify(band)} was rejected`).toBeLessThan(400);
+    }
   });
 
   it("accepts a well-formed quote and stores it", async () => {
@@ -101,6 +118,9 @@ describe("phase 1 — public quote funnel", () => {
 
   it("blocks a customer flagged do-not-rent", async () => {
     const dnrEmail = `dnr.${MARK.toLowerCase()}@example.invalid`;
+    // customers.email is uniquely indexed and this phase leaves its rows behind,
+    // so a second run collided with its own fixture from the first.
+    await db.from("customers").delete().eq("email", dnrEmail);
     const { error: fixtureError } = await db.from("customers").insert({
       first_name: "Blocked", last_name: `Person ${MARK}`,
       full_name: `Blocked Person ${MARK}`,

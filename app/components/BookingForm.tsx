@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { DRIVER_AGE_POLICY, DRIVER_AGE_POLICY_EL } from "@/lib/rentalPolicy";
+import { DRIVER_AGE_POLICY, DRIVER_AGE_POLICY_EL, DRIVER_AGE_BANDS } from "@/lib/rentalPolicy";
 import { termsCopy } from "@/lib/i18n/content/legal";
 import LegalSections from "./LegalSections";
 import ReCAPTCHA from "react-google-recaptcha";
@@ -172,7 +172,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [pickupTime, setPickupTime] = useState("09:00");
   const [dropoffTime, setDropoffTime] = useState("09:00");
   const transmission = modelTransmissions?.[selectedModel] ?? null;
-  const [driverAge, setDriverAge] = useState("26–65");
+  const [driverAge, setDriverAge] = useState<string>(DRIVER_AGE_BANDS[1]);
   const [babySeat, setBabySeat] = useState("0");
   const [childSeat, setChildSeat] = useState("0");
   const [fdw, setFdw] = useState(false);

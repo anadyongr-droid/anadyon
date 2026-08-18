@@ -15,6 +15,21 @@
 export const MIN_DRIVER_AGE = 21;
 export const YOUNG_DRIVER_BAND = "21–25";
 
+/**
+ * The age bands the public booking form offers.
+ *
+ * A band, not a number: nobody types their exact age into a rental form, and
+ * `quotes.driver_age` is a text column because a band is what it holds. The
+ * quote route validated it as `z.coerce.number()`, so every real submission
+ * arrived as NaN and was rejected — while the tests passed, because they sent a
+ * number the form never produces.
+ *
+ * Shared between the form and the schema so the two cannot disagree again.
+ * Note the en dash: these must match byte for byte.
+ */
+export const DRIVER_AGE_BANDS = ["21–25", "26–65", "66+"] as const;
+export type DriverAgeBand = (typeof DRIVER_AGE_BANDS)[number];
+
 /** The single approved sentence. Used verbatim in the terms, the booking modal and the FAQ. */
 export const DRIVER_AGE_POLICY =
   `Minimum driver's age is ${MIN_DRIVER_AGE} years. A young driver surcharge may apply for drivers aged ${YOUNG_DRIVER_BAND}.`;

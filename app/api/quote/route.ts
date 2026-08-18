@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { calcVehicleSubtotal, calcRentalDays, DEPOSIT_RATE, type Rate, type ExtrasConfig } from "@/lib/pricing";
 import { z } from "zod";
+import { DRIVER_AGE_BANDS } from "@/lib/rentalPolicy";
 
 const TOLERANCE = 0.02; // allow up to €0.02 rounding difference before flagging
 
@@ -58,7 +59,10 @@ const QuoteSchema = z.object({
   pickupTime: z.string().max(20).optional(),
   dropoffTime: z.string().max(20).optional(),
   transmission: z.string().max(40).optional(),
-  driverAge: z.coerce.number().int().min(16).max(120).optional(),
+  // A band from DRIVER_AGE_BANDS, not a number — see lib/rentalPolicy.ts.
+  // This was z.coerce.number(), which turned "26–65" into NaN and rejected
+  // every genuine submission the form made.
+  driverAge: z.enum(DRIVER_AGE_BANDS).optional(),
   // Defaulted rather than merely optional. These feed the server-side price
   // calculation directly, and an omitted field arrived there as Number(undefined)
   // — NaN — which propagated through the total and was serialised to the database
