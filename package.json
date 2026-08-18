@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
-    "test:mail": "node tests/e2e/mail-live.mjs"
+    "test:mail": "node tests/e2e/mail-live.mjs",
+    "check:translation": "node scripts/check-translation.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

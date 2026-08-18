@@ -12,7 +12,7 @@ const models = [
     name: "Cinzia Bombi Retro Women",
     categoryKey: "cat.cityWomen",
     image: "/bottecchia.webp",
-    gears: "3-speed Shimano Nexus",
+    gears: "spec.gears3",
     wheels: '26"',
     featureKeys: ["feat.stepThrough", "feat.mudguards", "feat.carrier"],
   },
@@ -20,7 +20,7 @@ const models = [
     name: "Cinzia Bombi Retro Men",
     categoryKey: "cat.cityMen",
     image: "/giant-bike.jpg",
-    gears: "3-speed Shimano Nexus",
+    gears: "spec.gears3",
     wheels: '28"',
     featureKeys: ["feat.steelFrame", "feat.mudguards", "feat.carrier"],
   },
@@ -28,7 +28,7 @@ const models = [
     name: "Scott Sportster 50",
     categoryKey: "cat.trekkingWomen",
     image: "/scott-bike.jpg",
-    gears: "21-speed Shimano",
+    gears: "spec.gears21",
     wheels: "700c",
     featureKeys: ["feat.lightAlu", "feat.frontSusp", "feat.flatBar"],
   },
@@ -36,7 +36,7 @@ const models = [
     name: "Ideal Crossmo",
     categoryKey: "cat.trekkingMen",
     image: "/crossmo-bike.jpg",
-    gears: "21-speed Shimano",
+    gears: "spec.gears21",
     wheels: '28"',
     featureKeys: ["feat.aluFrame", "feat.shimanoDisc", "feat.frontSusp"],
   },
@@ -44,7 +44,7 @@ const models = [
     name: "Kona Lanai",
     categoryKey: "cat.mountain",
     image: "/kona-bike.jpg",
-    gears: "21-speed Shimano",
+    gears: "spec.gears21",
     wheels: '27.5"',
     featureKeys: ["feat.aluFrame", "feat.frontSusp", "feat.allTerrain"],
   },
@@ -52,7 +52,7 @@ const models = [
     name: "KTM Manhattan XC",
     categoryKey: "cat.trekkingMen",
     image: "/ktm-manhattan.jpeg",
-    gears: "24-speed Shimano",
+    gears: "spec.gears24",
     wheels: '28"',
     featureKeys: ["feat.frontSuspLock", "feat.hydraulicDisc", "feat.xlFrame"],
   },
@@ -60,7 +60,7 @@ const models = [
     name: "Specialized Ariel",
     categoryKey: "cat.trekkingMen",
     image: "/specialized.jpg",
-    gears: "21-speed Shimano",
+    gears: "spec.gears21",
     wheels: "700c",
     featureKeys: ["feat.aluFrame", "feat.frontSusp", "feat.flatBar"],
   },
@@ -112,7 +112,7 @@ export default function BikesClient({ locale = "en" }: { locale?: Locale }) {
 
                   <div className="flex flex-wrap gap-5 text-sm text-gray-600 dark:text-gray-200 mb-5">
                     <span className="text-sm text-gray-600 dark:text-gray-200">
-                      {bike.gears}
+                      {tr(bike.gears)}
                     </span>
                     <span className="flex items-center gap-1.5">
                       <User size={15} className="text-blue-600" />

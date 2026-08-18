@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import ContentPage from "../components/ContentPage";
 import { faqs as faqsFor, FAQ_TITLE } from "@/lib/i18n/content/faq";
-import type { Locale } from "@/lib/i18n";
+import { t, localePath, type Locale } from "@/lib/i18n";
 
 
 /**
@@ -40,8 +40,8 @@ export default function FaqClient({ locale = "en" }: { locale?: Locale }) {
       <FaqJsonLd faqs={faqs} />
         <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">{FAQ_TITLE[locale]}</h1>
         <p className="text-gray-500 dark:text-gray-400 mb-10">
-          Everything you need to know about renting with Anadyon. Can&apos;t find the answer?{" "}
-          <a href="/contact" className="text-orange-600 dark:text-orange-400 hover:underline">Contact us</a>.
+          {t(locale, "faq.intro")}{" "}
+          <a href={localePath("/contact", locale)} className="text-orange-600 dark:text-orange-400 hover:underline">{t(locale, "faq.contactLink")}</a>.
         </p>
 
         <div className="space-y-3">

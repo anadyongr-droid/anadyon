@@ -19,6 +19,10 @@ export const YOUNG_DRIVER_BAND = "21–25";
 export const DRIVER_AGE_POLICY =
   `Minimum driver's age is ${MIN_DRIVER_AGE} years. A young driver surcharge may apply for drivers aged ${YOUNG_DRIVER_BAND}.`;
 
+/** The same rule in Greek, for the Greek terms page. */
+export const DRIVER_AGE_POLICY_EL =
+  `Το ελάχιστο όριο ηλικίας οδηγού είναι ${MIN_DRIVER_AGE} ετών. Για οδηγούς ηλικίας ${YOUNG_DRIVER_BAND} ενδέχεται να ισχύει επιβάρυνση νεαρού οδηγού.`;
+
 /** FAQ phrasing — same rule, answered as a question. */
 export const DRIVER_AGE_FAQ =
   `Minimum driver's age is ${MIN_DRIVER_AGE} years for all our vehicles. A young driver surcharge may apply for drivers aged ${YOUNG_DRIVER_BAND}.`;

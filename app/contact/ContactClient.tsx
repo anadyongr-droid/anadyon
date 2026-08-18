@@ -2,8 +2,9 @@
 import { useState } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
 import { Phone, Mail, Clock, MapPin } from "lucide-react";
+import { t, type Locale } from "@/lib/i18n";
 
-export default function ContactClient() {
+export default function ContactClient({ locale = "en" }: { locale?: Locale }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -11,13 +12,17 @@ export default function ContactClient() {
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [formError, setFormError] = useState<string | null>(null);
 
+  const tr = (key: string) => t(locale, key);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
-    if (!name.trim()) { setFormError("Name is required."); return; }
-    if (!email.trim()) { setFormError("Email address is required."); return; }
-    if (!message.trim()) { setFormError("Message is required."); return; }
-    if (!captchaToken) { setFormError("Please complete the reCAPTCHA verification."); return; }
+    // Validation messages are translated too — an English error under a Greek
+    // label is exactly where a half-translated form gives itself away.
+    if (!name.trim()) { setFormError(tr("contact.errName")); return; }
+    if (!email.trim()) { setFormError(tr("contact.errEmail")); return; }
+    if (!message.trim()) { setFormError(tr("contact.errMessage")); return; }
+    if (!captchaToken) { setFormError(tr("contact.errCaptcha")); return; }
     setStatus("sending");
     const res = await fetch("/api/contact", {
       method: "POST",
@@ -27,30 +32,46 @@ export default function ContactClient() {
     setStatus(res.ok ? "sent" : "error");
   }
 
+  // The reCAPTCHA notice carries two links Google requires be shown; the copy
+  // around them differs by language, so the sentence is assembled from the
+  // translated string rather than hard-coded in JSX.
+  const notice = tr("contact.recaptchaNotice").split(/(\{privacy\}|\{terms\})/g).map((part, i) => {
+    if (part === "{privacy}") {
+      return <a key={i} href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">{tr("contact.recaptchaPrivacy")}</a>;
+    }
+    if (part === "{terms}") {
+      return <a key={i} href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">{tr("contact.recaptchaTerms")}</a>;
+    }
+    return part;
+  });
+
+  const inputCls = "w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700";
+  const labelCls = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
+
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
       <div className="max-w-5xl mx-auto px-4 py-16">
-        <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Contact Us</h1>
-        <p className="text-gray-500 dark:text-gray-400 mb-10">We&apos;d love to hear from you. Send us a message and we&apos;ll get back to you as soon as possible.</p>
+        <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">{tr("contact.title")}</h1>
+        <p className="text-gray-500 dark:text-gray-400 mb-10">{tr("contact.intro")}</p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
 
-          {/* Contact Info */}
+          {/* Contact details */}
           <div className="space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-              <h2 className="font-semibold text-gray-900 dark:text-white mb-5">Our Details</h2>
+              <h2 className="font-semibold text-gray-900 dark:text-white mb-5">{tr("contact.details")}</h2>
               <div className="space-y-4 text-sm text-gray-600 dark:text-gray-400">
                 <div className="flex items-start gap-3">
                   <MapPin size={18} className="text-blue-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="font-medium text-gray-800 dark:text-gray-200">Address</p>
-                    <p>20 Lomvardou Str. (Seafront Road, Zakynthos Town)<br />29100 Zakynthos, Greece</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-200">{tr("contact.address")}</p>
+                    <p>{tr("contact.addressValue")}<br />{tr("contact.addressValue2")}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <Phone size={18} className="text-blue-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="font-medium text-gray-800 dark:text-gray-200">Phone</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-200">{tr("contact.phone")}</p>
                     <a href="tel:+302695041878" className="hover:text-blue-700 dark:hover:text-blue-400 block">+30 26950 41878</a>
                     <a href="tel:+306988010188" className="hover:text-blue-700 dark:hover:text-blue-400 block">+30 6988 010188</a>
                   </div>
@@ -58,72 +79,64 @@ export default function ContactClient() {
                 <div className="flex items-start gap-3">
                   <Mail size={18} className="text-blue-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="font-medium text-gray-800 dark:text-gray-200">Email</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-200">{tr("contact.email")}</p>
                     <a href="mailto:customerservice@anadyon.gr" className="hover:text-blue-700 dark:hover:text-blue-400">customerservice@anadyon.gr</a>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <Clock size={18} className="text-blue-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="font-medium text-gray-800 dark:text-gray-200">Office Hours</p>
-                    <p>Daily 09:00 – 21:00</p>
+                    <p className="font-medium text-gray-800 dark:text-gray-200">{tr("contact.hours")}</p>
+                    <p>{tr("contact.hoursValue")}</p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Contact Form */}
+          {/* Message form */}
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
             {status === "sent" ? (
               <div className="text-center py-8">
-                <h2 className="text-xl font-semibold text-green-600 mb-2">Message Sent!</h2>
-                <p className="text-gray-500 dark:text-gray-400">Thank you for getting in touch. We&apos;ll reply as soon as possible.</p>
+                <h2 className="text-xl font-semibold text-green-600 mb-2">{tr("contact.sentTitle")}</h2>
+                <p className="text-gray-500 dark:text-gray-400">{tr("contact.sentBody")}</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
-                <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Send a Message</h2>
+                <h2 className="font-semibold text-gray-900 dark:text-white mb-4">{tr("contact.formTitle")}</h2>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
-                  <input type="text" required value={name} onChange={e => setName(e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700"
-                    placeholder="Your name" />
+                  <label className={labelCls} htmlFor="contact-name">{tr("contact.name")} *</label>
+                  <input id="contact-name" type="text" required value={name} onChange={e => setName(e.target.value)}
+                    className={inputCls} placeholder={tr("contact.namePlaceholder")} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
-                  <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700"
-                    placeholder="your@email.com" />
+                  <label className={labelCls} htmlFor="contact-email">{tr("contact.emailLabel")} *</label>
+                  <input id="contact-email" type="email" required value={email} onChange={e => setEmail(e.target.value)}
+                    className={inputCls} placeholder={tr("contact.emailPlaceholder")} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message *</label>
-                  <textarea required rows={5} value={message} onChange={e => setMessage(e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700"
-                    placeholder="How can we help?" />
+                  <label className={labelCls} htmlFor="contact-message">{tr("contact.message")} *</label>
+                  <textarea id="contact-message" required rows={5} value={message} onChange={e => setMessage(e.target.value)}
+                    className={inputCls} placeholder={tr("contact.messagePlaceholder")} />
                 </div>
                 <div className="w-full overflow-hidden flex flex-col justify-start gap-1">
                   <ReCAPTCHA
                     sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
+                    hl={locale}
                     onChange={(token: string | null) => setCaptchaToken(token)}
                     onExpired={() => setCaptchaToken(null)}
                   />
-                  <p className="text-xs text-gray-400 dark:text-gray-500">
-                    This site is protected by reCAPTCHA and the Google{" "}
-                    <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">Privacy Policy</a>{" "}
-                    and{" "}
-                    <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">Terms of Service</a>{" "}
-                    apply.
-                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{notice}</p>
                 </div>
                 {formError && (
                   <p className="text-red-600 dark:text-red-400 text-sm font-medium bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">{formError}</p>
                 )}
                 {status === "error" && (
-                  <p className="text-red-500 text-sm">Something went wrong. Please try again or email us directly.</p>
+                  <p className="text-red-500 text-sm">{tr("contact.errSend")}</p>
                 )}
                 <button type="submit" disabled={status === "sending"}
                   className="w-full bg-orange-600 text-white font-semibold py-3 rounded-lg hover:bg-orange-700 transition disabled:opacity-50">
-                  {status === "sending" ? "Sending..." : "Send Message"}
+                  {status === "sending" ? tr("contact.sending") : tr("contact.send")}
                 </button>
               </form>
             )}

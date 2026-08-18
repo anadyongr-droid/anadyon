@@ -114,6 +114,40 @@ describe("phase 3 — reservation lifecycle", () => {
     expect(res.status).toBe(201);
   });
 
+  it("accepts every status the admin form offers", async () => {
+    // The reported fault: the form offered seven statuses and the database
+    // constraint accepted five, so choosing `voided` or `no_show` failed on save
+    // with a raw Postgres error. Driven from the shared list so the dropdown and
+    // the constraint cannot drift apart again without this failing.
+    const { RESERVATION_STATUSES } = await import("@/lib/reservationStatus");
+    const probe = await makeReservation(600);
+    const rejected: string[] = [];
+    for (const status of RESERVATION_STATUSES) {
+      const { error } = await db.from("reservations").update({ status }).eq("id", probe);
+      if (error) rejected.push(`${status} (${error.code})`);
+    }
+    await db.from("reservations").delete().eq("id", probe);
+    expect(rejected, `the database refuses statuses the form offers: ${rejected.join(", ")}`).toEqual([]);
+  });
+
+  it("releases the vehicle for a no-show or voided booking, not just a cancellation", async () => {
+    // Both appear in the availability exclusion list, so both must free the car.
+    const { RELEASING_STATUSES } = await import("@/lib/reservationStatus");
+    const { GET: availability } = await import("@/app/api/admin/vehicles/availability/route");
+    const d = futureDates(700);
+    for (const status of RELEASING_STATUSES) {
+      const held = await makeReservation(700);
+      await db.from("reservations").update({ status }).eq("id", held);
+      const qs = new URLSearchParams({
+        vehicle_id: vehicleId, pickup_date: d.pickup_date, return_date: d.return_date,
+        pickup_time: "10:00", return_time: "10:00",
+      }).toString();
+      const r = await (await availability(req(`/api/admin/vehicles/availability?${qs}`, "GET"))).json();
+      await db.from("reservations").delete().eq("id", held);
+      expect(r.available, `${status} still blocks the vehicle`).toBe(true);
+    }
+  });
+
   it("deletes a reservation outright when asked", async () => {
     const doomed = await makeReservation(200);
     const res = await DELETE(req(`/api/admin/reservations/${doomed}`, "DELETE"), ctx(doomed));

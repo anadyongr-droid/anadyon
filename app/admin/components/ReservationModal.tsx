@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { X, Trash2, Upload, FileText, Send, Search, Link, MessageSquare } from "lucide-react";
 import { useScrollLock } from "./useScrollLock";
+import { RESERVATION_STATUSES } from "@/lib/reservationStatus";
 import Select from "./Select";
 import { calcRentalDays, getDailyRate, calcExtrasTotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
@@ -35,7 +36,9 @@ interface Props {
   onSaved: () => void;
 }
 
-const STATUS_OPTIONS = ["pending", "confirmed", "active", "returned", "cancelled", "no_show", "voided"];
+// Single source of truth, shared with the database constraint check in the
+// end-to-end suite. See lib/reservationStatus.ts.
+const STATUS_OPTIONS = RESERVATION_STATUSES;
 const LOCATIONS = ["Airport", "Port (Zakynthos town)", "Our Office"];
 
 const EMPTY_FORM = {

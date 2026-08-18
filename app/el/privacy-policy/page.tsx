@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
-import Page_ from "../../privacy-policy/page";
+import PrivacyContent from "../../privacy-policy/PrivacyContent";
 
-// Chrome is Greek; the body copy is still English. Routed now so the Greek
-// navigation never dead-ends — a 404 mid-site reads as broken, untranslated
-// prose reads as unfinished, and the second is the honest state.
 export const metadata: Metadata = {
   title: "Πολιτική Απορρήτου | Anadyon Rentals",
-  alternates: {
-    canonical: "/el/privacy-policy",
-    languages: { en: "/privacy-policy", el: "/el/privacy-policy" },
-  },
+  description: "Πώς η Anadyon Rentals συλλέγει, χρησιμοποιεί και προστατεύει τα προσωπικά σας δεδομένα σύμφωνα με τον ΓΚΠΔ.",
+  alternates: { canonical: "/el/privacy-policy", languages: { en: "/privacy-policy", el: "/el/privacy-policy" } },
 };
 
 export default function Page() {
-  return <Page_ />;
+  return <PrivacyContent locale="el" />;
 }

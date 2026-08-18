@@ -71,10 +71,10 @@ export default function Home({ locale = "en" }: { locale?: Locale }) {
 
       {/* CTA Banner */}
       <div className="bg-orange-600 text-white py-14 px-4 text-center">
-        <h2 className="text-2xl md:text-3xl font-bold mb-3">Ready to explore Zakynthos?</h2>
-        <p className="text-orange-100 mb-8">Get a quote in minutes — no commitment required</p>
+        <h2 className="text-2xl md:text-3xl font-bold mb-3">{tr("cta.ready")}</h2>
+        <p className="text-orange-100 mb-8">{tr("cta.sub")}</p>
         <a href={href("/cars")} className="bg-white text-orange-600 font-semibold px-10 py-3 rounded-full hover:bg-orange-50 transition">
-          Get a Quote
+          {tr("cta.button")}
         </a>
       </div>
     </div>
