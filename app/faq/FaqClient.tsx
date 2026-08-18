@@ -55,11 +55,37 @@ const faqs = [
   },
 ];
 
+/**
+ * Structured data built from the same `faqs` array the page renders.
+ *
+ * Generated rather than hand-written: FAQ markup that describes answers the
+ * page does not actually display is a guidelines violation, and hand-maintained
+ * duplicates drift the first time an answer is edited.
+ */
+function FaqJsonLd() {
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map(f => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+    />
+  );
+}
+
 export default function FaqClient() {
   const [open, setOpen] = useState<number | null>(null);
 
   return (
     <ContentPage>
+      <FaqJsonLd />
         <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Frequently Asked Questions</h1>
         <p className="text-gray-500 dark:text-gray-400 mb-10">
           Everything you need to know about renting with Anadyon. Can&apos;t find the answer?{" "}
