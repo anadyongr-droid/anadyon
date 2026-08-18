@@ -1,8 +1,10 @@
 "use client";
+import { translator, localePath, type Locale } from "@/lib/i18n";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function QuoteLookupLanding() {
+export default function QuoteLookupLanding({ locale = "en" }: { locale?: Locale }) {
+  const tr = translator(locale);
   const router = useRouter();
   const [ref, setRef] = useState("");
   const [surname, setSurname] = useState("");
@@ -24,7 +26,9 @@ export default function QuoteLookupLanding() {
     setLoading(false);
 
     if (res.ok) {
-      router.push(`/quote/${cleanRef}?surname=${encodeURIComponent(cleanSurname)}`);
+      // localePath keeps a Greek reader on the Greek side; the bare path sent
+      // them to the English quote page mid-journey.
+      router.push(`${localePath(`/quote/${cleanRef}`, locale)}?surname=${encodeURIComponent(cleanSurname)}`);
     } else if (res.status === 410) {
       setError("This quote is no longer available online. Please contact us directly.");
     } else {
@@ -35,19 +39,19 @@ export default function QuoteLookupLanding() {
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
       <div className="max-w-md mx-auto px-4 py-20">
-        <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">My Rental</h1>
+        <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">{tr("quote.title")}</h1>
         <p className="text-gray-500 dark:text-gray-400 mb-8 text-sm">
-          Enter the reference number from your confirmation email and the last name you used when submitting the request.
+          {tr("quote.landingIntro")}
         </p>
 
         <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reference Number</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("quote.refNumber")}</label>
             <input
               type="text"
               value={ref}
               onChange={e => setRef(e.target.value)}
-              placeholder="e.g. AB3K7Z"
+              placeholder={tr("quote.refPlaceholder")}
               className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 font-mono tracking-wide"
               autoCapitalize="characters"
               autoCorrect="off"
@@ -55,12 +59,12 @@ export default function QuoteLookupLanding() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.lastName")}</label>
             <input
               type="text"
               value={surname}
               onChange={e => setSurname(e.target.value)}
-              placeholder="Your surname"
+              placeholder={tr("quote.surnamePlaceholder")}
               className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200"
             />
           </div>
@@ -74,13 +78,13 @@ export default function QuoteLookupLanding() {
             disabled={loading}
             className="w-full bg-orange-600 text-white font-semibold py-3 rounded-lg hover:bg-orange-700 transition disabled:opacity-50"
           >
-            {loading ? "Looking up…" : "View My Rental"}
+            {loading ? tr("quote.lookingUp") : tr("quote.viewMyRental")}
           </button>
         </form>
 
         <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">
-          Can&apos;t find your reference? Check your confirmation email from <span className="font-medium">customerservice@anadyon.gr</span> or{" "}
-          <a href="/contact" className="text-orange-600 dark:text-orange-400 underline">contact us</a>.
+          {tr("quote.cantFind")} <span className="font-medium">customerservice@anadyon.gr</span> {tr("quote.cantFindOr")}{" "}
+          <a href={localePath("/contact", locale)} className="text-orange-600 dark:text-orange-400 underline">{tr("nav.contact")}</a>.
         </p>
       </div>
     </div>

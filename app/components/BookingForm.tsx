@@ -342,6 +342,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         captchaToken,
+        locale,
         vehicleType,
         selectedModel,
         pricingGroup: pricingGroup ?? null,
@@ -424,15 +425,19 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         <h2 className="text-xl font-semibold text-green-600">{tr("form.requestSent")}</h2>
         {quoteRef && (
           <p className="text-gray-700 dark:text-gray-300">
-            Your reference number is{" "}
+            {tr("form.yourReferenceIs")}{" "}
             <span className="font-mono font-bold text-gray-900 dark:text-white">{quoteRef}</span>
           </p>
         )}
-        <p className="text-gray-600 dark:text-gray-400">We will contact you as soon as possible with availability and pricing. A confirmation has been sent to your email.</p>
+        <p className="text-gray-600 dark:text-gray-400">{tr("form.willContactYou")}</p>
         {quoteRef && (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            You can view your quote at any time at{" "}
-            <a href={`/quote/${quoteRef}`} className="text-blue-700 dark:text-blue-400 underline font-medium">/quote/{quoteRef}</a>
+            {tr("form.viewAnyTime")}{" "}
+            {/* localePath, so a Greek booking links to the Greek quote page
+                rather than dropping the reader into the English one. */}
+            <a href={localePath(`/quote/${quoteRef}`, locale)} className="text-blue-700 dark:text-blue-400 underline font-medium">
+              {localePath(`/quote/${quoteRef}`, locale)}
+            </a>
           </p>
         )}
       </div>

@@ -1,4 +1,5 @@
 "use client";
+import { translator, localePath, type Locale } from "@/lib/i18n";
 import { useState, useEffect } from "react";
 import { use } from "react";
 import { useSearchParams } from "next/navigation";
@@ -36,7 +37,8 @@ type Quote = {
   expires_at: string;
 };
 
-export default function QuoteLookupPage({ params }: { params: Promise<{ ref: string }> }) {
+export default function QuoteLookupPage({ params, locale = "en" }: { params: Promise<{ ref: string }>; locale?: Locale }) {
+  const tr = translator(locale);
   const { ref } = use(params);
   const searchParams = useSearchParams();
   const [surname, setSurname] = useState("");
@@ -78,22 +80,22 @@ export default function QuoteLookupPage({ params }: { params: Promise<{ ref: str
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
       <div className="max-w-2xl mx-auto px-4 py-16">
-        <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">View Your Quote</h1>
+        <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">{tr("quote.viewYourQuote")}</h1>
         <p className="text-gray-500 dark:text-gray-400 mb-8 text-sm">
           Reference: <span className="font-mono font-semibold text-gray-800 dark:text-gray-200">{ref.toUpperCase()}</span>
         </p>
 
         {!quote && (
           <form onSubmit={handleLookup} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm space-y-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Enter the surname you used when submitting the quote request.</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">{tr("quote.surnamePrompt")}</p>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.lastName")}</label>
               <input
                 type="text"
                 required
                 value={surname}
                 onChange={e => setSurname(e.target.value)}
-                placeholder="Your surname"
+                placeholder={tr("quote.surnamePlaceholder")}
                 className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200"
               />
             </div>
@@ -122,37 +124,37 @@ export default function QuoteLookupPage({ params }: { params: Promise<{ ref: str
                   <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{quote.ref}</p>
                 </div>
                 <span className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 text-xs font-semibold px-3 py-1 rounded-full">
-                  Quote — not confirmed
+                  {tr("quote.notConfirmed")}
                 </span>
               </div>
               <p className="text-xs text-gray-400 dark:text-gray-500">
-                Submitted {new Date(quote.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
-                {" · "}Online view available until {new Date(quote.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+                {tr("quote.submitted")} {new Date(quote.created_at).toLocaleDateString(locale === "el" ? "el-GR" : "en-GB", { day: "numeric", month: "long", year: "numeric" })}
+                {" · "}{tr("quote.viewableUntil")}{" "} {new Date(quote.expires_at).toLocaleDateString(locale === "el" ? "el-GR" : "en-GB", { day: "numeric", month: "long", year: "numeric" })}
               </p>
             </div>
 
             {/* Rental details */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Rental Details</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-4">{tr("form.stepRental")}</h3>
               <dl className="space-y-2 text-sm">
-                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">Vehicle</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.selected_model}</dd></div>
-                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">Pick-up</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.pickup_location} — {quote.pickup_date} at {quote.pickup_time}</dd></div>
-                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">Drop-off</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.dropoff_location} — {quote.dropoff_date} at {quote.dropoff_time}</dd></div>
-                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">Duration</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.rental_days} day{quote.rental_days > 1 ? "s" : ""}</dd></div>
-                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">Driver age</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.driver_age}</dd></div>
-                {quote.transmission && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">Transmission</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.transmission}</dd></div>}
+                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("form.vehicle")}</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.selected_model}</dd></div>
+                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("form.pickup")}</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.pickup_location} — {quote.pickup_date} at {quote.pickup_time}</dd></div>
+                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("quote.dropoff")}</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.dropoff_location} — {quote.dropoff_date} at {quote.dropoff_time}</dd></div>
+                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("quote.duration")}</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.rental_days} day{quote.rental_days > 1 ? "s" : ""}</dd></div>
+                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("quote.driverAge")}</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.driver_age}</dd></div>
+                {quote.transmission && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("form.transmission")}</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.transmission}</dd></div>}
               </dl>
             </div>
 
             {/* Extras */}
             {(quote.baby_seat > 0 || quote.child_seat > 0 || quote.fdw || quote.additional_drivers > 0) && (
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Extras</h3>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-4">{tr("form.extras")}</h3>
                 <dl className="space-y-2 text-sm">
-                  {quote.baby_seat > 0 && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">Baby Seat (0–9 months)</dt><dd className="font-medium text-gray-900 dark:text-white">×{quote.baby_seat}</dd></div>}
-                  {quote.child_seat > 0 && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">Child Seat (9+ months)</dt><dd className="font-medium text-gray-900 dark:text-white">×{quote.child_seat}</dd></div>}
-                  {quote.fdw && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">Full Damage Waiver (FDW)</dt><dd className="font-medium text-gray-900 dark:text-white">Yes</dd></div>}
-                  {quote.additional_drivers > 0 && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">Additional Drivers</dt><dd className="font-medium text-gray-900 dark:text-white">×{quote.additional_drivers}</dd></div>}
+                  {quote.baby_seat > 0 && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("extra.babySeat")}</dt><dd className="font-medium text-gray-900 dark:text-white">×{quote.baby_seat}</dd></div>}
+                  {quote.child_seat > 0 && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("extra.childSeat")}</dt><dd className="font-medium text-gray-900 dark:text-white">×{quote.child_seat}</dd></div>}
+                  {quote.fdw && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("extra.fdw")}</dt><dd className="font-medium text-gray-900 dark:text-white">Yes</dd></div>}
+                  {quote.additional_drivers > 0 && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("extra.additionalDrivers")}</dt><dd className="font-medium text-gray-900 dark:text-white">×{quote.additional_drivers}</dd></div>}
                 </dl>
               </div>
             )}
@@ -160,7 +162,7 @@ export default function QuoteLookupPage({ params }: { params: Promise<{ ref: str
             {/* Price */}
             {showPrice && (
               <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
-                <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-4">Price Estimate</h3>
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-4">{tr("form.priceEstimate")}</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between text-gray-700 dark:text-gray-300">
                     <span>{quote.selected_model} — {quote.rental_days} day{quote.rental_days > 1 ? "s" : ""} × €{quote.rental_days > 0 ? (Number(quote.vehicle_subtotal) / quote.rental_days).toFixed(2) : "0.00"}/day</span>
@@ -191,33 +193,33 @@ export default function QuoteLookupPage({ params }: { params: Promise<{ ref: str
                     </div>
                   )}
                   <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between font-bold text-gray-900 dark:text-white">
-                    <span>Total (incl. VAT)</span>
+                    <span>{tr("quote.totalInclVat")}</span>
                     <span>€{Number(quote.total).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-gray-500 dark:text-gray-400 text-xs">
-                    <span>Deposit (30%) due on confirmation</span>
+                    <span>{tr("form.depositDue")}</span>
                     <span>€{Number(quote.deposit).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-gray-500 dark:text-gray-400 text-xs">
-                    <span>Balance due at pick-up</span>
+                    <span>{tr("form.balanceDue")}</span>
                     <span>€{Number(quote.balance_due).toFixed(2)}</span>
                   </div>
                 </div>
-                <p className="text-xs text-blue-700 dark:text-blue-300 mt-3">This is an estimate only. Final price confirmed upon booking.</p>
+                <p className="text-xs text-blue-700 dark:text-blue-300 mt-3">{tr("quote.estimateOnly")}</p>
               </div>
             )}
 
             {/* Comments */}
             {quote.comments && (
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Your Comments</h3>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">{tr("quote.yourComments")}</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">{quote.comments}</p>
               </div>
             )}
 
             {/* Footer note */}
             <div className="text-center text-sm text-gray-500 dark:text-gray-400 space-y-1">
-              <p>Questions? Contact us at <a href="mailto:customerservice@anadyon.gr" className="text-blue-700 dark:text-blue-400 underline">customerservice@anadyon.gr</a> or call <a href="tel:+306988010188" className="text-blue-700 dark:text-blue-400 underline">+30 6988 010188</a>.</p>
+              <p>{tr("quote.questionsContact")} <a href="mailto:customerservice@anadyon.gr" className="text-blue-700 dark:text-blue-400 underline">customerservice@anadyon.gr</a> {tr("quote.orCall")} <a href="tel:+306988010188" className="text-blue-700 dark:text-blue-400 underline">+30 6988 010188</a>.</p>
               <p>Always quote your reference: <span className="font-mono font-semibold">{quote.ref}</span></p>
             </div>
           </div>

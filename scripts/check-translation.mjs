@@ -28,6 +28,7 @@ const PAGES = [
   ["/el/terms",          "el/terms.html"],
   ["/el/terms-of-use",   "el/terms-of-use.html"],
   ["/el/privacy-policy", "el/privacy-policy.html"],
+  ["/el/quote",          "el/quote.html"],
 ];
 
 /**
@@ -133,7 +134,14 @@ console.log(`  ${checked}/${PAGES.length} pages checked, ${failures} with proble
 // So the components are also checked directly for English UI text that never
 // passes through the dictionary.
 
-const COMPONENT_ROOTS = ["app/components", "app/contact", "app/faq", "app/cars", "app/bikes", "app/motorbikes"];
+const COMPONENT_ROOTS = [
+  "app/components", "app/contact", "app/faq",
+  "app/cars", "app/bikes", "app/motorbikes",
+  // The quote lookup is reached from the main navigation and from the link in
+  // every confirmation email, and it was entirely English while /el/quote did
+  // not exist at all — a 404 from the Greek nav.
+  "app/quote",
+];
 
 function walk(dir) {
   const out = [];
@@ -158,7 +166,9 @@ for (const root of COMPONENT_ROOTS) {
     const hits = new Set();
 
     // JSX text nodes: >Some English Text<
-    for (const m of src.matchAll(/>\s*([A-Z][A-Za-z][A-Za-z ,.'’!?()&-]{3,60})\s*</g)) {
+    // Entities are part of the text: "Can&apos;t find your reference?" failed to
+    // match because ';' was missing from the class, and the string shipped.
+    for (const m of src.matchAll(/>\s*([A-Z][A-Za-z][A-Za-z0-9 ,.'’!?()&;#-]{3,80})\s*</g)) {
       const text = m[1].trim();
       if (!IGNORE.test(text) && /[a-z]{3}/.test(text)) hits.add(text);
     }

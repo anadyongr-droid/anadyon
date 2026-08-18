@@ -88,6 +88,9 @@ const QuoteSchema = z.object({
   landlineTel: z.string().max(40).optional(),
   comments: z.string().max(2000).optional(),
   captchaToken: z.string().optional(),
+  // Which language the booking was made in, so the link in the confirmation
+  // email lands the customer back where they were rather than in English.
+  locale: z.enum(["en", "el"]).optional(),
 }).passthrough();
 
 export async function POST(req: NextRequest) {
@@ -156,6 +159,7 @@ export async function POST(req: NextRequest) {
     deposit: clientDeposit,
     balanceDue: clientBalanceDue,
     extrasLines,
+    locale,
   } = body;
 
   // DNR check — block if customer's email is flagged; also touch last_interaction_at
@@ -257,6 +261,8 @@ export async function POST(req: NextRequest) {
   ].filter(Boolean).join("\n        ");
 
   const ref = generateRef();
+  // A Greek customer gets the Greek page; anyone else the English one.
+  const quoteUrl = `https://anadyon.gr${locale === "el" ? "/el" : ""}/quote/${ref}`;
 
   // Persist with server-calculated values
   const expiresAt = new Date();
@@ -439,7 +445,7 @@ export async function POST(req: NextRequest) {
       ` : ""}
 
       <p>You can view your quote online at any time within one year using your reference number and surname:<br/>
-      <a href="https://anadyon.gr/quote/${ref}">https://anadyon.gr/quote/${ref}</a></p>
+      <a href="${quoteUrl}">${quoteUrl}</a></p>
 
       <p>Please add <strong>customerservice@anadyon.gr</strong> to your safe senders list to avoid our reply going to spam.</p>
       <p>Thank you,<br/>Anadyon Rentals<br/>Tel: +30 6988 010188</p>
