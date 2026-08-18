@@ -131,6 +131,8 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [step, setStep] = useState<1 | 2>(1);
   // What the server actually said, so the customer is told the real reason.
   const [submitError, setSubmitError] = useState<string>("");
+  // Guards against a double-click creating two quotes; see handleSubmit.
+  const submittingRef = useRef(false);
 
   const [selectedModel, setSelectedModel] = useState(initialModel ?? models[0]);
   const [rates, setRates] = useState<Rate[]>([]);
@@ -328,6 +330,12 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
       return;
     }
 
+    // The button is disabled while sending, but that is React state and does
+    // not take effect until the next render — two clicks inside the same frame
+    // both get through and create two quotes. A ref changes synchronously.
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     setStatus("sending");
     const res = await fetch("/api/quote", {
       method: "POST",
@@ -383,6 +391,8 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
       const data = await res.json();
       setQuoteRef(data.ref ?? null);
       setStatus("sent");
+      // Deliberately not released: the form is replaced by the confirmation, and
+      // a resubmission after success would be a second quote for one enquiry.
     } else {
       // The route already answers with something specific and usable — the
       // captcha was rejected, the email is malformed, the rate card could not be
@@ -396,6 +406,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
           : ((detail?.error as string | undefined) ?? tr("form.submitError"))
       );
       setStatus("error");
+      submittingRef.current = false;
 
       // A reCAPTCHA token is single-use and has now been spent, whether the
       // server accepted it or not. Without this reset the second attempt sends

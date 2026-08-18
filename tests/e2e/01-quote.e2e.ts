@@ -130,6 +130,46 @@ describe("phase 1 — public quote funnel", () => {
     expect(row!.deposit).toBeCloseTo(serverTotal * 0.3, 1);
   });
 
+  it("accepts a quote with no age given at all", async () => {
+    // The field is optional; omitting it must not be treated as a malformed one.
+    const { driverAge: _omitted, ...withoutAge } = base;
+    const res = await POST(req("/api/quote", "POST", withoutAge, nextIp()));
+    expect(res.status).toBeLessThan(400);
+  });
+
+  it("takes a complete Greek-side quote", async () => {
+    // The Greek pages post to this same endpoint. Nothing about the payload
+    // differs, which is the point worth pinning: one funnel, two languages.
+    const res = await POST(req("/api/quote", "POST", {
+      ...base,
+      firstName: "Γιώργος",
+      lastName: `Παπαδόπουλος ${MARK}`,
+      city: "Ζάκυνθος",
+      country: "Greece",
+      comments: "Θα φτάσουμε το απόγευμα.",
+    }, nextIp()));
+    expect(res.status).toBeLessThan(400);
+    const { ref } = await res.json();
+    const { data } = await db.from("quotes").select("first_name, comments, total").eq("ref", ref).single();
+    // Greek must survive the round trip intact — not mangled, not stripped.
+    expect(data!.first_name).toBe("Γιώργος");
+    expect(data!.comments).toContain("απόγευμα");
+    expect(Number(data!.total)).toBeGreaterThan(0);
+  });
+
+  it("creates two separate records for two submissions, so the UI must not send twice", async () => {
+    // There is no server-side deduplication, and there should not be: a customer
+    // may legitimately ask for two quotes. Which is exactly why the form guards
+    // the double-click itself — this test pins the server behaviour that makes
+    // that guard necessary.
+    const ip = nextIp();
+    const a = await POST(req("/api/quote", "POST", { ...base, lastName: `Twice ${MARK}` }, ip));
+    const b = await POST(req("/api/quote", "POST", { ...base, lastName: `Twice ${MARK}` }, ip));
+    const refA = (await a.json()).ref;
+    const refB = (await b.json()).ref;
+    expect(refA).not.toBe(refB);
+  });
+
   it("blocks a customer flagged do-not-rent", async () => {
     const dnrEmail = `dnr.${MARK.toLowerCase()}@example.invalid`;
     // customers.email is uniquely indexed and this phase leaves its rows behind,
