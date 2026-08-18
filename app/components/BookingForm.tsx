@@ -171,7 +171,18 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [dropoffLocation, setDropoffLocation] = useState(locations[0].value);
   const [pickupTime, setPickupTime] = useState("09:00");
   const [dropoffTime, setDropoffTime] = useState("09:00");
-  const transmission = modelTransmissions?.[selectedModel] ?? null;
+  // The vehicle pages hand this over as a dictionary key so the label can be
+  // translated. What gets STORED has to be the canonical English word, because
+  // that is what vehicles.transmission holds and what checkSubstitution
+  // compares against — a quote saying "spec.manual" never matches a car saying
+  // "Manual", so the guard that stops a manual customer being given an
+  // automatic would refuse every assignment instead.
+  const transmissionKey = modelTransmissions?.[selectedModel] ?? null;
+  const transmission = transmissionKey
+    ? (transmissionKey === "spec.automatic" ? "Automatic"
+       : transmissionKey === "spec.manual" ? "Manual"
+       : transmissionKey)
+    : null;
   const [driverAge, setDriverAge] = useState<string>(DRIVER_AGE_BANDS[1]);
   const [babySeat, setBabySeat] = useState("0");
   const [childSeat, setChildSeat] = useState("0");
@@ -720,8 +731,8 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                     </p>
                   </div>
                 </div>
-                {transmission && (
-                  <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">{tr("form.transmission")}: <span className="font-semibold text-blue-700 dark:text-blue-300">{tr(transmission)}</span></p>
+                {transmissionKey && (
+                  <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">{tr("form.transmission")}: <span className="font-semibold text-blue-700 dark:text-blue-300">{transmissionKey ? tr(transmissionKey) : ""}</span></p>
                 )}
                 <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">{tr("form.depositLine").replace("{amount}", deposit.toFixed(2))}</p>
               </div>

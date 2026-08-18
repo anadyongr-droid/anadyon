@@ -82,6 +82,20 @@ describe("phase 1 — public quote funnel", () => {
     expect(res.status).toBe(400);
   });
 
+  it("stores the transmission in the same vocabulary the fleet uses", async () => {
+    // vehicles.transmission holds "Manual" / "Automatic", and checkSubstitution
+    // compares the quote against it directly. A quote storing the dictionary
+    // key "spec.manual" never matches a car saying "Manual", so the guard that
+    // stops a manual customer being handed an automatic would refuse every
+    // assignment instead of the wrong ones.
+    const res = await POST(req("/api/quote", "POST", { ...base, transmission: "Manual" }, nextIp()));
+    expect(res.status).toBeLessThan(400);
+    const { ref } = await res.json();
+    const { data } = await db.from("quotes").select("transmission").eq("ref", ref).single();
+    expect(data!.transmission).toBe("Manual");
+    expect(data!.transmission).not.toMatch(/^spec\./);
+  });
+
   it("accepts every band the booking form offers", async () => {
     // Driven from the shared list, so the form and the schema cannot drift
     // apart again. Note the en dash — these must match byte for byte.
