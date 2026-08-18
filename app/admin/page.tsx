@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CalendarDays, Clock, AlertTriangle, CheckCircle2, TrendingUp, Car } from "lucide-react";
 import { STATUS_COLORS } from "./lib/statusColors";
+import { vehicleLabel } from "@/lib/vehicleLabel";
 
 interface Reservation {
   id: string;
@@ -185,7 +186,7 @@ export default function AdminDashboard() {
                     className="flex items-center justify-between p-3 rounded-lg bg-blue-50 hover:bg-blue-100 transition text-sm">
                     <div>
                       <div className="font-medium text-gray-900">{r.customer_name}</div>
-                      <div className="text-xs text-blue-600">↑ Pick-up {r.pickup_time} — {r.vehicles?.name}</div>
+                      <div className="text-xs text-blue-600">↑ Pick-up {r.pickup_time} — {vehicleLabel(r.vehicles)}</div>
                     </div>
                     <span className="text-xs font-semibold text-blue-700">€{r.total}</span>
                   </Link>
@@ -195,7 +196,7 @@ export default function AdminDashboard() {
                     className="flex items-center justify-between p-3 rounded-lg bg-green-50 hover:bg-green-100 transition text-sm">
                     <div>
                       <div className="font-medium text-gray-900">{r.customer_name}</div>
-                      <div className="text-xs text-green-600">↓ Return {r.return_time} — {r.vehicles?.name}</div>
+                      <div className="text-xs text-green-600">↓ Return {r.return_time} — {vehicleLabel(r.vehicles)}</div>
                     </div>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[r.status]}`}>{r.status}</span>
                   </Link>
@@ -219,7 +220,7 @@ export default function AdminDashboard() {
                     className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition text-sm border border-gray-100">
                     <div>
                       <div className="font-medium text-gray-900">{r.customer_name}</div>
-                      <div className="text-xs text-gray-400">{r.pickup_date} → {r.return_date} · {r.vehicles?.name}</div>
+                      <div className="text-xs text-gray-400">{r.pickup_date} → {r.return_date} · {vehicleLabel(r.vehicles)}</div>
                     </div>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[r.status]}`}>{r.status}</span>
                   </Link>

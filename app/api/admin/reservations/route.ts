@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { vehicleLabel } from "@/lib/vehicleLabel";
 import { sendMail } from "@/lib/mailer";
 
 /**
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabaseAdmin
     .from("reservations")
-    .select("*, vehicles(name, category)")
+    .select("*, vehicles(name, plate, category)")
     .order("pickup_date");
 
   if (from) query = query.gte("pickup_date", from);
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabaseAdmin
     .from("reservations")
     .insert({ ...body, deposit, balance_due })
-    .select("*, vehicles(name, category)")
+    .select("*, vehicles(name, plate, category)")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: statusForPgError(error.code) });
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
       // itself, which is what a from/to on the same box would do.
       from: "Anadyon Alerts <no-reply@anadyon.gr>",
       to: ["customerservice@anadyon.gr", "anadyon.gr@gmail.com"],
-      subject: `New Reservation — ${data.vehicles?.name} — ${data.customer_name}`,
+      subject: `New Reservation — ${vehicleLabel(data.vehicles)} — ${data.customer_name}`,
       html: buildEmailHtml(data),
     });
   } catch (err) {
@@ -122,7 +123,7 @@ function buildEmailHtml(r: Record<string, unknown> & { vehicles?: { name: string
   return `
     <h2>New Reservation</h2>
     <table cellpadding="6" style="border-collapse:collapse;">
-      <tr><td><strong>Vehicle:</strong></td><td>${esc((r.vehicles as { name: string } | undefined)?.name)}</td></tr>
+      <tr><td><strong>Vehicle:</strong></td><td>${esc(vehicleLabel(r.vehicles as { name: string; plate?: string | null } | undefined))}</td></tr>
       <tr><td><strong>Customer:</strong></td><td>${esc(r.customer_name)}</td></tr>
       <tr><td><strong>Email:</strong></td><td>${esc(r.customer_email ?? "—")}</td></tr>
       <tr><td><strong>Phone:</strong></td><td>${esc(r.customer_phone ?? "—")}</td></tr>

@@ -27,7 +27,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
   const { id } = await params;
   const { data, error } = await supabaseAdmin
     .from("reservations")
-    .select("*, vehicles(name, category)")
+    .select("*, vehicles(name, plate, category)")
     .eq("id", id)
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 404 });
@@ -79,7 +79,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .from("reservations")
     .update(update)
     .eq("id", id)
-    .select("*, vehicles(name, category)")
+    .select("*, vehicles(name, plate, category)")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: statusForPgError(error.code) });
 

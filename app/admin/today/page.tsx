@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Clock, ArrowDownLeft, ArrowUpRight, Wrench, Phone, Plane } from "lucide-react";
+import { vehicleLabel } from "@/lib/vehicleLabel";
 
 interface Ev {
   kind: "pickup" | "return";
@@ -157,7 +158,7 @@ export default function TodayPage() {
               <div key={v.id} className="px-5 py-2.5 flex items-start justify-between gap-4">
                 <div>
                   <div className="text-sm text-gray-900">
-                    {v.name}
+                    {vehicleLabel(v)}
                     {v.plate && <span className="text-gray-400 font-mono text-xs ml-2">{v.plate}</span>}
                   </div>
                   <div className="text-xs mt-0.5 space-y-0.5">

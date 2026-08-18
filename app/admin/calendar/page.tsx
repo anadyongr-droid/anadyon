@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import ReservationModal from "../components/ReservationModal";
+import { vehicleLabel } from "@/lib/vehicleLabel";
 
 interface Vehicle {
   id: string;
@@ -220,7 +221,7 @@ export default function CalendarPage() {
                           {vehicle.status === "maintenance" && (
                             <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
                           )}
-                          {vehicle.name}
+                          {vehicleLabel(vehicle)}
                         </div>
                       </td>
                       {/* Day cells */}

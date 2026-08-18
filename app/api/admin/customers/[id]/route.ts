@@ -5,7 +5,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
   const { id } = await params;
   const { data, error } = await supabaseAdmin
     .from("customers")
-    .select("*, reservations(id, pickup_date, return_date, status, total, vehicles(name))")
+    .select("*, reservations(id, pickup_date, return_date, status, total, vehicles(name, plate))")
     .eq("id", id)
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 404 });

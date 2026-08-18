@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { X, Trash2, Upload, FileText, Send, Search, Link, MessageSquare } from "lucide-react";
 import { useScrollLock } from "./useScrollLock";
 import { RESERVATION_STATUSES } from "@/lib/reservationStatus";
+import { vehicleLabel } from "@/lib/vehicleLabel";
 import Select from "./Select";
 import { calcRentalDays, getDailyRate, calcExtrasTotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
@@ -14,6 +15,7 @@ import { licenceStatus, instant } from "@/lib/operations";
 interface Vehicle {
   id: string;
   name: string;
+  plate?: string | null;
   category: string;
   pricing_group: string;
   status?: string;
@@ -460,7 +462,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
                 return (
                   <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1) + "s"}>
                     {vs.map((v) => (
-                      <option key={v.id} value={v.id}>{v.name}</option>
+                      <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>
                     ))}
                   </optgroup>
                 );
