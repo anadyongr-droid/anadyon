@@ -45,7 +45,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  const raw = await req.json();
+  // Same rule as the PATCH route: underscore-prefixed keys are the form's own
+  // state and are not columns.
+  const body = Object.fromEntries(
+    Object.entries(raw).filter(([k]) => !k.startsWith("_") && k !== "id" && k !== "created_at")
+  ) as Record<string, unknown> & { total: number; vehicle_id?: string; pickup_date?: string; return_date?: string; customer_id?: string; status?: string };
 
   // Overlap check
   if (body.vehicle_id && body.pickup_date && body.return_date) {

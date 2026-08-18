@@ -131,3 +131,41 @@ export function calcRentalDays(
   // Any portion of a 24-hour period counts as a full day
   return Math.max(1, Math.ceil(diffMs / 86400000));
 }
+
+/**
+ * Settles the daily rate for a reservation: what the card says, against what
+ * was agreed at the counter.
+ *
+ * Staff negotiate in euros per day, so that is what they type. Expressing the
+ * same deal as a discount total means doing arithmetic in your head while a
+ * customer waits, and getting it wrong costs real money in both directions.
+ *
+ * An empty override means the card rate stands. An override equal to the card
+ * rate is not an override — it should not light up the UI as a negotiated price
+ * when nothing was negotiated.
+ */
+export interface RateDecision {
+  /** The rate to charge. */
+  rate: number;
+  /** True only when a different rate was deliberately entered. */
+  overridden: boolean;
+  /** Total difference across the rental; negative when discounted. */
+  difference: number;
+}
+
+export function resolveDailyRate(
+  cardRate: number,
+  override: string | number | null | undefined,
+  rentalDays: number
+): RateDecision {
+  const raw = String(override ?? "").trim();
+  const parsed = raw === "" ? null : Number(raw);
+  const usable = parsed !== null && Number.isFinite(parsed) && parsed >= 0;
+  const overridden = usable && parsed !== cardRate;
+  const rate = overridden ? (parsed as number) : cardRate;
+  return {
+    rate,
+    overridden,
+    difference: parseFloat(((rate - cardRate) * rentalDays).toFixed(2)),
+  };
+}

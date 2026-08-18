@@ -49,7 +49,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // Anything the client should not write is stripped here rather than passed
   // through, which is the same blind-spread fault that has now bitten three
   // different routes.
-  const { _prev_status: prevStatusFromClient, id: _ignoredId, created_at: _ignoredCreated, ...body } = raw;
+  // Anything the form prefixes with an underscore is its own state, not a
+  // column: `_prev_status` tells this route what changed, `_daily_rate_override`
+  // holds a rate the operator typed. Naming them one by one meant the next one
+  // added broke every save with a 400 until someone noticed — a rule does not
+  // need updating.
+  const prevStatusFromClient = raw._prev_status as string | undefined;
+  const body = Object.fromEntries(
+    Object.entries(raw).filter(([k]) => !k.startsWith("_") && k !== "id" && k !== "created_at")
+  );
 
   // Overlap check when a vehicle is assigned
   if (body.vehicle_id && body.pickup_date && body.return_date) {

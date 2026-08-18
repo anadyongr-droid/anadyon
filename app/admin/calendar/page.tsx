@@ -7,9 +7,12 @@ import { vehicleLabel } from "@/lib/vehicleLabel";
 interface Vehicle {
   id: string;
   name: string;
+  /** Shown beside the name so identical models are distinguishable at a glance. */
+  plate?: string | null;
   category: string;
   pricing_group: string;
   status: string;
+  transmission?: string | null;
 }
 
 interface Reservation {
@@ -222,6 +225,23 @@ export default function CalendarPage() {
                             <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
                           )}
                           {vehicleLabel(vehicle)}
+                          {/*
+                            Cars only. Every scooter in the fleet is automatic,
+                            so marking those would put a badge on two thirds of
+                            the rows and tell nobody anything. Among cars it is
+                            the one distinction a customer actually asks for,
+                            and the one the substitution guard refuses to get
+                            wrong — so it earns the space here.
+                          */}
+                          {vehicle.category === "car" &&
+                            vehicle.transmission?.toLowerCase().startsWith("auto") && (
+                              <span
+                                title="Automatic gearbox"
+                                className="shrink-0 rounded bg-blue-100 px-1 py-0.5 text-[10px] font-semibold leading-none text-blue-700"
+                              >
+                                AUT
+                              </span>
+                            )}
                         </div>
                       </td>
                       {/* Day cells */}

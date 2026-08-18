@@ -78,7 +78,7 @@ export default function Header({ locale = "en" }: { locale?: Locale }) {
       </div>
 
       {/* Desktop nav — aligned to the same content column as the logo */}
-      <nav className="hidden md:block bg-orange-600 dark:bg-orange-700 w-full">
+      <nav aria-label="Main" className="hidden md:block bg-orange-600 dark:bg-orange-700 w-full">
         <div className="max-w-6xl mx-auto px-4 flex">
           {routes.map(r => (
             <a

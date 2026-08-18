@@ -30,6 +30,16 @@ export function Benefits({ locale = "en" }: { locale?: Locale }) {
   const tr = translator(locale);
   return (
     <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
+      {/*
+        The four cards below are h3s, and this block sits directly under the
+        page h1 with nothing between — so someone navigating by heading hears a
+        level skipped, and has no idea what the four cards belong to.
+
+        Hidden visually rather than shown: the section reads perfectly well
+        sighted without a title, and adding a visible one would change the
+        design. A screen reader now announces the group before its contents.
+      */}
+      <h2 className="sr-only">{tr("benefit.sectionTitle")}</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
         {benefits.map((b, i) => (
           <motion.div

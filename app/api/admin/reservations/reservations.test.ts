@@ -95,6 +95,23 @@ describe("PATCH /api/admin/reservations/[id]", () => {
     expect(updatePayload!.customer_dob).toBeNull();
   });
 
+  it("strips every underscore-prefixed field, not just the ones we thought of", async () => {
+    // The rule, rather than a list. `_prev_status` broke every reservation edit
+    // for weeks; `_daily_rate_override` would have done exactly the same the day
+    // the counter-price feature shipped. Anything the form prefixes with an
+    // underscore is its own state and is not a column.
+    await PATCH(req({
+      status: "confirmed",
+      _prev_status: "pending",
+      _daily_rate_override: "50",
+      _some_future_ui_field: "whatever",
+    }), params);
+    for (const key of Object.keys(updatePayload!)) {
+      expect(key.startsWith("_"), `"${key}" reached the database`).toBe(false);
+    }
+    expect(updatePayload).toMatchObject({ status: "confirmed" });
+  });
+
   it("never lets the client overwrite id or created_at", async () => {
     await PATCH(req({ id: "someone-elses-id", created_at: "1999-01-01", status: "confirmed" }), params);
     expect(updatePayload).not.toHaveProperty("id");

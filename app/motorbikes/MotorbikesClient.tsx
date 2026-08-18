@@ -60,7 +60,9 @@ export default function MotorbikesClient({ locale = "en" }: { locale?: Locale })
 
               <div className="flex flex-col md:flex-row flex-1 p-6 gap-6">
                 <div className="flex-1">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">{bike.name}</h3>
+                  {/* h2, not h3: these sit directly under the page h1, and a screen
+                      reader navigating by heading hears a level skipped otherwise. */}
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">{bike.name}</h2>
                   <Badge variant="secondary" className="mt-1 mb-4">{tr(bike.categoryKey)}</Badge>
 
                   <div className="flex flex-wrap gap-5 text-sm text-gray-600 dark:text-gray-200 mb-5">

@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:mail": "CONFIRM_LIVE_MAIL=yes node tests/e2e/mail-live.mjs",
-    "check:translation": "node scripts/check-translation.mjs"
+    "check:translation": "node scripts/check-translation.mjs",
+    "check:a11y": "node scripts/check-a11y.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

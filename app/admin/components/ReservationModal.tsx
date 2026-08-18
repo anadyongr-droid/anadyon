@@ -1,11 +1,11 @@
 "use client";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, Fragment } from "react";
 import { X, Trash2, Upload, FileText, Send, Search, Link, MessageSquare } from "lucide-react";
 import { useScrollLock } from "./useScrollLock";
 import { RESERVATION_STATUSES } from "@/lib/reservationStatus";
 import { vehicleLabel } from "@/lib/vehicleLabel";
 import Select from "./Select";
-import { calcRentalDays, getDailyRate, calcExtrasTotal, DEPOSIT_RATE } from "@/lib/pricing";
+import { calcRentalDays, getDailyRate, calcExtrasTotal, resolveDailyRate, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "@/app/components/DateRangePicker";
 import { TIME_OPTIONS, validateReservation, missingDeferrable, normaliseForStorage } from "@/lib/bookingFields";
@@ -66,6 +66,10 @@ const EMPTY_FORM = {
   additional_drivers: 0,
   status: "confirmed",
   notes: "",
+  // Leading underscore: UI-only, stripped before the payload reaches the API.
+  // Empty means "use the seasonal card rate"; set, it is the rate agreed at the
+  // counter. Staff haggle in euros per day, not in discount totals.
+  _daily_rate_override: "" as string | number,
   discount_amount: 0,
   discount_reason: "",
   dcl_status: "not_submitted",
@@ -145,6 +149,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             additional_drivers: data.additional_drivers,
             status: data.status,
             notes: data.notes ?? "",
+            _daily_rate_override: data.daily_rate ?? "",
             discount_amount: data.discount_amount ?? 0,
             discount_reason: data.discount_reason ?? "",
             dcl_status: data.dcl_status ?? "not_submitted",
@@ -316,9 +321,17 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
     ? calcRentalDays(form.pickup_date, form.return_date, form.pickup_time, form.return_time)
     : 0;
   const pickupMonth = form.pickup_date ? new Date(form.pickup_date).getMonth() + 1 : 0;
-  const dailyRate = vehicle && pickupMonth && rentalDays
+  // What the rate card says for this vehicle, these dates and this duration.
+  const cardRate = vehicle && pickupMonth && rentalDays
     ? getDailyRate(rates, vehicle.pricing_group as PricingGroup, pickupMonth, rentalDays)
     : 0;
+
+  // What was actually agreed. Resolved by resolveDailyRate so the rules — an
+  // empty box means the card rate, nonsense never becomes NaN, zero is a real
+  // decision — live in one tested place rather than inline in the markup.
+  const { rate: dailyRate, overridden: rateOverridden, difference: rateDifference } =
+    resolveDailyRate(cardRate, form._daily_rate_override, rentalDays);
+
   const vehicleSubtotal = parseFloat((dailyRate * rentalDays).toFixed(2));
   const extrasSubtotal = rentalDays
     ? calcExtrasTotal(extras, {
@@ -456,15 +469,49 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
             >
               <option value="">— Select vehicle —</option>
+              {/*
+                Grouped by model rather than by category.
+
+                Every browser renders an <optgroup> label in bold and set apart
+                from its options — that is the separation a native <select> can
+                actually give. CSS on an <option> is ignored outright on some
+                platforms and honoured differently on others, so a rule or a
+                bold row would look right on one machine and wrong on the next.
+
+                A model with several vehicles becomes its own heading listing
+                only plates, so choosing between four Kymco 125ccs means reading
+                four plates rather than four repetitions of the same model name.
+                A model with one vehicle would make a heading of one, so those
+                stay together under their category.
+              */}
               {["car", "motorbike", "bike"].map((cat) => {
                 const vs = vehicles.filter((v) => v.category === cat && v.status !== "retired");
                 if (!vs.length) return null;
+
+                const byModel = new Map<string, Vehicle[]>();
+                for (const v of vs) byModel.set(v.name, [...(byModel.get(v.name) ?? []), v]);
+
+                const multi = [...byModel.entries()].filter(([, list]) => list.length > 1);
+                const singles = [...byModel.values()].filter((list) => list.length === 1).flat();
+                const catLabel = cat.charAt(0).toUpperCase() + cat.slice(1) + "s";
+
                 return (
-                  <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1) + "s"}>
-                    {vs.map((v) => (
-                      <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>
+                  <Fragment key={cat}>
+                    {multi.map(([model, list]) => (
+                      <optgroup key={`${cat}-${model}`} label={`${catLabel} · ${model}`}>
+                        {list.map((v) => (
+                          <option key={v.id} value={v.id}>{v.plate ?? vehicleLabel(v)}</option>
+                        ))}
+                      </optgroup>
                     ))}
-                  </optgroup>
+                    {singles.length > 0 && (
+                      <optgroup label={multi.length ? `${catLabel} · other` : catLabel}>
+                        {singles.map((v) => (
+                          <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </Fragment>
                 );
               })}
             </Select>
@@ -512,6 +559,29 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
               {LOCATIONS.map((l) => <option key={l}>{l}</option>)}
             </Select>
+          </div>
+
+          {/*
+            Status and Notes sit with the rental details rather than below the
+            price summary, where they used to be. Changing a status is the
+            commonest thing done to a reservation that already exists —
+            confirming it, starting it, cancelling it — and reaching it meant
+            scrolling past the customer, the extras and the whole price
+            breakdown first. Notes travels with it because it is written while
+            the customer is still standing there.
+          */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+            <Select value={form.status} onChange={(e) => set("status", e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm capitalize">
+              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
+            </Select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
+            <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2}
+              placeholder="Anything worth recording about this rental"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none" />
           </div>
 
           {/* Customer */}
@@ -612,10 +682,55 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             <div className="col-span-2 bg-gray-50 rounded-xl p-4 border border-gray-100">
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Price Summary</div>
               <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between text-gray-700">
-                  <span>{vehicle.name} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{dailyRate.toFixed(2)}</span>
-                  <span>€{vehicleSubtotal.toFixed(2)}</span>
+                {/*
+                  The rate is editable in place rather than in a field further
+                  down, because this is the line staff are already reading when
+                  a customer haggles at the counter. Typing 50 here settles it;
+                  working out the equivalent discount total does not.
+                */}
+                <div className="flex justify-between items-center gap-2 text-gray-700">
+                  <span className="flex items-center gap-1.5 flex-wrap">
+                    {vehicleLabel(vehicle)} — {rentalDays} day{rentalDays > 1 ? "s" : ""} ×
+                    <span className="inline-flex items-center gap-0.5">
+                      <span className="text-gray-500">€</span>
+                      <input
+                        type="number" min="0" step="0.01" inputMode="decimal"
+                        aria-label="Daily rate"
+                        value={form._daily_rate_override}
+                        placeholder={cardRate.toFixed(2)}
+                        onChange={(e) => set("_daily_rate_override", e.target.value)}
+                        className={`w-20 border rounded px-1.5 py-0.5 text-sm text-right tabular-nums ${
+                          rateOverridden
+                            ? "border-amber-400 bg-amber-50 font-semibold text-amber-900"
+                            : "border-gray-300 bg-white"
+                        }`}
+                      />
+                    </span>
+                    /day
+                  </span>
+                  <span className="whitespace-nowrap">€{vehicleSubtotal.toFixed(2)}</span>
                 </div>
+                {rateOverridden && (
+                  <div className="flex justify-between items-start gap-2 text-xs text-amber-700">
+                    <span>
+                      Agreed rate — card rate is €{cardRate.toFixed(2)}/day
+                      {cardRate > 0 && (
+                        <>
+                          {" "}({rateDifference < 0 ? "−" : "+"}€
+                          {Math.abs(rateDifference).toFixed(2)} over {rentalDays} day
+                          {rentalDays > 1 ? "s" : ""})
+                        </>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => set("_daily_rate_override", "")}
+                      className="underline hover:text-amber-900 shrink-0"
+                    >
+                      reset
+                    </button>
+                  </div>
+                )}
                 {extrasSubtotal > 0 && (
                   <div className="flex justify-between text-gray-700">
                     <span>Extras</span>
@@ -644,19 +759,6 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
             </div>
           )}
 
-          {/* Status + Notes */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
-            <Select value={form.status} onChange={(e) => set("status", e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm capitalize">
-              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
-            </Select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
-            <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none" />
-          </div>
           {/* Discount */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Discount (€)</label>
