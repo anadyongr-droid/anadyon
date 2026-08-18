@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
-import Page_ from "../../about/page";
+import AboutClient from "../../about/AboutClient";
 
-// Chrome is Greek; the body copy is still English. Routed now so the Greek
-// navigation never dead-ends — a 404 mid-site reads as broken, untranslated
-// prose reads as unfinished, and the second is the honest state.
 export const metadata: Metadata = {
-  title: "Σχετικά με εμάς | Anadyon Rentals",
-  alternates: {
-    canonical: "/el/about",
-    languages: { en: "/about", el: "/el/about" },
-  },
+  title: "Σχετικά με εμάς | Anadyon Rentals Ζάκυνθος",
+  description: "Οικογενειακή επιχείρηση ενοικίασης οχημάτων στη Ζάκυνθο από το 2014. Αυτοκίνητα, μηχανές και ποδήλατα — προσωπική εξυπηρέτηση, διαφανείς τιμές, χωρίς κρυφές χρεώσεις.",
+  alternates: { canonical: "/el/about", languages: { en: "/about", el: "/el/about" } },
 };
 
 export default function Page() {
-  return <Page_ />;
+  return <AboutClient locale="el" />;
 }
