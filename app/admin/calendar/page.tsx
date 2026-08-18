@@ -220,12 +220,22 @@ export default function CalendarPage() {
                     >
                       {/* Vehicle name */}
                       <td className="px-3 py-1.5 text-gray-700 font-medium sticky left-0 bg-white border-r border-gray-200 z-10">
-                        <div className="flex items-center gap-1.5">
-                          {vehicle.status === "maintenance" && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
-                          )}
-                          {vehicleLabel(vehicle)}
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            {vehicle.status === "maintenance" && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
+                            )}
+                            {/*
+                              The model and plate are one unit and must not
+                              break across lines — a plate wrapped onto its own
+                              row reads as a second vehicle in a dense table.
+                            */}
+                            <span className="whitespace-nowrap">{vehicleLabel(vehicle)}</span>
+                          </div>
                           {/*
+                            The badge sits on its own line beneath, so it can
+                            never be what pushes the plate onto a second one.
+
                             Cars only. Every scooter in the fleet is automatic,
                             so marking those would put a badge on two thirds of
                             the rows and tell nobody anything. Among cars it is
@@ -237,7 +247,7 @@ export default function CalendarPage() {
                             vehicle.transmission?.toLowerCase().startsWith("auto") && (
                               <span
                                 title="Automatic gearbox"
-                                className="shrink-0 rounded bg-blue-100 px-1 py-0.5 text-[10px] font-semibold leading-none text-blue-700"
+                                className="mt-0.5 inline-block rounded bg-blue-100 px-1 py-0.5 text-[10px] font-semibold leading-none text-blue-700"
                               >
                                 AUT
                               </span>
