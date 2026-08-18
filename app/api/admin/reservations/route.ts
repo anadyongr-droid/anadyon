@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { Resend } from "resend";
+import { sendMail } from "@/lib/mailer";
+
+/**
+ * Postgres integrity errors are caused by the request, not by the server.
+ * 23514 check violation, 23502 not-null, 23503 foreign key, 22P02 bad input
+ * syntax, PGRST204 unknown column. Reporting these as 500 hid real input
+ * mistakes behind an outage-shaped error.
+ */
+function statusForPgError(code?: string): number {
+  return ["23514", "23502", "23503", "23505", "22P02", "22007", "PGRST204"].includes(code ?? "")
+    ? 400
+    : 500;
+}
 
 async function touchCustomer(customerId: string | null | undefined) {
   if (!customerId) return;
@@ -10,7 +22,6 @@ async function touchCustomer(customerId: string | null | undefined) {
     .eq("id", customerId);
 }
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -28,7 +39,7 @@ export async function GET(req: NextRequest) {
   if (quoteRef) query = query.ilike("notes", `Quote ref: ${quoteRef}%`);
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: error.message }, { status: statusForPgError(error.code) });
   return NextResponse.json(data);
 }
 
@@ -62,13 +73,18 @@ export async function POST(req: NextRequest) {
     .select("*, vehicles(name, category)")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: error.message }, { status: statusForPgError(error.code) });
 
   await touchCustomer(body.customer_id);
 
-  // Send notification email
-  try {
-    await resend.emails.send({
+  // Send notification email.
+  //
+  // Skipped for a reservation created already cancelled or voided: announcing a
+  // "New Reservation" for something that is not one is how the office ended up
+  // with cancellation emails that read as bookings.
+  const announceable = !["cancelled", "voided", "no_show"].includes(String(data.status));
+  if (announceable) try {
+    await sendMail({
       // Was onboarding@resend.dev — Resend's sandbox sender, which only ever
       // delivers to the account owner's own address. Combined with the silent
       // catch below, this staff alert had no way of reporting that it was not

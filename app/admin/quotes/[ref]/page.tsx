@@ -83,8 +83,14 @@ export default function QuoteDetailPage() {
       setQuote(q);
       setVehicles(v);
       if (Array.isArray(reservations)) {
-        const pending = reservations.find((r: { status: string }) => r.status === "pending");
-        setPendingReservationId(pending?.id ?? null);
+        // Any live reservation for this quote is the one to edit, not just a
+        // pending one. Passing no id made the modal POST a second reservation
+        // and fire another "New Reservation" email, which is where the
+        // duplicates came from.
+        const live = reservations.find(
+          (r: { status: string }) => !["cancelled", "voided"].includes(r.status)
+        );
+        setPendingReservationId(live?.id ?? null);
         // Converted = any reservation exists that is not cancelled/voided
         const converted = reservations.some(
           (r: { status: string }) => !["cancelled", "voided"].includes(r.status) && r.status !== "pending"

@@ -1,0 +1,142 @@
+import { describe, it, expect, vi, beforeAll } from "vitest";
+import { db, req, MARK, TEST_EMAIL, futureDates } from "./helpers";
+
+// The limiter buckets by IP. Sharing one across the phase made every case after
+// the tenth fail with 429 — the limiter working, not the endpoint failing.
+let ipSeq = 0;
+const nextIp = () => `198.51.100.${++ipSeq}`;
+
+// The captcha gate is verified for real in its own test below; the rest of the
+// funnel is exercised with it satisfied, since Google will never issue a valid
+// token to a test process.
+vi.mock("@/lib/recaptcha", () => ({
+  verifyRecaptcha: async (token: string) => token === "VALID-TEST-TOKEN",
+}));
+
+const { POST } = await import("@/app/api/quote/route");
+
+const dates = futureDates(0);
+const base = {
+  vehicleType: "Car",
+  selectedModel: "Hyundai i20",
+  pricingGroup: "car_b",
+  pickupDate: dates.pickup_date,
+  dropoffDate: dates.return_date,
+  pickupTime: "10:00",
+  dropoffTime: "10:00",
+  pickupLocation: "Our Office",
+  dropoffLocation: "Our Office",
+  transmission: "Manual",
+  driverAge: 35,
+  firstName: "Automated",
+  lastName: `Tester ${MARK}`,
+  email: TEST_EMAIL,
+  mobileTel: "+306900000000",
+  rentalDays: 3,
+  dailyRate: 30,
+  vehicleSubtotal: 90,
+  extrasSubtotal: 0,
+  total: 90,
+  deposit: 27,
+  balanceDue: 63,
+  captchaToken: "VALID-TEST-TOKEN",
+};
+
+let serverTotal = 0;
+
+describe("phase 1 — public quote funnel", () => {
+  beforeAll(async () => {
+    // What the server will independently arrive at, from the live rate card.
+    const { calcVehicleSubtotal, calcRentalDays } = await import("@/lib/pricing");
+    const { data: rates } = await db.from("rates").select("*");
+    const days = calcRentalDays(base.pickupDate, base.dropoffDate, base.pickupTime, base.dropoffTime);
+    serverTotal = calcVehicleSubtotal(rates as never, "car_b", base.pickupDate, base.dropoffDate, days);
+  });
+
+  it("refuses a submission that fails the captcha", async () => {
+    const res = await POST(req("/api/quote", "POST", { ...base, captchaToken: "forged" }, nextIp()));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/reCAPTCHA/i);
+  });
+
+  it("rejects a malformed email before it reaches the database", async () => {
+    const res = await POST(req("/api/quote", "POST", { ...base, email: "not-an-address" }, nextIp()));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/email/i);
+  });
+
+  it("rejects a missing surname", async () => {
+    const res = await POST(req("/api/quote", "POST", { ...base, lastName: "" }, nextIp()));
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a driver below the minimum age the schema allows", async () => {
+    const res = await POST(req("/api/quote", "POST", { ...base, driverAge: 12 }, nextIp()));
+    expect(res.status).toBe(400);
+  });
+
+  it("accepts a well-formed quote and stores it", async () => {
+    const res = await POST(req("/api/quote", "POST", base, nextIp()));
+    expect(res.status).toBeLessThan(400);
+    const body = await res.json();
+    expect(body.ref).toMatch(/^[A-Z0-9]{6}$/);
+
+    const { data: row } = await db.from("quotes").select("*").eq("ref", body.ref).single();
+    expect(row!.email).toBe(TEST_EMAIL);
+    expect(row!.last_name).toContain(MARK);
+  });
+
+  it("overrides a tampered client price with its own calculation", async () => {
+    // The whole point of the server recalculation: a client that claims €1 must
+    // not get a €1 booking.
+    const res = await POST(req("/api/quote", "POST", { ...base, total: 1, deposit: 0.3, balanceDue: 0.7 }, nextIp()));
+    expect(res.status).toBeLessThan(400);
+    const { ref } = await res.json();
+    const { data: row } = await db.from("quotes").select("total, deposit, balance_due").eq("ref", ref).single();
+    expect(row).not.toBeNull();
+    expect(row!.total).toBeCloseTo(serverTotal, 2);
+    expect(row!.total).not.toBe(1);
+    expect(row!.deposit).toBeCloseTo(serverTotal * 0.3, 1);
+  });
+
+  it("blocks a customer flagged do-not-rent", async () => {
+    const dnrEmail = `dnr.${MARK.toLowerCase()}@example.invalid`;
+    const { error: fixtureError } = await db.from("customers").insert({
+      first_name: "Blocked", last_name: `Person ${MARK}`,
+      full_name: `Blocked Person ${MARK}`,
+      // Satisfies the legacy NOT NULL `name` column by hand. Migration 017 makes
+      // it nullable and auto-fills it; until that runs, the application itself
+      // cannot create a customer at all.
+      name: `Blocked Person ${MARK}`,
+      email: dnrEmail, do_not_rent: true, dnr_reason: "automated test",
+    });
+    // A silently failed fixture would make the assertion below meaningless.
+    expect(fixtureError, `customer fixture failed: ${fixtureError?.message}`).toBeNull();
+    const res = await POST(req("/api/quote", "POST", { ...base, email: dnrEmail }, nextIp()));
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("phase 1b — rate limiting", () => {
+  it("stops a caller hammering the quote endpoint", async () => {
+    // Ten allowed per fifteen minutes, per IP. The eleventh must be refused —
+    // this is what migration 015 restored; before it the limiter failed open.
+    const attacker = "198.51.100.250";
+    // The window is fifteen minutes and the bucket is durable now, so a second
+    // run inside that window would start already exhausted and the first
+    // request would come back 429. Clearing it makes the test repeatable.
+    await db.from("rate_limits").delete().like("key", `%${attacker}%`);
+    const codes: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      const res = await POST(req("/api/quote", "POST", { ...base, lastName: `Flood ${MARK}` }, attacker));
+      codes.push(res.status);
+    }
+    expect(codes.filter((c) => c === 429).length).toBeGreaterThan(0);
+    expect(codes[0]).toBeLessThan(400);
+  });
+
+  it("does not penalise a different caller for that", async () => {
+    const res = await POST(req("/api/quote", "POST", { ...base, lastName: `Innocent ${MARK}` }, "198.51.100.251"));
+    expect(res.status).toBeLessThan(400);
+  });
+});

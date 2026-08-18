@@ -1,10 +1,9 @@
-import { Resend } from "resend";
+import { sendMail } from "@/lib/mailer";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRecaptcha } from "@/lib/recaptcha";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { z } from "zod";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 const ContactSchema = z.object({
   captchaToken: z.string().min(1),
@@ -45,7 +44,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "reCAPTCHA verification failed" }, { status: 400 });
   }
 
-  const { error } = await resend.emails.send({
+  const { error } = await sendMail({
     from: "Anadyon Website <customerservice@anadyon.gr>",
     to: ["customerservice@anadyon.gr"],
     replyTo: email,

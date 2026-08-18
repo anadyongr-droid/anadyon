@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import { sendMail } from "@/lib/mailer";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRecaptcha } from "@/lib/recaptcha";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -6,7 +6,6 @@ import { checkRateLimit } from "@/lib/rateLimit";
 import { calcVehicleSubtotal, calcRentalDays, DEPOSIT_RATE, type Rate, type ExtrasConfig } from "@/lib/pricing";
 import { z } from "zod";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const TOLERANCE = 0.02; // allow up to €0.02 rounding difference before flagging
 
 const REF_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 32 chars — no I/O/0/1 to avoid confusion
@@ -60,10 +59,14 @@ const QuoteSchema = z.object({
   dropoffTime: z.string().max(20).optional(),
   transmission: z.string().max(40).optional(),
   driverAge: z.coerce.number().int().min(16).max(120).optional(),
-  babySeat: z.coerce.number().int().min(0).max(10).optional(),
-  childSeat: z.coerce.number().int().min(0).max(10).optional(),
-  fdw: z.boolean().optional(),
-  additionalDrivers: z.coerce.number().int().min(0).max(10).optional(),
+  // Defaulted rather than merely optional. These feed the server-side price
+  // calculation directly, and an omitted field arrived there as Number(undefined)
+  // — NaN — which propagated through the total and was serialised to the database
+  // as null. The quote then stored no price at all while still looking accepted.
+  babySeat: z.coerce.number().int().min(0).max(10).default(0),
+  childSeat: z.coerce.number().int().min(0).max(10).default(0),
+  fdw: z.boolean().default(false),
+  additionalDrivers: z.coerce.number().int().min(0).max(10).default(0),
   dailyRate: money.optional(),
   vehicleSubtotal: money.optional(),
   extrasSubtotal: money.optional(),
@@ -198,6 +201,16 @@ export async function POST(req: NextRequest) {
   const serverDeposit = parseFloat((serverTotal * DEPOSIT_RATE).toFixed(2));
   const serverBalanceDue = parseFloat((serverTotal - serverDeposit).toFixed(2));
 
+  // A price that is not a finite number must never be stored. Refusing here is
+  // the difference between a customer seeing an error and a customer holding a
+  // confirmation for a quote with no price on it.
+  if (![serverVehicleSubtotal, serverExtrasSubtotal, serverTotal].every(Number.isFinite)) {
+    console.error("Quote pricing produced a non-finite value", {
+      serverVehicleSubtotal, serverExtrasSubtotal, serverTotal, pricingGroup,
+    });
+    return NextResponse.json({ error: "Unable to verify pricing. Please try again." }, { status: 503 });
+  }
+
   const manipulated = serverTotal > 0 && Math.abs(Number(clientTotal) - serverTotal) > TOLERANCE;
 
   // Always use server-calculated values
@@ -331,7 +344,7 @@ export async function POST(req: NextRequest) {
   ` : "";
 
   // Internal notification to Anadyon
-  await resend.emails.send({
+  await sendMail({
     from: "Anadyon Website <customerservice@anadyon.gr>",
     to: ["customerservice@anadyon.gr"],
     replyTo: email,
@@ -391,7 +404,7 @@ export async function POST(req: NextRequest) {
   });
 
   // Auto-confirmation to customer — always uses correct server figures
-  await resend.emails.send({
+  await sendMail({
     from: "Anadyon Rentals <customerservice@anadyon.gr>",
     to: email,
     subject: `Quote Request — ${lastName}, ${ref}`,

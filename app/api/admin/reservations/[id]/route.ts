@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { Resend } from "resend";
+import { sendMail } from "@/lib/mailer";
+
+/**
+ * Postgres integrity errors are caused by the request, not by the server.
+ * 23514 check violation, 23502 not-null, 23503 foreign key, 22P02 bad input
+ * syntax, PGRST204 unknown column. Reporting these as 500 hid real input
+ * mistakes behind an outage-shaped error.
+ */
+function statusForPgError(code?: string): number {
+  return ["23514", "23502", "23503", "23505", "22P02", "22007", "PGRST204"].includes(code ?? "")
+    ? 400
+    : 500;
+}
 
 async function touchCustomer(customerId: string | null | undefined) {
   if (!customerId) return;
@@ -10,7 +22,6 @@ async function touchCustomer(customerId: string | null | undefined) {
     .eq("id", customerId);
 }
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,7 +36,20 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const body = await req.json();
+  const raw = await req.json();
+
+  // `_prev_status` is sent by the form so this route can tell what changed and
+  // email accordingly. It is not a column, and spreading the whole body into the
+  // update made Postgres reject the write with "Could not find the
+  // '_prev_status' column" — so EVERY edit to an existing reservation failed
+  // silently from the operator's point of view: the status never changed, and
+  // re-converting the quote created a duplicate and a "New Reservation" email
+  // instead.
+  //
+  // Anything the client should not write is stripped here rather than passed
+  // through, which is the same blind-spread fault that has now bitten three
+  // different routes.
+  const { _prev_status: prevStatusFromClient, id: _ignoredId, created_at: _ignoredCreated, ...body } = raw;
 
   // Overlap check when a vehicle is assigned
   if (body.vehicle_id && body.pickup_date && body.return_date) {
@@ -46,30 +70,35 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  // An untouched date input arrives as ""; Postgres rejects that for a date
+  // column just as firmly as it rejects an unknown one.
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  for (const [key, value] of Object.entries(body)) update[key] = value === "" ? null : value;
+
   const { data, error } = await supabaseAdmin
     .from("reservations")
-    .update({ ...body, updated_at: new Date().toISOString() })
+    .update(update)
     .eq("id", id)
     .select("*, vehicles(name, category)")
     .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: error.message }, { status: statusForPgError(error.code) });
 
   await touchCustomer(data.customer_id ?? body.customer_id);
 
   // Status-change emails to customer
-  const prevStatus = body._prev_status;
+  const prevStatus = prevStatusFromClient;
   const newStatus = data.status;
   if (data.customer_email && prevStatus && prevStatus !== newStatus) {
     try {
       if (newStatus === "confirmed") {
-        await resend.emails.send({
+        await sendMail({
           from: "Anadyon Rentals <no-reply@anadyon.gr>",
           to: [data.customer_email],
           subject: "Your reservation is confirmed — Anadyon Rentals",
           html: buildConfirmedEmail(data),
         });
       } else if (newStatus === "active") {
-        await resend.emails.send({
+        await sendMail({
           from: "Anadyon Rentals <no-reply@anadyon.gr>",
           to: [data.customer_email],
           subject: "Your vehicle is ready for pick-up — Anadyon Rentals",
@@ -128,6 +157,6 @@ function buildActiveEmail(r: Record<string, unknown> & { vehicles?: { name: stri
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { error } = await supabaseAdmin.from("reservations").delete().eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: error.message }, { status: statusForPgError(error.code) });
   return NextResponse.json({ ok: true });
 }

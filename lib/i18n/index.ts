@@ -444,7 +444,7 @@ const el: Dict = {
   "footer.termsOfUse": "Όροι Χρήσης",
   "footer.privacy": "Πολιτική Απορρήτου",
   "footer.sitemap": "Χάρτης Ιστότοπου",
-  "footer.contact": "Επικοινωνήστε μαζί μας",
+  "footer.contact": "Επικοινωνία",
   "footer.copyright": "Copyright © 2014–2026 Anadyon Rentals. Με την επιφύλαξη παντός δικαιώματος.",
   "footer.address": "Λομβάρδου 20 (Παραλιακή, Ζάκυνθος), 29100, Ζάκυνθος, Ελλάδα",
 
