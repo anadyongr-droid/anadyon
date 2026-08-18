@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
 import { Phone, Mail, Clock, MapPin } from "lucide-react";
 import { t, type Locale } from "@/lib/i18n";
@@ -9,6 +9,7 @@ export default function ContactClient({ locale = "en" }: { locale?: Locale }) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -30,6 +31,14 @@ export default function ContactClient({ locale = "en" }: { locale?: Locale }) {
       body: JSON.stringify({ name, email, message, captchaToken }),
     });
     setStatus(res.ok ? "sent" : "error");
+
+    if (!res.ok) {
+      // The token is single-use and has been spent. Without this, a second
+      // attempt sends the same consumed token and fails identically however
+      // many times it is pressed.
+      recaptchaRef.current?.reset();
+      setCaptchaToken(null);
+    }
   }
 
   // The reCAPTCHA notice carries two links Google requires be shown; the copy
@@ -121,6 +130,7 @@ export default function ContactClient({ locale = "en" }: { locale?: Locale }) {
                 </div>
                 <div className="w-full overflow-hidden flex flex-col justify-start gap-1">
                   <ReCAPTCHA
+                    ref={recaptchaRef}
                     sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
                     hl={locale}
                     onChange={(token: string | null) => setCaptchaToken(token)}

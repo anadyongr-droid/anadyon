@@ -385,6 +385,14 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
           : ((detail?.error as string | undefined) ?? tr("form.submitError"))
       );
       setStatus("error");
+
+      // A reCAPTCHA token is single-use and has now been spent, whether the
+      // server accepted it or not. Without this reset the second attempt sends
+      // the same consumed token, Google refuses it, and every retry fails
+      // identically no matter what was actually wrong the first time — the only
+      // escape being to reload the page and fill the form again.
+      recaptchaRef.current?.reset();
+      setCaptchaToken(null);
     }
   }
 
