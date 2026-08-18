@@ -9,39 +9,78 @@ const ALERT_EVENTS = new Set([
   "email.complained",
 ]);
 
+/**
+ * Constant-time comparison.
+ *
+ * `Array.includes` on the signature list returns as soon as it finds a
+ * mismatching byte, which leaks how much of a forged signature was correct.
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 export async function POST(req: NextRequest) {
-  // Verify the webhook signature using Resend's signing secret
   const signingSecret = process.env.RESEND_WEBHOOK_SECRET;
-  if (signingSecret) {
-    const svixId = req.headers.get("svix-id");
-    const svixTimestamp = req.headers.get("svix-timestamp");
-    const svixSignature = req.headers.get("svix-signature");
 
-    if (!svixId || !svixTimestamp || !svixSignature) {
-      return NextResponse.json({ error: "Missing signature headers" }, { status: 401 });
-    }
-
-    const body = await req.text();
-
-    // Verify: HMAC-SHA256 of "svix-id.svix-timestamp.body" against signing secret
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(signingSecret.replace(/^whsec_/, ""));
-    const decodedKey = Uint8Array.from(atob(new TextDecoder().decode(keyData)), c => c.charCodeAt(0));
-    const cryptoKey = await crypto.subtle.importKey("raw", decodedKey, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-    const signedData = encoder.encode(`${svixId}.${svixTimestamp}.${body}`);
-    const signature = await crypto.subtle.sign("HMAC", cryptoKey, signedData);
-    const computedSig = `v1,${btoa(String.fromCharCode(...new Uint8Array(signature)))}`;
-    const expectedSigs = svixSignature.split(" ");
-    if (!expectedSigs.includes(computedSig)) {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-    }
-
-    const payload = JSON.parse(body);
-    return handleEvent(payload);
+  // Not configured: refuse rather than accept unauthenticated callers. 503
+  // rather than 500 — the service is unconfigured, it has not failed.
+  if (!signingSecret) {
+    console.error("[resend-webhook] RESEND_WEBHOOK_SECRET is not set; rejecting");
+    return NextResponse.json({ error: "Webhook signing secret not configured" }, { status: 503 });
   }
 
-  // Signing secret not configured — refuse to process (prevents unauthenticated webhook abuse)
-  return NextResponse.json({ error: "Webhook signing secret not configured" }, { status: 500 });
+  const svixId = req.headers.get("svix-id");
+  const svixTimestamp = req.headers.get("svix-timestamp");
+  const svixSignature = req.headers.get("svix-signature");
+
+  if (!svixId || !svixTimestamp || !svixSignature) {
+    return NextResponse.json({ error: "Missing signature headers" }, { status: 401 });
+  }
+
+  const body = await req.text();
+
+  // Everything from here to the comparison is attacker-controlled input being
+  // fed to decoders that throw. A malformed signature used to escape as an
+  // unhandled exception and surface as HTTP 500 — an authentication failure
+  // reported as a server fault, which both hides the rejection from monitoring
+  // and tells the caller the request reached something that broke.
+  let computedSig: string;
+  try {
+    const secret = signingSecret.replace(/^whsec_/, "");
+    const decodedKey = Uint8Array.from(atob(secret), (c) => c.charCodeAt(0));
+    const cryptoKey = await crypto.subtle.importKey(
+      "raw", decodedKey, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+    );
+    const signed = await crypto.subtle.sign(
+      "HMAC", cryptoKey, new TextEncoder().encode(`${svixId}.${svixTimestamp}.${body}`)
+    );
+    computedSig = `v1,${btoa(String.fromCharCode(...new Uint8Array(signed)))}`;
+  } catch (err) {
+    console.error("[resend-webhook] signature computation failed:", err);
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  }
+
+  const presented = svixSignature.split(" ");
+  if (!presented.some((sig) => timingSafeEqual(sig, computedSig))) {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  }
+
+  // Only now is the payload trusted enough to parse. A body that is signed but
+  // not valid JSON is a bad request, not a server error.
+  let payload: { type: string; data: Record<string, unknown> };
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    return NextResponse.json({ error: "Malformed JSON payload" }, { status: 400 });
+  }
+  if (!payload || typeof payload.type !== "string") {
+    return NextResponse.json({ error: "Unexpected payload shape" }, { status: 400 });
+  }
+
+  return handleEvent(payload);
 }
 
 async function handleEvent(payload: { type: string; data: Record<string, unknown> }) {
