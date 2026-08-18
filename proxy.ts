@@ -41,7 +41,13 @@ export async function proxy(req: NextRequest) {
   // Always public
   if (pathname === "/admin/login") return NextResponse.next();
   if (pathname === "/admin/setup-mfa") return NextResponse.next();
-  if (pathname === "/api/admin/rates" && req.method === "GET") return NextResponse.next();
+  // The public booking form reads the rate card from here, so it is deliberately
+  // unauthenticated — but for reads only. HEAD is included because it is a GET
+  // without a body: CDNs and uptime monitors use it, and answering 401 to one
+  // while answering 200 to the other makes the endpoint look broken to both.
+  if (pathname === "/api/admin/rates" && (req.method === "GET" || req.method === "HEAD")) {
+    return NextResponse.next();
+  }
 
   // Build a response we can attach cookie refreshes to
   const requestHeaders = new Headers(req.headers);

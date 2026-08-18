@@ -129,17 +129,37 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const tr = translator(locale);
   const formRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<1 | 2>(1);
+  // What the server actually said, so the customer is told the real reason.
+  const [submitError, setSubmitError] = useState<string>("");
 
   const [selectedModel, setSelectedModel] = useState(initialModel ?? models[0]);
   const [rates, setRates] = useState<Rate[]>([]);
   const [extrasConfig, setExtrasConfig] = useState<ExtrasConfig[]>([]);
 
+  // Until this returns there is no price to show, so the panel is absent rather
+  // than empty. A silent failure left it absent forever — a booking form with no
+  // prices and nothing saying why — so the outcome is tracked explicitly.
+  const [ratesState, setRatesState] = useState<"loading" | "ready" | "failed">("loading");
+
   useEffect(() => {
     if (!modelPricingGroups) return;
-    fetch("/api/admin/rates").then(r => r.json()).then(({ rates: r, extras: e }) => {
-      setRates(r ?? []);
-      setExtrasConfig(e ?? []);
-    });
+    let cancelled = false;
+    fetch("/api/admin/rates")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then(({ rates: r, extras: e }) => {
+        if (cancelled) return;
+        if (!Array.isArray(r) || r.length === 0) throw new Error("no rates returned");
+        setRates(r);
+        setExtrasConfig(e ?? []);
+        setRatesState("ready");
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // The customer can still send the enquiry; only the estimate is missing.
+        console.error("Rate card could not be loaded:", err);
+        setRatesState("failed");
+      });
+    return () => { cancelled = true; };
   }, []);
 
   const [differentDropoff, setDifferentDropoff] = useState(false);
@@ -353,6 +373,17 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
       setQuoteRef(data.ref ?? null);
       setStatus("sent");
     } else {
+      // The route already answers with something specific and usable — the
+      // captcha was rejected, the email is malformed, the rate card could not be
+      // read, too many attempts. All of it used to be replaced with "Something
+      // went wrong", which tells the customer nothing and tells us nothing when
+      // they report it.
+      const detail = await res.json().catch(() => null);
+      setSubmitError(
+        res.status === 429
+          ? tr("form.tooManyAttempts")
+          : ((detail?.error as string | undefined) ?? tr("form.submitError"))
+      );
       setStatus("error");
     }
   }
@@ -524,7 +555,36 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
               </div>
             )}
 
-            {/* Price Estimate */}
+            {/*
+              Price Estimate.
+
+              The panel cannot appear until the rate card has been fetched, so
+              without these two states it simply materialised late — or, when the
+              fetch failed, never, leaving a booking form with no prices and
+              nothing explaining why. A placeholder holds the space while it
+              loads; a failure says so and points at the phone.
+            */}
+            {ratesState === "loading" && rentalDays > 0 && (
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
+                <div className="h-4 w-32 rounded bg-blue-200/70 dark:bg-blue-800/70 mb-3 animate-pulse" />
+                <div className="space-y-2">
+                  <div className="h-3 w-full rounded bg-blue-200/50 dark:bg-blue-800/50 animate-pulse" />
+                  <div className="h-3 w-2/3 rounded bg-blue-200/50 dark:bg-blue-800/50 animate-pulse" />
+                </div>
+              </div>
+            )}
+
+            {ratesState === "failed" && (
+              <div className="bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-800 rounded-xl p-5 text-sm">
+                <p className="font-semibold text-amber-900 dark:text-amber-200 mb-1">
+                  {tr("form.priceUnavailable")}
+                </p>
+                <p className="text-amber-800 dark:text-amber-300">
+                  {tr("form.priceUnavailableHelp")}
+                </p>
+              </div>
+            )}
+
             {showPrice && (
               <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
                 <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">{tr("form.priceEstimate")}</h3>
@@ -782,7 +842,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             </div>
 
             {status === "error" && (
-              <p className="text-red-500 text-sm">{tr("form.submitError")}</p>
+              <p className="text-red-500 text-sm">{submitError || tr("form.submitError")}</p>
             )}
 
             <div className="flex gap-3">
