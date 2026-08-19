@@ -270,8 +270,20 @@ export async function POST(req: NextRequest) {
   const expiresAt = new Date();
   expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
-  await Promise.all([
-  supabaseAdmin.from("quotes").insert({
+  // Written one at a time, and both results inspected.
+  //
+  // These were previously issued together with Promise.all and the results
+  // thrown away. The Supabase client returns { data, error } rather than
+  // throwing, so a failed insert was indistinguishable from a successful one:
+  // the route carried on, emailed the customer a reference, and answered 200
+  // for a booking that had not been stored. A reference collision or a schema
+  // change would have produced exactly that.
+  //
+  // This is not yet atomic — the two rows and the promo redemption are still
+  // separate transactions, and making them one needs a database function
+  // (migration 022). What it does fix is the worst outcome: telling someone
+  // their booking succeeded when it did not.
+  const { error: quoteError } = await supabaseAdmin.from("quotes").insert({
     ref,
     title,
     first_name: firstName,
@@ -314,8 +326,33 @@ export async function POST(req: NextRequest) {
     discount_amount: promoDiscount,
     comments: comments || null,
     expires_at: expiresAt.toISOString(),
-  }),
-  supabaseAdmin.from("reservations").insert({
+  });
+
+  if (quoteError) {
+    console.error(`[quote] failed to store quote ${ref}:`, quoteError.message);
+
+    // Give the promo use back. redeem_promo increments used_count before any
+    // row is written, so a failed booking would otherwise consume one of a
+    // limited-use code for a booking that does not exist — and the customer,
+    // retrying, could find the code exhausted by their own failed attempt.
+    //
+    // Compensation, not atomicity: if this update fails too, the count stays
+    // high and the log line is the record. Migration 022 makes the whole
+    // sequence one transaction, which is the actual fix.
+    if (validatedPromoId) {
+      const { error: refundError } = await supabaseAdmin.rpc("release_promo", { p_id: validatedPromoId });
+      if (refundError) {
+        console.error(`[quote] could not release promo ${validatedPromoId}:`, refundError.message);
+      }
+    }
+
+    return NextResponse.json(
+      { error: "We could not save your request. Please try again, or call us on +30 26950 41878." },
+      { status: 500 }
+    );
+  }
+
+  const { error: reservationError } = await supabaseAdmin.from("reservations").insert({
     vehicle_id: null,
     customer_name: `${firstName} ${lastName}`,
     customer_email: email,
@@ -343,8 +380,23 @@ export async function POST(req: NextRequest) {
     status: "pending",
     source: "website",
     notes: `Quote ref: ${ref}${comments ? `. Customer notes: ${comments}` : ""}`,
-  }),
-  ]);
+  });
+
+  if (reservationError) {
+    // The quote is stored and the reference is real, so the customer is not
+    // told to start again — that would produce a second quote for the same
+    // booking. The office is told instead, loudly, because a quote with no
+    // reservation will not appear on the calendar.
+    console.error(`[quote] quote ${ref} stored but reservation failed:`, reservationError.message);
+    try {
+      const { sendTelegram } = await import("@/lib/telegram");
+      await sendTelegram(
+        `⚠️ <b>Booking half-saved</b>\nQuote <b>${ref}</b> was stored but its reservation was not: ` +
+        `${reservationError.message.slice(0, 160)}\nIt will not appear on the calendar — add it by hand.`
+      );
+    } catch { /* the log line above is the fallback */ }
+  }
+
 
   const manipulationWarning = manipulated ? `
     <div style="background:#fff3cd;border:2px solid #ff9800;border-radius:8px;padding:16px;margin-bottom:20px;">
