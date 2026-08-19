@@ -77,19 +77,27 @@ export default function ContactClient({ locale = "en" }: { locale?: Locale }) {
                     <p>{tr("contact.addressValue")}<br />{tr("contact.addressValue2")}</p>
                   </div>
                 </div>
+                {/*
+                  The two numbers are stacked and directly adjacent, so at the
+                  natural 20px line height a thumb aiming for the mobile lands
+                  on the landline. min-h-11 gives each the 44px the footer links
+                  already use; -my-1 absorbs the extra height so the block keeps
+                  its spacing. Inline links inside prose are left alone — WCAG
+                  2.5.8 exempts them, and padding them out breaks the line.
+                */}
                 <div className="flex items-start gap-3">
                   <Phone size={18} className="text-blue-600 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="font-medium text-gray-800 dark:text-gray-200">{tr("contact.phone")}</p>
-                    <a href="tel:+302695041878" className="hover:text-blue-700 dark:hover:text-blue-400 block">+30 26950 41878</a>
-                    <a href="tel:+306988010188" className="hover:text-blue-700 dark:hover:text-blue-400 block">+30 6988 010188</a>
+                    <a href="tel:+302695041878" className="hover:text-blue-700 dark:hover:text-blue-400 flex items-center min-h-11 -my-1">+30 26950 41878</a>
+                    <a href="tel:+306988010188" className="hover:text-blue-700 dark:hover:text-blue-400 flex items-center min-h-11 -my-1">+30 6988 010188</a>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <Mail size={18} className="text-blue-600 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="font-medium text-gray-800 dark:text-gray-200">{tr("contact.email")}</p>
-                    <a href="mailto:customerservice@anadyon.gr" className="hover:text-blue-700 dark:hover:text-blue-400">customerservice@anadyon.gr</a>
+                    <a href="mailto:customerservice@anadyon.gr" className="hover:text-blue-700 dark:hover:text-blue-400 inline-flex items-center min-h-11 -my-1">customerservice@anadyon.gr</a>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
