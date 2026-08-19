@@ -115,7 +115,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "That address already has an account" }, { status: 409 });
   }
 
-  const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email);
+  // redirectTo is passed explicitly rather than left to the project's Site URL.
+  // That setting was still http://localhost:3000, so the first invitation sent
+  // confirmed the address, issued a session, and then bounced the person to a
+  // dead address on their own machine — leaving an account with no password and
+  // a single-use link already spent.
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://anadyon.gr").replace(/\/$/, "");
+  const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${siteUrl}/admin/set-password`,
+  });
   if (error || !data?.user) {
     return NextResponse.json(
       { error: error?.message ?? "Could not send the invitation" },
@@ -141,11 +149,21 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ id: data.user.id, email, role }, { status: 201 });
 }
 
-/** Changes an existing user's role. */
+/**
+ * Changes a role, or sends a fresh password link.
+ *
+ * The link matters because invitations are single-use and the account is left
+ * confirmed-but-without-a-password if the person opens one and the redirect
+ * fails. That happened: the project's Site URL still pointed at localhost, so
+ * the first real invitation was consumed on a dead address and the account
+ * could not be recovered from this screen at all. Sending a recovery link is
+ * the way back, and it needs to be one click rather than a trip to the
+ * Supabase console.
+ */
 export async function PATCH(req: NextRequest) {
   if (callerRole(req) !== "admin") return forbidden();
 
-  let body: { id?: string; role?: string };
+  let body: { id?: string; role?: string; action?: string; email?: string };
   try {
     body = await req.json();
   } catch {
@@ -153,6 +171,19 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { id, role } = body;
+
+  if (body.action === "resend") {
+    const target = body.email?.trim().toLowerCase();
+    if (!target) return NextResponse.json({ error: "Missing email" }, { status: 400 });
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://anadyon.gr").replace(/\/$/, "");
+    const { error: linkError } = await supabaseAdmin.auth.resetPasswordForEmail(target, {
+      redirectTo: `${siteUrl}/admin/set-password`,
+    });
+    if (linkError) return NextResponse.json({ error: linkError.message }, { status: 502 });
+    console.info(`[users] password link resent to ${target}`);
+    return NextResponse.json({ ok: true, email: target });
+  }
+
   if (!id) return NextResponse.json({ error: "Missing user id" }, { status: 400 });
   if (!isRole(role ?? "")) {
     return NextResponse.json({ error: `Role must be one of: ${ROLES.join(", ")}` }, { status: 400 });

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { ShieldCheck, ShieldAlert, Trash2, UserPlus, Loader2 } from "lucide-react";
+import { ShieldCheck, ShieldAlert, Trash2, UserPlus, Loader2, Send } from "lucide-react";
 import { ROLE_LABELS, ROLE_DESCRIPTIONS, type Role } from "@/lib/roles";
 
 interface ListedUser {
@@ -88,6 +88,35 @@ export default function UsersClient() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not change the role");
       await load();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /**
+   * Sends a fresh password link.
+   *
+   * Invitations are single-use. If one is opened and the redirect fails, the
+   * account is left confirmed but without a password and the link is spent —
+   * which is exactly what happened when the project's Site URL still pointed
+   * at localhost. This is the way back, and it belongs here rather than in the
+   * Supabase console.
+   */
+  async function resend(user: ListedUser) {
+    setBusy(user.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resend", email: user.email }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Could not send the link");
+      setNotice(`A new password link is on its way to ${user.email}. It works once.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not send the link");
     } finally {
       setBusy(null);
     }
@@ -186,7 +215,7 @@ export default function UsersClient() {
                 <th className="px-4 py-3 font-semibold text-gray-700 dark:text-gray-300">Role</th>
                 <th className="px-4 py-3 font-semibold text-gray-700 dark:text-gray-300">Two-factor</th>
                 <th className="px-4 py-3 font-semibold text-gray-700 dark:text-gray-300">Last sign in</th>
-                <th className="px-4 py-3 font-semibold text-gray-700 dark:text-gray-300 text-right">Remove</th>
+                <th className="px-4 py-3 font-semibold text-gray-700 dark:text-gray-300 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -239,7 +268,16 @@ export default function UsersClient() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{when(u.lastSignInAt)}</td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => resend(u)}
+                      disabled={busy === u.id}
+                      aria-label={`Send a new password link to ${u.email}`}
+                      title="Send a new password link"
+                      className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition disabled:opacity-40"
+                    >
+                      <Send size={16} />
+                    </button>
                     <button
                       onClick={() => remove(u)}
                       disabled={busy === u.id}
