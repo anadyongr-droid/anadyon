@@ -27,12 +27,28 @@ import { supabaseAdmin } from "@/lib/supabase";
 let lastGood: { rates: unknown[]; extras: unknown[]; at: number } | null = null;
 const STALE_LIMIT_MS = 15 * 60 * 1000;
 
+/**
+ * Columns are listed rather than selected with `*`, because this endpoint is
+ * reachable without authentication — the public booking form needs the price
+ * card to render — while the query itself runs as the service role and so
+ * bypasses RLS entirely. Under `*`, any column added to `rates` or
+ * `extras_config` in future would start being served to the open internet the
+ * moment the migration ran, with nothing in this file changing to say so. A
+ * cost basis, a supplier rate or a margin column is exactly the kind of thing
+ * that gets added to a rates table.
+ *
+ * Everything named here is already public: these are the prices the site shows
+ * to every visitor. Adding a column to that list should be a deliberate act.
+ */
+const RATE_COLUMNS = "id, pricing_group, season_name, season_months, rate_1_2, rate_3_6, rate_7plus, updated_at";
+const EXTRAS_COLUMNS = "id, key, label, daily_rate, enabled, updated_at";
+
 /** One retry after a short pause clears a clock-skew rejection outright. */
 async function fetchRates() {
   for (let attempt = 0; attempt < 3; attempt++) {
     const [r, e] = await Promise.all([
-      supabaseAdmin.from("rates").select("*").order("pricing_group").order("season_name"),
-      supabaseAdmin.from("extras_config").select("*").order("key"),
+      supabaseAdmin.from("rates").select(RATE_COLUMNS).order("pricing_group").order("season_name"),
+      supabaseAdmin.from("extras_config").select(EXTRAS_COLUMNS).order("key"),
     ]);
     if (!r.error && !e.error && r.data?.length) return { rates: r.data, extras: e.data ?? [], error: null };
 
