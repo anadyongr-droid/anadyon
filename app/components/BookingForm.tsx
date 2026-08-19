@@ -490,7 +490,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
 
         {/* ── STEP 1: Rental details ── */}
         {step === 1 && (
-          <div className="p-8 space-y-6">
+          <div className="p-4 sm:p-8 space-y-6">
             <h2 className="text-xl font-semibold dark:text-white">{tr("form.stepQuote")}</h2>
 
             {/* Vehicle Model */}
@@ -715,17 +715,35 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                         className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline">{tr("form.remove")}</button>
                     </div>
                   ) : (
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      {/*
+                      Stacked on small screens, side by side from `sm` up.
+
+                      As a single row it overflowed: a flex item defaults to
+                      `min-width: auto`, and for an input that floor is its
+                      intrinsic size — roughly twenty characters — so `flex-1`
+                      could not shrink it and the Apply button was pushed past
+                      the edge. Measured on production in Greek at a 366px
+                      viewport: the input rendered 196px wide inside a 180px
+                      row, putting the button's right edge exactly on the
+                      viewport boundary. Narrower phones, larger system text or
+                      the longer Greek label push it off screen entirely, which
+                      is why it looked fine one day and broken the next.
+
+                      `min-w-0` removes that floor, `shrink-0` stops the button
+                      being squeezed, and stacking means neither has to fight
+                      for room on a small phone in the first place.
+                      */}
                       <input
                         type="text"
                         value={promoInput}
                         onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoResult(null); }}
                         onKeyDown={(e) => e.key === "Enter" && applyPromo()}
                         placeholder={tr("form.promoCode")}
-                        className="flex-1 border border-blue-200 dark:border-blue-700 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-blue-900 text-gray-900 dark:text-white placeholder-gray-400"
+                        className="w-full min-w-0 sm:flex-1 border border-blue-200 dark:border-blue-700 rounded-lg px-3 min-h-11 sm:min-h-0 sm:py-1.5 text-sm bg-white dark:bg-blue-900 text-gray-900 dark:text-white placeholder-gray-400"
                       />
                       <button onClick={applyPromo} disabled={promoChecking || !promoInput.trim()}
-                        className="px-3 py-1.5 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800 disabled:opacity-50 transition">
+                        className="w-full shrink-0 sm:w-auto px-3 min-h-11 sm:min-h-0 sm:py-1.5 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800 disabled:opacity-50 transition">
                         {promoChecking ? "…" : tr("form.apply")}
                       </button>
                     </div>
@@ -753,7 +771,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
 
         {/* ── STEP 2: Your details ── */}
         {step === 2 && (
-          <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          <form onSubmit={handleSubmit} className="p-4 sm:p-8 space-y-6">
             <h2 className="text-xl font-semibold dark:text-white">{tr("form.stepDetails")}</h2>
 
             {/* Booking summary */}
