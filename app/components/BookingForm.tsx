@@ -88,6 +88,14 @@ type Props = {
   modelPricingGroups?: Record<string, string>;
   locale?: Locale;
   modelTransmissions?: Record<string, string>;
+  /**
+   * The rate card, read on the server by the page rendering this form.
+   *
+   * Present in the normal case; absent when the server read failed, in which
+   * case the client fetch below takes over — which is what always ran before.
+   */
+  initialRates?: Rate[];
+  initialExtras?: ExtrasConfig[];
 };
 
 // Defined at module scope: declaring a component inside the render body makes
@@ -125,7 +133,7 @@ function TermsModal({ onClose, locale = "en" }: { onClose: () => void; locale?: 
   );
 }
 
-export default function BookingForm({ vehicleType, models, initialModel, modelPricingGroups, modelTransmissions, locale = "en" }: Props) {
+export default function BookingForm({ vehicleType, models, initialModel, modelPricingGroups, modelTransmissions, locale = "en", initialRates, initialExtras }: Props) {
   const tr = translator(locale);
   const formRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<1 | 2>(1);
@@ -135,13 +143,20 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const submittingRef = useRef(false);
 
   const [selectedModel, setSelectedModel] = useState(initialModel ?? models[0]);
-  const [rates, setRates] = useState<Rate[]>([]);
-  const [extrasConfig, setExtrasConfig] = useState<ExtrasConfig[]>([]);
+  const [rates, setRates] = useState<Rate[]>(initialRates ?? []);
+  const [extrasConfig, setExtrasConfig] = useState<ExtrasConfig[]>(initialExtras ?? []);
 
   // Until this returns there is no price to show, so the panel is absent rather
   // than empty. A silent failure left it absent forever — a booking form with no
   // prices and nothing saying why — so the outcome is tracked explicitly.
-  const [ratesState, setRatesState] = useState<"loading" | "ready" | "failed">("loading");
+  // "ready" when the server already supplied the card, so the price panel is
+  // on screen at first paint rather than after a round trip. The form pre-fills
+  // today and tomorrow, so rentalDays is 1 the moment it opens and the skeleton
+  // used to show every single time — 110ms on a warm CDN, 560-660ms on a cold
+  // one, on the click that matters most.
+  const [ratesState, setRatesState] = useState<"loading" | "ready" | "failed">(
+    initialRates?.length ? "ready" : "loading"
+  );
 
   // Reloading the card is offered to the customer as well as attempted once on
   // mount: the server retries a transient Supabase rejection three times, but if
@@ -165,8 +180,15 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
 
   useEffect(() => {
     if (!modelPricingGroups) return;
+    // Skipped when the server already supplied the card. loadRates begins with
+    // setRatesState("loading"), so running it here would put the skeleton back
+    // on screen for the length of a request we do not need — undoing the whole
+    // point of seeding the state. The page revalidates every five minutes and
+    // an admin price change revalidates it immediately, so a per-open refetch
+    // buys nothing.
+    if (initialRates?.length) return;
     loadRates();
-  }, [loadRates]);
+  }, [loadRates, initialRates]);
 
   const [differentDropoff, setDifferentDropoff] = useState(false);
   const [pickupDate, setPickupDate] = useState(today);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
 
 /**
@@ -119,5 +120,20 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (errors.length) return NextResponse.json({ errors }, { status: 500 });
+
+  // The vehicle pages now read the rate card at render time and are cached for
+  // five minutes. Without this, a price edited in the admin would keep selling
+  // at the old figure for up to five minutes — quietly, and only on the pages
+  // customers actually book from.
+  //
+  // Both languages, because the Greek pages render the same card and would
+  // otherwise disagree with the English ones for the length of the window.
+  for (const path of [
+    "/cars", "/motorbikes", "/bikes",
+    "/el/cars", "/el/motorbikes", "/el/bikes",
+  ]) {
+    revalidatePath(path);
+  }
+
   return NextResponse.json({ ok: true });
 }

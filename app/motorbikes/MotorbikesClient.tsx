@@ -4,6 +4,7 @@ import Image from "next/image";
 import { User, Check } from "lucide-react";
 import { GearStickIcon } from "../components/GearStickIcon";
 import { EngineIcon } from "../components/EngineIcon";
+import type { Rate, ExtrasConfig } from "@/lib/pricing";
 import BookingForm from "../components/BookingForm";
 import { Card } from "@/components/ui/card";
 import { translator, type Locale } from "@/lib/i18n";
@@ -33,7 +34,12 @@ const models = [
   },
 ];
 
-export default function MotorbikesClient({ locale = "en" }: { locale?: Locale }) {
+export default function MotorbikesClient({ locale = "en", initialRates, initialExtras }: {
+  locale?: Locale;
+  /** Rate card read on the server, so the booking form opens with prices. */
+  initialRates?: Rate[];
+  initialExtras?: ExtrasConfig[];
+}) {
   const tr = translator(locale);
   const { selectedModel, formVisible, selectAndScroll } = useVehicleSelection();
 
@@ -106,6 +112,8 @@ export default function MotorbikesClient({ locale = "en" }: { locale?: Locale })
         {formVisible && (
           <div id="booking-form" className="mt-12 scroll-mt-[168px]">
             <BookingForm
+                initialRates={initialRates}
+                initialExtras={initialExtras}
               locale={locale}
               vehicleType="Motorbikes"
               models={models.map((m) => m.name)}

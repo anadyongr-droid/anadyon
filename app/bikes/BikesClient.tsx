@@ -2,6 +2,7 @@
 import { useVehicleSelection } from "../hooks/useVehicleSelection";
 import Image from "next/image";
 import { User, Check } from "lucide-react";
+import type { Rate, ExtrasConfig } from "@/lib/pricing";
 import BookingForm from "../components/BookingForm";
 import { Card } from "@/components/ui/card";
 import { translator, type Locale } from "@/lib/i18n";
@@ -72,7 +73,12 @@ const placeholderColors: Record<string, string> = {
   "Specialized Ariel": "bg-yellow-50",
 };
 
-export default function BikesClient({ locale = "en" }: { locale?: Locale }) {
+export default function BikesClient({ locale = "en", initialRates, initialExtras }: {
+  locale?: Locale;
+  /** Rate card read on the server, so the booking form opens with prices. */
+  initialRates?: Rate[];
+  initialExtras?: ExtrasConfig[];
+}) {
   const tr = translator(locale);
   const { selectedModel, formVisible, selectAndScroll } = useVehicleSelection();
 
@@ -148,6 +154,8 @@ export default function BikesClient({ locale = "en" }: { locale?: Locale }) {
         {formVisible && (
           <div id="booking-form" className="mt-12 scroll-mt-[168px]">
             <BookingForm
+                initialRates={initialRates}
+                initialExtras={initialExtras}
               locale={locale}
               vehicleType="Bikes"
               models={models.map((m) => m.name)}

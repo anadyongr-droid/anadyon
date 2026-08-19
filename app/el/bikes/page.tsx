@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { loadRateCard } from "@/lib/ratesServer";
 import BikesClient from "../../bikes/BikesClient";
 
 export const metadata: Metadata = {
@@ -12,6 +13,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Page() {
-  return <BikesClient locale="el" />;
+// Static, but refreshed. The rate card is read at render time so the booking
+// form opens with prices instead of a skeleton; ISR keeps this page
+// prerendered rather than turning it dynamic, which reading live data would
+// otherwise do. Five minutes matches the API route's own CDN window, and an
+// admin price change calls revalidatePath to land immediately rather than
+// waiting it out.
+export const revalidate = 300;
+
+export default async function Page() {
+  const card = await loadRateCard();
+  return <BikesClient locale="el" initialRates={card?.rates} initialExtras={card?.extras} />;
 }
