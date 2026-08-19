@@ -152,6 +152,43 @@ async function checkAdminRoles(): Promise<CheckResult> {
 }
 
 /**
+ * The Supabase Free plan takes no backups. Their documentation is explicit that
+ * daily backups cover Pro and above, and tells free projects to export their
+ * own data and keep it off-site.
+ *
+ * So the only backup that exists is the one someone remembered to run.
+ * `npm run backup` records when it last did; this notices when that stops
+ * happening, which is the entire difference between a backup policy and an
+ * intention.
+ */
+const BACKUP_STALE_DAYS = 8;
+
+async function checkBackupFreshness(): Promise<CheckResult> {
+  const name = "Recent database backup";
+  try {
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    const { data, error } = await supabaseAdmin
+      .from("system_settings")
+      .select("value, updated_at")
+      .eq("key", "last_backup_at")
+      .maybeSingle();
+    if (error) return { name, ok: false, detail: error.message.slice(0, 110) };
+    if (!data) {
+      return { name, ok: false, detail: "no backup has ever been recorded — run `npm run backup`" };
+    }
+
+    const at = new Date(data.updated_at as string);
+    const days = Math.floor((Date.now() - at.getTime()) / 86_400_000);
+    if (days >= BACKUP_STALE_DAYS) {
+      return { name, ok: false, detail: `last backup was ${days} days ago (${at.toISOString().slice(0, 10)}) — run \`npm run backup\`` };
+    }
+    return { name, ok: true, detail: `${days} day(s) ago` };
+  } catch (err) {
+    return { name, ok: false, detail: String(err).slice(0, 110) };
+  }
+}
+
+/**
  * Variables whose absence fails silently rather than loudly. Values are never
  * reported, only whether something is there.
  *
@@ -188,6 +225,7 @@ export async function runHealthChecks(): Promise<CheckResult[]> {
     checkResendWebhook().catch((e) => ({ name: "Resend webhook accepting events", ok: false, detail: String(e).slice(0, 90) })),
     checkRateCard().catch((e) => ({ name: "Rate card readable", ok: false, detail: String(e).slice(0, 90) })),
     checkAdminRoles().catch((e) => ({ name: "Admin accounts have roles", ok: false, detail: String(e).slice(0, 90) })),
+    checkBackupFreshness().catch((e) => ({ name: "Recent database backup", ok: false, detail: String(e).slice(0, 90) })),
     Promise.resolve(checkEnvironment()),
   ]);
   return checks;

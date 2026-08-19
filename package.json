@@ -15,7 +15,8 @@
     "check:translation": "node scripts/check-translation.mjs",
     "check:a11y": "node scripts/check-a11y.mjs",
     "test:seo": "vitest run --config vitest.build.config.ts",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "backup": "node scripts/backup.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
