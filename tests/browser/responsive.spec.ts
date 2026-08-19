@@ -71,11 +71,28 @@ async function findOverflow(page: Page) {
   return page.evaluate(() => {
     const vw = window.innerWidth;
     const offenders: string[] = [];
+    /**
+     * Content inside a horizontally scrollable box is reachable — the reader
+     * scrolls that box. A wide table deliberately given overflow-x:auto is a
+     * design decision, not a defect. What this test is for is content pushed
+     * past the edge with no way to get to it.
+     */
+    const inScrollableBox = (el: Element): boolean => {
+      let n: Element | null = el.parentElement;
+      while (n && n !== document.body) {
+        const ox = getComputedStyle(n).overflowX;
+        if (ox === "auto" || ox === "scroll") return true;
+        n = n.parentElement;
+      }
+      return false;
+    };
+
     for (const el of Array.from(document.querySelectorAll("body *"))) {
       const cs = getComputedStyle(el);
       if (cs.display === "none" || cs.visibility === "hidden" || cs.position === "fixed") continue;
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
+      if (inScrollableBox(el)) continue;
       // A couple of pixels of rounding is not a defect.
       if (r.right > vw + 2 || r.left < -2) {
         const tag = el.tagName.toLowerCase();

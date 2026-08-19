@@ -46,6 +46,11 @@ export default defineConfig({
   // tested here.
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 
+  // Locally this reuses a server that is already up, which is what you want
+  // while iterating — but it will happily reuse one started from a different
+  // build. A stale .next made two tests skip and sent me looking at the code
+  // instead of the artefacts. If results look wrong, rebuild and restart
+  // before believing them.
   webServer: {
     command: `npx next start -p ${PORT}`,
     url: `http://127.0.0.1:${PORT}`,

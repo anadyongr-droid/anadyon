@@ -566,7 +566,20 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             {vehicleType === "Cars" && (
               <div className="border-t dark:border-gray-700 pt-6">
                 <h3 className="font-medium text-gray-800 dark:text-gray-200 mb-4">{tr("form.extras")}</h3>
-                <div className="border dark:border-gray-600 rounded-lg overflow-hidden">
+                {/*
+                  overflow-x-auto, not overflow-hidden. Three columns of
+                  extras do not fit a 320px phone once the form's padding is
+                  taken off — the table's own minimum content width runs about
+                  8px past the edge. Hidden clipped the last column away
+                  silently; auto lets that one table scroll inside its own box
+                  while the page does not move.
+
+                  Caught by the browser suite on CI and not locally: Linux
+                  renders this text slightly wider than macOS, and 8px was the
+                  whole margin. Worth remembering that "passes on my machine"
+                  and "fits" are different claims about a layout.
+                */}
+                <div className="border dark:border-gray-600 rounded-lg overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-gray-700 text-xs uppercase text-gray-500 dark:text-gray-400">
                       <tr>
