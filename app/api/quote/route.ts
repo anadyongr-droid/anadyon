@@ -148,17 +148,19 @@ export async function POST(req: NextRequest) {
     landlineTel,
     comments,
     promoCode,
-    promoCodeId,
-    discountAmount: clientDiscountAmount,
-    // Client-calculated pricing
-    rentalDays: clientRentalDays,
-    dailyRate: clientDailyRate,
-    vehicleSubtotal: clientVehicleSubtotal,
-    extrasSubtotal: clientExtrasSubtotal,
+    promoCodeId: _promoCodeId,
+    discountAmount: _clientDiscountAmount,
+    // The client's own pricing, destructured so it is discarded rather than
+    // used. Every figure is recomputed from the rate card below, and the
+    // server's numbers are the ones stored and emailed.
+    rentalDays: _clientRentalDays,
+    dailyRate: _clientDailyRate,
+    vehicleSubtotal: _clientVehicleSubtotal,
+    extrasSubtotal: _clientExtrasSubtotal,
     total: clientTotal,
-    deposit: clientDeposit,
-    balanceDue: clientBalanceDue,
-    extrasLines,
+    deposit: _clientDeposit,
+    balanceDue: _clientBalanceDue,
+    extrasLines: _extrasLines,
     locale,
   } = body;
 

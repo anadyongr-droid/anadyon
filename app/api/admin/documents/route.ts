@@ -24,7 +24,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { reservation_id, file_name, content_type } = await req.json();
+  // content_type is accepted because callers send it, and discarded because
+  // createSignedUploadUrl takes no such argument — the browser sets the
+  // header itself when it PUTs the file to the signed URL.
+  const { reservation_id, file_name, content_type: _content_type } = await req.json();
   if (!reservation_id || !file_name) {
     return NextResponse.json({ error: "reservation_id and file_name required" }, { status: 400 });
   }

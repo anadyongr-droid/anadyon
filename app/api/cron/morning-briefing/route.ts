@@ -6,6 +6,37 @@ import { runHealthChecks, formatHealthAlert } from "@/lib/healthChecks";
 
 export const maxDuration = 60;
 
+/**
+ * Health checks go out as their own message, not appended to the briefing.
+ *
+ * The briefing is the staff's daily list of pickups and returns, in Greek.
+ * These are technical faults for whoever maintains the site, and burying them
+ * under today's returns is how they get skimmed past — which is the whole
+ * failure being addressed: Google Analytics recorded nothing from launch and
+ * the Resend webhook rejected every event for a day, both perfectly visible in
+ * logs nobody was reading.
+ *
+ * Silent when everything passes. A daily "all fine" trains the reader to
+ * ignore the channel.
+ *
+ * Called last, after the briefing has been sent, and never allowed to throw.
+ * The staff's briefing is the job that matters; these checks make several
+ * network calls and must not be able to delay or prevent it. This route shares
+ * a 60-second budget with the email sync, and health information arriving a
+ * moment later costs nothing.
+ */
+async function reportHealth() {
+  try {
+    const results = await runHealthChecks();
+    const alert = formatHealthAlert(results);
+    if (alert) await sendTelegram(alert);
+    return results.map((r) => ({ name: r.name, ok: r.ok }));
+  } catch (err) {
+    console.error("morning-briefing: health checks failed", err);
+    return null;
+  }
+}
+
 // Runs daily at 08:00 Greece time (06:00 UTC in winter / 05:00 UTC in summer)
 // Vercel cron configured in vercel.json
 export async function GET(req: NextRequest) {
@@ -39,26 +70,7 @@ export async function GET(req: NextRequest) {
     console.error("morning-briefing: watchdog failed", err);
   }
 
-  // Health checks go out as their own message, not appended to the briefing.
-  //
-  // The briefing is the staff's daily list of pickups and returns, in Greek.
-  // These are technical faults for whoever maintains the site, and burying
-  // them under today's returns is how they get skimmed past — which is the
-  // whole failure being addressed: Google Analytics recorded nothing from
-  // launch and the Resend webhook rejected every event for a day, both
-  // perfectly visible in logs nobody was reading.
-  //
-  // Silent when everything passes. An alert that arrives daily saying "all
-  // fine" trains the reader to ignore it.
-  let health = null;
-  try {
-    const results = await runHealthChecks();
-    health = results.map((r) => ({ name: r.name, ok: r.ok }));
-    const alert = formatHealthAlert(results);
-    if (alert) await sendTelegram(alert);
-  } catch (err) {
-    console.error("morning-briefing: health checks failed", err);
-  }
+
 
   const today = new Date().toISOString().slice(0, 10);
   const briefingKey = `briefing:${today}`;
@@ -71,7 +83,7 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   if (existing) {
-    return NextResponse.json({ ok: true, skipped: true, sync, replies, watchdog, health });
+    return NextResponse.json({ ok: true, skipped: true, sync, replies, watchdog, health: await reportHealth() });
   }
 
   // Today's pickups
@@ -131,5 +143,5 @@ export async function GET(req: NextRequest) {
     sent_at: new Date().toISOString(),
   });
 
-  return NextResponse.json({ ok: true, sync, replies, watchdog, health });
+  return NextResponse.json({ ok: true, sync, replies, watchdog, health: await reportHealth() });
 }

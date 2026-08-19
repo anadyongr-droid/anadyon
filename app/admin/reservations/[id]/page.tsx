@@ -15,7 +15,9 @@ export default function ReservationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [open, setOpen] = useState(true);
+  // Always open: this page is the modal, so there is no closed state to
+  // move to. The setter was never called.
+  const [open] = useState(true);
 
   useEffect(() => {
     fetch("/api/admin/vehicles").then((r) => r.json()).then(setVehicles);

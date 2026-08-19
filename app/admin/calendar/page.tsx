@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import ReservationModal from "../components/ReservationModal";
 import { vehicleLabel } from "@/lib/vehicleLabel";
 

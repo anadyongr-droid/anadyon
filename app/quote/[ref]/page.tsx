@@ -1,9 +1,9 @@
 "use client";
-import { translator, localePath, type Locale } from "@/lib/i18n";
+import { translator, type Locale } from "@/lib/i18n";
 import { useState, useEffect } from "react";
 import { use } from "react";
 import { useSearchParams } from "next/navigation";
-import type { ExtrasConfig, Rate } from "@/lib/pricing";
+import type { ExtrasConfig } from "@/lib/pricing";
 
 type Quote = {
   ref: string;

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthUrl, getStoredTokens, saveTokens } from "@/lib/gmail";
+import { getAuthUrl, getStoredTokens } from "@/lib/gmail";
 import { supabaseAdmin } from "@/lib/supabase";
 
 // GET /api/admin/gmail — returns auth URL for Gmail OAuth connect

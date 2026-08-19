@@ -102,7 +102,9 @@ export default function SetupMFA() {
             </ol>
 
             <div className="flex justify-center rounded-lg border border-gray-200 p-3 bg-white">
-              {/* Supabase returns an SVG data URI — render as <img> to avoid inline HTML injection */}
+              {/* Supabase returns an SVG data URI — render as <img> to avoid inline HTML injection.
+                  next/image would need dangerouslyAllowSVG, which is the opposite of the point. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={qrCode} alt="MFA QR Code" width={180} height={180} />
             </div>
 
