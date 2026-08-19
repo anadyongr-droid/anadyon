@@ -29,10 +29,29 @@ interface Report {
   disposition?: string;
 }
 
+/**
+ * Reports are unauthenticated by necessity — the browser sends them, and it
+ * cannot carry a credential. So the endpoint has to assume hostile volume:
+ * anyone can POST here as fast as they like.
+ *
+ * A real report is well under 8KB. Refusing larger bodies before reading them
+ * costs nothing and stops the endpoint being used to burn function time or fill
+ * the log. Combined with the deduplication below, a flood produces one log line.
+ */
+const MAX_BODY_BYTES = 8 * 1024;
+
 export async function POST(req: NextRequest) {
+  const declared = Number(req.headers.get("content-length") ?? 0);
+  if (declared > MAX_BODY_BYTES) {
+    return new NextResponse(null, { status: 413 });
+  }
+
   let body: unknown;
   try {
-    body = await req.json();
+    const text = await req.text();
+    // content-length is a claim, not a guarantee; check what actually arrived.
+    if (text.length > MAX_BODY_BYTES) return new NextResponse(null, { status: 413 });
+    body = JSON.parse(text);
   } catch {
     // A malformed report is not worth an error response; the browser will not
     // act on it either way.
@@ -46,7 +65,9 @@ export async function POST(req: NextRequest) {
     ? (body as { body?: Report }[]).map((r) => r.body ?? {})
     : [(raw["csp-report"] as Report) ?? (raw as Report)];
 
-  for (const r of reports) {
+  // A malformed or hostile payload can claim to be an array of thousands.
+  for (const r of reports.slice(0, 10)) {
+    if (!r || typeof r !== "object") continue;
     const directive = r["effective-directive"] ?? r["violated-directive"] ?? "unknown";
     const blocked = (r["blocked-uri"] ?? "unknown").slice(0, 200);
     const key = `${directive}|${blocked}`;

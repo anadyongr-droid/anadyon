@@ -293,7 +293,7 @@ const privacyEn: LegalPage = {
           ["_ga, _ga_*", "Analytics", "Google Analytics — only set with your consent"],
         ],
       },
-      after: ["You can change your cookie preference at any time by clearing your browser's local storage for this site, which will show the consent banner again on your next visit."],
+      after: ["You can change or withdraw your cookie preference at any time using the “Cookie settings” link in the footer of every page, which reopens the panel above. Withdrawing is as easy as giving consent and takes effect immediately. Your choice is stored in your browser's local storage rather than in a cookie, so clearing site data for anadyon.gr also resets it."],
     },
     {
       heading: "6. Your Rights",
@@ -363,7 +363,7 @@ const privacyEl: LegalPage = {
           ["_ga, _ga_*", "Analytics", "Google Analytics — ορίζεται μόνο με τη συγκατάθεσή σας"],
         ],
       },
-      after: ["Μπορείτε να αλλάξετε την προτίμησή σας για τα cookies οποτεδήποτε, διαγράφοντας την τοπική αποθήκευση (local storage) του προγράμματος περιήγησής σας για τον ιστότοπο αυτόν· στην επόμενη επίσκεψή σας θα εμφανιστεί ξανά το σχετικό μήνυμα συγκατάθεσης."],
+      after: ["Μπορείτε να αλλάξετε ή να ανακαλέσετε την προτίμησή σας για τα cookies οποτεδήποτε, μέσω του συνδέσμου «Ρυθμίσεις cookies» στο υποσέλιδο κάθε σελίδας, ο οποίος επανεμφανίζει τον παραπάνω πίνακα. Η ανάκληση είναι εξίσου εύκολη με τη συγκατάθεση και ισχύει άμεσα. Η επιλογή σας αποθηκεύεται στην τοπική αποθήκευση (local storage) του προγράμματος περιήγησης και όχι σε cookie· η διαγραφή των δεδομένων του ιστότοπου την επαναφέρει επίσης."],
     },
     {
       heading: "6. Τα Δικαιώματά Σας",

@@ -15,7 +15,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Must match what Vercel runs. CI was on 20 while production served
+          # on 24, so anything that behaves differently between the two — and
+          # Node majors do — would pass here and fail there.
+          node-version: "24"
           cache: "npm"
 
       - name: Install dependencies
@@ -45,6 +48,23 @@ jobs:
           RESEND_API_KEY: placeholder
           RECAPTCHA_SECRET_KEY: placeholder
         run: npm run build
+
+      # These three read the built HTML in .next/server/app, so they can only run
+      # once the build has produced it. They catch what source review does not: a
+      # translated page still rendering English, a heading level skipped in the
+      # output, and a page shipping without alternate-language links.
+      #
+      # The last is not hypothetical — six English pages went live with no
+      # hreflang at all, because their source had an `alternates` block that
+      # simply contained no `languages`.
+      - name: Translation audit
+        run: npm run check:translation
+
+      - name: Accessibility audit
+        run: npm run check:a11y
+
+      - name: SEO metadata audit
+        run: npx vitest run lib/seo.test.ts
 
       # Catches a column the migrations declare but the database never received.
       # That drift is invisible at build time — the code compiles, and the query
