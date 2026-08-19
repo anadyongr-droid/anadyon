@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendTelegram } from "@/lib/telegram";
 import { syncEmails, detectReplies, runWatchdog } from "@/lib/emailSync";
+import { runHealthChecks, formatHealthAlert } from "@/lib/healthChecks";
 
 export const maxDuration = 60;
 
@@ -38,6 +39,27 @@ export async function GET(req: NextRequest) {
     console.error("morning-briefing: watchdog failed", err);
   }
 
+  // Health checks go out as their own message, not appended to the briefing.
+  //
+  // The briefing is the staff's daily list of pickups and returns, in Greek.
+  // These are technical faults for whoever maintains the site, and burying
+  // them under today's returns is how they get skimmed past — which is the
+  // whole failure being addressed: Google Analytics recorded nothing from
+  // launch and the Resend webhook rejected every event for a day, both
+  // perfectly visible in logs nobody was reading.
+  //
+  // Silent when everything passes. An alert that arrives daily saying "all
+  // fine" trains the reader to ignore it.
+  let health = null;
+  try {
+    const results = await runHealthChecks();
+    health = results.map((r) => ({ name: r.name, ok: r.ok }));
+    const alert = formatHealthAlert(results);
+    if (alert) await sendTelegram(alert);
+  } catch (err) {
+    console.error("morning-briefing: health checks failed", err);
+  }
+
   const today = new Date().toISOString().slice(0, 10);
   const briefingKey = `briefing:${today}`;
 
@@ -49,7 +71,7 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   if (existing) {
-    return NextResponse.json({ ok: true, skipped: true, sync, replies, watchdog });
+    return NextResponse.json({ ok: true, skipped: true, sync, replies, watchdog, health });
   }
 
   // Today's pickups
@@ -109,5 +131,5 @@ export async function GET(req: NextRequest) {
     sent_at: new Date().toISOString(),
   });
 
-  return NextResponse.json({ ok: true, sync, replies, watchdog });
+  return NextResponse.json({ ok: true, sync, replies, watchdog, health });
 }
