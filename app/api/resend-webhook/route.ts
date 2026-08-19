@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendMail } from "@/lib/mailer";
 
 const ALERT_EVENTS = new Set([
   "email.bounced",
@@ -104,7 +102,12 @@ async function handleEvent(payload: { type: string; data: Record<string, unknown
   const createdAt = String(data.created_at ?? new Date().toISOString());
   const label = esc(labels[type] ?? type);
 
-  await resend.emails.send({
+  // Routed through the shared wrapper rather than calling Resend directly.
+  // This was the last send site that bypassed it, which matters more here than
+  // anywhere else: the wrapper is what honours MAIL_REDIRECT_TO, and this
+  // endpoint fires on real delivery events, so exercising it against a test
+  // environment would have put alerts in the live office inbox.
+  await sendMail({
     from: "Anadyon Alerts <customerservice@anadyon.gr>",
     to: ["anadyon.gr@gmail.com"],
     subject: `${labels[type]} — ${to}`,
