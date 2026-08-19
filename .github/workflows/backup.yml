@@ -1,0 +1,152 @@
+name: Nightly database backup
+
+# 02:30 Greece time — 23:30 UTC in summer, 00:30 UTC in winter. Cron has no
+# timezone, so this is fixed to 23:30 UTC and drifts by an hour in winter.
+# That is fine: what matters is that it runs daily and outside working hours.
+on:
+  schedule:
+    - cron: "30 23 * * *"
+  workflow_dispatch:
+
+# The Supabase free plan takes no backups at all — daily backups are a Pro
+# feature, and their documentation tells free projects to export their own data
+# and keep it off-site. This is that, running on GitHub's machines so no
+# computer of ours has to be awake at half past two.
+#
+# Deliberately NOT the shape of Supabase's own example, which commits the dump
+# into the repository. This repository is PUBLIC, and the dump contains
+# customer dates of birth, addresses and phone numbers. It goes to private
+# object storage, encrypted, and never touches git.
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Install the Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Three dumps rather than one, following Supabase's guidance. Roles and
+      # schema are what a data-only export misses — and what turns a restore
+      # from "rebuild it by hand and hope" into something reproducible.
+      - name: Dump roles, schema and data
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p dump
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f dump/roles.sql  --role-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f dump/schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f dump/data.sql   --data-only --use-copy
+
+      # A dump that silently produced nothing is worse than a failed job: it
+      # uploads, looks successful, and is discovered empty on the day it is
+      # needed. Checked before anything else happens to it.
+      - name: Refuse an empty or truncated dump
+        run: |
+          set -euo pipefail
+          for f in dump/roles.sql dump/schema.sql dump/data.sql; do
+            size=$(stat -c%s "$f")
+            echo "  $f: $size bytes"
+            if [ "$size" -lt 100 ]; then
+              echo "::error::$f is $size bytes — refusing to upload a backup that is almost certainly empty"
+              exit 1
+            fi
+          done
+          grep -q "CREATE TABLE" dump/schema.sql || {
+            echo "::error::schema.sql contains no CREATE TABLE — the dump did not work"; exit 1; }
+
+      # AES-256 with PBKDF2 at 600k iterations, OWASP's current figure.
+      # openssl rather than anything exotic so the archive can be opened years
+      # from now with nothing but the passphrase and a machine.
+      - name: Compress and encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          STAMP=$(date -u +%Y-%m-%dT%H-%M-%SZ)
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          tar -czf "anadyon-$STAMP.tar.gz" -C dump .
+          openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt \
+            -pass env:BACKUP_PASSPHRASE \
+            -in "anadyon-$STAMP.tar.gz" -out "anadyon-$STAMP.tar.gz.enc"
+          rm -f "anadyon-$STAMP.tar.gz"
+          rm -rf dump
+          ls -lh "anadyon-$STAMP.tar.gz.enc"
+
+      # Proves the archive is recoverable before it is trusted as a backup.
+      # An encrypted file nobody has ever decrypted is a guess, not a backup.
+      - name: Verify the archive decrypts
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+            -pass env:BACKUP_PASSPHRASE -in "anadyon-$STAMP.tar.gz.enc" \
+          | tar -tzf - > /dev/null
+          echo "  archive decrypts and lists cleanly"
+
+      - name: Upload to Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          aws s3 cp "anadyon-$STAMP.tar.gz.enc" \
+            "s3://$R2_BUCKET/daily/anadyon-$STAMP.tar.gz.enc" \
+            --endpoint-url "$R2_ENDPOINT"
+          # First of the month is also kept as a monthly, so pruning dailies
+          # never takes the last copy of an old month with it.
+          if [ "$(date -u +%d)" = "01" ]; then
+            aws s3 cp "anadyon-$STAMP.tar.gz.enc" \
+              "s3://$R2_BUCKET/monthly/anadyon-$STAMP.tar.gz.enc" \
+              --endpoint-url "$R2_ENDPOINT"
+          fi
+
+      # 30 dailies and 12 monthlies. Done here rather than with an R2 lifecycle
+      # rule so the policy lives beside the job that depends on it, and is
+      # visible in the run log rather than in a console nobody opens.
+      - name: Prune old backups
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          prune() {
+            prefix="$1"; keep="$2"
+            aws s3 ls "s3://$R2_BUCKET/$prefix/" --endpoint-url "$R2_ENDPOINT" \
+              | awk '{print $4}' | sort | head -n -"$keep" | while read -r old; do
+                [ -z "$old" ] && continue
+                echo "  removing $prefix/$old"
+                aws s3 rm "s3://$R2_BUCKET/$prefix/$old" --endpoint-url "$R2_ENDPOINT"
+              done
+          }
+          prune daily 30
+          prune monthly 12
+
+      # Only on failure. A nightly "backup succeeded" message trains the reader
+      # to ignore the channel, and then the one that matters is skimmed past.
+      - name: Tell someone if it failed
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          [ -z "${TELEGRAM_BOT_TOKEN:-}" ] && exit 0
+          curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+            -d "chat_id=$TELEGRAM_CHAT_ID" \
+            -d "parse_mode=HTML" \
+            --data-urlencode "text=❌ <b>Nightly database backup failed</b>
+No backup was stored tonight. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > /dev/null
