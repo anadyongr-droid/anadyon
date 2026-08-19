@@ -108,17 +108,15 @@ async function handleEvent(payload: { type: string; data: Record<string, unknown
   // endpoint fires on real delivery events, so exercising it against a test
   // environment would have put alerts in the live office inbox.
   await sendMail({
-    // Both addresses on one message, not two sends: the office mailbox is the
-    // one staff actually watch in webmail, and the Gmail account stays on so
-    // the alert still reaches someone if nobody is at the desk. One Resend
-    // call either way, so the second recipient costs nothing against quota.
+    // Office mailbox only. customerservice@anadyon.gr already forwards to
+    // anadyon.gr@gmail.com, so naming both delivered the same alert twice to
+    // the same person — one copy direct, one via the forward.
     //
     // Sent from no-reply rather than customerservice, matching the reservation
-    // alerts. The previous From was customerservice@anadyon.gr, which is now
-    // also a recipient — a message addressed from and to the same mailbox is
-    // the kind of thing loop detection and spam filters take an interest in.
+    // alerts: the recipient is customerservice, and a message addressed from
+    // and to the same mailbox is what loop detection exists to notice.
     from: "Anadyon Alerts <no-reply@anadyon.gr>",
-    to: ["customerservice@anadyon.gr", "anadyon.gr@gmail.com"],
+    to: ["customerservice@anadyon.gr"],
     subject: `${labels[type]} — ${to}`,
     html: `
       <h2>${label}</h2>
