@@ -189,6 +189,54 @@ async function checkBackupFreshness(): Promise<CheckResult> {
 }
 
 /**
+ * Two DNS records the go-live runbook flagged and neither of which got done.
+ *
+ * SPF still carries `+a`, which authorises whatever the domain's A record
+ * points at to send mail as anadyon.gr. Before the cutover that was the mail
+ * server. It is now Vercel's shared anycast address, so the record vouches for
+ * infrastructure that has nothing to do with our mail.
+ *
+ * DMARC is `p=none` with no `rua=`, which is the weakest possible state: it
+ * asks receivers to do nothing about spoofing AND collects no reports, so
+ * there is no protection and no evidence with which to earn any.
+ *
+ * Both are one-line edits in Papaki's DNS. Neither will ever announce itself,
+ * which is exactly why they are checked here — a DNS record nobody looks at is
+ * how a domain quietly stops being defensible.
+ */
+async function checkMailDns(): Promise<CheckResult> {
+  const name = "Mail DNS hardening";
+  try {
+    const { promises: dns } = await import("node:dns");
+    const flat = (records: string[][]) => records.map((chunks) => chunks.join(""));
+    const problems: string[] = [];
+
+    try {
+      const spf = flat(await dns.resolveTxt("anadyon.gr")).find((r) => r.startsWith("v=spf1"));
+      if (!spf) problems.push("no SPF record");
+      else if (/(^|\s)[+]?a(\s|$)/.test(spf)) {
+        problems.push("SPF still has `+a`, which now authorises Vercel's shared IP to send mail");
+      }
+    } catch { problems.push("SPF could not be resolved"); }
+
+    try {
+      const dmarc = flat(await dns.resolveTxt("_dmarc.anadyon.gr"))[0] ?? "";
+      if (!dmarc) problems.push("no DMARC record");
+      else {
+        if (!/rua=/.test(dmarc)) problems.push("DMARC has no `rua=`, so no reports are being collected at all");
+        else if (/p=none/.test(dmarc)) problems.push("DMARC still `p=none` — reports are arriving, consider moving to quarantine");
+      }
+    } catch { problems.push("DMARC could not be resolved"); }
+
+    return problems.length
+      ? { name, ok: false, detail: problems.join("; ") }
+      : { name, ok: true, detail: "SPF scoped to the mail server, DMARC reporting and enforcing" };
+  } catch (err) {
+    return { name, ok: false, detail: String(err).slice(0, 110) };
+  }
+}
+
+/**
  * Variables whose absence fails silently rather than loudly. Values are never
  * reported, only whether something is there.
  *
@@ -226,6 +274,7 @@ export async function runHealthChecks(): Promise<CheckResult[]> {
     checkRateCard().catch((e) => ({ name: "Rate card readable", ok: false, detail: String(e).slice(0, 90) })),
     checkAdminRoles().catch((e) => ({ name: "Admin accounts have roles", ok: false, detail: String(e).slice(0, 90) })),
     checkBackupFreshness().catch((e) => ({ name: "Recent database backup", ok: false, detail: String(e).slice(0, 90) })),
+    checkMailDns().catch((e) => ({ name: "Mail DNS hardening", ok: false, detail: String(e).slice(0, 90) })),
     Promise.resolve(checkEnvironment()),
   ]);
   return checks;
