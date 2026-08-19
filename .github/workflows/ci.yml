@@ -78,10 +78,26 @@ jobs:
       # Chromium only. Firefox and WebKit would roughly triple the download for
       # coverage the build's own targets already constrain, and layout overflow
       # is not engine-specific in the ways tested here.
+      # Cached, because the download is ~100MB and the browser changes only
+      # when the Playwright version does.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # Without --with-deps. That flag runs apt-get to install system
+      # libraries, and it hung this job for nineteen minutes against a normal
+      # run time of one. The GitHub Ubuntu image already carries what headless
+      # Chromium needs; if that ever stops being true, Playwright fails with a
+      # named missing library rather than hanging, which is the better failure.
       - name: Install Chromium for browser tests
-        run: npx playwright install --with-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
 
       - name: Browser tests
+        timeout-minutes: 10
         env:
           # `next start` is a separate step from the build, so it does not
           # inherit the build's environment. lib/supabase.ts constructs its
