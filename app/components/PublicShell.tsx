@@ -2,6 +2,7 @@
 import { usePathname } from "next/navigation";
 import Header from "./Header";
 import CookieBanner, { openCookieSettings } from "./CookieBanner";
+import AuthFragmentRedirect from "./AuthFragmentRedirect";
 import { translator, localePath, isLocale, DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
 
 export default function PublicShell({ children }: { children: React.ReactNode }) {
@@ -30,6 +31,8 @@ export default function PublicShell({ children }: { children: React.ReactNode })
   return (
     <>
       <Header locale={locale} />
+      {/* Rescues an invitation or reset that Supabase sent to the wrong page. */}
+      <AuthFragmentRedirect />
       <CookieBanner locale={locale} />
       <main className="flex-1">{children}</main>
       <footer className="bg-gray-900 dark:bg-gray-950 text-gray-400 border-t border-orange-700">
