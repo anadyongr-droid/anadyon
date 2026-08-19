@@ -25,7 +25,8 @@ interface Vehicle {
   status: string;
 }
 
-import { STATUS_COLORS } from "../lib/statusColors";
+import { statusClass, statusLabel } from "../lib/statusColors";
+import StatusLegend from "../components/StatusLegend";
 
 export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -83,6 +84,8 @@ export default function ReservationsPage() {
         ))}
       </div>
 
+      <StatusLegend />
+
       {loading ? (
         <div className="text-sm text-gray-400">Loading…</div>
       ) : (
@@ -117,8 +120,8 @@ export default function ReservationsPage() {
                   <td className="px-4 py-3 text-center text-gray-600">{r.rental_days}</td>
                   <td className="px-4 py-3 text-right font-medium text-gray-900">€{r.total}</td>
                   <td className="px-4 py-3 text-center">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_COLORS[r.status]}`}>
-                      {r.status.replace("_", " ")}
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusClass(r.status)}`}>
+                      {statusLabel(r.status)}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">

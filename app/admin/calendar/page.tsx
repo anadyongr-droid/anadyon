@@ -1,5 +1,7 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
+import { statusClass } from "../lib/statusColors";
+import StatusLegend from "../components/StatusLegend";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import ReservationModal from "../components/ReservationModal";
 import { vehicleLabel } from "@/lib/vehicleLabel";
@@ -26,16 +28,6 @@ interface Reservation {
   daily_rate: number;
   rental_days: number;
 }
-
-const STATUS_COLORS: Record<string, string> = {
-  pending:   "bg-yellow-400 text-yellow-900",
-  confirmed: "bg-blue-500 text-white",
-  active:    "bg-green-500 text-white",
-  returned:  "bg-gray-400 text-white",
-  cancelled: "bg-red-300 text-red-900 line-through opacity-60",
-  no_show:   "bg-orange-400 text-white opacity-70",
-  voided:    "bg-gray-200 text-gray-400 line-through opacity-50",
-};
 
 const CATEGORY_LABELS: Record<string, string> = {
   car: "Cars",
@@ -299,7 +291,7 @@ export default function CalendarPage() {
                               <button
                                 onClick={() => setModal({ reservationId: res.id })}
                                 title={`${res.customer_name} — €${res.total}`}
-                                className={`w-full h-7 rounded flex items-center px-2 gap-1 text-left text-xs font-medium truncate cursor-pointer transition-opacity hover:opacity-90 ${STATUS_COLORS[res.status] ?? "bg-gray-300"}`}
+                                className={`w-full h-7 rounded flex items-center px-2 gap-1 text-left text-xs font-medium truncate cursor-pointer transition-opacity hover:opacity-90 ${statusClass(res.status, "solid")}`}
                               >
                                 <span className="truncate">{res.customer_name}</span>
                               </button>
@@ -338,19 +330,7 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Legend */}
-      <div className="flex items-center gap-4 mt-4 text-xs text-gray-500">
-        {Object.entries(STATUS_COLORS).map(([status, cls]) => (
-          <div key={status} className="flex items-center gap-1.5">
-            <div className={`w-3 h-3 rounded ${cls.split(" ")[0]}`} />
-            <span className="capitalize">{status}</span>
-          </div>
-        ))}
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-orange-100 border border-orange-200" />
-          <span>Maintenance</span>
-        </div>
-      </div>
+      <StatusLegend weight="solid" />
 
       {/* Modal */}
       {modal !== null && (

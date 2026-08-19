@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CalendarDays, Clock, AlertTriangle, CheckCircle2, TrendingUp, Car } from "lucide-react";
-import { STATUS_COLORS } from "./lib/statusColors";
+import { statusClass, statusLabel } from "./lib/statusColors";
 import { vehicleLabel } from "@/lib/vehicleLabel";
 
 interface Reservation {
@@ -198,7 +198,7 @@ export default function AdminDashboard() {
                       <div className="font-medium text-gray-900">{r.customer_name}</div>
                       <div className="text-xs text-green-600">↓ Return {r.return_time} — {vehicleLabel(r.vehicles)}</div>
                     </div>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[r.status]}`}>{r.status}</span>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusClass(r.status)}`}>{statusLabel(r.status)}</span>
                   </Link>
                 ))}
               </div>
@@ -222,7 +222,7 @@ export default function AdminDashboard() {
                       <div className="font-medium text-gray-900">{r.customer_name}</div>
                       <div className="text-xs text-gray-400">{r.pickup_date} → {r.return_date} · {vehicleLabel(r.vehicles)}</div>
                     </div>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[r.status]}`}>{r.status}</span>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusClass(r.status)}`}>{statusLabel(r.status)}</span>
                   </Link>
                 ))}
               </div>

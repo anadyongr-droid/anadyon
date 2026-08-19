@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
+import { statusClass, statusLabel } from "../lib/statusColors";
+import StatusLegend from "../components/StatusLegend";
 
 interface Quote {
   ref: string;
@@ -18,15 +20,6 @@ interface Quote {
   reservation_vehicle_plate: string | null;
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  new:       "bg-gray-100 text-gray-500",
-  pending:   "bg-yellow-100 text-yellow-800",
-  confirmed: "bg-blue-100 text-blue-800",
-  active:    "bg-green-100 text-green-800",
-  returned:  "bg-gray-100 text-gray-600",
-  cancelled: "bg-red-100 text-red-600",
-};
-
 export default function QuotesPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +36,8 @@ export default function QuotesPage() {
         <h1 className="text-xl font-bold text-gray-900">Quotes</h1>
         <p className="text-sm text-gray-400 mt-0.5">Website booking requests — most recent first</p>
       </div>
+
+      <StatusLegend />
 
       {loading ? (
         <div className="text-sm text-gray-400">Loading…</div>
@@ -94,8 +89,8 @@ export default function QuotesPage() {
                     {q.total > 0 ? `€${q.total}` : "—"}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[q.quote_status] ?? STATUS_STYLES.new}`}>
-                      {q.quote_status}
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusClass(q.quote_status ?? "new")}`}>
+                      {statusLabel(q.quote_status ?? "new")}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right text-xs text-gray-400">

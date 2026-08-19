@@ -1,15 +1,11 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { statusClass } from "../lib/statusColors";
 import { AlertTriangle, Clock } from "lucide-react";
 import VehicleModal, { type FleetVehicle } from "../components/VehicleModal";
 import { worstSeverity, rentalBar, vehicleDateStatuses, type Severity } from "@/lib/fleetStatus";
 
 const STATUS_OPTIONS = ["available", "maintenance", "retired"];
-const STATUS_COLORS: Record<string, string> = {
-  available:   "bg-green-100 text-green-700",
-  maintenance: "bg-orange-100 text-orange-700",
-  retired:     "bg-gray-100 text-gray-500",
-};
 
 /**
  * Grouped by the sellable category rather than by physical vehicle.
@@ -141,7 +137,7 @@ export default function FleetPage() {
                           value={v.status}
                           disabled={saving === v.id}
                           onChange={e => updateStatus(v.id, e.target.value)}
-                          className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer ${STATUS_COLORS[v.status]}`}
+                          className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer ${statusClass(v.status)}`}
                         >
                           {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
