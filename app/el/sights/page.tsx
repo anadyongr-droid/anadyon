@@ -4,7 +4,7 @@ import SightsContent from "../../sights/SightsContent";
 export const metadata: Metadata = {
   title: "Αξιοθέατα Ζακύνθου",
   description: "Ναυάγιο, Γαλάζιες Σπηλιές, Κερί και πολλά ακόμη — πού να πάτε στη Ζάκυνθο και πώς να φτάσετε με αυτοκίνητο, μηχανή ή ποδήλατο.",
-  alternates: { canonical: "/el/sights", languages: { en: "/sights", el: "/el/sights" } },
+  alternates: { canonical: "/el/sights", languages: { en: "/sights", el: "/el/sights", "x-default": "/sights" } },
 };
 
 export default function Page() {

@@ -46,6 +46,16 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: "https://anadyon.gr",
+    // Declared on the English side as well as the Greek. Search engines read the
+    // pair from whichever page they land on first, and only the Greek routes
+    // carried it — so an English page gave no indication a Greek equivalent
+    // existed. x-default names English as the fallback for a visitor whose
+    // language matches neither.
+    languages: {
+      en: "https://anadyon.gr",
+      el: "https://anadyon.gr/el",
+      "x-default": "https://anadyon.gr",
+    },
   },
   robots: {
     index: true,

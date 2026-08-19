@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     canonical: "/el/bikes",
     // Declares the pair so the two language versions are read as translations
     // of one another rather than as competing duplicates.
-    languages: { en: "/bikes", el: "/el/bikes" },
+    languages: { en: "/bikes", el: "/el/bikes", "x-default": "/bikes" },
   },
 };
 

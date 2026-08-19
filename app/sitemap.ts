@@ -61,6 +61,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
         languages: {
           en: `${base}${path}` || base,
           el: `${base}/el${path}`,
+          // Which page a visitor gets when their language matches neither.
+          // English, because it is what most arrivals to Zakynthos read.
+          "x-default": `${base}${path}` || base,
         },
       },
     },
@@ -77,6 +80,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
         languages: {
           en: `${base}${path}` || base,
           el: `${base}/el${path}`,
+          // Which page a visitor gets when their language matches neither.
+          // English, because it is what most arrivals to Zakynthos read.
+          "x-default": `${base}${path}` || base,
         },
       },
     },

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     canonical: "/el",
     // Tells search engines the two pages are the same content in two languages,
     // rather than duplicates competing with one another.
-    languages: { en: "/", el: "/el" },
+    languages: { en: "/", el: "/el", "x-default": "/" },
   },
 };
 
