@@ -57,7 +57,7 @@ export function Benefits({ locale = "en" }: { locale?: Locale }) {
           </motion.div>
         ))}
       </div>
-      <p className="text-xs text-gray-400 dark:text-gray-500 mt-4 text-center">
+      <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">
         {tr("benefit.footnote")}{" "}
         <a href={localePath("/faq", locale)} className="underline hover:text-gray-600 dark:hover:text-gray-300">{tr("benefit.footnoteFaq")}</a>{" "}
         {tr("benefit.footnoteEnd")}
@@ -99,8 +99,8 @@ export function Fleet({ locale = "en" }: { locale?: Locale }) {
               <div className="p-5 border-t border-gray-100 dark:border-gray-700">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{tr(`fleet.${v.key}`)}</h3>
                 <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">{tr(`fleet.${v.key}Desc`)}</p>
-                <p className="text-xs text-orange-600 dark:text-orange-400 font-medium mb-3">{tr(`fleet.${v.key}Best`)}</p>
-                <span className="text-orange-600 dark:text-orange-400 text-sm font-semibold">{tr("fleet.view")}</span>
+                <p className="text-xs text-orange-700 dark:text-orange-400 font-medium mb-3">{tr(`fleet.${v.key}Best`)}</p>
+                <span className="text-orange-700 dark:text-orange-400 text-sm font-semibold">{tr("fleet.view")}</span>
               </div>
             </motion.a>
           ))}
@@ -121,7 +121,7 @@ export function WhyAnadyon({ locale = "en" }: { locale?: Locale }) {
         transition={{ duration: 0.5 }}
       >
         <h2 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">{tr("why.title")}</h2>
-        <p className="text-lg font-semibold text-orange-600 dark:text-orange-400 mb-2">{tr("why.tagline")}</p>
+        <p className="text-lg font-semibold text-orange-700 dark:text-orange-400 mb-2">{tr("why.tagline")}</p>
         <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto mb-8">
           {tr("why.intro")}
         </p>

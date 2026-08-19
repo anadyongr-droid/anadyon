@@ -55,7 +55,7 @@ export default function Header({ locale = "en" }: { locale?: Locale }) {
           <Link
             href={localePath(pathname, other)}
             hrefLang={other}
-            className="flex items-center gap-1.5 min-h-11 px-3 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-orange-600 dark:hover:text-orange-400 transition"
+            className="flex items-center gap-1.5 min-h-11 px-3 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-orange-700 dark:hover:text-orange-400 transition"
             aria-label={other === "el" ? "Αλλαγή γλώσσας στα Ελληνικά" : "Switch language to English"}
           >
             <Globe size={15} />
@@ -78,13 +78,13 @@ export default function Header({ locale = "en" }: { locale?: Locale }) {
       </div>
 
       {/* Desktop nav — aligned to the same content column as the logo */}
-      <nav aria-label="Main" className="hidden md:block bg-orange-600 dark:bg-orange-700 w-full">
+      <nav aria-label="Main" className="hidden md:block bg-orange-700 w-full">
         <div className="max-w-6xl mx-auto px-4 flex">
           {routes.map(r => (
             <a
               key={r.path}
               href={href(r.path)}
-              className="flex-1 text-center text-sm font-semibold text-white py-3 hover:bg-orange-700 dark:hover:bg-orange-800 transition border-r border-orange-500 dark:border-orange-700 last:border-r-0"
+              className="flex-1 text-center text-sm font-semibold text-white py-3 hover:bg-orange-800 dark:hover:bg-orange-900 transition border-r border-orange-400/40 dark:border-orange-500/40 last:border-r-0"
             >
               {tr(r.key)}
             </a>
@@ -99,7 +99,7 @@ export default function Header({ locale = "en" }: { locale?: Locale }) {
             <a
               key={r.path}
               href={href(r.path)}
-              className="flex items-center min-h-11 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-orange-600 dark:hover:text-orange-400 visited:text-gray-700 dark:visited:text-gray-300"
+              className="flex items-center min-h-11 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-orange-700 dark:hover:text-orange-400 visited:text-gray-700 dark:visited:text-gray-300"
               onClick={() => setOpen(false)}
             >
               {tr(r.key)}

@@ -41,7 +41,7 @@ export default function FaqClient({ locale = "en" }: { locale?: Locale }) {
         <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">{FAQ_TITLE[locale]}</h1>
         <p className="text-gray-500 dark:text-gray-400 mb-10">
           {t(locale, "faq.intro")}{" "}
-          <a href={localePath("/contact", locale)} className="text-orange-600 dark:text-orange-400 hover:underline">{t(locale, "faq.contactLink")}</a>.
+          <a href={localePath("/contact", locale)} className="text-orange-700 dark:text-orange-400 hover:underline">{t(locale, "faq.contactLink")}</a>.
         </p>
 
         <div className="space-y-3">

@@ -105,7 +105,7 @@ export default function QuoteLookupPage({ params, locale = "en" }: { params: Pro
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-orange-600 text-white font-semibold py-3 rounded-lg hover:bg-orange-700 transition disabled:opacity-50"
+              className="w-full bg-orange-700 text-white font-semibold py-3 rounded-lg hover:bg-orange-800 transition disabled:opacity-50"
             >
               {loading ? "Looking up…" : "View Quote"}
             </button>
@@ -127,7 +127,7 @@ export default function QuoteLookupPage({ params, locale = "en" }: { params: Pro
                   {tr("quote.notConfirmed")}
                 </span>
               </div>
-              <p className="text-xs text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {tr("quote.submitted")} {new Date(quote.created_at).toLocaleDateString(locale === "el" ? "el-GR" : "en-GB", { day: "numeric", month: "long", year: "numeric" })}
                 {" · "}{tr("quote.viewableUntil")}{" "} {new Date(quote.expires_at).toLocaleDateString(locale === "el" ? "el-GR" : "en-GB", { day: "numeric", month: "long", year: "numeric" })}
               </p>

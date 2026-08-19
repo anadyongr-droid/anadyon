@@ -129,7 +129,7 @@ export default function CarsClient({ locale = "en" }: { locale?: Locale }) {
                 <div className="flex md:flex-col items-center md:items-end justify-end md:justify-end gap-3">
                   <button
                     onClick={() => selectAndScroll(car.name)}
-                    className="w-full md:w-36 bg-orange-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-orange-700 transition text-sm"
+                    className="w-full md:w-36 bg-orange-700 text-white font-semibold px-6 py-3 rounded-lg hover:bg-orange-800 transition text-sm"
                   >
                     {tr("vehicles.getQuote")}
                   </button>

@@ -26,7 +26,7 @@ export default function BlogClient({ locale = "en" }: { locale?: Locale }) {
             </div>
             <div className="p-6 flex flex-col justify-between">
               <div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">{post.date}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{post.date}</p>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{post.title}</h2>
                 <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">{post.excerpt}</p>
               </div>

@@ -36,13 +36,13 @@ export default function Home({ locale = "en" }: { locale?: Locale }) {
             {tr("home.subtitle")}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center w-full sm:w-auto">
-            <a href={href("/cars")} className="bg-white text-orange-600 font-semibold px-8 py-3 rounded-full hover:bg-orange-50 transition text-center">
+            <a href={href("/cars")} className="bg-white text-orange-700 font-semibold px-8 py-3 rounded-full hover:bg-orange-50 transition text-center">
               {tr("home.rentCar")}
             </a>
-            <a href={href("/motorbikes")} className="bg-white text-orange-600 font-semibold px-8 py-3 rounded-full hover:bg-orange-50 transition text-center">
+            <a href={href("/motorbikes")} className="bg-white text-orange-700 font-semibold px-8 py-3 rounded-full hover:bg-orange-50 transition text-center">
               {tr("home.rentMotorbike")}
             </a>
-            <a href={href("/bikes")} className="bg-white text-orange-600 font-semibold px-8 py-3 rounded-full hover:bg-orange-50 transition text-center">
+            <a href={href("/bikes")} className="bg-white text-orange-700 font-semibold px-8 py-3 rounded-full hover:bg-orange-50 transition text-center">
               {tr("home.rentBike")}
             </a>
           </div>
@@ -70,10 +70,10 @@ export default function Home({ locale = "en" }: { locale?: Locale }) {
       <WhyAnadyon locale={locale} />
 
       {/* CTA Banner */}
-      <div className="bg-orange-600 text-white py-14 px-4 text-center">
+      <div className="bg-orange-700 text-white py-14 px-4 text-center">
         <h2 className="text-2xl md:text-3xl font-bold mb-3">{tr("cta.ready")}</h2>
         <p className="text-orange-100 mb-8">{tr("cta.sub")}</p>
-        <a href={href("/cars")} className="bg-white text-orange-600 font-semibold px-10 py-3 rounded-full hover:bg-orange-50 transition">
+        <a href={href("/cars")} className="bg-white text-orange-700 font-semibold px-10 py-3 rounded-full hover:bg-orange-50 transition">
           {tr("cta.button")}
         </a>
       </div>

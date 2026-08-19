@@ -144,7 +144,7 @@ export default function ContactClient({ locale = "en" }: { locale?: Locale }) {
                     onChange={(token: string | null) => setCaptchaToken(token)}
                     onExpired={() => setCaptchaToken(null)}
                   />
-                  <p className="text-xs text-gray-400 dark:text-gray-500">{notice}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{notice}</p>
                 </div>
                 {formError && (
                   <p className="text-red-600 dark:text-red-400 text-sm font-medium bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">{formError}</p>
@@ -153,7 +153,7 @@ export default function ContactClient({ locale = "en" }: { locale?: Locale }) {
                   <p className="text-red-500 text-sm">{tr("contact.errSend")}</p>
                 )}
                 <button type="submit" disabled={status === "sending"}
-                  className="w-full bg-orange-600 text-white font-semibold py-3 rounded-lg hover:bg-orange-700 transition disabled:opacity-50">
+                  className="w-full bg-orange-700 text-white font-semibold py-3 rounded-lg hover:bg-orange-800 transition disabled:opacity-50">
                   {status === "sending" ? tr("contact.sending") : tr("contact.send")}
                 </button>
               </form>

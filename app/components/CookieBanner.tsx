@@ -105,7 +105,7 @@ export default function CookieBanner({ locale = "en" }: { locale?: Locale }) {
               </button>
               <button
                 onClick={() => save("all")}
-                className="px-4 py-2 text-sm bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-500 transition"
+                className="px-4 py-2 text-sm bg-orange-700 text-white font-semibold rounded-lg hover:bg-orange-700 transition"
               >
                 {tr("cookie.acceptAll")}
               </button>
@@ -152,7 +152,7 @@ export default function CookieBanner({ locale = "en" }: { locale?: Locale }) {
               </button>
               <button
                 onClick={() => save("all")}
-                className="px-4 py-2 text-sm bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-500 transition"
+                className="px-4 py-2 text-sm bg-orange-700 text-white font-semibold rounded-lg hover:bg-orange-700 transition"
               >
                 {tr("cookie.acceptAll")}
               </button>

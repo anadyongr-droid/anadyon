@@ -33,13 +33,13 @@ export default function PublicShell({ children }: { children: React.ReactNode })
       <CookieBanner locale={locale} />
       <main className="flex-1">{children}</main>
       <footer className="bg-gray-900 dark:bg-gray-950 text-gray-400 border-t border-orange-700">
-        <nav aria-label="Footer" className="bg-orange-600 dark:bg-orange-700 w-full">
+        <nav aria-label="Footer" className="bg-orange-700 w-full">
           <div className="flex flex-wrap justify-center">
             {footerLinks.map(l => (
               <a
                 key={l.path}
                 href={href(l.path)}
-                className="text-center text-sm font-semibold text-white px-5 py-3 hover:bg-orange-700 dark:hover:bg-orange-600 visited:text-white transition cursor-pointer"
+                className="text-center text-sm font-semibold text-white px-5 py-3 hover:bg-orange-800 visited:text-white transition cursor-pointer"
               >
                 {tr(l.key)}
               </a>

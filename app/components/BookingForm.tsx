@@ -105,7 +105,7 @@ function TermsModal({ onClose, locale = "en" }: { onClose: () => void; locale?: 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between p-6 border-b dark:border-gray-700">
           <h2 className="text-lg font-semibold dark:text-white">{copy.title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl leading-none">&times;</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl leading-none">&times;</button>
         </div>
         {/*
           Rendered from lib/i18n/content/legal.ts — the same source the /terms
@@ -456,13 +456,13 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         {/* Step indicator */}
         <div className="flex items-center border-b dark:border-gray-700 px-8 py-4 gap-3">
           <div className="flex items-center gap-2">
-            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${step === 1 ? "bg-orange-600 text-white" : "bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400"}`}>1</span>
-            <span className={`text-sm font-medium ${step === 1 ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}`}>{tr("form.stepRental")}</span>
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${step === 1 ? "bg-orange-700 text-white" : "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400"}`}>1</span>
+            <span className={`text-sm font-medium ${step === 1 ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"}`}>{tr("form.stepRental")}</span>
           </div>
           <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
           <div className="flex items-center gap-2">
-            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${step === 2 ? "bg-orange-600 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500"}`}>2</span>
-            <span className={`text-sm font-medium ${step === 2 ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}`}>{tr("form.stepDetails")}</span>
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${step === 2 ? "bg-orange-700 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"}`}>2</span>
+            <span className={`text-sm font-medium ${step === 2 ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"}`}>{tr("form.stepDetails")}</span>
           </div>
         </div>
 
@@ -690,7 +690,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-green-600 dark:text-green-400 font-medium">✓ Code &ldquo;{promoResult.code}&rdquo; applied</span>
                       <button onClick={() => { setPromoResult(null); setPromoInput(""); }}
-                        className="text-xs text-gray-400 hover:text-gray-600 underline">{tr("form.remove")}</button>
+                        className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline">{tr("form.remove")}</button>
                     </div>
                   ) : (
                     <div className="flex gap-2">
@@ -722,7 +722,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
             <button
               type="button"
               onClick={handleContinue}
-              className="w-full bg-orange-600 text-white font-semibold py-3 rounded-lg hover:bg-orange-700 transition"
+              className="w-full bg-orange-700 text-white font-semibold py-3 rounded-lg hover:bg-orange-800 transition"
             >
               {tr("form.continue")}
             </button>
@@ -740,7 +740,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 <div className="flex items-baseline justify-between gap-2 mb-3">
                   <p className="font-semibold text-blue-900 dark:text-blue-100">
                     {selectedModel}
-                    <span className="ml-2 inline-block bg-orange-600 text-white text-xs font-semibold rounded-full px-2 py-0.5 align-middle">{rentalDays} {tr(rentalDays === 1 ? "form.dayRental" : "form.daysRental")}</span>
+                    <span className="ml-2 inline-block bg-orange-700 text-white text-xs font-semibold rounded-full px-2 py-0.5 align-middle">{rentalDays} {tr(rentalDays === 1 ? "form.dayRental" : "form.daysRental")}</span>
                   </p>
                   <p className="text-xl font-bold text-blue-900 dark:text-blue-100 flex-shrink-0">€{total.toFixed(2)}</p>
                 </div>
@@ -853,7 +853,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.comments")}</label>
                 <textarea rows={3} value={comments} onChange={e => setComments(e.target.value)} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200" placeholder={tr("form.commentsPh")} />
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{tr("form.requiredFields")}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{tr("form.requiredFields")}</p>
               </div>
             </div>
 
@@ -863,7 +863,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
               <div>
                 <label htmlFor="terms" className="text-sm text-gray-600 dark:text-gray-400">
                   {tr("form.acceptTerms")}{" "}
-                  <button type="button" onClick={() => setShowTerms(true)} className="text-orange-600 hover:underline font-medium cursor-pointer">{tr("form.termsLink")}</button>
+                  <button type="button" onClick={() => setShowTerms(true)} className="text-orange-700 hover:underline font-medium cursor-pointer">{tr("form.termsLink")}</button>
                 </label>
                 {fieldErrors.terms && <p className="text-red-500 text-xs mt-1">{tr("err.terms")}</p>}
               </div>
@@ -878,7 +878,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 onExpired={() => setCaptchaToken(null)}
               />
               {fieldErrors.captcha && <p className="text-red-500 text-xs mt-1">{tr("err.recaptcha")}</p>}
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 {tr("form.recaptchaNotice")}{" "}
                 <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">{tr("form.privacyPolicy")}</a>{" "}
                 {tr("form.and")}{" "}
@@ -902,7 +902,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
               <button
                 type="submit"
                 disabled={status === "sending"}
-                className="flex-2 w-full bg-orange-600 text-white font-semibold py-3 rounded-lg hover:bg-orange-700 transition disabled:opacity-50"
+                className="flex-2 w-full bg-orange-700 text-white font-semibold py-3 rounded-lg hover:bg-orange-800 transition disabled:opacity-50"
               >
                 {status === "sending" ? tr("form.sending") : tr("form.getQuote")}
               </button>

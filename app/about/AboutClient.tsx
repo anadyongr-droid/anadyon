@@ -17,7 +17,7 @@ export default function AboutClient({ locale = "en" }: { locale?: Locale }) {
           ))}
           <p>
             {prompt.text}{" "}
-            <a href={localePath("/contact", locale)} className="text-orange-600 dark:text-orange-400 hover:underline font-medium">
+            <a href={localePath("/contact", locale)} className="text-orange-700 dark:text-orange-400 hover:underline font-medium">
               {prompt.link}
             </a>.
           </p>

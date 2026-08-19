@@ -64,7 +64,7 @@ jobs:
         run: npm run check:a11y
 
       - name: SEO metadata audit
-        run: npx vitest run lib/seo.test.ts
+        run: npm run test:seo
 
       # Catches a column the migrations declare but the database never received.
       # That drift is invisible at build time — the code compiles, and the query

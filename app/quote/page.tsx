@@ -76,15 +76,15 @@ export default function QuoteLookupLanding({ locale = "en" }: { locale?: Locale 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-orange-600 text-white font-semibold py-3 rounded-lg hover:bg-orange-700 transition disabled:opacity-50"
+            className="w-full bg-orange-700 text-white font-semibold py-3 rounded-lg hover:bg-orange-800 transition disabled:opacity-50"
           >
             {loading ? tr("quote.lookingUp") : tr("quote.viewMyRental")}
           </button>
         </form>
 
-        <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">
+        <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-6">
           {tr("quote.cantFind")} <span className="font-medium">customerservice@anadyon.gr</span> {tr("quote.cantFindOr")}{" "}
-          <a href={localePath("/contact", locale)} className="text-orange-600 dark:text-orange-400 underline">{tr("nav.contact")}</a>.
+          <a href={localePath("/contact", locale)} className="text-orange-700 dark:text-orange-400 underline">{tr("nav.contact")}</a>.
         </p>
       </div>
     </div>

@@ -120,7 +120,7 @@ export default function DateRangePicker({ pickupDate, returnDate, onPickupChange
         >
           <CalendarDays size={16} className="text-blue-600 shrink-0" />
           <div className="min-w-0">
-            <div className="text-xs text-gray-400 dark:text-gray-500">{tr("form.pickup")}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">{tr("form.pickup")}</div>
             <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{fmt(pickupDate, locale, tr("form.selectDate"))}</div>
           </div>
         </button>
@@ -136,7 +136,7 @@ export default function DateRangePicker({ pickupDate, returnDate, onPickupChange
         >
           <CalendarDays size={16} className="text-blue-600 shrink-0" />
           <div className="min-w-0">
-            <div className="text-xs text-gray-400 dark:text-gray-500">{tr("form.return")}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">{tr("form.return")}</div>
             <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{fmt(returnDate, locale, tr("form.selectDate"))}</div>
           </div>
         </button>

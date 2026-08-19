@@ -19,7 +19,7 @@ import type { Section } from "@/lib/i18n/content/legal";
  * up visibly rather than silently disappearing.
  */
 
-const LINK_CLASS = "text-orange-600 dark:text-orange-400 hover:underline";
+const LINK_CLASS = "text-orange-700 dark:text-orange-400 hover:underline";
 const EXTERNAL_CLASS = "text-blue-600 dark:text-blue-400 hover:underline";
 
 interface LinkSpec { href: string; label: Record<Locale, string>; external?: boolean }

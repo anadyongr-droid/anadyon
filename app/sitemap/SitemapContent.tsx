@@ -21,7 +21,7 @@ export default function SitemapContent({ locale = "en" }: { locale?: Locale }) {
                 <li key={link.href}>
                   {/* Resolved against the locale so the Greek site map keeps the
                       reader inside the Greek site. */}
-                  <a href={localePath(link.href, locale)} className="text-orange-600 dark:text-orange-400 hover:underline text-sm">
+                  <a href={localePath(link.href, locale)} className="text-orange-700 dark:text-orange-400 hover:underline text-sm">
                     {link.label}
                   </a>
                 </li>
