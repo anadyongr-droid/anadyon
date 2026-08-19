@@ -28,8 +28,11 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: "/",
         // /quote/ carries a customer's own reference; it is reachable by link
-        // but has no business in an index.
-        disallow: ["/admin/", "/api/", "/quote/"],
+        // but has no business in an index. The Greek path needed listing
+        // separately — "/quote/" does not prefix-match "/el/quote/", so the
+        // Greek quote pages were disallowed by their meta tag alone while the
+        // English ones were covered twice.
+        disallow: ["/admin/", "/api/", "/quote/", "/el/quote/"],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,

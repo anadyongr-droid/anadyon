@@ -50,10 +50,34 @@ describe("rendered SEO metadata", () => {
     expect((html.match(/<link rel="canonical"/g) ?? []).length).toBe(1);
   });
 
-  it("keeps the quote lookup out of the index", () => {
+  // Asserted per locale rather than once. This test previously read only
+  // quote.html and passed, while the Greek lookup page shipped indexable — the
+  // English page had the directive and its translation never got it. A
+  // single-locale assertion on a bilingual site is half a test.
+  it.each([
+    ["/quote", "quote.html"],
+    ["/el/quote", "el/quote.html"],
+  ])("keeps %s out of the index", (_route, file) => {
     // An account-style lookup with nothing anyone searches for, and the
     // individual quote pages are already noindex.
-    const html = readFileSync(join(OUT, "quote.html"), "utf8");
+    const html = readFileSync(join(OUT, file), "utf8");
     expect(html).toMatch(/<meta name="robots" content="noindex/);
+  });
+
+  it("declares the same indexability on both sides of every hreflang pair", () => {
+    // An hreflang pair pointing from a noindex page to an indexable one tells a
+    // crawler two contradictory things about the same content.
+    for (const [route, file] of pages) {
+      const html = readFileSync(file, "utf8");
+      const noindex = /<meta name="robots" content="noindex/.test(html);
+      const twin = route.startsWith("/el")
+        ? (route === "/el" ? "/" : route.slice(3))
+        : (route === "/" ? "/el" : `/el${route}`);
+      const twinEntry = pages.find(([r]) => r === twin);
+      if (!twinEntry) continue;
+      const twinHtml = readFileSync(twinEntry[1], "utf8");
+      const twinNoindex = /<meta name="robots" content="noindex/.test(twinHtml);
+      expect(`${route}=${noindex}`).toBe(`${route}=${twinNoindex}`);
+    }
   });
 });
