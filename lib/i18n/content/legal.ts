@@ -291,6 +291,7 @@ const privacyEn: LegalPage = {
         mono: [0],
         rows: [
           ["cookie_consent", "Essential", "Stores your cookie preference (localStorage)"],
+          ["cookie_consent_record", "Essential", "Records the date and policy version of that choice, so we can show when consent was given and ask again if this notice changes materially (localStorage)"],
           ["_ga, _ga_*", "Analytics", "Google Analytics — only set with your consent"],
         ],
       },
@@ -362,6 +363,7 @@ const privacyEl: LegalPage = {
         mono: [0],
         rows: [
           ["cookie_consent", "Απαραίτητο", "Αποθηκεύει την προτίμησή σας για τα cookies (localStorage)"],
+          ["cookie_consent_record", "Απαραίτητο", "Καταγράφει την ημερομηνία και την έκδοση της πολιτικής για την επιλογή αυτή, ώστε να τεκμηριώνεται πότε δόθηκε η συγκατάθεση και να ζητείται εκ νέου αν η παρούσα ενημέρωση αλλάξει ουσιωδώς (localStorage)"],
           ["_ga, _ga_*", "Analytics", "Google Analytics — ορίζεται μόνο με τη συγκατάθεσή σας"],
         ],
       },
