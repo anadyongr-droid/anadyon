@@ -86,12 +86,27 @@ export async function proxy(req: NextRequest) {
 
   // A session issued before a role change carries a stale (or absent) claim.
   // Fall back to the authoritative value in the database.
+  //
+  // An unresolved role now denies access. It used to fall back to "staff",
+  // described here as denying privilege — but "staff" is not a denial. It
+  // reaches /admin/customers, /admin/reservations and /admin/inbox, so an
+  // account with no role at all was handed the customer database.
+  //
+  // That mattered because nothing in this file checks the user against a list
+  // of people who work here. The only thing between a stranger and that data
+  // was whether they held an account, and signup is enabled on the Supabase
+  // project via an anon key published in every visitor's browser bundle. Sign
+  // up, confirm your own address, enrol your own authenticator at the setup
+  // page this proxy redirects you to, and the role default did the rest.
+  //
+  // Both real accounts carry an explicit role, so denying the roleless case
+  // locks nobody out.
   if (!role) {
     try {
       const { supabaseAdmin } = await import("@/lib/supabase");
       const { data: adminUser, error } = await supabaseAdmin.auth.admin.getUserById(user.id);
       if (error) throw error;
-      role = (adminUser?.user?.app_metadata?.role as string | undefined) ?? "staff";
+      role = (adminUser?.user?.app_metadata?.role as string | undefined) ?? "";
     } catch (err) {
       // Denying privilege on error is the right default — never resolve upward
       // when the authoritative answer is unavailable. But it used to happen in
@@ -99,13 +114,29 @@ export async function proxy(req: NextRequest) {
       // and see the full one: the first request had no role claim in its token,
       // this lookup failed transiently, and nothing anywhere recorded it.
       //
-      // The downgrade stands. It is now visible.
+      // The denial stands. It is now visible. A transient failure turning a
+      // real admin away for one request is recoverable; resolving upward to a
+      // role that reads customer data is not.
       console.error(
-        `[proxy] role lookup failed for ${user.id}; defaulting to staff:`,
+        `[proxy] role lookup failed for ${user.id}; denying:`,
         err instanceof Error ? err.message : err
       );
-      role = "staff";
+      role = "";
     }
+  }
+
+  // No role, no access. Roles live in app_metadata, which is server-only and
+  // cannot be set by the account holder, so this cannot be satisfied by
+  // signing up.
+  if (role !== "admin" && role !== "staff") {
+    console.error(`[proxy] no role for ${user.id} (${user.email}); refusing admin access`);
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const url = req.nextUrl.clone();
+    url.pathname = "/admin/login";
+    url.searchParams.set("denied", "1");
+    return NextResponse.redirect(url);
   }
 
   // Enforce MFA: all admin users must have a TOTP factor enrolled and verified
