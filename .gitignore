@@ -48,3 +48,4 @@ next-env.d.ts
 
 # Database exports — customer data, never commit these
 /backups/
+*.tar.gz.enc

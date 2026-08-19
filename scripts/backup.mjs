@@ -33,7 +33,8 @@
  * a customer database waiting to be committed by accident — hence the
  * .gitignore entry.
  */
-import { writeFileSync, mkdirSync, readFileSync, readdirSync, existsSync } from "node:fs";
+import { writeFileSync, mkdirSync, readFileSync, readdirSync, existsSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 
 const URL_BASE = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -127,7 +128,53 @@ async function backup(outRoot) {
     console.error(`  ${failed.length} table(s) failed — this backup is incomplete.`);
     process.exit(1);
   }
+  // Encryption is opt-in but strongly wanted, because of what is in here.
+  // quotes carry date of birth, street address, postal code and email;
+  // reservations carry the same for the driver. That is not something to sync
+  // into a personal Dropbox or iCloud folder in the clear — under GDPR it is
+  // still your customers' data wherever it sits, and consumer cloud accounts
+  // get shared, resold to new devices, and breached.
+  //
+  // AES-256-CBC with PBKDF2 at 600k iterations, which is what OWASP currently
+  // recommends for that function. openssl is used rather than node:crypto so
+  // the file can be opened with nothing but a Mac and the passphrase, years
+  // from now, without this repository.
+  if (process.env.BACKUP_PASSPHRASE) {
+    const archive = `${dir}.tar.gz`;
+    const encrypted = `${archive}.enc`;
+    try {
+      execFileSync("tar", ["-czf", archive, "-C", outRoot, stamp]);
+      execFileSync("openssl", [
+        "enc", "-aes-256-cbc", "-pbkdf2", "-iter", "600000", "-salt",
+        "-pass", "env:BACKUP_PASSPHRASE",
+        "-in", archive, "-out", encrypted,
+      ], { env: process.env });
+      rmSync(archive);
+      rmSync(dir, { recursive: true });
+      const kb = (statSizeOf(encrypted) / 1024).toFixed(0);
+      console.log(`\n  Encrypted → ${encrypted} (${kb} KB)`);
+      console.log("  The plain copy has been removed. Keep the passphrase somewhere");
+      console.log("  other than the backup: without it this file is unrecoverable.");
+      console.log("\n  To read it back:");
+      console.log(`    openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \\`);
+      console.log(`      -pass env:BACKUP_PASSPHRASE -in ${encrypted} | tar -xzf - -C .`);
+      return;
+    } catch (err) {
+      // The plain directory is deliberately left in place on failure. Losing a
+      // backup to a failed encryption step would be the worst possible outcome
+      // of trying to protect it.
+      console.error(`  Encryption failed, plain backup kept at ${dir}: ${String(err.message).slice(0, 120)}`);
+      process.exit(1);
+    }
+  }
+
   console.log("  Copy this directory somewhere that is not this machine.");
+  console.log("  Set BACKUP_PASSPHRASE to get a single encrypted file instead —");
+  console.log("  this contains customer dates of birth and addresses.");
+}
+
+function statSizeOf(path) {
+  return readFileSync(path).length;
 }
 
 async function restore(dir) {
