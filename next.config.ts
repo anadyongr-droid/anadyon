@@ -75,6 +75,28 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  /**
+   * One canonical host.
+   *
+   * Both anadyon.gr and www.anadyon.gr served the site directly with a 200, so
+   * every page existed at two addresses — search engines have to guess which is
+   * authoritative, and link equity splits between them. The canonical tags
+   * already name the apex; this makes the server agree.
+   *
+   * 308 rather than 301: it preserves the request method, so a form posted to
+   * the www host still arrives as a POST rather than being rewritten to GET.
+   * Path and query are carried across by :path*.
+   */
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.anadyon.gr" }],
+        destination: "https://anadyon.gr/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

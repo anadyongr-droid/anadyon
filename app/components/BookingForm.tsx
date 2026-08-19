@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { DRIVER_AGE_POLICY, DRIVER_AGE_POLICY_EL, DRIVER_AGE_BANDS } from "@/lib/rentalPolicy";
 import { termsCopy } from "@/lib/i18n/content/legal";
 import LegalSections from "./LegalSections";
@@ -143,26 +143,30 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   // prices and nothing saying why — so the outcome is tracked explicitly.
   const [ratesState, setRatesState] = useState<"loading" | "ready" | "failed">("loading");
 
+  // Reloading the card is offered to the customer as well as attempted once on
+  // mount: the server retries a transient Supabase rejection three times, but if
+  // all three land inside the same blip the customer should not have to guess
+  // that reloading the whole page is the remedy.
+  const loadRates = useCallback(async () => {
+    setRatesState("loading");
+    try {
+      const res = await fetch("/api/admin/rates", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const { rates: r, extras: e } = await res.json();
+      if (!Array.isArray(r) || r.length === 0) throw new Error("no rates returned");
+      setRates(r);
+      setExtrasConfig(e ?? []);
+      setRatesState("ready");
+    } catch (err) {
+      console.error("Rate card could not be loaded:", err);
+      setRatesState("failed");
+    }
+  }, []);
+
   useEffect(() => {
     if (!modelPricingGroups) return;
-    let cancelled = false;
-    fetch("/api/admin/rates")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then(({ rates: r, extras: e }) => {
-        if (cancelled) return;
-        if (!Array.isArray(r) || r.length === 0) throw new Error("no rates returned");
-        setRates(r);
-        setExtrasConfig(e ?? []);
-        setRatesState("ready");
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        // The customer can still send the enquiry; only the estimate is missing.
-        console.error("Rate card could not be loaded:", err);
-        setRatesState("failed");
-      });
-    return () => { cancelled = true; };
-  }, []);
+    loadRates();
+  }, [loadRates]);
 
   const [differentDropoff, setDifferentDropoff] = useState(false);
   const [pickupDate, setPickupDate] = useState(today);
@@ -617,6 +621,13 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 <p className="text-amber-800 dark:text-amber-300">
                   {tr("form.priceUnavailableHelp")}
                 </p>
+                <button
+                  type="button"
+                  onClick={loadRates}
+                  className="mt-3 rounded-lg border border-amber-500 px-4 py-2 text-sm font-semibold text-amber-900 transition hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-900/40"
+                >
+                  {tr("form.tryAgain")}
+                </button>
               </div>
             )}
 

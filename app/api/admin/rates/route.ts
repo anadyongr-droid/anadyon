@@ -11,26 +11,69 @@ import { supabaseAdmin } from "@/lib/supabase";
  * every visitor gets this from the CDN immediately, and an edit still reaches
  * the public site within five minutes without anyone clearing anything.
  */
-export async function GET() {
-  const [{ data: rates, error: ratesError }, { data: extras, error: extrasError }] = await Promise.all([
-    supabaseAdmin.from("rates").select("*").order("pricing_group").order("season_name"),
-    supabaseAdmin.from("extras_config").select("*").order("key"),
-  ]);
+/**
+ * The last rate card that came back intact, kept per instance.
+ *
+ * Supabase occasionally rejects a request with "JWT issued at future": the keys
+ * are the newer sb_secret_ format, so the JWT is minted inside Supabase when it
+ * exchanges the key, and a second of clock drift between their minting and
+ * validating services is enough. It is transient — the next request succeeds —
+ * but the customer whose page load caught it saw a booking form with no prices.
+ *
+ * Nothing here can fix a clock inside Supabase. Serving the last known-good
+ * card for a few minutes is better than showing no price at all, and rates
+ * change rarely enough that a slightly stale card is honest.
+ */
+let lastGood: { rates: unknown[]; extras: unknown[]; at: number } | null = null;
+const STALE_LIMIT_MS = 15 * 60 * 1000;
 
-  // A failure here used to return {rates: null} with a 200, which the form read
-  // as "no rates" and silently hid the whole price panel — a booking form with
-  // no prices and nothing explaining why. Say so instead, and do not cache it.
-  if (ratesError || extrasError || !rates?.length) {
-    console.error("[rates] lookup failed:", ratesError?.message ?? extrasError?.message ?? "no rates returned");
+/** One retry after a short pause clears a clock-skew rejection outright. */
+async function fetchRates() {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const [r, e] = await Promise.all([
+      supabaseAdmin.from("rates").select("*").order("pricing_group").order("season_name"),
+      supabaseAdmin.from("extras_config").select("*").order("key"),
+    ]);
+    if (!r.error && !e.error && r.data?.length) return { rates: r.data, extras: e.data ?? [], error: null };
+
+    const why = r.error?.message ?? e.error?.message ?? "no rates returned";
+    if (attempt < 2) {
+      console.warn(`[rates] attempt ${attempt + 1} failed (${why}); retrying`);
+      await new Promise((res) => setTimeout(res, 150 * (attempt + 1)));
+    } else {
+      return { rates: null, extras: e.data ?? [], error: why };
+    }
+  }
+  return { rates: null, extras: [], error: "unreachable" };
+}
+
+export async function GET() {
+  const { rates, extras, error } = await fetchRates();
+
+  if (rates) {
+    lastGood = { rates, extras, at: Date.now() };
     return NextResponse.json(
-      { error: "Rates are temporarily unavailable", rates: [], extras: extras ?? [] },
-      { status: 503, headers: { "Cache-Control": "no-store" } }
+      { rates, extras },
+      { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" } }
     );
   }
 
+  // Three attempts have failed. If a recent card is in hand, the customer gets a
+  // price rather than an apology — the alternative is a booking form with no
+  // prices, which is worse than one showing figures a few minutes old.
+  if (lastGood && Date.now() - lastGood.at < STALE_LIMIT_MS) {
+    console.warn(`[rates] serving a card ${Math.round((Date.now() - lastGood.at) / 1000)}s old after: ${error}`);
+    return NextResponse.json(
+      { rates: lastGood.rates, extras: lastGood.extras, stale: true },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
+  // Nothing to fall back on. Say so plainly; do not cache a failure.
+  console.error(`[rates] lookup failed after 3 attempts and no recent card: ${error}`);
   return NextResponse.json(
-    { rates, extras },
-    { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" } }
+    { error: "Rates are temporarily unavailable", rates: [], extras: extras ?? [] },
+    { status: 503, headers: { "Cache-Control": "no-store" } }
   );
 }
 
