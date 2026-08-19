@@ -34,15 +34,39 @@ export default function SetPasswordPage() {
   );
 
   useEffect(() => {
-    // Supabase puts the tokens in the URL fragment, which the client library
-    // picks up on load. A short wait then tells us whether a session exists —
-    // if not, the link was already used or has expired.
-    const check = async () => {
+    // The tokens are read out of the fragment and handed to the client
+    // explicitly, rather than waiting for it to notice them.
+    //
+    // createBrowserClient from @supabase/ssr is built for cookie-based server
+    // rendering and does not pick a session out of the URL the way the plain
+    // browser client does. Verified rather than assumed: on a real recovery
+    // link the fragment carried a token that Supabase accepted with a 200,
+    // while the page had no session and had set no cookie at all — so this
+    // screen told the person their link had expired when it was perfectly
+    // good.
+    const establish = async () => {
+      const params = new URLSearchParams(window.location.hash.slice(1));
+      const access_token = params.get("access_token");
+      const refresh_token = params.get("refresh_token");
+
+      if (access_token && refresh_token) {
+        const { error: sessionError } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (!sessionError) {
+          // Clears the tokens from the address bar and from history once they
+          // have been exchanged for a session. A recovery URL is a credential.
+          window.history.replaceState(null, "", window.location.pathname);
+          setStatus("ready");
+          return;
+        }
+      }
+
+      // No tokens, or they were refused: either the link was already used, or
+      // the person arrived here directly.
       const { data } = await supabase.auth.getSession();
       setStatus(data.session ? "ready" : "expired");
     };
-    const timer = setTimeout(check, 400);
-    return () => clearTimeout(timer);
+
+    establish();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

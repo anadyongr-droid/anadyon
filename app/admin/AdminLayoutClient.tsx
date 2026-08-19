@@ -31,7 +31,7 @@ export default function AdminLayoutClient({
   const pathname = usePathname();
   const router = useRouter();
 
-  if (pathname === "/admin/login" || pathname === "/admin/setup-mfa") {
+  if (pathname === "/admin/login" || pathname === "/admin/setup-mfa" || pathname === "/admin/set-password") {
     return <>{children}</>;
   }
 
