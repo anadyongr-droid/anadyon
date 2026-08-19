@@ -11,7 +11,8 @@ import type { Section } from "@/lib/i18n/content/legal";
  *
  *   {contact}, {privacy}, {cars}, … — internal links, resolved against the
  *   current locale so a Greek page links to /el/contact rather than /contact.
- *   {email}, {googlePrivacy}, {googleTerms}, {hdpa} — fixed external links.
+ *   {email}, {googlePrivacy}, {googleTerms}, {hdpa}, {vercelPrivacy} — fixed
+ *   external links.
  *   **text** — bold, used for the defined terms in the rights list.
  *
  * Anything else is rendered as plain text, so an unrecognised placeholder shows
@@ -37,6 +38,7 @@ const EXTERNAL: Record<string, LinkSpec> = {
   googlePrivacy: { href: "https://policies.google.com/privacy", label: { en: "Google's Privacy Policy", el: "Πολιτική Απορρήτου της Google" }, external: true },
   googleTerms:   { href: "https://policies.google.com/terms",   label: { en: "Terms of Service",        el: "Όρους Παροχής Υπηρεσιών" }, external: true },
   hdpa:          { href: "https://www.dpa.gr",                  label: { en: "Hellenic Data Protection Authority (HDPA)", el: "Αρχή Προστασίας Δεδομένων Προσωπικού Χαρακτήρα (ΑΠΔΠΧ)" }, external: true },
+  vercelPrivacy: { href: "https://vercel.com/docs/speed-insights/privacy-policy", label: { en: "what Speed Insights records", el: "τι καταγράφει το Speed Insights" }, external: true },
 };
 
 /** Splits on {placeholder} and **bold**, resolving each against the locale. */

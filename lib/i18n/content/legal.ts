@@ -272,6 +272,7 @@ const privacyEn: LegalPage = {
       list: [
         "**Google Analytics** — used to analyse site traffic, only loaded after you give cookie consent. Data is processed by Google LLC (US). See {googlePrivacy}.",
         "**Google reCAPTCHA** — used on our booking and contact forms to prevent spam. Governed by Google's {googlePrivacy} and {googleTerms}.",
+        "**Vercel Speed Insights** — measures how quickly pages load on real visitors' devices, so we can find and fix slow pages. It sets no cookies and records no identifier: each measurement carries only the page address, the timing figures, your browser and device type, connection speed and country. It cannot be linked to you or to your other visits. Loaded only after you give cookie consent, and processed by Vercel Inc. (US). See {vercelPrivacy}.",
       ],
       after: [
         "We may also engage trusted third-party service providers to support the operation of this website, including services such as secure data hosting, transactional email delivery, and website infrastructure. These providers are contractually obligated to process personal data only on our instructions and in accordance with applicable data protection law.",
@@ -342,6 +343,7 @@ const privacyEl: LegalPage = {
       list: [
         "**Google Analytics** — χρησιμοποιείται για την ανάλυση της επισκεψιμότητας και φορτώνεται μόνο αφού δώσετε συγκατάθεση για cookies. Η επεξεργασία γίνεται από την Google LLC (ΗΠΑ). Δείτε την {googlePrivacy}.",
         "**Google reCAPTCHA** — χρησιμοποιείται στις φόρμες κράτησης και επικοινωνίας για την αποτροπή ανεπιθύμητων μηνυμάτων. Διέπεται από την {googlePrivacy} και τους {googleTerms} της Google.",
+        "**Vercel Speed Insights** — μετρά πόσο γρήγορα φορτώνουν οι σελίδες στις συσκευές των πραγματικών επισκεπτών, ώστε να εντοπίζουμε και να διορθώνουμε τις αργές σελίδες. Δεν ορίζει cookies και δεν καταγράφει αναγνωριστικό: κάθε μέτρηση περιλαμβάνει μόνο τη διεύθυνση της σελίδας, τους χρόνους, τον τύπο του προγράμματος περιήγησης και της συσκευής σας, την ταχύτητα σύνδεσης και τη χώρα. Δεν μπορεί να συνδεθεί με εσάς ή με τις υπόλοιπες επισκέψεις σας. Φορτώνεται μόνο αφού δώσετε συγκατάθεση για cookies και η επεξεργασία γίνεται από τη Vercel Inc. (ΗΠΑ). Δείτε {vercelPrivacy}.",
       ],
       after: [
         "Ενδέχεται επίσης να συνεργαζόμαστε με αξιόπιστους τρίτους παρόχους υπηρεσιών για την υποστήριξη της λειτουργίας του ιστότοπου, όπως ασφαλής φιλοξενία δεδομένων, αποστολή συναλλακτικών email και υποδομές ιστότοπου. Οι πάροχοι αυτοί δεσμεύονται συμβατικά να επεξεργάζονται προσωπικά δεδομένα αποκλειστικά βάσει των οδηγιών μας και σύμφωνα με την ισχύουσα νομοθεσία περί προστασίας δεδομένων.",

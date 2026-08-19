@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Script from "next/script";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { translator, type Locale } from "@/lib/i18n";
 
 const GA_ID = "G-00X72SCDNW";
@@ -67,6 +68,23 @@ export default function CookieBanner({ locale = "en" }: { locale?: Locale }) {
             gtag('js', new Date());
             gtag('config', '${GA_ID}');
           `}</Script>
+
+          {/*
+            Speed Insights reports Core Web Vitals — how long the largest thing
+            on the page took to appear, how quickly it answered the first tap,
+            how much the layout moved underneath the reader — measured on real
+            visitors' devices rather than in a test. Google Analytics does not
+            give that, and a lab timing from one European connection says
+            nothing about a phone on Zakynthos in August.
+
+            It sets no cookie and identifies nobody, so it could arguably run
+            without consent. It runs behind it anyway: the site asks before
+            measuring anything, and carving out an exception because this
+            particular measurement is anonymous would make that promise
+            conditional. The cost is that the figures describe consenting
+            visitors rather than all of them.
+          */}
+          <SpeedInsights />
         </>
       )}
 
