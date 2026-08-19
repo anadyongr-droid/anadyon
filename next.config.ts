@@ -15,9 +15,25 @@ const BASE_CSP = [
   // next.config's remotePatterns is empty and every image on the site is served
   // from /public through /_next/image, so nothing legitimate needs the wildcard.
   // Verified on a rendered page: zero external images, zero url() in CSS.
-  "img-src 'self' data: blob:",
+  //
+  // The two Google hosts are not decoration: GA4 falls back to an image beacon
+  // when sendBeacon and fetch are unavailable, and Google's CSP guide lists
+  // them as required. Without them that fallback fails silently, which is
+  // exactly how the connect-src gap below went unnoticed.
+  "img-src 'self' data: blob: https://*.google-analytics.com https://www.googletagmanager.com",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co https://www.google-analytics.com https://www.googletagmanager.com",
+  // GA4 does not send hits to www.google-analytics.com. It sends them to a
+  // REGIONAL endpoint chosen by the visitor's geography — region1 for the EU,
+  // which is effectively all of our traffic. Allowing only the www host meant
+  // every European page_view was refused by our own policy, so Analytics
+  // recorded nothing from launch until this was caught in the browser console.
+  //
+  // Hosts below are from Google's CSP guide, minus the Advertising Features
+  // endpoints (doubleclick, google.<TLD>, googlesyndication). Google suggests
+  // adding those pre-emptively in case Ads is linked later; we do not run Ads,
+  // and a policy is only worth having if it stays as narrow as the site's
+  // actual behaviour. Link Google Ads and this needs revisiting.
+  "connect-src 'self' https://*.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com",
   "frame-src https://www.google.com https://www.recaptcha.net",
   "frame-ancestors 'none'",
   "object-src 'none'",
