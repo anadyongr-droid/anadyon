@@ -84,6 +84,17 @@ export async function proxy(req: NextRequest) {
   // app_metadata is server-only (not editable by the user); never use user_metadata for auth decisions
   let role = (user.app_metadata?.role ?? "") as string;
 
+  // Which path answered is the one fact needed to explain an admin landing on
+  // the staff menu, and it was never recorded. If the token carries the claim
+  // this is free and always correct; if it does not, every admin request
+  // depends on a network lookup that can fail — and the failure mode was a
+  // silent downgrade. Logged once per request, only when the fast path misses.
+  if (!role) {
+    console.warn(
+      `[proxy] no role claim in token for ${user.email}; falling back to lookup`
+    );
+  }
+
   // A session issued before a role change carries a stale (or absent) claim.
   // Fall back to the authoritative value in the database.
   //
@@ -104,9 +115,25 @@ export async function proxy(req: NextRequest) {
   if (!role) {
     try {
       const { supabaseAdmin } = await import("@/lib/supabase");
-      const { data: adminUser, error } = await supabaseAdmin.auth.admin.getUserById(user.id);
-      if (error) throw error;
-      role = (adminUser?.user?.app_metadata?.role as string | undefined) ?? "";
+      // Retried, because this lookup is now the difference between an admin
+      // working and an admin being turned away. One network blip used to
+      // silently downgrade the session to "staff" — the admin would land on
+      // the staff menu and only see the full one minutes later, once a
+      // subsequent request happened to succeed. Denying instead of
+      // downgrading fixed the security half and made that same blip a
+      // lockout, so the lookup itself has to stop being a coin toss.
+      let lastErr: unknown = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const { data: adminUser, error } = await supabaseAdmin.auth.admin.getUserById(user.id);
+        if (!error) {
+          role = (adminUser?.user?.app_metadata?.role as string | undefined) ?? "";
+          lastErr = null;
+          break;
+        }
+        lastErr = error;
+        if (attempt < 2) await new Promise(r => setTimeout(r, 120 * (attempt + 1)));
+      }
+      if (lastErr) throw lastErr;
     } catch (err) {
       // Denying privilege on error is the right default — never resolve upward
       // when the authoritative answer is unavailable. But it used to happen in

@@ -54,7 +54,23 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const headerRole = (await headers()).get(ROLE_HEADER);
 
   // Fallback for paths the proxy returns early on (e.g. /admin/login).
-  const role = headerRole ?? (await roleFromSessionCookie()) ?? "staff";
+  //
+  // Deliberately no "staff" default. That default is what produced the bug
+  // where an admin logged in, saw the staff menu, and only got the full one
+  // some minutes later: any moment the header was absent or empty, the nav
+  // silently asserted "staff" — a confident wrong answer rather than an
+  // unknown one.
+  //
+  // Note `??` alone was not enough either. The proxy can set this header to an
+  // empty string, and "" is not nullish, so `headerRole ?? …` would keep the
+  // empty value and skip both fallbacks.
+  //
+  // Any page that renders has already passed the proxy, which now refuses
+  // anyone without an explicit admin or staff role — so a missing role here
+  // means the header did not arrive, not that the user lacks privilege.
+  // Rendering the reduced nav in that case is a display choice, not an
+  // access decision; proxy.ts remains the only thing enforcing access.
+  const role = headerRole || (await roleFromSessionCookie()) || "";
 
   return <AdminLayoutClient role={role}>{children}</AdminLayoutClient>;
 }

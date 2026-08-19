@@ -57,9 +57,67 @@ describe("admin access control", () => {
     expect(denial).toBeLessThan(staffPathCheck);
   });
 
+  it("keeps user management out of the staff allowlists", () => {
+    // The screen that hands out access must never be reachable by the role it
+    // hands out. Both lists are checked, because a page entry and an API entry
+    // are added in different places and only one of them is obvious.
+    const staffPages = proxy.match(/const STAFF_PAGES[\s\S]*?\];/)?.[0] ?? "";
+    const staffApi = proxy.match(/const STAFF_API[\s\S]*?\];/)?.[0] ?? "";
+    expect(staffPages).not.toContain("/admin/users");
+    expect(staffApi).not.toContain("/api/admin/users");
+  });
+
   it("still reads the role from app_metadata, never user_metadata", () => {
     // user_metadata is editable by the account holder; using it for an
     // authorisation decision would let anyone promote themselves.
     expect(proxy).not.toMatch(/user_metadata\?\.role/);
+  });
+});
+
+/**
+ * The users API can grant access to the customer database, so its own guards
+ * are asserted rather than assumed. These read the route source: exercising it
+ * needs a live Supabase session and a service-role key, and a test that cannot
+ * run is worse than one that reads what the code commits to.
+ */
+describe("user management API", () => {
+  const route = readFileSync(new URL("../app/api/admin/users/route.ts", import.meta.url), "utf8");
+
+  it("checks the caller is an admin on every method", () => {
+    const methods = route.match(/export async function (GET|POST|PATCH|DELETE)/g) ?? [];
+    expect(methods.length).toBe(4);
+    // One guard per exported method, none relying solely on the proxy.
+    const guards = route.match(/callerRole\(req\) !== "admin"/g) ?? [];
+    expect(guards.length).toBe(methods.length);
+  });
+
+  it("refuses to let an admin change their own role or delete themselves", () => {
+    // Either would strand the admin area with no one able to administer it.
+    expect(route).toMatch(/cannot change your own role/i);
+    expect(route).toMatch(/cannot remove your own account/i);
+  });
+
+  it("refuses to remove the last administrator", () => {
+    expect(route).toMatch(/only administrator/i);
+  });
+
+  it("validates the role against the shared list rather than free text", () => {
+    expect(route).toContain("isRole(");
+    expect(route).not.toMatch(/role === "admin" \|\| role === "staff"/);
+  });
+
+  it("invites rather than setting a password", () => {
+    // Nobody should be typing a colleague's password, least of all into this
+    // app. Asserted against code rather than the word itself, which appears
+    // legitimately in the comment explaining why invitations are used.
+    const code = route.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    expect(code).toContain("inviteUserByEmail");
+    expect(code).not.toMatch(/password\s*[:=]/i);
+    expect(code).not.toContain("createUser(");
+  });
+
+  it("writes the role to app_metadata, which the account holder cannot edit", () => {
+    expect(route).toContain("app_metadata: { role }");
+    expect(route).not.toContain("user_metadata: { role }");
   });
 });
