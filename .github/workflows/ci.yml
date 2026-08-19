@@ -66,6 +66,34 @@ jobs:
       - name: SEO metadata audit
         run: npm run test:seo
 
+      # The suite that can see what the others cannot.
+      #
+      # Every check above reads source or prerendered HTML, and the booking form
+      # exists in neither — it mounts only when a customer clicks Get Quote. Two
+      # real defects reached production through that gap: the whole form
+      # rendering in English while the translation audit passed 13 of 13 pages,
+      # and the promo code button being pushed off narrow screens while the
+      # responsive sweep passed every page.
+      #
+      # Chromium only. Firefox and WebKit would roughly triple the download for
+      # coverage the build's own targets already constrain, and layout overflow
+      # is not engine-specific in the ways tested here.
+      - name: Install Chromium for browser tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: npm run test:browser
+
+      - name: Upload browser test artefacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
       # Catches a column the migrations declare but the database never received.
       # That drift is invisible at build time — the code compiles, and the query
       # only fails when a request reaches it. It once meant the Stripe webhook
