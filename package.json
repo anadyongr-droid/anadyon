@@ -17,7 +17,8 @@
     "test:seo": "vitest run --config vitest.build.config.ts",
     "test:browser": "playwright test",
     "backup": "node scripts/backup.mjs",
-    "check:grants": "node scripts/check-grants.mjs"
+    "check:grants": "node scripts/check-grants.mjs",
+    "test:browser:all": "playwright test --config playwright.crossbrowser.config.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
