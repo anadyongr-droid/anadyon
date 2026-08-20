@@ -9,6 +9,19 @@ export interface SyncResult {
   alerted: number;
   /** Messages left for the next run when a backlog exceeds one batch. */
   remaining: number;
+  /** True when the run stopped on its own deadline rather than finishing. */
+  stoppedEarly: boolean;
+}
+
+export interface SyncOptions {
+  /**
+   * When to stop starting new messages.
+   *
+   * Must be comfortably below whatever timeout the caller races this against.
+   * The point is for the loop to reach its own end and save its progress,
+   * rather than being abandoned mid-flight — see the cursor note below.
+   */
+  budgetMs?: number;
 }
 
 function esc(v: unknown): string {
@@ -16,6 +29,34 @@ function esc(v: unknown): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+/**
+ * Saves progress after every message, rather than once at the end.
+ *
+ * The cursor used to be written on the final line of syncEmails. That line was
+ * never reached: the cron races this call against a timeout, and when the race
+ * fires it stops *waiting* — it cannot cancel the work. Vercel then freezes the
+ * instance once the response is sent, so the pending write was discarded.
+ *
+ * The evidence was unambiguous. gmail_last_sync sat at 2026-08-18T04:11:26 for
+ * two full days while messages received on 18 August were being stored on the
+ * 19th and the 20th. Every run re-fetched the same widening window from a
+ * cursor that could never move, re-checked every message in it, and paid for a
+ * classification on anything new before running out of time again.
+ *
+ * An upsert of one row per message is a small price for progress that survives
+ * being interrupted. It is also monotonic by construction here, because the
+ * batch is handed to us oldest-first.
+ */
+async function advanceCursor(upTo: Date): Promise<void> {
+  try {
+    await advanceSyncCursor(upTo);
+  } catch (err) {
+    // Not fatal: the next run re-reads the same window and skips what is
+    // already stored. Losing the cursor costs time, not correctness.
+    console.error("[emailSync] could not save the sync cursor:", err);
+  }
 }
 
 /**
@@ -27,23 +68,40 @@ function esc(v: unknown): string {
  * already stored are skipped by gmail_message_id, and Telegram alerts are
  * de-duplicated through alert_outbox.
  */
-export async function syncEmails(): Promise<SyncResult> {
+export async function syncEmails(options: SyncOptions = {}): Promise<SyncResult> {
+  const startedAt = Date.now();
+  const budgetMs = options.budgetMs ?? 20_000;
+
   const { emails, remaining } = await fetchNewEmails();
   let inserted = 0;
   let alerted = 0;
-  let cursor: Date | null = null;
+  let stoppedEarly = false;
+
+  // One query instead of one per message. Twelve round trips to check twelve
+  // ids was a meaningful slice of the budget, and on a backlog almost all of
+  // them return "already stored" — the cheap case was costing the most.
+  const seen = new Set<string>();
+  if (emails.length) {
+    const { data: known } = await supabaseAdmin
+      .from("emails")
+      .select("gmail_message_id")
+      .in("gmail_message_id", emails.map((e) => e.gmailMessageId));
+    for (const row of known ?? []) seen.add(row.gmail_message_id as string);
+  }
 
   for (const email of emails) {
-    try {
-      // Skip if already stored
-      const { data: existing } = await supabaseAdmin
-        .from("emails")
-        .select("id")
-        .eq("gmail_message_id", email.gmailMessageId)
-        .maybeSingle();
+    // Stop on our own terms while there is still time to record where we got
+    // to. Being cut off by the caller's timeout instead is what stalled this
+    // sync for two days: see advanceCursor below.
+    if (Date.now() - startedAt > budgetMs) {
+      stoppedEarly = true;
+      console.warn(`[emailSync] stopping at ${inserted} stored — ${budgetMs}ms budget spent`);
+      break;
+    }
 
-      if (existing) {
-        cursor = email.receivedAt;
+    try {
+      if (seen.has(email.gmailMessageId)) {
+        await advanceCursor(email.receivedAt);
         continue;
       }
 
@@ -84,7 +142,7 @@ export async function syncEmails(): Promise<SyncResult> {
       }
 
       inserted++;
-      cursor = email.receivedAt;
+      await advanceCursor(email.receivedAt);
 
       // Mirror the Make.com scenario: a cancellation closes earlier open mail
       // in the same thread, so the Inbox does not keep showing a dead booking.
@@ -131,9 +189,7 @@ export async function syncEmails(): Promise<SyncResult> {
     }
   }
 
-  if (cursor) await advanceSyncCursor(cursor);
-
-  return { fetched: emails.length, inserted, alerted, remaining };
+  return { fetched: emails.length, inserted, alerted, remaining, stoppedEarly };
 }
 
 /**

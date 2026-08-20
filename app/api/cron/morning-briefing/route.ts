@@ -85,7 +85,11 @@ export async function GET(req: NextRequest) {
   // Budgets, summing to 40s of the 60 available, so the briefing below always
   // has room. Email sync gets the largest share because it does the most
   // network work; the watchdog the least because it is a single query.
-  const sync = await withBudget("email sync", 25_000, syncEmails);
+  // 20s inside a 25s race, deliberately. The loop stops itself with time left
+  // to save its cursor; the race is only a backstop for a call that hangs
+  // somewhere the deadline cannot reach. When the race won instead, the cursor
+  // write was discarded and the sync stalled for two days.
+  const sync = await withBudget("email sync", 25_000, () => syncEmails({ budgetMs: 20_000 }));
 
   // Mark threads answered from Gmail before counting what is still open.
   const replies = await withBudget("reply detection", 10_000, detectReplies);

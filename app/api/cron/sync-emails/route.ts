@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const result = await syncEmails();
+  // Same reasoning as the briefing: stop with time in hand to save the cursor.
+  const result = await syncEmails({ budgetMs: 45_000 });
   return NextResponse.json({ ok: true, ...result });
 }
