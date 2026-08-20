@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { DayPicker } from "react-day-picker";
+import { calcRentalDays } from "@/lib/pricing";
 import { translator, type Locale } from "@/lib/i18n";
 import { CalendarDays, ChevronRight } from "lucide-react";
 import "react-day-picker/style.css";
@@ -11,6 +12,18 @@ interface Props {
   returnDate: string;
   onPickupChange: (date: string) => void;
   onReturnChange: (date: string) => void;
+  /**
+   * The times matter to the count, not just to the handover.
+   *
+   * A rental is charged in 24-hour periods and any part of one is a full day,
+   * so 20 Aug 09:00 → 29 Aug 18:00 is ten days, not nine. Without the times
+   * this badge could only ever show the difference between two calendar dates.
+   *
+   * Optional, and defaulted to match calcRentalDays, so a caller that has no
+   * time inputs still gets a sensible count rather than a crash.
+   */
+  pickupTime?: string;
+  returnTime?: string;
 }
 
 function toDate(str: string): Date | undefined {
@@ -31,7 +44,7 @@ function fmt(str: string, locale: Locale, placeholder: string): string {
   });
 }
 
-export default function DateRangePicker({ pickupDate, returnDate, onPickupChange, onReturnChange, locale = "en" }: Props) {
+export default function DateRangePicker({ pickupDate, returnDate, onPickupChange, onReturnChange, locale = "en", pickupTime = "09:00", returnTime = "09:00" }: Props) {
   const tr = translator(locale);
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"pickup" | "return">("pickup");
@@ -101,8 +114,13 @@ export default function DateRangePicker({ pickupDate, returnDate, onPickupChange
     return () => document.removeEventListener("pointerdown", handleClick);
   }, []);
 
+  // calcRentalDays, not a second implementation of it. This badge used to do
+  // its own date-only subtraction, so it disagreed with the price directly
+  // beneath it: a 20 Aug 09:00 → 29 Aug 18:00 booking was billed as ten days
+  // and labelled as nine. Of the two numbers the customer sees, the wrong one
+  // was the one that looked like a summary of the other.
   const rentalDays = pickupDate && returnDate
-    ? Math.ceil((new Date(returnDate).getTime() - new Date(pickupDate).getTime()) / 86400000)
+    ? calcRentalDays(pickupDate, returnDate, pickupTime, returnTime)
     : 0;
 
   return (

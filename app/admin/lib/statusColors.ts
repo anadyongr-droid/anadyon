@@ -55,6 +55,32 @@ export const STATUS_SOFT: Record<BadgeStatus, string> = {
   retired:     "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
 };
 
+/**
+ * Just the hue, as a dot.
+ *
+ * The key renders these as small LEDs beside plain text rather than as filled
+ * swatches with the label inside. Eleven filled boxes is a lot of saturated
+ * colour for something that sits above the work rather than being the work,
+ * and the label reads better as text than as a thing inside a block of colour.
+ *
+ * Taken from the solid palette, so the dot beside "Confirmed" is the same blue
+ * as the confirmed bar on the calendar. The two muted states keep a visible
+ * hue here — a swatch that is nearly white is not a swatch.
+ */
+export const STATUS_DOT: Record<BadgeStatus, string> = {
+  pending:     "bg-yellow-400",
+  confirmed:   "bg-blue-500",
+  active:      "bg-green-500",
+  returned:    "bg-gray-400",
+  cancelled:   "bg-red-400",
+  no_show:     "bg-orange-400",
+  voided:      "bg-gray-300 dark:bg-gray-600",
+  new:         "bg-slate-400",
+  maintenance: "bg-violet-400",
+  available:   "bg-green-500",
+  retired:     "bg-gray-300 dark:bg-gray-600",
+};
+
 /** Kept as the previous export name so existing imports do not break. */
 export const STATUS_COLORS = STATUS_SOFT;
 

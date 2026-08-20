@@ -532,6 +532,8 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 returnDate={dropoffDate}
                 onPickupChange={setPickupDate}
                 onReturnChange={setDropoffDate}
+                pickupTime={pickupTime}
+                returnTime={dropoffTime}
               />
             </div>
 

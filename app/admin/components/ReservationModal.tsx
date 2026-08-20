@@ -525,6 +525,8 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
               returnDate={form.return_date}
               onPickupChange={(d) => set("pickup_date", d)}
               onReturnChange={(d) => set("return_date", d)}
+              pickupTime={form.pickup_time}
+              returnTime={form.return_time}
             />
           </div>
           <div>

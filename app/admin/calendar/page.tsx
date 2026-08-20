@@ -330,7 +330,7 @@ export default function CalendarPage() {
         </div>
       )}
 
-      <StatusLegend weight="solid" />
+      <StatusLegend />
 
       {/* Modal */}
       {modal !== null && (

@@ -5,30 +5,35 @@ import {
   BOOKING_STATUSES,
   VEHICLE_STATUSES,
   STATUS_LABELS,
-  statusClass,
+  STATUS_DOT,
   type BadgeStatus,
 } from "../lib/statusColors";
 
 /**
  * The key, so the colours mean something to someone who has not been told.
  *
- * Collapsed by default. Staff who use these screens daily learn the palette in
- * a week and do not want a permanent block of swatches above their work; the
- * people who need it are new, or looking at a status they see rarely. Open once
- * and it stays open for the session.
+ * Small LEDs beside plain labels, not filled swatches with the label inside.
+ * The first version used the badge styling from the tables, which made the key
+ * eleven saturated blocks sitting above the work — heavy for something read
+ * once and then ignored. A dot carries the colour just as well and lets the
+ * label read as a word.
  *
- * `weight` matches the screen it sits on — solid on the calendar, where bars
- * are filled, soft on the tables, where badges are tinted. Same hue either way,
- * so the key is honest about what the reader is actually looking at.
+ * The dots are the solid palette, so the LED beside "Confirmed" is the blue of
+ * a confirmed bar on the calendar, and the key stays honest whichever screen
+ * it sits on. That also means it no longer needs a `weight` prop.
+ *
+ * Collapsed by default. Staff who use these screens daily learn the palette in
+ * a week; the people who need the key are new, or looking at a status they see
+ * rarely.
  */
-export default function StatusLegend({ weight = "soft" }: { weight?: "soft" | "solid" }) {
+export default function StatusLegend() {
   const [open, setOpen] = useState(false);
 
-  const swatch = (s: BadgeStatus) => (
-    <span key={s} className="inline-flex items-center gap-1.5">
-      <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusClass(s, weight)}`}>
-        {STATUS_LABELS[s]}
-      </span>
+  const led = (s: BadgeStatus) => (
+    <span key={s} className="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
+      {/* shrink-0 so the dot stays round when the row wraps under a long label. */}
+      <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[s]}`} aria-hidden="true" />
+      {STATUS_LABELS[s]}
     </span>
   );
 
@@ -44,18 +49,15 @@ export default function StatusLegend({ weight = "soft" }: { weight?: "soft" | "s
       </button>
 
       {open && (
-        <div className="mt-1 mb-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 space-y-3">
-          <div>
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Booking</p>
-            <div className="flex flex-wrap gap-2">{BOOKING_STATUSES.map(swatch)}</div>
+        <div className="mt-1 mb-3 text-xs">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            {BOOKING_STATUSES.map(led)}
           </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">Vehicle</p>
-            <div className="flex flex-wrap gap-2">{VEHICLE_STATUSES.map(swatch)}</div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
-              Describes the vehicle, not the booking — a car can be in maintenance
-              while a reservation against it is still confirmed.
-            </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+            {VEHICLE_STATUSES.map(led)}
+            <span className="text-gray-400 dark:text-gray-500">
+              — vehicle, not booking
+            </span>
           </div>
         </div>
       )}
