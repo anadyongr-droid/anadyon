@@ -1,6 +1,3 @@
-"use client";
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
 import {
   BOOKING_STATUSES,
   VEHICLE_STATUSES,
@@ -10,57 +7,43 @@ import {
 } from "../lib/statusColors";
 
 /**
- * The key, so the colours mean something to someone who has not been told.
+ * The key: one row of LEDs, always on show.
  *
- * Small LEDs beside plain labels, not filled swatches with the label inside.
- * The first version used the badge styling from the tables, which made the key
- * eleven saturated blocks sitting above the work — heavy for something read
- * once and then ignored. A dot carries the colour just as well and lets the
- * label read as a word.
+ * It was a collapsible panel, on the reasoning that staff learn the palette in
+ * a week and would not want swatches permanently above their work. That was
+ * wrong in a way worth recording — a key costs one line and answers a question
+ * the moment it is asked, whereas a key behind a toggle is only found by
+ * someone who already suspects it exists. Hiding it made the screen tidier and
+ * the information useless.
  *
- * The dots are the solid palette, so the LED beside "Confirmed" is the blue of
- * a confirmed bar on the calendar, and the key stays honest whichever screen
- * it sits on. That also means it no longer needs a `weight` prop.
+ * No panel, no border, no disclosure. A row of dots and words that reads as
+ * part of the page rather than a thing sitting on top of it.
  *
- * Collapsed by default. Staff who use these screens daily learn the palette in
- * a week; the people who need the key are new, or looking at a status they see
- * rarely.
+ * Not a client component any more: with the toggle gone there is no state, so
+ * this renders on the server like the rest of the page.
  */
 export default function StatusLegend() {
-  const [open, setOpen] = useState(false);
-
   const led = (s: BadgeStatus) => (
-    <span key={s} className="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
-      {/* shrink-0 so the dot stays round when the row wraps under a long label. */}
+    <span key={s} className="inline-flex items-center gap-1.5">
+      {/* shrink-0 keeps the dot round when the row wraps under a long label. */}
       <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[s]}`} aria-hidden="true" />
       {STATUS_LABELS[s]}
     </span>
   );
 
   return (
-    <div className="text-sm">
-      <button
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-        className="inline-flex items-center gap-1 min-h-11 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition"
-      >
-        <span>Status colours</span>
-        <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-
-      {open && (
-        <div className="mt-1 mb-3 text-xs">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-            {BOOKING_STATUSES.map(led)}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-            {VEHICLE_STATUSES.map(led)}
-            <span className="text-gray-400 dark:text-gray-500">
-              — vehicle, not booking
-            </span>
-          </div>
-        </div>
-      )}
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3 text-xs text-gray-600 dark:text-gray-400">
+      {BOOKING_STATUSES.map(led)}
+      {/*
+        A single hairline, not a box. Active and Available are both green
+        because both mean "in use, nothing wrong" — but one describes a booking
+        and the other a vehicle, and side by side with nothing between them the
+        repeated colour reads as a mistake.
+      */}
+      <span className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pl-4 border-l border-gray-200 dark:border-gray-700">
+        {VEHICLE_STATUSES.map(led)}
+        <span className="text-gray-400 dark:text-gray-500">vehicle, not booking</span>
+      </span>
     </div>
   );
 }
