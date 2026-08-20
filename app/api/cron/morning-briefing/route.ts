@@ -7,6 +7,40 @@ import { runHealthChecks, formatHealthAlert } from "@/lib/healthChecks";
 export const maxDuration = 60;
 
 /**
+ * Runs one scheduled step against a time budget.
+ *
+ * The route has 60 seconds for everything and Vercel has already killed it
+ * once. The steps were each wrapped in try/catch, which handles a step that
+ * throws but not a step that simply takes too long — and email sync talking to
+ * Gmail is exactly that shape. One slow step could consume the entire budget
+ * and the staff briefing, the only part anyone is waiting for, would never be
+ * sent.
+ *
+ * The timeout stops this route waiting; it cannot cancel work already in
+ * flight on the other side of a network call. That is an acceptable trade: the
+ * step is abandoned rather than aborted, and the briefing goes out.
+ *
+ * The Hobby plan permits a single cron, so genuinely splitting these into
+ * independently retryable jobs is not available without either a paid plan or
+ * a self-hosted scheduler. Budgeting is what fits the constraint.
+ */
+async function withBudget<T>(name: string, ms: number, work: () => Promise<T>): Promise<T | null> {
+  const started = Date.now();
+  try {
+    return await Promise.race([
+      work(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`exceeded ${ms}ms`)), ms)
+      ),
+    ]);
+  } catch (err) {
+    const took = Date.now() - started;
+    console.error(`morning-briefing: ${name} failed after ${took}ms:`, err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+/**
  * Health checks go out as their own message, not appended to the briefing.
  *
  * The briefing is the staff's daily list of pickups and returns, in Greek.
@@ -48,27 +82,15 @@ export async function GET(req: NextRequest) {
   // The Vercel Hobby plan allows a single daily cron, so this route is the
   // orchestrator for every scheduled job. Each step is isolated: a failure in
   // one must not stop the others or block the briefing itself.
-  let sync = null;
-  try {
-    sync = await syncEmails();
-  } catch (err) {
-    console.error("morning-briefing: email sync failed", err);
-  }
+  // Budgets, summing to 40s of the 60 available, so the briefing below always
+  // has room. Email sync gets the largest share because it does the most
+  // network work; the watchdog the least because it is a single query.
+  const sync = await withBudget("email sync", 25_000, syncEmails);
 
   // Mark threads answered from Gmail before counting what is still open.
-  let replies = null;
-  try {
-    replies = await detectReplies();
-  } catch (err) {
-    console.error("morning-briefing: reply detection failed", err);
-  }
+  const replies = await withBudget("reply detection", 10_000, detectReplies);
 
-  let watchdog = null;
-  try {
-    watchdog = await runWatchdog();
-  } catch (err) {
-    console.error("morning-briefing: watchdog failed", err);
-  }
+  const watchdog = await withBudget("watchdog", 5_000, runWatchdog);
 
 
 
