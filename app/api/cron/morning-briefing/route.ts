@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { sendTelegram } from "@/lib/telegram";
+import { sendTelegram, drainTelegramQueue } from "@/lib/telegram";
 import { syncEmails, detectReplies, runWatchdog } from "@/lib/emailSync";
 import { runHealthChecks, formatHealthAlert } from "@/lib/healthChecks";
 
@@ -159,6 +159,16 @@ export async function GET(req: NextRequest) {
   }
 
   await sendTelegram(msg);
+
+  // Today's briefing is away; now retry anything that failed to send earlier.
+  // Deliberately after, not before: a backlog must never delay the one message
+  // staff are actually waiting for at 07:00.
+  const requeued = await withBudget("telegram queue", 10_000, () => drainTelegramQueue());
+  if (requeued && (requeued.sent || requeued.abandoned)) {
+    console.info(
+      `morning-briefing: telegram queue — ${requeued.sent} sent, ${requeued.failed} still failing, ${requeued.abandoned} abandoned`
+    );
+  }
   await supabaseAdmin.from("alert_outbox").insert({
     key: briefingKey,
     payload: msg,
