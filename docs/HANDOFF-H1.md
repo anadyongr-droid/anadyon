@@ -218,7 +218,7 @@ These are not negotiable and are not obvious from the code:
   `create_web_booking` non-functional (section 2). Did not start the route
   change — handed off at this point.
 - **2026-08-21, Codex (`codex/h1-atomic-booking`).** Added migration 024 and
-  its 4.9 KB SQL-editor paste copy. The function now inserts only supplied
+  its 5.2 KB SQL-editor paste copy. The function now inserts only supplied
   columns so defaults fire, serializes simultaneous retries, redeems promos
   and settles all final money fields transactionally, and returns stored money
   figures on both first use and replay. Rewired `/api/quote` to make one RPC
