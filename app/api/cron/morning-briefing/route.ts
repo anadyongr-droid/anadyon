@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendTelegram, drainTelegramQueue } from "@/lib/telegram";
+import { drainMailQueue } from "@/lib/mailer";
 import { syncEmails, detectReplies, runWatchdog } from "@/lib/emailSync";
 import { runHealthChecks, formatHealthAlert } from "@/lib/healthChecks";
 
@@ -168,6 +169,12 @@ export async function GET(req: NextRequest) {
   // Deliberately after, not before: a backlog must never delay the one message
   // staff are actually waiting for at 07:00.
   const requeued = await withBudget("telegram queue", 10_000, () => drainTelegramQueue());
+  const remailed = await withBudget("mail queue", 15_000, () => drainMailQueue());
+  if (remailed && (remailed.sent || remailed.abandoned)) {
+    console.info(
+      `morning-briefing: mail queue — ${remailed.sent} sent, ${remailed.failed} still failing, ${remailed.abandoned} abandoned`
+    );
+  }
   if (requeued && (requeued.sent || requeued.abandoned)) {
     console.info(
       `morning-briefing: telegram queue — ${requeued.sent} sent, ${requeued.failed} still failing, ${requeued.abandoned} abandoned`

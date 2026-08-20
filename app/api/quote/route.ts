@@ -408,7 +408,11 @@ export async function POST(req: NextRequest) {
   ` : "";
 
   // Internal notification to Anadyon
-  await sendMail({
+  // Both messages start together and are awaited once, below. They are
+  // independent — the office copy and the customer copy — and sending them one
+  // after the other made the customer wait for both round trips before their
+  // booking reference appeared.
+  const officeMail = sendMail({
     from: "Anadyon Website <customerservice@anadyon.gr>",
     to: ["customerservice@anadyon.gr"],
     replyTo: email,
@@ -468,7 +472,7 @@ export async function POST(req: NextRequest) {
   });
 
   // Auto-confirmation to customer — always uses correct server figures
-  await sendMail({
+  const customerMail = sendMail({
     from: "Anadyon Rentals <customerservice@anadyon.gr>",
     to: email,
     subject: `Quote Request — ${lastName}, ${ref}`,
@@ -505,6 +509,11 @@ export async function POST(req: NextRequest) {
       <p>Thank you,<br/>Anadyon Rentals<br/>Tel: +30 6988 010188</p>
     `,
   });
+
+  // sendMail never throws: it delivers, or stores the message and alerts the
+  // office. So this waits for both without needing to guard either, and the
+  // booking — already stored above — is never undone by a mail problem.
+  await Promise.all([officeMail, customerMail]);
 
   return NextResponse.json({ success: true, ref });
 }

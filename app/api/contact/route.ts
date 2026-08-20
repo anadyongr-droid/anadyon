@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "reCAPTCHA verification failed" }, { status: 400 });
   }
 
-  const { error } = await sendMail({
+  const sent = await sendMail({
     from: "Anadyon Website <customerservice@anadyon.gr>",
     to: ["customerservice@anadyon.gr"],
     replyTo: email,
@@ -62,8 +62,11 @@ export async function POST(req: NextRequest) {
     `,
   });
 
-  if (error) {
-    console.error("Contact form email error:", error);
+  // Only a message that is neither delivered nor stored is a failure the
+  // sender needs to know about. A queued one has been received and will be
+  // retried, and telling them it failed would just produce a second copy.
+  if (!sent.ok && !sent.queued) {
+    console.error("Contact form email lost:", sent.reason);
     return NextResponse.json({ error: "Failed to send message" }, { status: 500 });
   }
 
