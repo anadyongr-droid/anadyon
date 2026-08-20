@@ -97,10 +97,19 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
-          R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
         run: |
           set -euo pipefail
+          # R2_ACCOUNT_ID is accepted as the bare id or as the whole S3 endpoint
+          # URL, because Cloudflare shows it both ways and the difference is not
+          # obvious. Pasting the endpoint produced
+          # https://https:/<id>.r2.cloudflarestorage.com.r2.cloudflarestorage.com
+          # and a connection error that named neither the secret nor the cause.
+          ACCOUNT="${R2_ACCOUNT_ID#https://}"
+          ACCOUNT="${ACCOUNT%%.r2.cloudflarestorage.com*}"
+          ACCOUNT="${ACCOUNT%%/*}"
+          R2_ENDPOINT="https://${ACCOUNT}.r2.cloudflarestorage.com"
           aws s3 cp "anadyon-$STAMP.tar.gz.enc" \
             "s3://$R2_BUCKET/daily/anadyon-$STAMP.tar.gz.enc" \
             --endpoint-url "$R2_ENDPOINT"
@@ -120,10 +129,19 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
-          R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
         run: |
           set -euo pipefail
+          # R2_ACCOUNT_ID is accepted as the bare id or as the whole S3 endpoint
+          # URL, because Cloudflare shows it both ways and the difference is not
+          # obvious. Pasting the endpoint produced
+          # https://https:/<id>.r2.cloudflarestorage.com.r2.cloudflarestorage.com
+          # and a connection error that named neither the secret nor the cause.
+          ACCOUNT="${R2_ACCOUNT_ID#https://}"
+          ACCOUNT="${ACCOUNT%%.r2.cloudflarestorage.com*}"
+          ACCOUNT="${ACCOUNT%%/*}"
+          R2_ENDPOINT="https://${ACCOUNT}.r2.cloudflarestorage.com"
           prune() {
             prefix="$1"; keep="$2"
             aws s3 ls "s3://$R2_BUCKET/$prefix/" --endpoint-url "$R2_ENDPOINT" \
