@@ -80,6 +80,39 @@ export function calcVehicleSegments(
     });
     current = segEnd;
   }
+
+  // The walk above counts whole calendar dates and knows nothing of time of
+  // day, so it undercounts whenever rentalDays — the number actually billed —
+  // exceeds that date-only span: a same-day rental (start === end) produces
+  // no segments at all, and a later return time can round a date gap of N up
+  // to N+1 billable days (a 09:00 pickup returned at 10:00 the next day is
+  // one calendar day apart but two billable days). Charge the gap to the
+  // segment covering the return date, since the return time is what created
+  // it.
+  const countedDays = segments.reduce((sum, s) => sum + s.days, 0);
+  const shortfall = rentalDays - countedDays;
+  if (shortfall > 0) {
+    if (segments.length === 0) {
+      const month = start.getMonth() + 1;
+      const year = start.getFullYear();
+      const season = rates.find(
+        (r) => r.pricing_group === pricingGroup && r.season_months.includes(month)
+      );
+      const rate = season ? segmentTierRate(season, rentalDays) : 0;
+      segments.push({
+        month,
+        monthName: new Date(year, month - 1, 1).toLocaleString("en-GB", { month: "long" }),
+        days: shortfall,
+        rate,
+        subtotal: parseFloat((rate * shortfall).toFixed(2)),
+      });
+    } else {
+      const last = segments[segments.length - 1];
+      last.days += shortfall;
+      last.subtotal = parseFloat((last.rate * last.days).toFixed(2));
+    }
+  }
+
   return segments;
 }
 
