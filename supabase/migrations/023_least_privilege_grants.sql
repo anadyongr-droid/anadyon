@@ -26,9 +26,21 @@ revoke all privileges on all sequences in schema public from public, anon, authe
 revoke all privileges on all functions in schema public from public, anon, authenticated;
 
 -- ── The deliberate exceptions ─────────────────────────────────────────────
--- The rate card is public by design: the booking form renders prices for
--- anyone, and these are the same figures printed on the site. Read only, and
--- named here so the exception is a decision rather than a remnant.
+-- Correction to an earlier claim in this file: the booking form does NOT read
+-- these with the anon key. Every read of rates and extras_config goes through
+-- supabaseAdmin — lib/ratesServer.ts, /api/quote, /api/admin/rates and the
+-- competitor comparison — and the browser bundle makes no table reads at all;
+-- its Supabase client is used only for auth.
+--
+-- So these two grants are not required by anything today. They are kept
+-- anyway, deliberately and narrowly: SELECT on the pricing figures that are
+-- already printed on the public website, carrying no personal data. The cost
+-- of keeping them is close to nothing, and removing them on a live booking
+-- path to gain nothing measurable is the wrong trade — if the grep above ever
+-- missed a caller, the failure would land on the form customers use to book.
+--
+-- If they are ever removed, do it separately from this migration and watch the
+-- booking form directly afterwards.
 grant select on rates          to anon, authenticated;
 grant select on extras_config  to anon, authenticated;
 
@@ -68,3 +80,16 @@ as $$
 $$;
 
 revoke all on function assert_least_privilege() from public, anon, authenticated;
+
+-- Explicit, not inherited. scripts/check-grants.mjs calls this over PostgREST
+-- with the service role key, so service_role must hold EXECUTE.
+--
+-- It very likely would anyway: Supabase ships default privileges granting new
+-- functions to service_role, which is why migration 014's functions are
+-- callable today despite the same revoke. But this migration exists to stop
+-- depending on grants that merely happen to be there, and it would be a poor
+-- joke for the check that proves least privilege to be the one thing relying
+-- on an inherited default. It is also created after the ALTER DEFAULT
+-- PRIVILEGES above, which is exactly the kind of ordering that makes inherited
+-- behaviour hard to reason about.
+grant execute on function assert_least_privilege() to service_role;

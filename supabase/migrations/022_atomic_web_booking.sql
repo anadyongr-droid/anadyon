@@ -36,6 +36,7 @@ end;
 $$;
 
 revoke all on function release_promo(uuid) from public, anon, authenticated;
+grant execute on function release_promo(uuid) to service_role;
 
 -- ── create_web_booking ────────────────────────────────────────────────────
 -- The quote and its reservation in one transaction. Either both rows exist or
@@ -121,6 +122,7 @@ end;
 $$;
 
 revoke all on function create_web_booking(jsonb, jsonb, text, text) from public, anon, authenticated;
+grant execute on function create_web_booking(jsonb, jsonb, text, text) to service_role;
 
 -- Supports the idempotency lookup above. Partial, because almost every
 -- historical row has no key and a unique index over nulls would be pointless.
