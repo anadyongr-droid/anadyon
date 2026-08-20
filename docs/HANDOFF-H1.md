@@ -232,3 +232,17 @@ These are not negotiable and are not obvious from the code:
   production data, merge the branch or perform the live booking probe. Local
   Docker/Postgres is unavailable, so the SQL has been statically reviewed but
   still needs the prescribed manual apply and production verification.
+- **2026-08-21, Codex follow-up.** Replaced the static-only SQL assurance with
+  a permanent PGlite/PostgreSQL migration test that executes both the numbered
+  migration and the exact paste copy. That test exposed and prevented a severe
+  pre-deployment defect: a missed idempotency lookup assigned NULL to the same
+  variable that held the initial zero discount, so a no-promo or exhausted-
+  promo booking would have settled at €0. The lookup now uses a separate
+  variable. Also changed the `SECURITY DEFINER` function to Supabase's
+  recommended empty `search_path` with qualified relations, and made migration
+  024 safe to run again. The database test covers defaults, matched/no-promo,
+  exhausted and oversized promos, replay, transactional rollback, grants and
+  function configuration. The full suite is now 185/185 passing; TypeScript,
+  production build, translation, static accessibility and 60 SEO tests also
+  pass, while lint remains at zero errors and 21 pre-existing warnings.
+  Migration 024 remains unapplied; production and `main` remain untouched.
