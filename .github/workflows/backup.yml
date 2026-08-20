@@ -143,10 +143,15 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           [ -z "${TELEGRAM_BOT_TOKEN:-}" ] && exit 0
+          # The message is built in a shell variable first. Writing it inline
+          # across two lines put a bare line inside the YAML block, and the
+          # workflow stopped parsing entirely — which is worse than a broken
+          # alert, because GitHub then refuses to run the job at all.
+          MSG="❌ <b>Nightly database backup failed</b>"$'\n'"No backup was stored tonight."$'\n'"$RUN_URL"
           curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
             -d "chat_id=$TELEGRAM_CHAT_ID" \
             -d "parse_mode=HTML" \
-            --data-urlencode "text=❌ <b>Nightly database backup failed</b>
-No backup was stored tonight. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > /dev/null
+            --data-urlencode "text=$MSG" > /dev/null
