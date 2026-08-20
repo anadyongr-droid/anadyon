@@ -1,4 +1,5 @@
 import { sendMail } from "@/lib/mailer";
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRecaptcha } from "@/lib/recaptcha";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -21,6 +22,10 @@ function esc(val: unknown): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function bookingIdempotencyKey(payload: Record<string, unknown>): string {
+  return `web-v1:${createHash("sha256").update(JSON.stringify(payload)).digest("hex")}`;
 }
 
 
@@ -91,6 +96,15 @@ const QuoteSchema = z.object({
   // Which language the booking was made in, so the link in the confirmation
   // email lands the customer back where they were rather than in English.
   locale: z.enum(["en", "el"]).optional(),
+}).passthrough();
+
+const BookingResultSchema = z.object({
+  ref: z.string().min(1),
+  discount: money,
+  total: money,
+  deposit: money,
+  balance_due: money,
+  idempotent_replay: z.boolean(),
 }).passthrough();
 
 export async function POST(req: NextRequest) {
@@ -221,70 +235,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unable to verify pricing. Please try again." }, { status: 503 });
   }
 
-  const manipulated = serverTotal > 0 && Math.abs(Number(clientTotal) - serverTotal) > TOLERANCE;
-
   // Always use server-calculated values
   const rentalDays = serverRentalDays;
   const dailyRate = serverDailyRate;
   const vehicleSubtotal = serverVehicleSubtotal;
   const extrasSubtotal = serverExtrasSubtotal;
-  const total = serverTotal;
-  const deposit = serverDeposit;
-  const balanceDue = serverBalanceDue;
-  // Atomically validate and redeem promo code via DB function (prevents race conditions)
-  let promoDiscount = 0;
-  let validatedPromoId: string | null = null;
-  if (promoCode) {
-    try {
-      const { data: promoResult } = await supabaseAdmin.rpc("redeem_promo", {
-        p_code: promoCode.trim(),
-        p_total: total,
-      });
-      if (promoResult) {
-        promoDiscount = Number(promoResult.discount_amount);
-        validatedPromoId = promoResult.id;
-      }
-    } catch (_) {
-      // Invalid/expired/exhausted — silently ignore, proceed without discount
-    }
-  }
-  const finalTotal = parseFloat(Math.max(0, total - promoDiscount).toFixed(2));
-  const finalDeposit = parseFloat((finalTotal * DEPOSIT_RATE).toFixed(2));
-  const finalBalanceDue = parseFloat((finalTotal - finalDeposit).toFixed(2));
-
-  const showPrice = total > 0;
-
-  // Rebuild extras rows using server rates (ignoring client extrasLines amounts)
-  const serverExtrasRows = [
-    fdw ? `<tr><td>Full Damage Waiver (FDW) — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("fdw").toFixed(2)}</td><td align="right">€${(xRate("fdw") * rentalDays).toFixed(2)}</td></tr>` : "",
-    Number(babySeat) > 0 ? `<tr><td>Baby Seat ×${babySeat} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("baby_seat").toFixed(2)}</td><td align="right">€${(xRate("baby_seat") * Number(babySeat) * rentalDays).toFixed(2)}</td></tr>` : "",
-    Number(childSeat) > 0 ? `<tr><td>Child Seat ×${childSeat} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("child_seat").toFixed(2)}</td><td align="right">€${(xRate("child_seat") * Number(childSeat) * rentalDays).toFixed(2)}</td></tr>` : "",
-    Number(additionalDrivers) > 0 ? `<tr><td>Additional Driver ×${additionalDrivers} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("additional_drivers").toFixed(2)}</td><td align="right">€${(xRate("additional_drivers") * Number(additionalDrivers) * rentalDays).toFixed(2)}</td></tr>` : "",
-  ].filter(Boolean).join("\n        ");
-
-  const ref = generateRef();
-  // A Greek customer gets the Greek page; anyone else the English one.
-  const quoteUrl = `https://anadyon.gr${locale === "el" ? "/el" : ""}/quote/${ref}`;
-
-  // Persist with server-calculated values
+  const requestedRef = generateRef();
   const expiresAt = new Date();
   expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
-  // Written one at a time, and both results inspected.
-  //
-  // These were previously issued together with Promise.all and the results
-  // thrown away. The Supabase client returns { data, error } rather than
-  // throwing, so a failed insert was indistinguishable from a successful one:
-  // the route carried on, emailed the customer a reference, and answered 200
-  // for a booking that had not been stored. A reference collision or a schema
-  // change would have produced exactly that.
-  //
-  // This is not yet atomic — the two rows and the promo redemption are still
-  // separate transactions, and making them one needs a database function
-  // (migration 022). What it does fix is the worst outcome: telling someone
-  // their booking succeeded when it did not.
-  const { error: quoteError } = await supabaseAdmin.from("quotes").insert({
-    ref,
+  const quotePayload = {
+    ref: requestedRef,
     title,
     first_name: firstName,
     last_name: lastName,
@@ -319,40 +280,18 @@ export async function POST(req: NextRequest) {
     daily_rate: dailyRate,
     vehicle_subtotal: vehicleSubtotal,
     extras_subtotal: extrasSubtotal,
-    total: finalTotal,
-    deposit: finalDeposit,
-    balance_due: finalBalanceDue,
+    // The function applies any promo and replaces these three figures before
+    // inserting. Supplying the pre-discount values keeps Postgres authoritative.
+    total: serverTotal,
+    deposit: serverDeposit,
+    balance_due: serverBalanceDue,
     promo_code: promoCode ?? null,
-    discount_amount: promoDiscount,
+    discount_amount: 0,
     comments: comments || null,
     expires_at: expiresAt.toISOString(),
-  });
+  };
 
-  if (quoteError) {
-    console.error(`[quote] failed to store quote ${ref}:`, quoteError.message);
-
-    // Give the promo use back. redeem_promo increments used_count before any
-    // row is written, so a failed booking would otherwise consume one of a
-    // limited-use code for a booking that does not exist — and the customer,
-    // retrying, could find the code exhausted by their own failed attempt.
-    //
-    // Compensation, not atomicity: if this update fails too, the count stays
-    // high and the log line is the record. Migration 022 makes the whole
-    // sequence one transaction, which is the actual fix.
-    if (validatedPromoId) {
-      const { error: refundError } = await supabaseAdmin.rpc("release_promo", { p_id: validatedPromoId });
-      if (refundError) {
-        console.error(`[quote] could not release promo ${validatedPromoId}:`, refundError.message);
-      }
-    }
-
-    return NextResponse.json(
-      { error: "We could not save your request. Please try again, or call us on +30 26950 41878." },
-      { status: 500 }
-    );
-  }
-
-  const { error: reservationError } = await supabaseAdmin.from("reservations").insert({
+  const reservationPayload = {
     vehicle_id: null,
     customer_name: `${firstName} ${lastName}`,
     customer_email: email,
@@ -371,31 +310,93 @@ export async function POST(req: NextRequest) {
     child_seat: Number(childSeat) || 0,
     fdw: !!fdw,
     additional_drivers: Number(additionalDrivers) || 0,
-    total: finalTotal,
-    deposit: finalDeposit,
-    balance_due: finalBalanceDue,
-    promo_code_id: validatedPromoId,
-    discount_amount: promoDiscount,
+    total: serverTotal,
+    deposit: serverDeposit,
+    balance_due: serverBalanceDue,
+    promo_code_id: null,
+    discount_amount: 0,
     discount_reason: promoCode ? `Promo: ${promoCode}` : null,
     status: "pending",
     source: "website",
-    notes: `Quote ref: ${ref}${comments ? `. Customer notes: ${comments}` : ""}`,
+    notes: `Quote ref: ${requestedRef}${comments ? `. Customer notes: ${comments}` : ""}`,
+  };
+
+  // Content-derived rather than random: a retry after a timeout sends the same
+  // key, while a changed booking produces a different one.
+  const idempotencyKey = bookingIdempotencyKey({
+    email: email.trim().toLowerCase(),
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    mobileTel: mobileTel?.trim() ?? "",
+    vehicleType,
+    selectedModel: selectedModel ?? "",
+    pricingGroup: pricingGroup ?? "",
+    pickupLocation: pickupLocation ?? "",
+    dropoffLocation: dropoffLocation ?? "",
+    pickupDate,
+    pickupTime: pickupTime ?? "09:00",
+    dropoffDate,
+    dropoffTime: dropoffTime ?? "09:00",
+    transmission: transmission ?? "",
+    babySeat,
+    childSeat,
+    fdw,
+    additionalDrivers,
+    promoCode: promoCode?.trim().toLowerCase() ?? "",
+    clientTotal: Number(clientTotal),
+    comments: comments?.trim() ?? "",
   });
 
-  if (reservationError) {
-    // The quote is stored and the reference is real, so the customer is not
-    // told to start again — that would produce a second quote for the same
-    // booking. The office is told instead, loudly, because a quote with no
-    // reservation will not appear on the calendar.
-    console.error(`[quote] quote ${ref} stored but reservation failed:`, reservationError.message);
-    try {
-      const { sendTelegram } = await import("@/lib/telegram");
-      await sendTelegram(
-        `⚠️ <b>Booking half-saved</b>\nQuote <b>${ref}</b> was stored but its reservation was not: ` +
-        `${reservationError.message.slice(0, 160)}\nIt will not appear on the calendar — add it by hand.`
-      );
-    } catch { /* the log line above is the fallback */ }
+  const { data: bookingData, error: bookingError } = await supabaseAdmin.rpc(
+    "create_web_booking",
+    {
+      p_quote: quotePayload,
+      p_reservation: reservationPayload,
+      p_promo_code: promoCode?.trim() || null,
+      p_idempotency_key: idempotencyKey,
+      p_deposit_rate: DEPOSIT_RATE,
+    }
+  );
+
+  const booking = BookingResultSchema.safeParse(bookingData);
+  if (bookingError) {
+    console.error(`[quote] atomic booking failed for ${requestedRef}:`, bookingError.message);
+    return NextResponse.json(
+      { error: "We could not save your request. Please try again, or call us on +30 26950 41878." },
+      { status: 500 }
+    );
   }
+  if (!booking.success) {
+    console.error(`[quote] atomic booking returned invalid data for ${requestedRef}:`,
+      booking.error.issues[0]?.message ?? "invalid function response");
+    return NextResponse.json(
+      { error: "We could not save your request. Please try again, or call us on +30 26950 41878." },
+      { status: 500 }
+    );
+  }
+
+  const ref = booking.data.ref;
+  if (booking.data.idempotent_replay) {
+    return NextResponse.json({ success: true, ref });
+  }
+
+  const promoDiscount = Number(booking.data.discount);
+  const total = Number(booking.data.total);
+  const deposit = Number(booking.data.deposit);
+  const balanceDue = Number(booking.data.balance_due);
+  const manipulated = total > 0 && Math.abs(Number(clientTotal) - total) > TOLERANCE;
+  const showPrice = total > 0;
+
+  // Rebuild extras rows using server rates (ignoring client extrasLines amounts)
+  const serverExtrasRows = [
+    fdw ? `<tr><td>Full Damage Waiver (FDW) — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("fdw").toFixed(2)}</td><td align="right">€${(xRate("fdw") * rentalDays).toFixed(2)}</td></tr>` : "",
+    Number(babySeat) > 0 ? `<tr><td>Baby Seat ×${babySeat} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("baby_seat").toFixed(2)}</td><td align="right">€${(xRate("baby_seat") * Number(babySeat) * rentalDays).toFixed(2)}</td></tr>` : "",
+    Number(childSeat) > 0 ? `<tr><td>Child Seat ×${childSeat} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("child_seat").toFixed(2)}</td><td align="right">€${(xRate("child_seat") * Number(childSeat) * rentalDays).toFixed(2)}</td></tr>` : "",
+    Number(additionalDrivers) > 0 ? `<tr><td>Additional Driver ×${additionalDrivers} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("additional_drivers").toFixed(2)}</td><td align="right">€${(xRate("additional_drivers") * Number(additionalDrivers) * rentalDays).toFixed(2)}</td></tr>` : "",
+  ].filter(Boolean).join("\n        ");
+
+  // A Greek customer gets the Greek page; anyone else the English one.
+  const quoteUrl = `https://anadyon.gr${locale === "el" ? "/el" : ""}/quote/${ref}`;
 
 
   const manipulationWarning = manipulated ? `
@@ -448,6 +449,7 @@ export async function POST(req: NextRequest) {
       <table cellpadding="6" style="border-collapse:collapse; width:100%; max-width:420px;">
         <tr><td><strong>${selectedModel}</strong> — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${dailyRate.toFixed(2)}</td><td align="right">€${vehicleSubtotal.toFixed(2)}</td></tr>
         ${serverExtrasRows}
+        ${promoDiscount > 0 ? `<tr><td>Promo code (${esc(promoCode)})</td><td align="right">−€${promoDiscount.toFixed(2)}</td></tr>` : ""}
         <tr style="border-top:2px solid #ccc;"><td><strong>Total (incl. VAT)</strong></td><td align="right"><strong>€${total.toFixed(2)}</strong></td></tr>
         <tr><td style="color:#666;">Deposit (30%) due on confirmation</td><td align="right" style="color:#666;">€${deposit.toFixed(2)}</td></tr>
         <tr><td style="color:#666;">Balance due at pick-up</td><td align="right" style="color:#666;">€${balanceDue.toFixed(2)}</td></tr>
@@ -495,6 +497,7 @@ export async function POST(req: NextRequest) {
       <table cellpadding="6" style="border-collapse:collapse; width:100%; max-width:420px;">
         <tr><td><strong>${selectedModel}</strong> — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${dailyRate.toFixed(2)}</td><td align="right">€${vehicleSubtotal.toFixed(2)}</td></tr>
         ${serverExtrasRows}
+        ${promoDiscount > 0 ? `<tr><td>Promo code (${esc(promoCode)})</td><td align="right">−€${promoDiscount.toFixed(2)}</td></tr>` : ""}
         <tr style="border-top:2px solid #ccc;"><td><strong>Total (incl. VAT)</strong></td><td align="right"><strong>€${total.toFixed(2)}</strong></td></tr>
         <tr><td style="color:#666;">Deposit (30%) due on confirmation</td><td align="right" style="color:#666;">€${deposit.toFixed(2)}</td></tr>
         <tr><td style="color:#666;">Balance due at pick-up</td><td align="right" style="color:#666;">€${balanceDue.toFixed(2)}</td></tr>
