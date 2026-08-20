@@ -25,10 +25,12 @@ import { devices } from "@playwright/test";
  * been there to establish, and it is worth re-running after any significant
  * layout change.
  */
-export default {
+const crossBrowserConfig = {
   ...base,
   projects: [
     { name: "webkit", use: { ...devices["Desktop Safari"] } },
     { name: "firefox", use: { ...devices["Desktop Firefox"] } },
   ],
 };
+
+export default crossBrowserConfig;
