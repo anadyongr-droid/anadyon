@@ -217,3 +217,18 @@ These are not negotiable and are not obvious from the code:
 - **2026-08-20, Claude.** Applied and verified 021/022/023. Found
   `create_web_booking` non-functional (section 2). Did not start the route
   change — handed off at this point.
+- **2026-08-21, Codex (`codex/h1-atomic-booking`).** Added migration 024 and
+  its 4.9 KB SQL-editor paste copy. The function now inserts only supplied
+  columns so defaults fire, serializes simultaneous retries, redeems promos
+  and settles all final money fields transactionally, and returns stored money
+  figures on both first use and replay. Rewired `/api/quote` to make one RPC
+  call, removed compensation/half-save behavior, suppressed replay emails and
+  made both emails use the database-returned discount, total, deposit and
+  balance. Added five route regression tests covering transaction failure,
+  replay, database-owned discounted totals, exhausted promos and stable
+  idempotency keys. Verified: 184 unit tests, TypeScript, production build,
+  translation, static accessibility and 60 SEO tests pass; lint has zero errors
+  and the same 21 pre-existing warnings. Did **not** apply migration 024, touch
+  production data, merge the branch or perform the live booking probe. Local
+  Docker/Postgres is unavailable, so the SQL has been statically reviewed but
+  still needs the prescribed manual apply and production verification.
