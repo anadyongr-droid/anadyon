@@ -144,12 +144,17 @@ jobs:
           R2_ENDPOINT="https://${ACCOUNT}.r2.cloudflarestorage.com"
           prune() {
             prefix="$1"; keep="$2"
-            aws s3 ls "s3://$R2_BUCKET/$prefix/" --endpoint-url "$R2_ENDPOINT" \
-              | awk '{print $4}' | sort | head -n -"$keep" | while read -r old; do
-                [ -z "$old" ] && continue
-                echo "  removing $prefix/$old"
-                aws s3 rm "s3://$R2_BUCKET/$prefix/$old" --endpoint-url "$R2_ENDPOINT"
-              done
+            # `aws s3 ls` exits non-zero when the prefix holds nothing, which is
+            # the normal state on the first few runs — and under `set -e` that
+            # failed the whole job after a perfectly good backup had already
+            # been uploaded. An empty listing is not an error here.
+            listing=$(aws s3 ls "s3://$R2_BUCKET/$prefix/" --endpoint-url "$R2_ENDPOINT" 2>/dev/null || true)
+            [ -z "$listing" ] && { echo "  $prefix: nothing stored yet"; return 0; }
+            echo "$listing" | awk '{print $4}' | sort | head -n -"$keep" | while read -r old; do
+              [ -z "$old" ] && continue
+              echo "  removing $prefix/$old"
+              aws s3 rm "s3://$R2_BUCKET/$prefix/$old" --endpoint-url "$R2_ENDPOINT"
+            done
           }
           prune daily 30
           prune monthly 12
