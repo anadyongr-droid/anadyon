@@ -35,12 +35,18 @@ const TIMEOUT_MS = 5000;
 /**
  * Prefix marking a row as a queued Telegram message.
  *
- * alert_outbox is shared: the Stripe webhook claims event ids here, the
- * briefing records `briefing:<date>`, the watchdog records `watchdog:thread:…`.
- * Those rows also sit with sent_at null — a Stripe claim does, by design,
- * between claiming an event and finishing it. Draining the table without
- * filtering would send their payloads to Telegram as if they were messages.
- * The prefix is what keeps the queue separate from the ledger.
+ * alert_outbox is shared. Production currently holds `briefing:<date>`,
+ * `watchdog:thread:…` and `urgent:…` rows, plus the Stripe webhook's event
+ * claims. Those rows also sit with sent_at null — a Stripe claim does, by
+ * design, between claiming an event and finishing it — so draining on
+ * sent_at alone would post their payloads to the staff channel as if they
+ * were alerts.
+ *
+ * Matching `tg:` is an allowlist rather than a list of things to skip, and
+ * that is the point: `urgent:` was already there in twenty rows and is not
+ * written by any code path considered when this was designed. A denylist
+ * would have had to be right about every prefix that exists now and every one
+ * added later. This one only has to be right about its own.
  */
 const QUEUE_PREFIX = "tg:";
 
