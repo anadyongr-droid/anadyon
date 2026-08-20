@@ -1,7 +1,8 @@
 -- 024_fix_create_web_booking_defaults.sql — paste this whole block into the Supabase SQL editor.
 begin;
-drop function if exists create_web_booking(jsonb, jsonb, text, text);
-create function create_web_booking(
+drop function if exists public.create_web_booking(jsonb, jsonb, text, text);
+drop function if exists public.create_web_booking(jsonb, jsonb, text, text, numeric);
+create function public.create_web_booking(
   p_quote jsonb,
   p_reservation jsonb,
   p_promo_code text default null,
@@ -11,15 +12,16 @@ create function create_web_booking(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = ''
 as $$
 declare
-  v_promo promo_codes%rowtype;
+  v_promo public.promo_codes%rowtype;
   v_discount numeric := 0;
   v_promo_id uuid := null;
   v_quote_id uuid;
   v_ref text := p_quote->>'ref';
   v_existing_ref text;
+  v_existing_discount numeric;
   v_pre_discount numeric;
   v_final_total numeric;
   v_final_deposit numeric;
@@ -41,11 +43,11 @@ begin
     p_idempotency_key := trim(p_idempotency_key);
     perform pg_advisory_xact_lock(hashtextextended(p_idempotency_key, 0));
     select ref, total, deposit, balance_due, discount_amount
-      into v_existing_ref, v_final_total, v_final_deposit, v_final_balance, v_discount
-      from quotes where idempotency_key = p_idempotency_key limit 1;
+      into v_existing_ref, v_final_total, v_final_deposit, v_final_balance, v_existing_discount
+      from public.quotes where idempotency_key = p_idempotency_key limit 1;
     if found then
       return jsonb_build_object(
-        'ref', v_existing_ref, 'discount', coalesce(v_discount, 0),
+        'ref', v_existing_ref, 'discount', coalesce(v_existing_discount, 0),
         'total', v_final_total, 'deposit', v_final_deposit,
         'balance_due', v_final_balance, 'idempotent_replay', true
       );
@@ -54,13 +56,13 @@ begin
     p_idempotency_key := null;
   end if;
   if p_promo_code is not null and length(trim(p_promo_code)) > 0 then
-    select * into v_promo from promo_codes
+    select * into v_promo from public.promo_codes
      where active = true and lower(code) = lower(trim(p_promo_code)) for update;
     if found
        and (v_promo.expires_at is null or v_promo.expires_at >= current_date)
        and (v_promo.max_uses is null or v_promo.used_count < v_promo.max_uses)
     then
-      update promo_codes set used_count = used_count + 1 where id = v_promo.id;
+      update public.promo_codes set used_count = used_count + 1 where id = v_promo.id;
       v_promo_id := v_promo.id;
       v_discount := case
         when v_promo.type = 'percentage'
@@ -109,9 +111,9 @@ begin
   );
 end;
 $$;
-revoke all on function create_web_booking(jsonb, jsonb, text, text, numeric)
+revoke all on function public.create_web_booking(jsonb, jsonb, text, text, numeric)
   from public, anon, authenticated;
-grant execute on function create_web_booking(jsonb, jsonb, text, text, numeric)
+grant execute on function public.create_web_booking(jsonb, jsonb, text, text, numeric)
   to service_role;
 select 'REACHED THE END' as status;
 commit;
