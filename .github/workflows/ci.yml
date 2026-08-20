@@ -141,8 +141,21 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] || [ -z "$NEXT_PUBLIC_SUPABASE_URL" ]; then
-            echo "Supabase credentials not configured — skipping schema drift check."
-            echo "Run 'npm run check:schema' locally before deploying schema changes."
+            # Warns rather than passing silently.
+            #
+            # This used to print a plain line and exit 0, so a run in which the
+            # check never happened looked exactly like one where it passed —
+            # and the last green build had logged precisely that. A check that
+            # reports success for something it did not look at is worse than no
+            # check, because it gets believed. The absent storage bucket is
+            # what that costs: schema the code required, missing from the
+            # database, through a green pipeline.
+            #
+            # A warning rather than a hard failure only because the secrets are
+            # deliberately opt-in — adding them widens what a compromised
+            # Actions run could reach. Configure them and this becomes a real
+            # gate; until then it is at least impossible to miss.
+            echo "::warning title=Schema drift check skipped::No Supabase credentials configured, so the live schema was NOT verified. Run 'npm run check:schema' locally before deploying schema changes."
             exit 0
           fi
           npm run check:schema

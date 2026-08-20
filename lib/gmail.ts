@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { google } from "googleapis";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -12,7 +13,13 @@ export function createOAuthClient() {
 
 export function getAuthUrl(): { url: string; state: string } {
   const client = createOAuthClient();
-  const state = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  // crypto.randomBytes, not Math.random.
+  //
+  // Math.random is not a cryptographic generator: its output is predictable
+  // from prior values, and this value is the only thing standing between the
+  // OAuth callback and a forged one. Two concatenated calls made it longer
+  // without making it less guessable.
+  const state = randomBytes(32).toString("base64url");
   const url = client.generateAuthUrl({
     access_type: "offline",
     scope: SCOPES,
