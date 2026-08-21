@@ -5,6 +5,7 @@ import StatusLegend from "../components/StatusLegend";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import ReservationModal from "../components/ReservationModal";
 import { vehicleLabel } from "@/lib/vehicleLabel";
+import { unallocatedCalendarReservations } from "@/lib/calendarReservations";
 
 interface Vehicle {
   id: string;
@@ -19,11 +20,12 @@ interface Vehicle {
 
 interface Reservation {
   id: string;
-  vehicle_id: string;
+  vehicle_id: string | null;
   customer_name: string;
   pickup_date: string;
   return_date: string;
   status: string;
+  source: "website" | "admin";
   total: number;
   daily_rate: number;
   rental_days: number;
@@ -92,6 +94,11 @@ export default function CalendarPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const dateRange: Date[] = Array.from({ length: days }, (_, i) => addDays(startDate, i));
+  const unallocated = unallocatedCalendarReservations(
+    reservations,
+    toDateStr(startDate),
+    toDateStr(endDate),
+  );
 
   // Group vehicles by category
   const grouped = ["car", "motorbike", "bike"].map((cat) => ({
@@ -171,8 +178,47 @@ export default function CalendarPage() {
       {loading ? (
         <div className="text-gray-400 text-sm">Loading…</div>
       ) : (
-        <div className="overflow-x-auto overflow-y-auto rounded-xl border border-gray-200 bg-white" style={{ maxHeight: "calc(100vh - 160px)" }}>
-          <table className="border-collapse text-xs" style={{ minWidth: `${180 + days * 52}px` }}>
+        <>
+          {unallocated.length > 0 && (
+            <section className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="mb-3 flex items-baseline justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold text-amber-950">Pending vehicle allocation</h2>
+                  <p className="mt-0.5 text-xs text-amber-800">
+                    These reservations are already in the system but have not yet been assigned a vehicle, so they cannot appear on a vehicle row below.
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                  {unallocated.length}
+                </span>
+              </div>
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {unallocated.map((reservation) => (
+                  <button
+                    key={reservation.id}
+                    onClick={() => setModal({ reservationId: reservation.id })}
+                    className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-left transition hover:border-amber-400 hover:shadow-sm"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-medium text-gray-900">{reservation.customer_name}</span>
+                      <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${statusClass(reservation.status)}`}>
+                        {reservation.status}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-gray-600">
+                      {reservation.pickup_date} → {reservation.return_date}
+                    </div>
+                    <div className="mt-1 text-xs text-amber-800">
+                      {reservation.source === "website" ? "Website quote" : "Office / walk-in"}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <div className="overflow-x-auto overflow-y-auto rounded-xl border border-gray-200 bg-white" style={{ maxHeight: "calc(100vh - 260px)" }}>
+            <table className="border-collapse text-xs" style={{ minWidth: `${180 + days * 52}px` }}>
             <thead className="sticky top-0 z-20">
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="w-44 px-3 py-2.5 text-left text-gray-500 font-medium sticky left-0 bg-gray-50 z-30 border-r border-gray-200">
@@ -326,8 +372,9 @@ export default function CalendarPage() {
                 </React.Fragment>
               ))}
             </tbody>
-          </table>
-        </div>
+            </table>
+          </div>
+        </>
       )}
 
       <StatusLegend />

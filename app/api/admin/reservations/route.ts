@@ -49,8 +49,13 @@ export async function POST(req: NextRequest) {
   // Same rule as the PATCH route: underscore-prefixed keys are the form's own
   // state and are not columns.
   const body = Object.fromEntries(
-    Object.entries(raw).filter(([k]) => !k.startsWith("_") && k !== "id" && k !== "created_at")
+    Object.entries(raw).filter(([k]) => !k.startsWith("_") && !["id", "created_at", "source"].includes(k))
   ) as Record<string, unknown> & { total: number; vehicle_id?: string; pickup_date?: string; return_date?: string; customer_id?: string; status?: string };
+
+  // A reservation linked to a quote is a website request, even if a member of
+  // staff is completing its allocation. Every other row created here is an
+  // office/walk-in reservation. The client cannot choose this classification.
+  const source = body.quote_id ? "website" : "admin";
 
   // Overlap check
   if (body.vehicle_id && body.pickup_date && body.return_date) {
@@ -75,7 +80,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from("reservations")
-    .insert({ ...body, deposit, balance_due })
+    .insert({ ...body, source, deposit, balance_due })
     .select("*, vehicles(name, plate, category)")
     .single();
 
