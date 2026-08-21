@@ -1,6 +1,6 @@
 import { sendMail } from "@/lib/mailer";
 import { createHash } from "node:crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { verifyRecaptcha } from "@/lib/recaptcha";
 import { supabaseAdmin } from "@/lib/supabase";
 import { checkRateLimit } from "@/lib/rateLimit";
@@ -417,7 +417,7 @@ export async function POST(req: NextRequest) {
   // independent — the office copy and the customer copy — and sending them one
   // after the other made the customer wait for both round trips before their
   // booking reference appeared.
-  const officeMail = sendMail({
+  const officeMail = () => sendMail({
     from: "Anadyon Website <customerservice@anadyon.gr>",
     to: ["customerservice@anadyon.gr"],
     replyTo: email,
@@ -478,7 +478,7 @@ export async function POST(req: NextRequest) {
   });
 
   // Auto-confirmation to customer — always uses correct server figures
-  const customerMail = sendMail({
+  const customerMail = () => sendMail({
     from: "Anadyon Rentals <customerservice@anadyon.gr>",
     to: email,
     subject: `Quote Request — ${lastName}, ${ref}`,
@@ -517,10 +517,12 @@ export async function POST(req: NextRequest) {
     `,
   });
 
-  // sendMail never throws: it delivers, or stores the message and alerts the
-  // office. So this waits for both without needing to guard either, and the
-  // booking — already stored above — is never undone by a mail problem.
-  await Promise.all([officeMail, customerMail]);
+  // The booking has already been committed atomically. Do not make a customer
+  // wait for two external email round trips before seeing their reference:
+  // `after` is the supported Next.js request-lifecycle hook, so Vercel keeps
+  // the work alive after the response. sendMail itself records any failure in
+  // the durable retry queue and alerts the office.
+  after(() => Promise.all([officeMail(), customerMail()]));
 
   return NextResponse.json({ success: true, ref });
 }

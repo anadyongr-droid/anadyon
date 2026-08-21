@@ -4,7 +4,13 @@ import type { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
   sendMail: vi.fn(),
+  after: vi.fn((task: () => unknown) => task()),
 }));
+
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return { ...actual, after: mocks.after };
+});
 
 const rates = [{
   id: "rate-august-car-b",
@@ -114,6 +120,7 @@ const booking = (overrides: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   mocks.rpc.mockReset();
   mocks.sendMail.mockReset();
+  mocks.after.mockClear();
   mocks.sendMail.mockResolvedValue(undefined);
   mocks.rpc.mockResolvedValue({ data: booking(), error: null });
 });
@@ -171,6 +178,7 @@ describe("POST /api/quote atomic booking", () => {
     expect(html).toContain("€15.66");
     expect(html).toContain("€36.54");
     expect(html).toContain("−€5.80");
+    expect(mocks.after).toHaveBeenCalledTimes(1);
   });
 
   it("books an exhausted promo at the full server price", async () => {
