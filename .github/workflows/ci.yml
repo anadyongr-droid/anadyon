@@ -87,11 +87,10 @@ jobs:
       # and the promo code button being pushed off narrow screens while the
       # responsive sweep passed every page.
       #
-      # Chromium only. Firefox and WebKit would roughly triple the download for
-      # coverage the build's own targets already constrain, and layout overflow
-      # is not engine-specific in the ways tested here.
-      # Cached, because the download is ~100MB and the browser changes only
-      # when the Playwright version does.
+      # Chromium plus Firefox exercise two independent browser engines on every
+      # change. WebKit remains in the separate on-demand run because its Linux
+      # system dependencies have proved unreliable on the hosted runner.
+      # Cached, because browser downloads change only with Playwright itself.
       - name: Cache Playwright browsers
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: playwright-cache
@@ -104,9 +103,9 @@ jobs:
       # run time of one. The GitHub Ubuntu image already carries what headless
       # Chromium needs; if that ever stops being true, Playwright fails with a
       # named missing library rather than hanging, which is the better failure.
-      - name: Install Chromium for browser tests
+      - name: Install Chromium and Firefox for browser tests
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install chromium
+        run: npx playwright install chromium firefox
 
       - name: Browser tests
         timeout-minutes: 10
