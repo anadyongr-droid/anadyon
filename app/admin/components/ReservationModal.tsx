@@ -5,7 +5,7 @@ import { useScrollLock } from "./useScrollLock";
 import { RESERVATION_STATUSES } from "@/lib/reservationStatus";
 import { vehicleLabel } from "@/lib/vehicleLabel";
 import Select from "./Select";
-import { calcRentalDays, getDailyRate, calcExtrasTotal, resolveDailyRate, DEPOSIT_RATE } from "@/lib/pricing";
+import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, calcExtrasTotal, resolveVehiclePricing, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "@/app/components/DateRangePicker";
 import { TIME_OPTIONS, validateReservation, missingDeferrable, normaliseForStorage } from "@/lib/bookingFields";
@@ -320,19 +320,39 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
   const rentalDays = form.pickup_date && form.return_date
     ? calcRentalDays(form.pickup_date, form.return_date, form.pickup_time, form.return_time)
     : 0;
-  const pickupMonth = form.pickup_date ? new Date(form.pickup_date).getMonth() + 1 : 0;
   // What the rate card says for this vehicle, these dates and this duration.
-  const cardRate = vehicle && pickupMonth && rentalDays
-    ? getDailyRate(rates, vehicle.pricing_group as PricingGroup, pickupMonth, rentalDays)
+  // This is the same month-by-month calculation used by the customer quote and
+  // its server-side verifier; using only the pickup month made admin-created
+  // reservations disagree whenever a billable period crossed a season.
+  const rateSegments = vehicle && form.pickup_date && form.return_date && rentalDays
+    ? calcVehicleSegments(
+        rates,
+        vehicle.pricing_group as PricingGroup,
+        form.pickup_date,
+        form.return_date,
+        rentalDays
+      )
+    : [];
+  const cardVehicleSubtotal = vehicle && form.pickup_date && form.return_date && rentalDays
+    ? calcVehicleSubtotal(
+        rates,
+        vehicle.pricing_group as PricingGroup,
+        form.pickup_date,
+        form.return_date,
+        rentalDays
+      )
     : 0;
 
   // What was actually agreed. Resolved by resolveDailyRate so the rules — an
   // empty box means the card rate, nonsense never becomes NaN, zero is a real
   // decision — live in one tested place rather than inline in the markup.
-  const { rate: dailyRate, overridden: rateOverridden, difference: rateDifference } =
-    resolveDailyRate(cardRate, form._daily_rate_override, rentalDays);
-
-  const vehicleSubtotal = parseFloat((dailyRate * rentalDays).toFixed(2));
+  const {
+    cardRate,
+    rate: dailyRate,
+    subtotal: vehicleSubtotal,
+    overridden: rateOverridden,
+    difference: rateDifference,
+  } = resolveVehiclePricing(cardVehicleSubtotal, form._daily_rate_override, rentalDays);
   const extrasSubtotal = rentalDays
     ? calcExtrasTotal(extras, {
         gps: form.gps,
@@ -708,14 +728,31 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
                         }`}
                       />
                     </span>
-                    /day
+                    {rateSegments.length > 1 ? "average/day" : "/day"}
                   </span>
                   <span className="whitespace-nowrap">€{vehicleSubtotal.toFixed(2)}</span>
                 </div>
+                {!rateOverridden && rateSegments.length > 1 && (
+                  <div className="flex justify-between items-start gap-2 text-xs text-gray-500">
+                    <span>
+                      Card price: {rateSegments.map((segment, index) => (
+                        <Fragment key={`${segment.month}-${index}`}>
+                          {index > 0 ? " + " : ""}
+                          {segment.monthName} {segment.days} × €{segment.rate.toFixed(2)}
+                        </Fragment>
+                      ))}
+                    </span>
+                    <span className="whitespace-nowrap">€{cardVehicleSubtotal.toFixed(2)}</span>
+                  </div>
+                )}
                 {rateOverridden && (
                   <div className="flex justify-between items-start gap-2 text-xs text-amber-700">
                     <span>
-                      Agreed rate — card rate is €{cardRate.toFixed(2)}/day
+                      Agreed flat rate — card {rateSegments.length > 1 ? (
+                        <>price is €{cardVehicleSubtotal.toFixed(2)} (weighted average €{cardRate.toFixed(2)}/day)</>
+                      ) : (
+                        <>rate is €{cardRate.toFixed(2)}/day</>
+                      )}
                       {cardRate > 0 && (
                         <>
                           {" "}({rateDifference < 0 ? "−" : "+"}€

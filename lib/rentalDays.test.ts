@@ -34,6 +34,29 @@ describe("rental day count", () => {
     expect(calcRentalDays("2026-08-20", "2026-08-20", "09:00", "09:00")).toBe(1);
   });
 
+  it("keeps 24-hour billing boundaries stable across Greek clock changes", () => {
+    // Europe/Athens advances on 29 March and falls back on 25 October in 2026.
+    // The same displayed time on the next date is one rental day in both cases;
+    // one minute beyond that boundary starts a second billable day.
+    expect(calcRentalDays("2026-03-28", "2026-03-29", "09:00", "09:00")).toBe(1);
+    expect(calcRentalDays("2026-03-28", "2026-03-29", "09:00", "09:01")).toBe(2);
+    expect(calcRentalDays("2026-10-24", "2026-10-25", "09:00", "09:00")).toBe(1);
+    expect(calcRentalDays("2026-10-24", "2026-10-25", "09:00", "09:01")).toBe(2);
+  });
+
+  it("returns the same duration in the browser and on the server", () => {
+    const original = process.env.TZ;
+    try {
+      for (const timezone of ["UTC", "Europe/Athens", "America/New_York", "Asia/Tokyo"]) {
+        process.env.TZ = timezone;
+        expect(calcRentalDays("2026-10-24", "2026-10-25", "09:00", "09:00")).toBe(1);
+        expect(calcRentalDays("2026-10-24", "2026-10-25", "09:00", "09:01")).toBe(2);
+      }
+    } finally {
+      process.env.TZ = original;
+    }
+  });
+
   it("has no second implementation in the date picker", () => {
     // The guard that matters. The bug was not bad arithmetic, it was two
     // implementations of the same rule drifting apart — and the duplicate is
