@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Trash2 } from "lucide-react";
 import ReservationModal from "../../components/ReservationModal";
 
 interface Quote {
@@ -73,6 +73,8 @@ export default function QuoteDetailPage() {
   const [isConverted, setIsConverted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -137,6 +139,20 @@ export default function QuoteDetailPage() {
     fdw: !!quote.fdw,
     additional_drivers: quote.additional_drivers ?? 0,
     notes: `Quote ref: ${quote.ref}${quote.comments ? `. Notes: ${quote.comments}` : ""}`,
+  };
+
+  const deleteQuote = async () => {
+    if (!window.confirm("Delete this quote? This cannot be undone.")) return;
+    setDeleting(true);
+    setDeleteError(null);
+    const response = await fetch(`/api/admin/quotes/${ref}`, { method: "DELETE" });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      setDeleteError(data?.error ?? "Could not delete this quote.");
+      setDeleting(false);
+      return;
+    }
+    router.push("/admin/quotes");
   };
 
   return (
@@ -243,6 +259,19 @@ export default function QuoteDetailPage() {
             <p className="text-sm text-gray-700 whitespace-pre-wrap">{quote.comments}</p>
           </div>
         )}
+      </div>
+
+      <div className="mt-6 border-t border-gray-200 pt-5">
+        {deleteError && <p className="mb-3 text-sm text-red-600">{deleteError}</p>}
+        <button
+          type="button"
+          onClick={deleteQuote}
+          disabled={deleting}
+          className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Trash2 size={15} />
+          {deleting ? "Deleting…" : "Delete quote"}
+        </button>
       </div>
 
       {showModal && (
