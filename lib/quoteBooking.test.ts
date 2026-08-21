@@ -4,7 +4,13 @@ import type { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
   sendMail: vi.fn(),
+  after: vi.fn((task: () => unknown) => task()),
 }));
+
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return { ...actual, after: mocks.after };
+});
 
 const rates = [{
   id: "rate-august-car-b",
@@ -114,6 +120,7 @@ const booking = (overrides: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   mocks.rpc.mockReset();
   mocks.sendMail.mockReset();
+  mocks.after.mockClear();
   mocks.sendMail.mockResolvedValue(undefined);
   mocks.rpc.mockResolvedValue({ data: booking(), error: null });
 });
@@ -171,6 +178,7 @@ describe("POST /api/quote atomic booking", () => {
     expect(html).toContain("€15.66");
     expect(html).toContain("€36.54");
     expect(html).toContain("−€5.80");
+    expect(mocks.after).toHaveBeenCalledTimes(1);
   });
 
   it("books an exhausted promo at the full server price", async () => {
@@ -201,5 +209,46 @@ describe("POST /api/quote atomic booking", () => {
     expect(response.status).toBe(200);
     const [, args] = mocks.rpc.mock.calls[0];
     expect(args.p_reservation).toMatchObject({ customer_dob: "1980-01-02" });
+  });
+
+  it("copies every website field represented on an operational reservation", async () => {
+    const response = await POST(post(requestBody({
+      babySeat: 1,
+      childSeat: 2,
+      fdw: true,
+      additionalDrivers: 1,
+      promoCode: "SUMMER10",
+      comments: "Please meet us at arrivals.",
+    })));
+
+    expect(response.status).toBe(200);
+    const [, args] = mocks.rpc.mock.calls[0];
+    expect(args.p_reservation).toMatchObject({
+      customer_name: "Test Customer",
+      customer_email: "test@example.com",
+      customer_phone: "+30 6900000000",
+      customer_dob: "1980-01-02",
+      pickup_date: "2026-08-21",
+      pickup_time: "09:00",
+      return_date: "2026-08-22",
+      return_time: "09:00",
+      pickup_location: "Airport",
+      dropoff_location: "Airport",
+      rental_days: 1,
+      daily_rate: 58,
+      vehicle_subtotal: 58,
+      extras_subtotal: 16.5,
+      baby_seat: 1,
+      child_seat: 2,
+      fdw: true,
+      additional_drivers: 1,
+      total: 74.5,
+      deposit: 22.35,
+      balance_due: 52.15,
+      discount_reason: "Promo: SUMMER10",
+      status: "pending",
+      source: "website",
+      notes: expect.stringMatching(/^Quote ref: [A-Z0-9]+\. Customer notes: Please meet us at arrivals\.$/),
+    });
   });
 });

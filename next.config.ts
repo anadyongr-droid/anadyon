@@ -111,6 +111,17 @@ const nextConfig: NextConfig = {
         destination: "https://anadyon.gr/:path*",
         permanent: true,
       },
+      {
+        // This was the original public Vercel deployment address. Leaving it
+        // serving the site creates a second, indexable origin outside the
+        // canonical-domain policy. Keep the address harmless for any old
+        // bookmark, but send every request — including its path and query —
+        // to the real public domain.
+        source: "/:path*",
+        has: [{ type: "host", value: "anadyon-eight.vercel.app" }],
+        destination: "https://anadyon.gr/:path*",
+        permanent: true,
+      },
     ];
   },
   async headers() {
