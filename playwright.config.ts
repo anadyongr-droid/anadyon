@@ -38,13 +38,14 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
 
-  // Only Chromium is installed. Firefox and WebKit would roughly triple the CI
-  // download for coverage the build's own browser targets already constrain —
-  // Chrome/Edge/Firefox 111 and Safari 16.4, all with sRGB fallbacks in the CSS
-  // so older engines degrade rather than break. Layout overflow, which is what
-  // this suite exists to catch, is not engine-specific in the ways being
-  // tested here.
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // Firefox now runs in CI alongside Chromium. That gives an independent
+  // rendering engine on every change; Chromium also covers Edge's engine.
+  // WebKit stays in the separate, on-demand configuration because its Linux
+  // system dependencies have proved unreliable on the hosted runner.
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", use: { ...devices["Desktop Firefox"] } },
+  ],
 
   // Locally this reuses a server that is already up, which is what you want
   // while iterating — but it will happily reuse one started from a different
