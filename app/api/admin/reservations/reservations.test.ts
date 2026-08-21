@@ -136,6 +136,12 @@ describe("POST /api/admin/reservations", () => {
   it("announces a genuinely new reservation to the office", async () => {
     await POST(postReq({ status: "confirmed", total: 100, customer_name: "A B" }));
     expect(sentEmails.some((e) => e.subject.startsWith("New Reservation"))).toBe(true);
+    expect(insertPayload).toMatchObject({ source: "admin" });
+  });
+
+  it("derives website source from a linked quote instead of trusting the client", async () => {
+    await POST(postReq({ status: "pending", total: 100, customer_name: "A B", quote_id: "quote-1", source: "admin" }));
+    expect(insertPayload).toMatchObject({ quote_id: "quote-1", source: "website" });
   });
 
   it("does not announce a cancelled reservation as a new one", async () => {

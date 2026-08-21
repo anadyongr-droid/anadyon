@@ -12,6 +12,7 @@ interface Reservation {
   rental_days: number;
   total: number;
   status: string;
+  source?: "website" | "admin";
   created_at?: string;
   dcl_status?: string;
   vehicles?: { name: string; category: string };
@@ -95,6 +96,7 @@ export default function ReservationsPage() {
               <tr className="border-b border-gray-100 text-xs text-gray-500 bg-gray-50">
                 <th className="text-left px-5 py-3 font-medium">Customer</th>
                 <th className="text-left px-4 py-3 font-medium">Vehicle</th>
+                <th className="text-left px-4 py-3 font-medium">Source</th>
                 <th className="text-left px-4 py-3 font-medium">Pick-up</th>
                 <th className="text-left px-4 py-3 font-medium">Return</th>
                 <th className="text-center px-4 py-3 font-medium">Days</th>
@@ -105,7 +107,7 @@ export default function ReservationsPage() {
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={8} className="px-5 py-8 text-center text-gray-400 text-sm">No reservations found.</td></tr>
+                <tr><td colSpan={9} className="px-5 py-8 text-center text-gray-400 text-sm">No reservations found.</td></tr>
               )}
               {filtered.map((r) => (
                 <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition cursor-pointer"
@@ -115,6 +117,9 @@ export default function ReservationsPage() {
                     <div className="text-xs text-gray-400">{r.customer_phone}</div>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{r.vehicles?.name ?? "—"}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600">
+                    {r.source === "website" ? "Website quote" : "Office / walk-in"}
+                  </td>
                   <td className="px-4 py-3 text-gray-600">{r.pickup_date}</td>
                   <td className="px-4 py-3 text-gray-600">{r.return_date}</td>
                   <td className="px-4 py-3 text-center text-gray-600">{r.rental_days}</td>
