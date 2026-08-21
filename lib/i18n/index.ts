@@ -218,7 +218,7 @@ const en: Dict = {
   "feat.xlFrame": "XLarge frame",
   "loc.airport": "Zakynthos Airport",
   "loc.port": "Zakynthos Port",
-  "loc.office": "Our Office",
+  "loc.office": "Anadyon Office",
   "loc.hotel": "Hotel",
   "country.greece": "Greece",
 
@@ -532,7 +532,7 @@ const el: Dict = {
   "feat.xlFrame": "Πλαίσιο XLarge",
   "loc.airport": "Αεροδρόμιο Ζακύνθου",
   "loc.port": "Λιμάνι Ζακύνθου",
-  "loc.office": "Το Γραφείο μας",
+  "loc.office": "Γραφείο Anadyon",
   "loc.hotel": "Ξενοδοχείο",
   "country.greece": "Ελλάδα",
 

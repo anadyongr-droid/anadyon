@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Trash2 } from "lucide-react";
 import ReservationModal from "../../components/ReservationModal";
+import { DEFAULT_ADMIN_BOOKING_LOCATION } from "@/lib/bookingLocations";
 
 interface Quote {
   id: string;
@@ -108,14 +109,6 @@ export default function QuoteDetailPage() {
   if (loading) return <div className="p-6 text-sm text-gray-400">Loading…</div>;
   if (!quote || (quote as { error?: string }).error) return <div className="p-6 text-sm text-red-500">Quote not found.</div>;
 
-  const locationMap = (raw: string) => {
-    if (!raw) return "Our Office";
-    const l = raw.toLowerCase();
-    if (l.includes("airport")) return "Airport";
-    if (l.includes("port")) return "Port (Zakynthos town)";
-    return "Our Office";
-  };
-
   // Pre-fill values for the ReservationModal.
   //
   // The quote already holds the name in two fields, and the reservation form
@@ -134,8 +127,8 @@ export default function QuoteDetailPage() {
     pickup_time: quote.pickup_time ?? "09:00",
     return_date: quote.dropoff_date,
     return_time: quote.dropoff_time ?? "09:00",
-    pickup_location: locationMap(quote.pickup_location),
-    dropoff_location: locationMap(quote.dropoff_location),
+    pickup_location: quote.pickup_location || DEFAULT_ADMIN_BOOKING_LOCATION,
+    dropoff_location: quote.dropoff_location || DEFAULT_ADMIN_BOOKING_LOCATION,
     baby_seat: quote.baby_seat ?? 0,
     child_seat: quote.child_seat ?? 0,
     fdw: !!quote.fdw,
