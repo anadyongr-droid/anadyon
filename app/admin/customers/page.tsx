@@ -24,6 +24,18 @@ interface Customer {
   created_at: string;
   updated_at: string;
   last_interaction_at: string | null;
+  conversion_status?: "converted" | "pending" | "quote_only" | "none";
+}
+
+function ConversionStatus({ status }: { status?: Customer["conversion_status"] }) {
+  const labels = {
+    converted: ["Has rented", "bg-emerald-50 text-emerald-700"],
+    pending: ["Awaiting decision", "bg-amber-50 text-amber-700"],
+    quote_only: ["Quote only", "bg-blue-50 text-blue-700"],
+    none: ["No website request", "bg-gray-100 text-gray-500"],
+  } as const;
+  const [label, style] = labels[status ?? "none"];
+  return <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${style}`}>{label}</span>;
 }
 
 export default function CustomersPage() {
@@ -82,13 +94,14 @@ export default function CustomersPage() {
                 <th className="text-left px-4 py-3 font-medium">Nationality</th>
                 <th className="text-left px-4 py-3 font-medium">Licence no.</th>
                 <th className="text-left px-4 py-3 font-medium">Last contact</th>
+                <th className="text-left px-4 py-3 font-medium">Customer history</th>
                 <th className="text-left px-4 py-3 font-medium">Added</th>
                 <th className="text-center px-4 py-3 font-medium">DNR</th>
               </tr>
             </thead>
             <tbody>
               {customers.length === 0 && (
-                <tr><td colSpan={8} className="px-5 py-8 text-center text-gray-400 text-sm">No customers found.</td></tr>
+                <tr><td colSpan={9} className="px-5 py-8 text-center text-gray-400 text-sm">No customers found.</td></tr>
               )}
               {customers.map((c) => (
                 <tr
@@ -115,6 +128,7 @@ export default function CustomersPage() {
                       ? new Date(c.last_interaction_at).toLocaleDateString("el-GR")
                       : <span className="text-gray-300">—</span>}
                   </td>
+                  <td className="px-4 py-3"><ConversionStatus status={c.conversion_status} /></td>
                   <td className="px-4 py-3 text-gray-400 text-xs">
                     {new Date(c.created_at).toLocaleDateString("el-GR")}
                   </td>

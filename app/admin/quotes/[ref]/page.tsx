@@ -5,6 +5,8 @@ import { ArrowLeft, ArrowRight, Trash2 } from "lucide-react";
 import ReservationModal from "../../components/ReservationModal";
 
 interface Quote {
+  id: string;
+  customer_id?: string | null;
   ref: string;
   title: string;
   first_name: string;
@@ -44,6 +46,7 @@ interface Quote {
   balance_due: number;
   comments: string;
   created_at: string;
+  linked_reservations?: { id: string; status: string }[];
 }
 
 interface Vehicle {
@@ -80,21 +83,20 @@ export default function QuoteDetailPage() {
     Promise.all([
       fetch(`/api/admin/quotes/${ref}`).then((r) => r.json()),
       fetch("/api/admin/vehicles").then((r) => r.json()),
-      fetch(`/api/admin/reservations?quote_ref=${ref}`).then((r) => r.json()),
-    ]).then(([q, v, reservations]) => {
+    ]).then(([q, v]) => {
       setQuote(q);
       setVehicles(v);
-      if (Array.isArray(reservations)) {
+      if (Array.isArray(q?.linked_reservations)) {
         // Any live reservation for this quote is the one to edit, not just a
         // pending one. Passing no id made the modal POST a second reservation
         // and fire another "New Reservation" email, which is where the
         // duplicates came from.
-        const live = reservations.find(
+        const live = q.linked_reservations.find(
           (r: { status: string }) => !["cancelled", "voided"].includes(r.status)
         );
         setPendingReservationId(live?.id ?? null);
         // Converted = any reservation exists that is not cancelled/voided
-        const converted = reservations.some(
+        const converted = q.linked_reservations.some(
           (r: { status: string }) => !["cancelled", "voided"].includes(r.status) && r.status !== "pending"
         );
         setIsConverted(converted);
@@ -172,6 +174,13 @@ export default function QuoteDetailPage() {
             <span className="flex items-center gap-2 bg-gray-100 text-gray-400 text-sm font-semibold px-4 py-2 rounded-lg cursor-not-allowed">
               Already converted
             </span>
+          ) : pendingReservationId ? (
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 bg-amber-50 text-amber-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-amber-100 transition"
+            >
+              Awaiting decision <ArrowRight size={14} />
+            </button>
           ) : (
             <button
               onClick={() => setShowModal(true)}
@@ -285,6 +294,8 @@ export default function QuoteDetailPage() {
             model: quote.selected_model,
           }}
           reservationId={pendingReservationId ?? undefined}
+          customerId={quote.customer_id ?? undefined}
+          quoteId={quote.id}
           vehicles={vehicles.filter((v) => quote.vehicle_type?.toLowerCase().startsWith(v.category))}
           initialValues={pendingReservationId ? undefined : modalDefaults}
           onClose={() => setShowModal(false)}

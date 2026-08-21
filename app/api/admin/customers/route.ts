@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabaseAdmin
     .from("customers")
-    .select("*")
+    .select("*, quotes(id), reservations(status)")
     .order("created_at", { ascending: false });
 
   if (q) {
@@ -23,7 +23,29 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: statusForPgError(error.code) });
-  return NextResponse.json(data);
+  const rows = (data ?? []).map((customer) => {
+    const reservationStatuses = (customer.reservations ?? []).map((r: { status: string | null }) => r.status);
+    const hasConfirmedRental = reservationStatuses.some((status: string | null) =>
+      ["confirmed", "active", "returned"].includes(status ?? "")
+    );
+    const hasOpenReservation = reservationStatuses.some((status: string | null) =>
+      !["cancelled", "voided", "no_show"].includes(status ?? "")
+    );
+
+    return {
+      ...customer,
+      // Derived from the linked requests/reservations. It is intentionally not
+      // a mutable flag on the person: one customer can make several requests.
+      conversion_status: hasConfirmedRental
+        ? "converted"
+        : hasOpenReservation
+          ? "pending"
+          : (customer.quotes?.length ?? 0) > 0
+            ? "quote_only"
+            : "none",
+    };
+  });
+  return NextResponse.json(rows);
 }
 
 export async function POST(req: NextRequest) {

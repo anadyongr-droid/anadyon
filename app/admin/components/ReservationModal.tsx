@@ -26,6 +26,8 @@ interface Props {
   vehicleId?: string;
   date?: string;
   reservationId?: string;
+  customerId?: string;
+  quoteId?: string;
   initialValues?: Partial<typeof EMPTY_FORM>;
   vehicles: Vehicle[];
   /**
@@ -75,7 +77,7 @@ const EMPTY_FORM = {
   dcl_status: "not_submitted",
 };
 
-export default function ReservationModal({ vehicleId, date, reservationId, initialValues, vehicles, quoted, onClose, onSaved }: Props) {
+export default function ReservationModal({ vehicleId, date, reservationId, customerId, quoteId, initialValues, vehicles, quoted, onClose, onSaved }: Props) {
   useScrollLock();
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [rates, setRates] = useState<Rate[]>([]);
@@ -112,7 +114,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
     dob?: string | null; driving_licence_number?: string | null; driving_licence_expiry?: string | null;
   }[]>([]);
   const [linkedLicence, setLinkedLicence] = useState<{ driving_licence_number: string | null; driving_licence_expiry: string | null } | null>(null);
-  const [linkedCustomerId, setLinkedCustomerId] = useState<string | null>(null);
+  const [linkedCustomerId, setLinkedCustomerId] = useState<string | null>(customerId ?? null);
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
 
   useEffect(() => {
@@ -443,6 +445,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, initi
       total,
       ...(isEdit && originalStatus ? { _prev_status: originalStatus } : {}),
       ...(linkedCustomerId ? { customer_id: linkedCustomerId } : {}),
+      ...(quoteId ? { quote_id: quoteId } : {}),
     });
     const url = isEdit ? `/api/admin/reservations/${reservationId}` : "/api/admin/reservations";
     const method = isEdit ? "PATCH" : "POST";
