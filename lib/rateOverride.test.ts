@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveDailyRate } from "./pricing";
+import { resolveDailyRate, resolveVehiclePricing } from "./pricing";
 
 describe("resolveDailyRate", () => {
   it("uses the card rate when nothing was agreed", () => {
@@ -46,5 +46,35 @@ describe("resolveDailyRate", () => {
     expect(d.rate).toBe(0);
     expect(d.overridden).toBe(true);
     expect(d.difference).toBe(-189);
+  });
+});
+
+describe("resolveVehiclePricing", () => {
+  it("preserves an exact cross-season subtotal instead of multiplying its rounded average", () => {
+    expect(resolveVehiclePricing(374.2, "", 8)).toEqual({
+      cardRate: 46.77,
+      rate: 46.77,
+      subtotal: 374.2,
+      overridden: false,
+      difference: 0,
+    });
+  });
+
+  it("applies a deliberately agreed flat daily rate to every billable day", () => {
+    expect(resolveVehiclePricing(374.2, "45", 8)).toEqual({
+      cardRate: 46.77,
+      rate: 45,
+      subtotal: 360,
+      overridden: true,
+      difference: -14.2,
+    });
+  });
+
+  it("treats the displayed weighted average as the unchanged card price", () => {
+    expect(resolveVehiclePricing(374.2, "46.77", 8)).toMatchObject({
+      subtotal: 374.2,
+      overridden: false,
+      difference: 0,
+    });
   });
 });

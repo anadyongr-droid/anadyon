@@ -49,7 +49,38 @@ function segmentTierRate(season: Rate, rentalDays: number): number {
   return season.rate_1_2;
 }
 
-/** Break a rental into month segments and return the rate and cost for each. */
+function parseDateOnlyUtc(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, monthIndex, day));
+
+  // Date.UTC normalises impossible dates (for example 31 February), so check
+  // every part before accepting the value.
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== monthIndex ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
+/**
+ * Break a rental into billable-day segments and return the seasonal rate and
+ * cost for each segment.
+ *
+ * The duration tier (1–2, 3–6 or 7+) belongs to the whole rental. The season
+ * belongs to the calendar date on which each successive 24-hour billing
+ * period starts. Therefore an 09:00 return at the exact boundary adds no new
+ * period, while a return one minute later starts a further billable period on
+ * the return date and uses that date's season.
+ */
 export function calcVehicleSegments(
   rates: Rate[],
   pricingGroup: PricingGroup,
@@ -57,59 +88,35 @@ export function calcVehicleSegments(
   dropoffDate: string,
   rentalDays: number
 ): RateSegment[] {
-  const start = new Date(pickupDate + "T00:00:00");
-  const end = new Date(dropoffDate + "T00:00:00");
+  const start = parseDateOnlyUtc(pickupDate);
+  const end = parseDateOnlyUtc(dropoffDate);
+  if (!start || !end || !Number.isInteger(rentalDays) || rentalDays < 1) return [];
+
   const segments: RateSegment[] = [];
-  let current = new Date(start);
-  while (current < end) {
-    const month = current.getMonth() + 1;
-    const year = current.getFullYear();
-    const nextMonth = new Date(year, current.getMonth() + 1, 1);
-    const segEnd = nextMonth < end ? nextMonth : end;
-    const segDays = Math.round((segEnd.getTime() - current.getTime()) / 86400000);
+  for (let dayIndex = 0; dayIndex < rentalDays; dayIndex++) {
+    const billingDate = new Date(start);
+    billingDate.setUTCDate(start.getUTCDate() + dayIndex);
+    const month = billingDate.getUTCMonth() + 1;
     const season = rates.find(
       (r) => r.pricing_group === pricingGroup && r.season_months.includes(month)
     );
     const rate = season ? segmentTierRate(season, rentalDays) : 0;
-    segments.push({
-      month,
-      monthName: new Date(year, month - 1, 1).toLocaleString("en-GB", { month: "long" }),
-      days: segDays,
-      rate,
-      subtotal: parseFloat((rate * segDays).toFixed(2)),
-    });
-    current = segEnd;
-  }
 
-  // The walk above counts whole calendar dates and knows nothing of time of
-  // day, so it undercounts whenever rentalDays — the number actually billed —
-  // exceeds that date-only span: a same-day rental (start === end) produces
-  // no segments at all, and a later return time can round a date gap of N up
-  // to N+1 billable days (a 09:00 pickup returned at 10:00 the next day is
-  // one calendar day apart but two billable days). Charge the gap to the
-  // segment covering the return date, since the return time is what created
-  // it.
-  const countedDays = segments.reduce((sum, s) => sum + s.days, 0);
-  const shortfall = rentalDays - countedDays;
-  if (shortfall > 0) {
-    if (segments.length === 0) {
-      const month = start.getMonth() + 1;
-      const year = start.getFullYear();
-      const season = rates.find(
-        (r) => r.pricing_group === pricingGroup && r.season_months.includes(month)
-      );
-      const rate = season ? segmentTierRate(season, rentalDays) : 0;
+    const last = segments.at(-1);
+    if (last && last.month === month && last.rate === rate) {
+      last.days += 1;
+      last.subtotal = parseFloat((last.rate * last.days).toFixed(2));
+    } else {
       segments.push({
         month,
-        monthName: new Date(year, month - 1, 1).toLocaleString("en-GB", { month: "long" }),
-        days: shortfall,
+        monthName: billingDate.toLocaleString("en-GB", {
+          month: "long",
+          timeZone: "UTC",
+        }),
+        days: 1,
         rate,
-        subtotal: parseFloat((rate * shortfall).toFixed(2)),
+        subtotal: parseFloat(rate.toFixed(2)),
       });
-    } else {
-      const last = segments[segments.length - 1];
-      last.days += shortfall;
-      last.subtotal = parseFloat((last.rate * last.days).toFixed(2));
     }
   }
 
@@ -158,9 +165,33 @@ export function calcRentalDays(
   pickupTime = "09:00",
   returnTime = "09:00"
 ): number {
-  const d1 = new Date(`${pickupDate}T${pickupTime}`);
-  const d2 = new Date(`${returnDate}T${returnTime}`);
-  const diffMs = d2.getTime() - d1.getTime();
+  const wallClockTime = (dateValue: string, timeValue: string): number | null => {
+    const date = parseDateOnlyUtc(dateValue);
+    const time = /^(\d{2}):(\d{2})$/.exec(timeValue);
+    if (!date || !time) return null;
+
+    const hour = Number(time[1]);
+    const minute = Number(time[2]);
+    if (hour > 23 || minute > 59) return null;
+
+    return Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      hour,
+      minute
+    );
+  };
+
+  // Treat the customer's displayed dates and times as a timezone-independent
+  // wall clock. Otherwise a browser in Greece and the Vercel server can count
+  // different days around daylight-saving changes (09:00 to 09:00 becomes 23
+  // or 25 elapsed hours depending on the machine's timezone).
+  const pickup = wallClockTime(pickupDate, pickupTime);
+  const dropoff = wallClockTime(returnDate, returnTime);
+  if (pickup === null || dropoff === null) return 1;
+
+  const diffMs = dropoff - pickup;
   // Any portion of a 24-hour period counts as a full day
   return Math.max(1, Math.ceil(diffMs / 86400000));
 }
@@ -186,6 +217,13 @@ export interface RateDecision {
   difference: number;
 }
 
+export interface VehiclePricingDecision extends RateDecision {
+  /** The weighted-average card rate stored for reporting purposes. */
+  cardRate: number;
+  /** The exact subtotal to charge after applying any agreed flat daily rate. */
+  subtotal: number;
+}
+
 export function resolveDailyRate(
   cardRate: number,
   override: string | number | null | undefined,
@@ -200,5 +238,37 @@ export function resolveDailyRate(
     rate,
     overridden,
     difference: parseFloat(((rate - cardRate) * rentalDays).toFixed(2)),
+  };
+}
+
+/**
+ * Resolve an admin-entered flat daily rate against an exact seasonal subtotal.
+ *
+ * A cross-season rental does not have one card rate, but the reservations table
+ * still stores a daily-rate summary. We store its weighted average while
+ * preserving the exact segmented subtotal; multiplying the rounded average
+ * back out would otherwise introduce a few cents of drift.
+ */
+export function resolveVehiclePricing(
+  cardSubtotal: number,
+  override: string | number | null | undefined,
+  rentalDays: number
+): VehiclePricingDecision {
+  const safeSubtotal = Number.isFinite(cardSubtotal)
+    ? parseFloat(cardSubtotal.toFixed(2))
+    : 0;
+  const cardRate = rentalDays > 0
+    ? parseFloat((safeSubtotal / rentalDays).toFixed(2))
+    : 0;
+  const decision = resolveDailyRate(cardRate, override, rentalDays);
+  const subtotal = decision.overridden
+    ? parseFloat((decision.rate * rentalDays).toFixed(2))
+    : safeSubtotal;
+
+  return {
+    ...decision,
+    cardRate,
+    subtotal,
+    difference: parseFloat((subtotal - safeSubtotal).toFixed(2)),
   };
 }
