@@ -10,7 +10,7 @@ import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "@/app/components/DateRangePicker";
 import { TIME_OPTIONS, validateReservation, missingDeferrable, normaliseForStorage } from "@/lib/bookingFields";
 import { BOOKING_LOCATION_VALUES, DEFAULT_ADMIN_BOOKING_LOCATION } from "@/lib/bookingLocations";
-import { checkSubstitution, type Quoted } from "@/lib/substitution";
+import { checkSubstitution, isEligibleAssignment, type Quoted } from "@/lib/substitution";
 import { licenceStatus, instant } from "@/lib/operations";
 
 interface Vehicle {
@@ -318,6 +318,20 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
     reservationId,
   ]);
 
+  // A quote reserves a category and transmission, never an arbitrary fleet
+  // item. The API repeats this check before saving; filtering here keeps an
+  // accidental car → bicycle or manual → automatic choice out of the ordinary
+  // staff workflow altogether. A walk-in has no quoted promise, so it retains
+  // the full active fleet selector.
+  const selectableVehicles = quoted
+    ? vehicles.filter((v) => v.status === "available" && isEligibleAssignment(quoted, {
+        pricing_group: v.pricing_group,
+        category: v.category,
+        transmission: v.transmission,
+        name: v.name,
+      }))
+    : vehicles.filter((v) => v.status === "available");
+
   // Computed pricing
   const vehicle = vehicles.find((v) => v.id === form.vehicle_id);
   const rentalDays = form.pickup_date && form.return_date
@@ -379,6 +393,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
   const assignedVehicle = vehicles.find(v => v.id === form.vehicle_id);
   const substitution = checkSubstitution(quoted ?? {}, {
     pricing_group: assignedVehicle?.pricing_group,
+    category: assignedVehicle?.category,
     transmission: assignedVehicle?.transmission,
     name: assignedVehicle?.name,
   });
@@ -509,7 +524,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
                 stay together under their category.
               */}
               {["car", "motorbike", "bike"].map((cat) => {
-                const vs = vehicles.filter((v) => v.category === cat && v.status !== "retired");
+                const vs = selectableVehicles.filter((v) => v.category === cat);
                 if (!vs.length) return null;
 
                 const byModel = new Map<string, Vehicle[]>();

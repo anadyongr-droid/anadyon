@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { vehicleLabel } from "@/lib/vehicleLabel";
 import { sendMail } from "@/lib/mailer";
+import { validateQuoteVehicleAssignment } from "@/lib/quoteVehicleAssignment";
 
 /**
  * Postgres integrity errors are caused by the request, not by the server.
@@ -56,6 +57,18 @@ export async function POST(req: NextRequest) {
   // staff is completing its allocation. Every other row created here is an
   // office/walk-in reservation. The client cannot choose this classification.
   const source = body.quote_id ? "website" : "admin";
+
+  // The browser restricts its list for quote-origin reservations, but this is
+  // the actual integrity boundary. It prevents a stale tab or crafted request
+  // assigning a bicycle to a car quote, a lower class without consent, or the
+  // wrong transmission.
+  const assignmentProblem = await validateQuoteVehicleAssignment(
+    typeof body.quote_id === "string" ? body.quote_id : null,
+    typeof body.vehicle_id === "string" ? body.vehicle_id : null,
+  );
+  if (assignmentProblem) {
+    return NextResponse.json({ error: assignmentProblem.error }, { status: assignmentProblem.status });
+  }
 
   // Overlap check
   if (body.vehicle_id && body.pickup_date && body.return_date) {

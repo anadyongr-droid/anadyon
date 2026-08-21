@@ -85,6 +85,8 @@ export interface SubstitutionCheck {
 
 export interface Quoted {
   pricing_group?: string | null;
+  /** Broad family recorded on the quote: Car(s), Motorbike(s), or Bike(s). */
+  vehicle_type?: string | null;
   /** "Manual", "Automatic", or "Any" when the customer expressed no preference. */
   transmission?: string | null;
   model?: string | null;
@@ -92,8 +94,29 @@ export interface Quoted {
 
 export interface Assigned {
   pricing_group?: string | null;
+  /** Broad family on the fleet record. Kept as a fallback for legacy quotes. */
+  category?: string | null;
   transmission?: string | null;
   name?: string | null;
+}
+
+/** Returns the fleet family for a pricing group, if it is a known group. */
+export function familyForPricingGroup(pricingGroup?: string | null): string | null {
+  return pricingGroup ? RANK[pricingGroup]?.family ?? null : null;
+}
+
+/**
+ * Normalises the labels used by the public form and the database respectively.
+ *
+ * A few early quotes have no pricing_group, so this is not merely cosmetic:
+ * it keeps a legacy "Cars" quote from ever being allocated a bicycle.
+ */
+export function familyForVehicleType(vehicleType?: string | null): string | null {
+  const value = (vehicleType ?? "").trim().toLowerCase();
+  if (value === "car" || value === "cars") return "car";
+  if (value === "motorbike" || value === "motorbikes" || value === "motorcycle" || value === "motorcycles") return "motorbike";
+  if (value === "bike" || value === "bikes" || value === "bicycle" || value === "bicycles") return "bike";
+  return null;
 }
 
 /**
@@ -103,14 +126,33 @@ export interface Assigned {
  * expressed no transmission preference, since there is then nothing to breach.
  */
 export function checkSubstitution(quoted: Quoted, assigned: Assigned): SubstitutionCheck {
-  // Transmission is settled FIRST and independently of category.
-  //
-  // It used to sit behind the pricing-group lookup, which meant a quote with no
-  // pricing_group — every quote taken before migration 010, i.e. all of them —
-  // returned "ok" without the transmission ever being examined. The rule that
-  // matters most was the one most easily skipped.
+  const from = quoted.pricing_group ? RANK[quoted.pricing_group] : undefined;
+  const to = assigned.pricing_group ? RANK[assigned.pricing_group] : undefined;
+  const requestedFamily = from?.family ?? familyForVehicleType(quoted.vehicle_type);
+  const assignedFamily = to?.family ?? familyForVehicleType(assigned.category);
+
+  // A different fleet family is never a substitution. This fallback is needed
+  // for quotes taken before pricing_group was persisted: their broad type is
+  // still sufficient to stop a car request becoming a bicycle reservation.
+  if (requestedFamily && assignedFamily && requestedFamily !== assignedFamily) {
+    return {
+      verdict: "blocked",
+      message: `The quote was for a ${FAMILY_LABEL[requestedFamily]}, but this is a ${FAMILY_LABEL[assignedFamily]}. That is not a substitution — raise a new quote instead.`,
+    };
+  }
+
+  // Transmission is settled independently of category rank. It used to sit
+  // behind the pricing-group lookup, which meant a quote with no pricing_group
+  // returned "ok" without the transmission ever being examined.
   const wanted = expectedTransmission(quoted);
   const giving = (assigned.transmission ?? "").trim();
+
+  if (wanted && !giving && (requestedFamily ?? assignedFamily) === "car") {
+    return {
+      verdict: "blocked",
+      message: "This vehicle has no recorded transmission. Assign a vehicle whose manual or automatic transmission is recorded.",
+    };
+  }
 
   if (wanted && giving && wanted.toLowerCase() !== giving.toLowerCase()) {
     return {
@@ -121,19 +163,9 @@ export function checkSubstitution(quoted: Quoted, assigned: Assigned): Substitut
     };
   }
 
-  const from = quoted.pricing_group ? RANK[quoted.pricing_group] : undefined;
-  const to = assigned.pricing_group ? RANK[assigned.pricing_group] : undefined;
-
-  // No category on either side — a walk-in, or a quote predating pricing_group.
-  // Transmission has already been checked above, so this is safe to pass.
+  // No rank on either side — a walk-in, or a quote predating pricing_group.
+  // The broad family and transmission checks above still apply in that case.
   if (!from || !to) return { verdict: "ok", message: "" };
-
-  if (from.family !== to.family) {
-    return {
-      verdict: "blocked",
-      message: `The quote was for a ${FAMILY_LABEL[from.family]}, but this is a ${FAMILY_LABEL[to.family]}. That is not a substitution — raise a new quote instead.`,
-    };
-  }
 
   if (to.rank > from.rank) {
     return {
@@ -150,6 +182,18 @@ export function checkSubstitution(quoted: Quoted, assigned: Assigned): Substitut
   }
 
   return { verdict: "ok", message: "" };
+}
+
+/**
+ * The vehicles that may be offered without further customer consent.
+ *
+ * Same-category allocation and a higher category are both acceptable. A lower
+ * category is intentionally not included in an ordinary dropdown: it needs a
+ * separately recorded customer agreement rather than a staff mis-click.
+ */
+export function isEligibleAssignment(quoted: Quoted, assigned: Assigned): boolean {
+  const verdict = checkSubstitution(quoted, assigned).verdict;
+  return verdict === "ok" || verdict === "upgrade";
 }
 
 /** A downgrade is permitted, but only deliberately — hence a reason on the record. */

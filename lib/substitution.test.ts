@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkSubstitution, expectedTransmission } from "./substitution";
+import { checkSubstitution, expectedTransmission, isEligibleAssignment } from "./substitution";
 
 /**
  * These began as a throwaway script run once and deleted. That is how the two
@@ -105,6 +105,33 @@ describe("cross-family swaps are refused in every direction", () => {
       });
     }
   }
+});
+
+describe("eligible allocation list", () => {
+  it("keeps a legacy Cars quote out of motorcycle and bicycle choices", () => {
+    expect(isEligibleAssignment(
+      { vehicle_type: "Cars", transmission: "Manual", model: "Fiat Panda" },
+      { category: "motorbike", pricing_group: "motorbike_a", transmission: "Automatic", name: "Kymco" }
+    )).toBe(false);
+    expect(isEligibleAssignment(
+      { vehicle_type: "Cars", transmission: "Manual", model: "Fiat Panda" },
+      { category: "bike", pricing_group: "bike", name: "City Bike" }
+    )).toBe(false);
+  });
+
+  it("offers the quoted class and a free upgrade, but never a downgrade", () => {
+    const quote = { vehicle_type: "Cars", pricing_group: "car_b", transmission: "Manual", model: "Hyundai i20" };
+    expect(isEligibleAssignment(quote, car("car_b", "Manual", "Hyundai i20"))).toBe(true);
+    expect(isEligibleAssignment(quote, car("car_c", "Manual", "Premium manual"))).toBe(true);
+    expect(isEligibleAssignment(quote, car("car_a", "Manual", "Fiat Panda"))).toBe(false);
+  });
+
+  it("does not offer a car whose transmission is missing from the fleet record", () => {
+    expect(isEligibleAssignment(
+      { vehicle_type: "Cars", pricing_group: "car_a", transmission: "Manual", model: "Fiat Panda" },
+      { category: "car", pricing_group: "car_a", transmission: null, name: "Unknown car" }
+    )).toBe(false);
+  });
 });
 
 describe("a booking with no quote behind it", () => {
