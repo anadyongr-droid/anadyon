@@ -88,6 +88,7 @@ const requestBody = (overrides: Record<string, unknown> = {}) => ({
   firstName: "Test",
   lastName: "Customer",
   email: "test@example.com",
+  dob: "1980-01-02",
   mobileTel: "+30 6900000000",
   ...overrides,
 });
@@ -192,5 +193,13 @@ describe("POST /api/quote atomic booking", () => {
     const second = mocks.rpc.mock.calls[1][1].p_idempotency_key;
     expect(first).toMatch(/^web-v1:[a-f0-9]{64}$/);
     expect(second).toBe(first);
+  });
+
+  it("copies the customer date of birth into the operational reservation", async () => {
+    const response = await POST(post(requestBody({ dob: "1980-01-02" })));
+
+    expect(response.status).toBe(200);
+    const [, args] = mocks.rpc.mock.calls[0];
+    expect(args.p_reservation).toMatchObject({ customer_dob: "1980-01-02" });
   });
 });

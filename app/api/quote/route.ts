@@ -296,6 +296,10 @@ export async function POST(req: NextRequest) {
     customer_name: `${firstName} ${lastName}`,
     customer_email: email,
     customer_phone: mobileTel,
+    // Today’s operational check reads the reservation record. Keeping the
+    // date of birth only on its source quote made a customer who had supplied
+    // it look incomplete at collection time.
+    customer_dob: dob || null,
     pickup_date: pickupDate,
     pickup_time: pickupTime ?? "09:00",
     return_date: dropoffDate,
