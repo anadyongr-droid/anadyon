@@ -9,6 +9,7 @@ import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, calcExtrasTot
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "@/app/components/DateRangePicker";
 import { TIME_OPTIONS, validateReservation, missingDeferrable, normaliseForStorage } from "@/lib/bookingFields";
+import { BOOKING_LOCATION_VALUES, DEFAULT_ADMIN_BOOKING_LOCATION } from "@/lib/bookingLocations";
 import { checkSubstitution, type Quoted } from "@/lib/substitution";
 import { licenceStatus, instant } from "@/lib/operations";
 
@@ -43,7 +44,7 @@ interface Props {
 // Single source of truth, shared with the database constraint check in the
 // end-to-end suite. See lib/reservationStatus.ts.
 const STATUS_OPTIONS = RESERVATION_STATUSES;
-const LOCATIONS = ["Airport", "Port (Zakynthos town)", "Our Office"];
+const LOCATIONS = BOOKING_LOCATION_VALUES;
 
 const EMPTY_FORM = {
   vehicle_id: "",
@@ -59,8 +60,8 @@ const EMPTY_FORM = {
   pickup_time: "09:00",
   return_date: "",
   return_time: "09:00",
-  pickup_location: "Our Office",
-  dropoff_location: "Our Office",
+  pickup_location: DEFAULT_ADMIN_BOOKING_LOCATION,
+  dropoff_location: DEFAULT_ADMIN_BOOKING_LOCATION,
   gps: false,
   baby_seat: 0,
   child_seat: 0,
@@ -142,8 +143,8 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
             pickup_time: data.pickup_time,
             return_date: data.return_date,
             return_time: data.return_time,
-            pickup_location: data.pickup_location ?? "Our Office",
-            dropoff_location: data.dropoff_location ?? "Our Office",
+            pickup_location: data.pickup_location ?? DEFAULT_ADMIN_BOOKING_LOCATION,
+            dropoff_location: data.dropoff_location ?? DEFAULT_ADMIN_BOOKING_LOCATION,
             gps: data.gps,
             baby_seat: data.baby_seat,
             child_seat: data.child_seat,

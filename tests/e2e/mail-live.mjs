@@ -29,7 +29,7 @@ const { data: res, error } = await db.from("reservations").insert({
   customer_email: "a.maroudas@gmail.com",
   pickup_date: "2027-09-01", return_date: "2027-09-04",
   pickup_time: "10:00", return_time: "10:00",
-  pickup_location: "Our Office", dropoff_location: "Our Office",
+  pickup_location: "Anadyon Office", dropoff_location: "Anadyon Office",
   rental_days: 3, daily_rate: 30, vehicle_subtotal: 90, extras_subtotal: 0,
   total: 90, deposit: 27, balance_due: 63,
   status: "pending", notes: "Quote ref: LIVEMAIL. ZZTEST",

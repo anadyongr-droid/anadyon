@@ -24,8 +24,8 @@ const base = {
   dropoffDate: dates.return_date,
   pickupTime: "10:00",
   dropoffTime: "10:00",
-  pickupLocation: "Our Office",
-  dropoffLocation: "Our Office",
+  pickupLocation: "Anadyon Office",
+  dropoffLocation: "Anadyon Office",
   transmission: "Manual",
   // The band the form actually sends. This test used to send the number 35,
   // which the form never produces — so the suite passed while every genuine

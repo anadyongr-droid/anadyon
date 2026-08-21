@@ -8,6 +8,7 @@ import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, DEPOSIT_RATE 
 import type { Rate, ExtrasConfig, PricingGroup, RateSegment } from "@/lib/pricing";
 import DateRangePicker from "./DateRangePicker";
 import { TIME_OPTIONS } from "@/lib/bookingFields";
+import { BOOKING_LOCATIONS, DEFAULT_PUBLIC_BOOKING_LOCATION } from "@/lib/bookingLocations";
 import { translator, localePath, type Locale } from "@/lib/i18n";
 
 /**
@@ -18,11 +19,7 @@ import { translator, localePath, type Locale } from "@/lib/i18n";
  * "Αεροδρόμιο Ζακύνθου" and "Zakynthos Airport" are the same place. `key` is
  * what the visitor sees.
  */
-const locations = [
-  { value: "Zakynthos Airport", key: "loc.airport" },
-  { value: "Zakynthos Port",    key: "loc.port" },
-  { value: "Anadyon Office",    key: "loc.office" },
-];
+const locations = BOOKING_LOCATIONS.map(({ value, translationKey: key }) => ({ value, key }));
 
 // Shared with the admin reservation form so staff and customers can never end
 // up choosing from different sets of times.
@@ -203,8 +200,8 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [dropoffDate, setDropoffDate] = useState(tomorrow);
   // The English value is what is stored and emailed; the label is translated
   // at render, so switching language never changes what the office receives.
-  const [pickupLocation, setPickupLocation] = useState(locations[0].value);
-  const [dropoffLocation, setDropoffLocation] = useState(locations[0].value);
+  const [pickupLocation, setPickupLocation] = useState(DEFAULT_PUBLIC_BOOKING_LOCATION);
+  const [dropoffLocation, setDropoffLocation] = useState(DEFAULT_PUBLIC_BOOKING_LOCATION);
   const [pickupTime, setPickupTime] = useState("09:00");
   const [dropoffTime, setDropoffTime] = useState("09:00");
   // The vehicle pages hand this over as a dictionary key so the label can be
