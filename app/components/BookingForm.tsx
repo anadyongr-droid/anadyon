@@ -146,6 +146,14 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [rates, setRates] = useState<Rate[]>(initialRates ?? []);
   const [extrasConfig, setExtrasConfig] = useState<ExtrasConfig[]>(initialExtras ?? []);
 
+  // The vehicle cards remain available above an open booking form. When a
+  // customer chooses another card, the parent supplies its model here; keep
+  // the form's own selection in step so its price and submitted model change
+  // together, while retaining the dates and other work already entered.
+  useEffect(() => {
+    if (initialModel) setSelectedModel(initialModel);
+  }, [initialModel]);
+
   // Until this returns there is no price to show, so the panel is absent rather
   // than empty. A silent failure left it absent forever — a booking form with no
   // prices and nothing saying why — so the outcome is tracked explicitly.
