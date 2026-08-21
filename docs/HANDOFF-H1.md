@@ -217,3 +217,50 @@ These are not negotiable and are not obvious from the code:
 - **2026-08-20, Claude.** Applied and verified 021/022/023. Found
   `create_web_booking` non-functional (section 2). Did not start the route
   change — handed off at this point.
+- **2026-08-21, Codex (`codex/h1-atomic-booking`).** Added migration 024 and
+  its 5.2 KB SQL-editor paste copy. The function now inserts only supplied
+  columns so defaults fire, serializes simultaneous retries, redeems promos
+  and settles all final money fields transactionally, and returns stored money
+  figures on both first use and replay. Rewired `/api/quote` to make one RPC
+  call, removed compensation/half-save behavior, suppressed replay emails and
+  made both emails use the database-returned discount, total, deposit and
+  balance. Added five route regression tests covering transaction failure,
+  replay, database-owned discounted totals, exhausted promos and stable
+  idempotency keys. Verified: 184 unit tests, TypeScript, production build,
+  translation, static accessibility and 60 SEO tests pass; lint has zero errors
+  and the same 21 pre-existing warnings. Did **not** apply migration 024, touch
+  production data, merge the branch or perform the live booking probe. Local
+  Docker/Postgres is unavailable, so the SQL has been statically reviewed but
+  still needs the prescribed manual apply and production verification.
+- **2026-08-21, Codex follow-up.** Replaced the static-only SQL assurance with
+  a permanent PGlite/PostgreSQL migration test that executes both the numbered
+  migration and the exact paste copy. That test exposed and prevented a severe
+  pre-deployment defect: a missed idempotency lookup assigned NULL to the same
+  variable that held the initial zero discount, so a no-promo or exhausted-
+  promo booking would have settled at €0. The lookup now uses a separate
+  variable. Also changed the `SECURITY DEFINER` function to Supabase's
+  recommended empty `search_path` with qualified relations, and made migration
+  024 safe to run again. The database test covers defaults, matched/no-promo,
+  exhausted and oversized promos, replay, transactional rollback, grants and
+  function configuration. The full suite is now 185/185 passing; TypeScript,
+  production build, translation, static accessibility and 60 SEO tests also
+  pass, while lint remains at zero errors and 21 pre-existing warnings.
+  Migration 024 remains unapplied; production and `main` remain untouched.
+- **2026-08-21, Codex release verification.** Tasos manually applied migration
+  024. The first controlled H1 booking produced one matching quote and
+  reservation with matching money fields. The earlier interactive quote did
+  not retain an idempotency key, so it was not used as evidence for replay.
+  The replacement replay check ran directly against `create_web_booking` in a
+  single transaction that was explicitly rolled back: the first invocation
+  returned `H1DBT1` with `idempotent_replay: false`, the identical second
+  invocation returned the same ref with `idempotent_replay: true`, and exactly
+  one quote plus one reservation existed within that transaction. A query
+  after rollback confirmed zero persisted test quotes and reservations; no
+  mail was sent. This verifies the atomic/idempotent database contract without
+  leaving production test data. The browser replay on the protected Preview is
+  currently blocked only by Google reCAPTCHA rejecting the new Vercel preview
+  hostname, despite the domain being added; the existing `main` Vercel preview
+  works with the same key. Treat that as a non-production preview-configuration
+  follow-up, not a production deployment gate. The branch is current with
+  `main`, and its automated checks remain passing. No merge or production
+  deployment was performed.
