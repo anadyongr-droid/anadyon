@@ -131,6 +131,17 @@ The new regression suite initially produced eight failures:
   Do not claim schema or live end-to-end verification passed until those checks
   are green.
 
+## Draft PR status — 2026-08-21
+
+- Draft PR: https://github.com/anadyongr-droid/anadyon/pull/3
+- Branch head: `cfc3199` (`Fix seasonal pricing across billing boundaries`).
+- GitHub Actions run 32458621188: **passed**. This includes type checking,
+  linting, 194 unit tests, production build, translation, accessibility, SEO,
+  Chromium browser checks, and the authorised schema-drift check.
+- Vercel preview: **passed**. This is a preview only; it has not promoted or
+  deployed to production.
+- H1 draft PR #2 remains independent and unchanged.
+
 ## Remaining release steps
 
 1. Stage only the explicitly reviewed files; do not use `git add .` or
