@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendMail } from "@/lib/mailer";
+import { validateQuoteVehicleAssignment } from "@/lib/quoteVehicleAssignment";
 
 /**
  * Postgres integrity errors are caused by the request, not by the server.
@@ -38,6 +39,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const raw = await req.json();
 
+  // quote_id is the immutable provenance link created with the web booking.
+  // It must not be possible to unlink it in the browser and thereby evade the
+  // assignment rules below.
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from("reservations")
+    .select("quote_id, vehicle_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (existingError || !existing) {
+    return NextResponse.json({ error: "Reservation not found." }, { status: 404 });
+  }
+
   // `_prev_status` is sent by the form so this route can tell what changed and
   // email accordingly. It is not a column, and spreading the whole body into the
   // update made Postgres reject the write with "Could not find the
@@ -56,8 +69,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // need updating.
   const prevStatusFromClient = raw._prev_status as string | undefined;
   const body = Object.fromEntries(
-    Object.entries(raw).filter(([k]) => !k.startsWith("_") && k !== "id" && k !== "created_at")
+    Object.entries(raw).filter(([k]) => !k.startsWith("_") && !["id", "created_at", "quote_id", "source"].includes(k))
   );
+
+  const assignmentProblem = await validateQuoteVehicleAssignment(
+    existing.quote_id,
+    typeof body.vehicle_id === "string" ? body.vehicle_id : existing.vehicle_id,
+  );
+  if (assignmentProblem) {
+    return NextResponse.json({ error: assignmentProblem.error }, { status: assignmentProblem.status });
+  }
 
   // Overlap check when a vehicle is assigned
   if (body.vehicle_id && body.pickup_date && body.return_date) {

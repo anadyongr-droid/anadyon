@@ -18,6 +18,11 @@ vi.mock("@/lib/supabase", () => {
         chain[m] = () => chain;
       }
       chain.single = async () => ({ data: { ...inserted }, error: null });
+      // PATCH now reads the existing provenance before updating. Returning the
+      // current fixture keeps this mock faithful to Supabase's maybeSingle()
+      // behaviour without making unrelated status/email tests depend on an
+      // actual quote allocation.
+      chain.maybeSingle = async () => ({ data: { ...inserted }, error: null });
       chain.then = (r: (v: unknown) => unknown) => r({ data: [], error: null });
       return chain;
     },

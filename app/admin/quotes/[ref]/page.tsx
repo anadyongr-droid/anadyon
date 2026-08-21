@@ -56,6 +56,7 @@ interface Vehicle {
   category: string;
   pricing_group: string;
   status: string;
+  transmission?: string | null;
 }
 
 function Row({ label, value }: { label: string; value?: string | number | boolean | null }) {
@@ -283,13 +284,18 @@ export default function QuoteDetailPage() {
           // needs the customer's agreement and a lower price.
           quoted={{
             pricing_group: quote.pricing_group,
+            vehicle_type: quote.vehicle_type,
             transmission: quote.transmission,
             model: quote.selected_model,
           }}
           reservationId={pendingReservationId ?? undefined}
           customerId={quote.customer_id ?? undefined}
           quoteId={quote.id}
-          vehicles={vehicles.filter((v) => quote.vehicle_type?.toLowerCase().startsWith(v.category))}
+          // ReservationModal applies the full category, upgrade and
+          // transmission policy. Passing the complete fleet lets it keep that
+          // policy in one place instead of relying on a fragile startsWith
+          // filter here.
+          vehicles={vehicles}
           initialValues={pendingReservationId ? undefined : modalDefaults}
           onClose={() => setShowModal(false)}
           onSaved={() => { setShowModal(false); router.push("/admin/reservations"); }}
