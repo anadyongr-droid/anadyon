@@ -171,8 +171,13 @@ export async function proxy(req: NextRequest) {
   }
 
   // Enforce MFA: all admin users must have a TOTP factor enrolled and verified
-  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  const { data: factors } = await supabase.auth.mfa.listFactors();
+  // These are independent Supabase Auth reads. Keeping both checks on every
+  // protected request preserves the security boundary; issuing them together
+  // removes one round trip from every admin page and API call.
+  const [{ data: aal }, { data: factors }] = await Promise.all([
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+    supabase.auth.mfa.listFactors(),
+  ]);
   const hasFactor = (factors?.totp?.length ?? 0) > 0;
 
   if (!hasFactor) {
