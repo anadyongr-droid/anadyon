@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { dayEvents, findOverdue, licenceStatus, serviceStatus, instant } from "@/lib/operations";
-import { vehicleDateStatuses, rentalBar } from "@/lib/fleetStatus";
+import { dayEvents, findOverdue, licenceStatus, instant } from "@/lib/operations";
+import { rentalBar } from "@/lib/fleetStatus";
 
 // Staff-accessible: this is the screen they work from. Nothing financial is
 // returned — no rates, totals, costs or margins — so it stays inside what a
@@ -95,26 +95,19 @@ export async function GET() {
     urgency: o.urgency,
   }));
 
-  // Fleet attention: anything grounded, lapsing, or approaching a service.
+  // This panel is deliberately narrower than the Fleet screen: Today should
+  // show only vehicles a member of staff has explicitly taken out of service.
+  // Paperwork and service reminders remain available in Fleet, without
+  // crowding the operational dashboard.
   const fleet = vehicles
-    .map(v => {
-      const bar = rentalBar(v, now);
-      const worst = vehicleDateStatuses(v, now)[0];
-      const service = serviceStatus(v);
-      return { v, bar, worst, service };
-    })
-    .filter(x =>
-      x.bar.barred ||
-      x.worst?.severity === "expired" || x.worst?.severity === "due-soon" ||
-      x.service.severity === "overdue" || x.service.severity === "due-soon"
-    )
-    .map(x => ({
-      id: x.v.id,
-      name: x.v.name,
-      plate: x.v.plate,
-      barred: x.bar.barred ? x.bar.reason : null,
-      paperwork: x.worst && x.worst.severity !== "ok" ? x.worst.message : null,
-      service: x.service.severity === "overdue" || x.service.severity === "due-soon" ? x.service.message : null,
+    .filter(v => v.status === "maintenance")
+    .map(v => ({
+      id: v.id,
+      name: v.name,
+      plate: v.plate,
+      barred: "Vehicle is under maintenance",
+      paperwork: null,
+      service: null,
     }));
 
   return NextResponse.json({
