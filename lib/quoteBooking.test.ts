@@ -202,4 +202,45 @@ describe("POST /api/quote atomic booking", () => {
     const [, args] = mocks.rpc.mock.calls[0];
     expect(args.p_reservation).toMatchObject({ customer_dob: "1980-01-02" });
   });
+
+  it("copies every website field represented on an operational reservation", async () => {
+    const response = await POST(post(requestBody({
+      babySeat: 1,
+      childSeat: 2,
+      fdw: true,
+      additionalDrivers: 1,
+      promoCode: "SUMMER10",
+      comments: "Please meet us at arrivals.",
+    })));
+
+    expect(response.status).toBe(200);
+    const [, args] = mocks.rpc.mock.calls[0];
+    expect(args.p_reservation).toMatchObject({
+      customer_name: "Test Customer",
+      customer_email: "test@example.com",
+      customer_phone: "+30 6900000000",
+      customer_dob: "1980-01-02",
+      pickup_date: "2026-08-21",
+      pickup_time: "09:00",
+      return_date: "2026-08-22",
+      return_time: "09:00",
+      pickup_location: "Airport",
+      dropoff_location: "Airport",
+      rental_days: 1,
+      daily_rate: 58,
+      vehicle_subtotal: 58,
+      extras_subtotal: 16.5,
+      baby_seat: 1,
+      child_seat: 2,
+      fdw: true,
+      additional_drivers: 1,
+      total: 74.5,
+      deposit: 22.35,
+      balance_due: 52.15,
+      discount_reason: "Promo: SUMMER10",
+      status: "pending",
+      source: "website",
+      notes: expect.stringMatching(/^Quote ref: [A-Z0-9]+\. Customer notes: Please meet us at arrivals\.$/),
+    });
+  });
 });
