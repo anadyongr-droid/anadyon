@@ -2,11 +2,25 @@
 
 Status date: 2026-08-22
 
+## Final release status
+
+- PR #14 was squash-merged to `main` as `7d6dcfa` on 2026-08-22.
+- Vercel production deployment `dpl_5XUjDiKnRPc9TZsXnpcVMKB7eM3P` reached
+  READY and serves `anadyon.gr` and `www.anadyon.gr`.
+- The live `/cars` customer-details step was checked at 320px: Day, Month,
+  Year and Flight number are visible; no element overflows and no browser page
+  error was raised.
+- Vercel reported no production runtime errors after the deployment.
+- Database migrations 029 and 030 are already applied. Do not apply them again.
+- NBG e-Commerce/Key2Pay is not connected. The remaining dependency is bank
+  merchant onboarding plus the official integration pack and credentials; see
+  `docs/NBG-PAYMENTS-INTEGRATION.md`.
+
 ## Branch
 
 - Worktree: `work/anadyon-unified-fields`
-- Branch: `codex/unified-customer-fields-and-nbg`
-- Base: `origin/main` at `4d76f0c` (PR #13 merged)
+- Implementation branch: `codex/unified-customer-fields-and-nbg` (merged)
+- Release commit on `main`: `7d6dcfa`
 - No NBG payment code is included; see `docs/NBG-PAYMENTS-INTEGRATION.md`.
 
 ## Verified cause
