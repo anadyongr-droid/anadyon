@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 export const dynamic = "force-dynamic";
 
 interface Rate {
+  id: string;
   pricing_group: string;
   season_name: string;
   season_months: number[];
@@ -82,6 +83,8 @@ export async function GET() {
         if (theirs.every(t => t.price === null)) continue;
 
         rows.push({
+          rate_id: rate.id,
+          rate_field: band.field,
           pricing_group: rate.pricing_group,
           season_name: rate.season_name,
           month,

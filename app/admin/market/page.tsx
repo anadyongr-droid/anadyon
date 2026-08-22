@@ -1,7 +1,9 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { BarChart3, PencilLine, Save } from "lucide-react";
+import { BarChart3, PencilLine, Save, X } from "lucide-react";
+import type { Rate } from "@/lib/pricing";
+
+type RateField = "rate_1_2" | "rate_3_6" | "rate_7plus";
 
 interface GroupRow {
   competitor: string;
@@ -23,6 +25,8 @@ interface CompCell {
 }
 
 interface CompareRow {
+  rate_id: string;
+  rate_field: RateField;
   pricing_group: string;
   season_name: string;
   month_name: string;
@@ -58,6 +62,11 @@ export default function MarketPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [editingRates, setEditingRates] = useState(false);
+  const [rateDrafts, setRateDrafts] = useState<Rate[]>([]);
+  const [rateLoading, setRateLoading] = useState(false);
+  const [rateSaving, setRateSaving] = useState(false);
+  const [rateNote, setRateNote] = useState<string | null>(null);
 
   const loadComparison = useCallback(async () => {
     const res = await fetch("/api/admin/competitors/comparison");
@@ -84,6 +93,48 @@ export default function MarketPage() {
           : g
       )
     );
+  }
+
+  async function startRateEditing() {
+    setRateLoading(true);
+    setRateNote(null);
+    const res = await fetch("/api/admin/rates?fresh=1", { cache: "no-store" });
+    const data = await res.json();
+    if (!res.ok) {
+      setRateNote(data.error ?? "Rates could not be loaded.");
+      setRateLoading(false);
+      return;
+    }
+    setRateDrafts(data.rates ?? []);
+    setEditingRates(true);
+    setRateLoading(false);
+  }
+
+  function updateRate(id: string, field: RateField, value: string) {
+    const amount = Number(value);
+    setRateDrafts(prev => prev.map(rate =>
+      rate.id === id ? { ...rate, [field]: Number.isFinite(amount) ? amount : 0 } : rate
+    ));
+  }
+
+  async function saveRates() {
+    setRateSaving(true);
+    setRateNote(null);
+    const res = await fetch("/api/admin/rates", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rates: rateDrafts }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setRateNote(data.errors?.join("; ") ?? data.error ?? "Rates could not be saved.");
+      setRateSaving(false);
+      return;
+    }
+    await loadComparison();
+    setEditingRates(false);
+    setRateSaving(false);
+    setRateNote("Rates saved. The comparison now uses the new values.");
   }
 
   async function save() {
@@ -123,12 +174,38 @@ export default function MarketPage() {
           <BarChart3 size={20} className="text-blue-600" />
           <h1 className="text-xl font-bold text-gray-900">Market</h1>
         </div>
-        <Link
-          href="/admin/rates"
-          className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800"
-        >
-          <PencilLine size={15} /> Edit Rates
-        </Link>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {rateNote && <span className="max-w-72 text-right text-xs text-gray-500">{rateNote}</span>}
+          {editingRates ? (
+            <>
+              <button
+                type="button"
+                onClick={() => { setEditingRates(false); setRateNote(null); }}
+                disabled={rateSaving}
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+              >
+                <X size={15} /> Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveRates}
+                disabled={rateSaving}
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:opacity-50"
+              >
+                <Save size={15} /> {rateSaving ? "Saving…" : "Save Rates"}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={startRateEditing}
+              disabled={rateLoading}
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:opacity-50"
+            >
+              <PencilLine size={15} /> {rateLoading ? "Loading…" : "Edit Rates"}
+            </button>
+          )}
+        </div>
       </div>
       <p className="text-sm text-gray-500 mb-6">
         Cars and scooters from EzCar, bicycles from Podilatadiko, international brands from
@@ -163,40 +240,60 @@ export default function MarketPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {groupRows.map((r, i) => (
+                  {groupRows.map((r, i) => {
+                    const draft = rateDrafts.find(rate => rate.id === r.rate_id);
+                    const displayedOurs = editingRates && draft ? Number(draft[r.rate_field]) : r.ours;
+                    return (
                     <tr key={i} className="border-b border-gray-50">
                       <td className="px-5 py-2 text-gray-700">{r.month_name}</td>
                       <td className="px-3 py-2 text-gray-500 text-xs">{r.band_label}</td>
                       <td className="px-3 py-2 text-right font-medium text-gray-900 tabular-nums">
-                        €{r.ours}
+                        {editingRates ? (
+                          <label className="inline-flex items-center justify-end gap-1">
+                            <span className="text-xs font-normal text-gray-400">€</span>
+                            <span className="sr-only">Our rate for {r.month_name}, {r.band_label}</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={displayedOurs}
+                              onChange={event => updateRate(r.rate_id, r.rate_field, event.target.value)}
+                              className="w-20 rounded border border-blue-300 px-2 py-1 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            />
+                          </label>
+                        ) : `€${r.ours}`}
                       </td>
-                      {r.competitors.map(c => (
+                      {r.competitors.map(c => {
+                        const diffPct = c.price === null || !c.price
+                          ? null
+                          : Math.round(((displayedOurs - c.price) / c.price) * 100);
+                        return (
                         <td key={c.competitor} className="px-4 py-2 text-right tabular-nums">
                           {c.price === null ? (
                             <span className="text-gray-300">—</span>
                           ) : (
                             <>
                               <span className="text-gray-700">€{c.price}</span>
-                              {c.diffPct !== null && (
+                              {diffPct !== null && (
                                 <span
                                   className={`ml-2 text-xs ${
-                                    c.diffPct < -10
+                                    diffPct < -10
                                       ? "text-amber-600"
-                                      : c.diffPct > 10
+                                      : diffPct > 10
                                       ? "text-blue-600"
                                       : "text-gray-400"
                                   }`}
                                 >
-                                  {c.diffPct > 0 ? "+" : ""}
-                                  {c.diffPct}%
+                                  {diffPct > 0 ? "+" : ""}
+                                  {diffPct}%
                                 </span>
                               )}
                             </>
                           )}
                         </td>
-                      ))}
+                      )})}
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>

@@ -64,14 +64,15 @@ async function fetchRates() {
   return { rates: null, extras: [], error: "unreachable" };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const { rates, extras, error } = await fetchRates();
+  const fresh = new URL(req.url).searchParams.get("fresh") === "1";
 
   if (rates) {
     lastGood = { rates, extras, at: Date.now() };
     return NextResponse.json(
       { rates, extras },
-      { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" } }
+      { headers: { "Cache-Control": fresh ? "no-store" : "public, s-maxage=300, stale-while-revalidate=3600" } }
     );
   }
 
@@ -129,6 +130,7 @@ export async function PATCH(req: NextRequest) {
   // Both languages, because the Greek pages render the same card and would
   // otherwise disagree with the English ones for the length of the window.
   for (const path of [
+    "/api/admin/rates",
     "/cars", "/motorbikes", "/bikes",
     "/el/cars", "/el/motorbikes", "/el/bikes",
   ]) {
