@@ -272,7 +272,10 @@ for (const sample of [
 }
 
 test("the long Greek sights navigation label stays on one line", async ({ page }) => {
-  await page.setViewportSize({ width: 768, height: 900 });
+  // Greek uses the compact menu at tablet width because the complete Greek
+  // navigation is wider than Firefox's 768px viewport. At desktop width the
+  // full navigation returns and every label must remain on one line.
+  await page.setViewportSize({ width: 1024, height: 900 });
   await page.goto("/el/cars");
 
   const sights = page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Ζάκυνθος-Αξιοθέατα" });
