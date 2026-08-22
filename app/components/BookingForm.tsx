@@ -913,12 +913,14 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
 
             {/* reCAPTCHA */}
             <div ref={captchaFieldRef} className="w-full overflow-hidden">
-              <ReCAPTCHA
-                ref={recaptchaRef}
-                sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
-                onChange={(token: string | null) => { setCaptchaToken(token); clearFieldError("captcha"); }}
-                onExpired={() => setCaptchaToken(null)}
-              />
+              <div className="origin-top-left scale-[0.82] min-[360px]:scale-[0.95] min-[375px]:scale-100">
+                <ReCAPTCHA
+                  ref={recaptchaRef}
+                  sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
+                  onChange={(token: string | null) => { setCaptchaToken(token); clearFieldError("captcha"); }}
+                  onExpired={() => setCaptchaToken(null)}
+                />
+              </div>
               {fieldErrors.captcha && <p className="text-red-500 text-xs mt-1">{tr("err.recaptcha")}</p>}
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 {tr("form.recaptchaNotice")}{" "}

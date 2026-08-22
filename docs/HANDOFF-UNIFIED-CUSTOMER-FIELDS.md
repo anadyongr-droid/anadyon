@@ -62,7 +62,10 @@ not persisted customer data.
 - Static accessibility scan: 28 pages, zero detected violations.
 - Chromium browser suite: 16 passed, 2 data-dependent tests skipped because the
   local build used safe placeholder Supabase values.
-- The new 320px mobile DOB/flight regression passed.
+- The new 320px mobile DOB/flight regression passed in Chromium and Firefox.
+- Opening the customer-details step exposed Google's fixed-width reCAPTCHA as
+  the remaining 320px overflow; it now scales at narrow breakpoints and the
+  strict no-overflow regression passes in both engines.
 - `git diff --check`: passed.
 
 ## Production sequence
