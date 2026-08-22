@@ -42,6 +42,27 @@ async function openBookingForm(page: Page, quoteLabel: string) {
   await page.locator("#booking-form select").first().waitFor({ state: "visible" });
 }
 
+/** Wait until a deliberate smooth scroll has stopped before measuring layout. */
+async function waitForScrollToSettle(page: Page) {
+  // The booking form schedules its scroll 50 ms after switching steps.
+  await page.waitForTimeout(100);
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    let previousY = window.scrollY;
+    let stableFrames = 0;
+
+    const check = () => {
+      const currentY = window.scrollY;
+      stableFrames = Math.abs(currentY - previousY) < 0.5 ? stableFrames + 1 : 0;
+      previousY = currentY;
+
+      if (stableFrames >= 4) resolve();
+      else requestAnimationFrame(check);
+    };
+
+    requestAnimationFrame(check);
+  }));
+}
+
 /**
  * True when the page was served with the rate card embedded.
  *
@@ -181,29 +202,70 @@ test("the price panel is present without waiting for a rate request", async ({ p
 });
 
 for (const sample of [
-  { locale: "en", path: "/cars", quote: "Get Quote", next: /continue/i, dob: /Date of Birth/, flight: "Flight number" },
-  { locale: "el", path: "/el/cars", quote: "Προσφορά", next: /συνέχεια/i, dob: /Ημερομηνία Γέννησης/, flight: "Αριθμός πτήσης" },
+  { locale: "en", path: "/cars", quote: "Get Quote", next: /continue/i, dob: /Date of Birth/, flight: "Flight number", day: "Day", month: "Month", year: "Year", may: "May", done: "Done" },
+  { locale: "el", path: "/el/cars", quote: "Προσφορά", next: /συνέχεια/i, dob: /Ημερομηνία Γέννησης/, flight: "Αριθμός πτήσης", day: "Ημέρα", month: "Μήνας", year: "Έτος", may: "Μάι", done: "Έτοιμο" },
 ]) {
-  test(`${sample.locale} native DOB picker and flight number share one row at 320px`, async ({ page }) => {
+  test(`${sample.locale} DOB wheel is fast and matches the flight field at 320px`, async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 900 });
     await page.goto(sample.path);
     await openBookingForm(page, sample.quote);
     await page.getByRole("button", { name: sample.next }).click();
+    // Step two intentionally scrolls the booking card back to its heading.
+    // Measuring while that animation is running compares two different page
+    // positions even though the controls occupy the same grid row.
+    await waitForScrollToSettle(page);
 
     const dob = page.getByLabel(sample.dob);
     const flight = page.getByLabel(sample.flight);
     await expect(dob).toBeVisible();
     await expect(flight).toBeVisible();
-    await expect(dob).toHaveAttribute("type", "date");
+    await expect(page.locator('#booking-form input[type="date"]')).toHaveCount(0);
 
-    await dob.fill("2000-05-07");
-    await expect(dob).toHaveValue("2000-05-07");
+    const initialDobBox = await dob.boundingBox();
+    const initialFlightBox = await flight.boundingBox();
+    expect(initialDobBox).not.toBeNull();
+    expect(initialFlightBox).not.toBeNull();
+    expect(Math.abs(initialDobBox!.width - initialFlightBox!.width), "fields must have equal widths").toBeLessThanOrEqual(1);
+    expect(Math.abs(initialDobBox!.height - initialFlightBox!.height), "fields must have equal heights").toBeLessThanOrEqual(1);
+    expect(Math.abs(initialDobBox!.y - initialFlightBox!.y), "fields must share a row").toBeLessThanOrEqual(2);
+
+    await dob.click();
+    const dialog = page.getByRole("dialog", { name: sample.dob });
+    await expect(dialog).toBeVisible();
+
+    // The default age band is 26–65, so the year wheel starts near its
+    // midpoint rather than making an adult scroll back from the current year.
+    const preferredYear = String(new Date().getFullYear() - 45);
+    const yearWheel = dialog.getByRole("listbox", { name: sample.year });
+    const selectedYear = yearWheel.getByRole("option", { name: preferredYear, exact: true });
+    await expect(selectedYear).toHaveAttribute("aria-selected", "true");
+    await expect.poll(async () => {
+      const wheelBox = await yearWheel.boundingBox();
+      const optionBox = await selectedYear.boundingBox();
+      if (!wheelBox || !optionBox) return Number.POSITIVE_INFINITY;
+      return Math.abs((wheelBox.y + wheelBox.height / 2) - (optionBox.y + optionBox.height / 2));
+    }, { message: "the suggested year must be centred immediately" }).toBeLessThanOrEqual(1);
+
+    // Exercise the same scroll path a finger swipe uses, not only option taps.
+    await yearWheel.evaluate((element) => element.scrollBy({ top: 5 * 44 }));
+    await page.waitForTimeout(120);
+    await expect(yearWheel.getByRole("option", { name: String(Number(preferredYear) - 5), exact: true }))
+      .toHaveAttribute("aria-selected", "true");
+
+    await dialog.getByRole("listbox", { name: sample.day }).getByRole("option", { name: "7", exact: true }).click();
+    await dialog.getByRole("listbox", { name: sample.month }).getByRole("option", { name: sample.may, exact: true }).click();
+    await dialog.getByRole("listbox", { name: sample.year }).getByRole("option", { name: "2000", exact: true }).click();
+    await dialog.getByRole("button", { name: sample.done, exact: true }).click();
+
+    await expect(dob).toHaveAttribute("data-date-value", "2000-05-07");
+    await expect(dob).toHaveValue("07/05/2000");
 
     const dobBox = await dob.boundingBox();
     const flightBox = await flight.boundingBox();
     expect(dobBox).not.toBeNull();
     expect(flightBox).not.toBeNull();
-    expect(Math.abs(dobBox!.y - flightBox!.y), "DOB and flight controls must share a row").toBeLessThan(2);
+    expect(Math.abs(dobBox!.width - flightBox!.width), "fields must stay equal after DOB selection").toBeLessThanOrEqual(1);
+    expect(Math.abs(dobBox!.height - flightBox!.height), "fields must stay equal after DOB selection").toBeLessThanOrEqual(1);
 
     expect(await findOverflow(page), "details fields must remain inside 320px").toEqual([]);
   });
