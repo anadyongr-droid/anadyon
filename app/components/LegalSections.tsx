@@ -38,7 +38,6 @@ const EXTERNAL: Record<string, LinkSpec> = {
   googlePrivacy: { href: "https://policies.google.com/privacy", label: { en: "Google's Privacy Policy", el: "Πολιτική Απορρήτου της Google" }, external: true },
   googleTerms:   { href: "https://policies.google.com/terms",   label: { en: "Terms of Service",        el: "Όρους Παροχής Υπηρεσιών" }, external: true },
   hdpa:          { href: "https://www.dpa.gr",                  label: { en: "Hellenic Data Protection Authority (HDPA)", el: "Αρχή Προστασίας Δεδομένων Προσωπικού Χαρακτήρα (ΑΠΔΠΧ)" }, external: true },
-  vercelPrivacy: { href: "https://vercel.com/docs/speed-insights/privacy-policy", label: { en: "what Speed Insights records", el: "τι καταγράφει το Speed Insights" }, external: true },
 };
 
 /** Splits on {placeholder} and **bold**, resolving each against the locale. */
