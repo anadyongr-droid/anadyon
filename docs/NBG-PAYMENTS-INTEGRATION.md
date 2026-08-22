@@ -126,7 +126,7 @@ from the web portal or automate the portal by scraping.
   service-role-only function execution.
 - ESLint: zero errors. The repository still reports 22 pre-existing React
   effect warnings; this change adds none.
-- Next production compilation and TypeScript build stages passed with webpack.
-  Final packaging could not be completed locally because the workstation had
-  less than 1 GB free and Next exhausted the disk while writing its generated
-  cache. CI/Vercel must complete the clean build before this PR can advance.
+- GitHub CI build, CodeQL analysis and the Vercel Preview deployment all passed
+  on draft PR #16. Locally, compilation and TypeScript passed; final packaging
+  was limited only by the workstation having less than 1 GB free for Next's
+  generated cache.
