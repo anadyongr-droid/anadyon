@@ -3,7 +3,7 @@ import { useState } from "react";
 import { X, Trash2 } from "lucide-react";
 import { useScrollLock } from "./useScrollLock";
 import Select from "./Select";
-import { validateCustomer, normaliseForStorage, customerStillNeeds } from "@/lib/bookingFields";
+import { validateCustomer, normaliseForStorage, customerStillNeeds, dateInputValue } from "@/lib/bookingFields";
 
 interface Customer {
   id: string;
@@ -183,7 +183,7 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
             <input type="text" value={form.last_name} onChange={(e) => set("last_name", e.target.value)} className={inputCls} />
           </Field>
           <Field label="Date of birth">
-            <input type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)} className={inputCls} />
+            <input type="date" value={dateInputValue(form.dob)} onChange={(e) => set("dob", e.target.value)} className={inputCls} />
           </Field>
           <Field label="Nationality">
             <input type="text" value={form.nationality} onChange={(e) => set("nationality", e.target.value)} className={inputCls} placeholder="e.g. British" />
@@ -223,13 +223,13 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
             <input type="text" value={form.passport_number} onChange={(e) => set("passport_number", e.target.value)} className={inputCls} />
           </Field>
           <Field label="Passport expiry">
-            <input type="date" value={form.passport_expiry} onChange={(e) => set("passport_expiry", e.target.value)} className={inputCls} />
+            <input type="date" value={dateInputValue(form.passport_expiry)} onChange={(e) => set("passport_expiry", e.target.value)} className={inputCls} />
           </Field>
           <Field label="Driving licence number">
             <input type="text" value={form.driving_licence_number} onChange={(e) => set("driving_licence_number", e.target.value)} className={inputCls} />
           </Field>
           <Field label="Licence expiry">
-            <input type="date" value={form.driving_licence_expiry} onChange={(e) => set("driving_licence_expiry", e.target.value)} className={inputCls} />
+            <input type="date" value={dateInputValue(form.driving_licence_expiry)} onChange={(e) => set("driving_licence_expiry", e.target.value)} className={inputCls} />
           </Field>
           <div className="col-span-2">
             <Field label="Licence issuing country">

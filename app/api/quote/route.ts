@@ -294,6 +294,11 @@ export async function POST(req: NextRequest) {
   const reservationPayload = {
     vehicle_id: null,
     customer_name: `${firstName} ${lastName}`,
+    // The operational reservation has separate identity fields. Supplying
+    // these as well as the legacy display name keeps the admin edit screen,
+    // calendar and rental agreement on the same customer identity.
+    customer_first_name: firstName,
+    customer_last_name: lastName,
     customer_email: email,
     customer_phone: mobileTel,
     // Today’s operational check reads the reservation record. Keeping the

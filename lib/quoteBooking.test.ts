@@ -203,12 +203,16 @@ describe("POST /api/quote atomic booking", () => {
     expect(second).toBe(first);
   });
 
-  it("copies the customer date of birth into the operational reservation", async () => {
+  it("copies the customer identity into the operational reservation", async () => {
     const response = await POST(post(requestBody({ dob: "1980-01-02" })));
 
     expect(response.status).toBe(200);
     const [, args] = mocks.rpc.mock.calls[0];
-    expect(args.p_reservation).toMatchObject({ customer_dob: "1980-01-02" });
+    expect(args.p_reservation).toMatchObject({
+      customer_first_name: "Test",
+      customer_last_name: "Customer",
+      customer_dob: "1980-01-02",
+    });
   });
 
   it("copies every website field represented on an operational reservation", async () => {
@@ -225,6 +229,8 @@ describe("POST /api/quote atomic booking", () => {
     const [, args] = mocks.rpc.mock.calls[0];
     expect(args.p_reservation).toMatchObject({
       customer_name: "Test Customer",
+      customer_first_name: "Test",
+      customer_last_name: "Customer",
       customer_email: "test@example.com",
       customer_phone: "+30 6900000000",
       customer_dob: "1980-01-02",

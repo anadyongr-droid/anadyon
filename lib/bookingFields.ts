@@ -229,3 +229,15 @@ export function normaliseForStorage<T extends Record<string, unknown>>(form: T):
   }
   return out as T;
 }
+
+/**
+ * Controlled value for a native date input.
+ *
+ * Supabase returns SQL NULL as JavaScript null. Passing that through to a
+ * controlled <input type="date"> makes it uncontrolled, which lets a browser
+ * retain a misleading visual date. A missing database value must always look
+ * blank until a staff member deliberately enters one.
+ */
+export function dateInputValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
