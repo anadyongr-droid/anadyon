@@ -7,6 +7,7 @@ import ReCAPTCHA from "react-google-recaptcha";
 import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup, RateSegment } from "@/lib/pricing";
 import DateRangePicker from "./DateRangePicker";
+import DobWheelPicker from "./DobWheelPicker";
 import { TIME_OPTIONS } from "@/lib/bookingFields";
 import { BOOKING_LOCATIONS, DEFAULT_PUBLIC_BOOKING_LOCATION } from "@/lib/bookingLocations";
 import { translator, localePath, type Locale } from "@/lib/i18n";
@@ -50,6 +51,11 @@ function localDateStr(d = new Date()) {
 const today = localDateStr();
 const tomorrow = localDateStr(new Date(Date.now() + 86400000));
 const currentYear = new Date().getFullYear();
+
+function preferredDobYear(ageBand: string) {
+  const representativeAge = ageBand === "21–25" ? 23 : ageBand === "66+" ? 70 : 45;
+  return currentYear - representativeAge;
+}
 
 /** Stored value stays English; the label follows the page language. */
 const TITLES = [
@@ -823,21 +829,28 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 <label htmlFor="public-dob" className="mb-1 block min-w-0 text-sm font-medium text-gray-700 dark:text-gray-300">{tr("form.dob")} *</label>
                 <label htmlFor="public-flight-number" className="mb-1 block min-w-0 text-sm font-medium text-gray-700 dark:text-gray-300">{tr("form.flightNumber")}</label>
                 <div className="min-w-0">
-                  {/* Keep this native: iOS Safari owns the wheel/date-picker UI,
-                      while the submitted value remains the ISO date the API expects. */}
-                  <input
+                  <DobWheelPicker
                     id="public-dob"
-                    type="date"
                     value={dob}
-                    onChange={(event) => { setDob(event.target.value); clearFieldError("dob"); }}
-                    min={`${currentYear - 110}-01-01`}
-                    max={`${currentYear - 18}-12-31`}
-                    autoComplete="bday"
-                    required
-                    aria-invalid={fieldErrors.dob || undefined}
-                    className={`block h-[42px] w-full min-w-0 rounded-lg border bg-white px-2 py-2 text-sm text-gray-900 [color-scheme:light] dark:bg-gray-700 dark:text-gray-200 dark:[color-scheme:dark] ${fieldErrors.dob ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`}
+                    onChange={(next) => { setDob(next); clearFieldError("dob"); }}
+                    minYear={currentYear - 110}
+                    maxYear={currentYear - 18}
+                    preferredYear={preferredDobYear(driverAge)}
+                    locale={locale}
+                    invalid={!!fieldErrors.dob}
+                    errorId="public-dob-error"
+                    labels={{
+                      title: tr("form.dob"),
+                      day: tr("form.day"),
+                      month: tr("form.month"),
+                      year: tr("form.year"),
+                      cancel: tr("form.cancel"),
+                      done: tr("form.done"),
+                      help: tr("form.dobWheelHelp"),
+                      placeholder: tr("form.dobPlaceholder"),
+                    }}
                   />
-                  {fieldErrors.dob && <p className="text-red-500 text-xs mt-1">{tr("err.dob")}</p>}
+                  {fieldErrors.dob && <p id="public-dob-error" className="text-red-500 text-xs mt-1">{tr("err.dob")}</p>}
                 </div>
                 <div className="min-w-0">
                   <input
@@ -847,7 +860,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                     onChange={(event) => setFlightNumber(event.target.value.toUpperCase())}
                     maxLength={40}
                     autoComplete="off"
-                    className="h-[42px] w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                    className="box-border h-11 w-full min-w-0 appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
                     placeholder={tr("form.flightNumberPh")}
                   />
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{tr("form.flightNumberHelp")}</p>
