@@ -180,27 +180,31 @@ test("the price panel is present without waiting for a rate request", async ({ p
   expect(rateRequests, "the form should not need to fetch rates").toEqual([]);
 });
 
-test("DOB and flight number are compact and reachable on the narrowest phone", async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 900 });
-  await page.goto("/cars");
-  await openBookingForm(page, "Get Quote");
-  await page.getByRole("button", { name: /continue/i }).click();
+for (const sample of [
+  { locale: "en", path: "/cars", quote: "Get Quote", next: /continue/i, dob: /Date of Birth/, flight: "Flight number" },
+  { locale: "el", path: "/el/cars", quote: "Προσφορά", next: /συνέχεια/i, dob: /Ημερομηνία Γέννησης/, flight: "Αριθμός πτήσης" },
+]) {
+  test(`${sample.locale} native DOB picker and flight number share one row at 320px`, async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 900 });
+    await page.goto(sample.path);
+    await openBookingForm(page, sample.quote);
+    await page.getByRole("button", { name: sample.next }).click();
 
-  const day = page.getByLabel("Day");
-  const month = page.getByLabel("Month");
-  const year = page.getByLabel("Year");
-  const flight = page.getByLabel("Flight number");
-  await expect(day).toBeVisible();
-  await expect(month).toBeVisible();
-  await expect(year).toBeVisible();
-  await expect(flight).toBeVisible();
+    const dob = page.getByLabel(sample.dob);
+    const flight = page.getByLabel(sample.flight);
+    await expect(dob).toBeVisible();
+    await expect(flight).toBeVisible();
+    await expect(dob).toHaveAttribute("type", "date");
 
-  await day.selectOption("07");
-  await month.selectOption("05");
-  await year.selectOption("2000");
-  await expect(day).toHaveValue("07");
-  await expect(month).toHaveValue("05");
-  await expect(year).toHaveValue("2000");
+    await dob.fill("2000-05-07");
+    await expect(dob).toHaveValue("2000-05-07");
 
-  expect(await findOverflow(page), "details fields must remain inside 320px").toEqual([]);
-});
+    const dobBox = await dob.boundingBox();
+    const flightBox = await flight.boundingBox();
+    expect(dobBox).not.toBeNull();
+    expect(flightBox).not.toBeNull();
+    expect(Math.abs(dobBox!.y - flightBox!.y), "DOB and flight controls must share a row").toBeLessThan(2);
+
+    expect(await findOverflow(page), "details fields must remain inside 320px").toEqual([]);
+  });
+}
