@@ -6,7 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { calcVehicleSubtotal, calcRentalDays, DEPOSIT_RATE, type Rate, type ExtrasConfig } from "@/lib/pricing";
 import { z } from "zod";
-import { DRIVER_AGE_BANDS } from "@/lib/rentalPolicy";
+import { DRIVER_AGE_BANDS, ageOnDate, driverAgeBandForDob } from "@/lib/rentalPolicy";
 
 const TOLERANCE = 0.02; // allow up to €0.02 rounding difference before flagging
 
@@ -180,6 +180,19 @@ export async function POST(req: NextRequest) {
     locale,
   } = body;
 
+  // DOB is the authoritative age answer. Recompute on the actual pick-up date
+  // so a stale or manually altered dropdown cannot store a contradictory band.
+  const ageAtPickup = dob ? ageOnDate(dob, pickupDate) : null;
+  if (ageAtPickup !== null && ageAtPickup < 21) {
+    return NextResponse.json(
+      { error: "Driver must be at least 21 on the pick-up date." },
+      { status: 400 }
+    );
+  }
+  const effectiveDriverAge = dob
+    ? (driverAgeBandForDob(dob, pickupDate) ?? driverAge)
+    : driverAge;
+
   // DNR check — block if customer's email is flagged; also touch last_interaction_at
   if (email) {
     const { data: existing } = await supabaseAdmin
@@ -273,7 +286,7 @@ export async function POST(req: NextRequest) {
     pickup_time: pickupTime,
     dropoff_date: dropoffDate,
     dropoff_time: dropoffTime,
-    driver_age: driverAge,
+    driver_age: effectiveDriverAge,
     transmission: transmission ?? null,
     baby_seat: Number(babySeat) || 0,
     child_seat: Number(childSeat) || 0,
@@ -359,6 +372,8 @@ export async function POST(req: NextRequest) {
     clientTotal: Number(clientTotal),
     comments: comments?.trim() ?? "",
     flightNumber: flightNumber?.trim().toUpperCase() ?? "",
+    dob: dob ?? "",
+    driverAge: effectiveDriverAge ?? "",
   });
 
   const { data: bookingData, error: bookingError } = await supabaseAdmin.rpc(
@@ -447,7 +462,7 @@ export async function POST(req: NextRequest) {
         <tr><td><strong>Drop-off:</strong></td><td>${dropoffDate} at ${dropoffTime}</td></tr>
         <tr><td><strong>Rental Days:</strong></td><td>${rentalDays}</td></tr>
         ${transmission ? `<tr><td><strong>Transmission:</strong></td><td>${transmission}</td></tr>` : ""}
-        <tr><td><strong>Driver Age:</strong></td><td>${driverAge}</td></tr>
+        <tr><td><strong>Driver Age:</strong></td><td>${effectiveDriverAge}</td></tr>
       </table>
 
       <h3>Extras</h3>
@@ -468,7 +483,7 @@ export async function POST(req: NextRequest) {
         <tr><td style="color:#666;">Deposit (30%) due on confirmation</td><td align="right" style="color:#666;">€${deposit.toFixed(2)}</td></tr>
         <tr><td style="color:#666;">Balance due at pick-up</td><td align="right" style="color:#666;">€${balanceDue.toFixed(2)}</td></tr>
       </table>
-      <p style="color:#888;font-size:12px;">This is an estimate only. Final price confirmed upon booking.</p>
+      <p style="color:#888;font-size:12px;">This is an estimate only. Final price confirmed upon booking confirmation email.</p>
       ` : ""}
 
       <h3>Customer Details</h3>
@@ -516,7 +531,7 @@ export async function POST(req: NextRequest) {
         <tr><td style="color:#666;">Deposit (30%) due on confirmation</td><td align="right" style="color:#666;">€${deposit.toFixed(2)}</td></tr>
         <tr><td style="color:#666;">Balance due at pick-up</td><td align="right" style="color:#666;">€${balanceDue.toFixed(2)}</td></tr>
       </table>
-      <p style="color:#888;font-size:12px;">This is an estimate only. Final price confirmed upon booking.</p>
+      <p style="color:#888;font-size:12px;">This is an estimate only. Final price confirmed upon booking confirmation email.</p>
       ` : ""}
 
       <p>You can view your quote online at any time within one year using your reference number and surname:<br/>

@@ -84,7 +84,10 @@ export default function Header({ locale = "en" }: { locale?: Locale }) {
             <a
               key={r.path}
               href={href(r.path)}
-              className="flex-1 text-center text-sm font-semibold text-white py-3 hover:bg-orange-800 dark:hover:bg-orange-900 transition border-r border-orange-400/40 dark:border-orange-500/40 last:border-r-0"
+              className={`${locale === "el"
+                ? "flex-auto whitespace-nowrap px-2 text-[11px] lg:text-xs xl:text-sm"
+                : "flex-1 text-sm"
+              } text-center font-semibold text-white py-3 hover:bg-orange-800 dark:hover:bg-orange-900 transition border-r border-orange-400/40 dark:border-orange-500/40 last:border-r-0`}
             >
               {tr(r.key)}
             </a>

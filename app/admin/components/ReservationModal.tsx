@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useState, useRef, useCallback, Fragment } from "react";
 import { X, Trash2, Upload, FileText, Send, Search, Link, MessageSquare } from "lucide-react";
-import { useScrollLock } from "./useScrollLock";
+import { useModalBehavior } from "@/app/hooks/useModalBehavior";
 import { RESERVATION_STATUSES } from "@/lib/reservationStatus";
 import { vehicleLabel } from "@/lib/vehicleLabel";
 import Select from "./Select";
 import SegmentedDateInput from "@/app/components/SegmentedDateInput";
-import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, calcExtrasTotal, resolveVehiclePricing, DEPOSIT_RATE } from "@/lib/pricing";
+import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, calcExtrasLines, calcExtrasTotal, resolveVehiclePricing, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "@/app/components/DateRangePicker";
 import { TIME_OPTIONS, validateReservation, missingDeferrable, normaliseForStorage } from "@/lib/bookingFields";
@@ -80,7 +80,7 @@ const EMPTY_FORM = {
 };
 
 export default function ReservationModal({ vehicleId, date, reservationId, customerId, quoteId, initialValues, vehicles, quoted, onClose, onSaved }: Props) {
-  useScrollLock();
+  const dialogRef = useModalBehavior<HTMLDivElement>(onClose);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [rates, setRates] = useState<Rate[]>([]);
   const [extras, setExtras] = useState<ExtrasConfig[]>([]);
@@ -371,15 +371,15 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
     overridden: rateOverridden,
     difference: rateDifference,
   } = resolveVehiclePricing(cardVehicleSubtotal, form._daily_rate_override, rentalDays);
-  const extrasSubtotal = rentalDays
-    ? calcExtrasTotal(extras, {
-        gps: form.gps,
-        baby_seat: form.baby_seat,
-        child_seat: form.child_seat,
-        fdw: form.fdw,
-        additional_drivers: form.additional_drivers,
-      }, rentalDays)
-    : 0;
+  const extrasSelection = {
+    gps: form.gps,
+    baby_seat: form.baby_seat,
+    child_seat: form.child_seat,
+    fdw: form.fdw,
+    additional_drivers: form.additional_drivers,
+  };
+  const extraLines = rentalDays ? calcExtrasLines(extras, extrasSelection, rentalDays) : [];
+  const extrasSubtotal = rentalDays ? calcExtrasTotal(extras, extrasSelection, rentalDays) : 0;
   const incomplete = missingDeferrable(form);
 
   // Measured against the return, so a licence valid at collection but expired
@@ -460,6 +460,8 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
       vehicle_subtotal: vehicleSubtotal,
       extras_subtotal: extrasSubtotal,
       total,
+      deposit,
+      balance_due: balanceDue,
       ...(isEdit && originalStatus ? { _prev_status: originalStatus } : {}),
       ...(linkedCustomerId ? { customer_id: linkedCustomerId } : {}),
       ...(quoteId ? { quote_id: quoteId } : {}),
@@ -486,17 +488,17 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
 
   if (loading) return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-      <div className="bg-white rounded-xl p-8 text-gray-400 text-sm">Loading…</div>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Loading reservation" tabIndex={-1} className="bg-white rounded-xl p-8 text-gray-400 text-sm">Loading…</div>
     </div>
   );
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start sm:items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[calc(100vh-2rem)] flex flex-col">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="reservation-dialog-title" tabIndex={-1} className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[calc(100vh-2rem)] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="font-bold text-gray-900">{isEdit ? "Edit Reservation" : "New Reservation"}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+          <h2 id="reservation-dialog-title" className="font-bold text-gray-900">{isEdit ? "Edit Reservation" : "New Reservation"}</h2>
+          <button type="button" aria-label="Close reservation dialog" onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
         <div className="p-6 grid grid-cols-2 gap-x-6 gap-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
@@ -796,12 +798,17 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
                     </button>
                   </div>
                 )}
-                {extrasSubtotal > 0 && (
-                  <div className="flex justify-between text-gray-700">
-                    <span>Extras</span>
-                    <span>€{extrasSubtotal.toFixed(2)}</span>
+                {extraLines.map((line) => (
+                  <div key={line.key} className="flex justify-between items-start gap-3 text-gray-700">
+                    <span>
+                      {line.label}
+                      <span className="ml-1 text-xs text-gray-500">
+                        ({line.quantity > 1 ? `${line.quantity} × ` : ""}{line.rentalDays} day{line.rentalDays === 1 ? "" : "s"} × €{line.dailyRate.toFixed(2)}/day)
+                      </span>
+                    </span>
+                    <span className="whitespace-nowrap">€{line.total.toFixed(2)}</span>
                   </div>
-                )}
+                ))}
                 {discount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>Discount{form.discount_reason ? ` (${form.discount_reason})` : ""}</span>
@@ -899,9 +906,11 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
           {/* Stripe Deposit */}
           {isEdit && (
             <div className="col-span-2 border-t border-gray-100 pt-4">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Deposit Payment Link</label>
-              <StripeDepositButton reservationId={reservationId!} />
-              <WiseDepositButton reservationId={reservationId!} />
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Deposit payment links</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <StripeDepositButton reservationId={reservationId!} />
+                <WiseDepositButton reservationId={reservationId!} />
+              </div>
             </div>
           )}
 
@@ -1046,7 +1055,8 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
 
 function StripeDepositButton({ reservationId }: { reservationId: string }) {
   const [loading, setLoading] = useState(false);
-  const [url, setUrl] = useState<string | null>(null);
+  const [link, setLink] = useState<{ url: string; reference: string } | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const create = useCallback(async () => {
@@ -1060,31 +1070,32 @@ function StripeDepositButton({ reservationId }: { reservationId: string }) {
     const data = await res.json();
     setLoading(false);
     if (data.checkoutUrl) {
-      setUrl(data.checkoutUrl);
+      setLink({ url: data.checkoutUrl, reference: data.reference ?? "" });
     } else {
       setError(data.error ?? "Failed to create payment link");
     }
   }, [reservationId]);
 
-  if (url) {
-    return (
-      <div className="flex items-center gap-2">
-        <a href={url} target="_blank" rel="noopener noreferrer"
-          className="text-xs text-blue-600 underline break-all">{url}</a>
-        <button onClick={() => navigator.clipboard.writeText(url)}
-          className="text-xs text-gray-500 hover:text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
-          Copy
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div>
-      <button onClick={create} disabled={loading}
-        className="flex items-center gap-1.5 text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 disabled:opacity-50 transition">
-        <Link size={11} /> {loading ? "Generating…" : "Generate Deposit Link"}
-      </button>
+    <div className="rounded-xl border-2 border-purple-200 bg-purple-50 p-3">
+      <p className="text-sm font-bold text-purple-900">Stripe · Card payment</p>
+      <p className="mb-3 text-xs text-purple-700">Payment is confirmed automatically.</p>
+      {link ? (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-purple-900">Stripe link · Ref {link.reference}</p>
+          <a href={link.url} target="_blank" rel="noopener noreferrer"
+            className="block break-all text-xs text-purple-700 underline">{link.url}</a>
+          <button type="button" onClick={async () => { await navigator.clipboard.writeText(link.url); setCopied(true); }}
+            className="rounded-md bg-purple-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-800">
+            {copied ? "Stripe link copied ✓" : "Copy Stripe link"}
+          </button>
+        </div>
+      ) : (
+        <button type="button" onClick={create} disabled={loading}
+          className="flex items-center gap-1.5 rounded-lg bg-purple-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-purple-800 disabled:opacity-50">
+          <Link size={11} /> {loading ? "Generating…" : "Generate Stripe link"}
+        </button>
+      )}
       {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </div>
   );
@@ -1135,6 +1146,7 @@ function SmsButton({ reservationId }: { reservationId: string }) {
 function WiseDepositButton({ reservationId }: { reservationId: string }) {
   const [loading, setLoading] = useState(false);
   const [link, setLink] = useState<{ url: string; reference: string; qr: string | null } | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const create = useCallback(async () => {
@@ -1153,15 +1165,16 @@ function WiseDepositButton({ reservationId }: { reservationId: string }) {
 
   if (link) {
     return (
-      <div>
-        <div className="flex items-center gap-2">
-          <a href={link.url} target="_blank" rel="noopener noreferrer"
-            className="text-xs text-green-700 underline break-all">{link.url}</a>
-          <button onClick={() => navigator.clipboard.writeText(link.url)}
-            className="text-xs text-gray-500 hover:text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
-            Copy
-          </button>
-        </div>
+      <div className="rounded-xl border-2 border-green-200 bg-green-50 p-3">
+        <p className="text-sm font-bold text-green-900">Wise · Bank transfer</p>
+        <p className="mb-3 text-xs text-green-700">Payment must be checked and marked manually.</p>
+        <p className="text-xs font-semibold text-green-900">Wise link · Ref {link.reference}</p>
+        <a href={link.url} target="_blank" rel="noopener noreferrer"
+          className="mt-1 block break-all text-xs text-green-700 underline">{link.url}</a>
+        <button type="button" onClick={async () => { await navigator.clipboard.writeText(link.url); setCopied(true); }}
+          className="mt-2 rounded-md bg-green-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-900">
+          {copied ? "Wise link copied ✓" : "Copy Wise link"}
+        </button>
         {link.qr && (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
@@ -1181,10 +1194,12 @@ function WiseDepositButton({ reservationId }: { reservationId: string }) {
   }
 
   return (
-    <div>
-      <button onClick={create} disabled={loading}
-        className="flex items-center gap-1.5 text-xs bg-green-700 text-white px-3 py-1.5 rounded-lg hover:bg-green-800 disabled:opacity-50 transition">
-        <Link size={11} /> {loading ? "Building…" : "Wise Deposit Link"}
+    <div className="rounded-xl border-2 border-green-200 bg-green-50 p-3">
+      <p className="text-sm font-bold text-green-900">Wise · Bank transfer</p>
+      <p className="mb-3 text-xs text-green-700">Payment must be checked and marked manually.</p>
+      <button type="button" onClick={create} disabled={loading}
+        className="flex items-center gap-1.5 rounded-lg bg-green-800 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-green-900 disabled:opacity-50">
+        <Link size={11} /> {loading ? "Building…" : "Generate Wise link"}
       </button>
       {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </div>

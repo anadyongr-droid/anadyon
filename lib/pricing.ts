@@ -20,6 +20,23 @@ export interface ExtrasConfig {
   enabled: boolean;
 }
 
+export interface ExtrasSelection {
+  gps: boolean;
+  baby_seat: number;
+  child_seat: number;
+  fdw: boolean;
+  additional_drivers: number;
+}
+
+export interface ExtraChargeLine {
+  key: keyof ExtrasSelection;
+  label: string;
+  quantity: number;
+  dailyRate: number;
+  rentalDays: number;
+  total: number;
+}
+
 export function getDailyRate(
   rates: Rate[],
   pricingGroup: PricingGroup,
@@ -138,25 +155,47 @@ export function calcVehicleSubtotal(
   );
 }
 
+export function calcExtrasLines(
+  extras: ExtrasConfig[],
+  selections: ExtrasSelection,
+  rentalDays: number
+): ExtraChargeLine[] {
+  if (!Number.isInteger(rentalDays) || rentalDays < 1) return [];
+
+  const quantities: Array<[keyof ExtrasSelection, number]> = [
+    ["gps", selections.gps ? 1 : 0],
+    ["baby_seat", selections.baby_seat],
+    ["child_seat", selections.child_seat],
+    ["fdw", selections.fdw ? 1 : 0],
+    ["additional_drivers", selections.additional_drivers],
+  ];
+
+  return quantities.flatMap(([key, rawQuantity]) => {
+    const quantity = Number(rawQuantity);
+    const config = extras.find((extra) => extra.key === key);
+    const dailyRate = Number(config?.daily_rate ?? 0);
+    if (!config || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(dailyRate)) return [];
+    return [{
+      key,
+      label: config.label,
+      quantity,
+      dailyRate,
+      rentalDays,
+      total: parseFloat((quantity * dailyRate * rentalDays).toFixed(2)),
+    }];
+  });
+}
+
 export function calcExtrasTotal(
   extras: ExtrasConfig[],
-  selections: {
-    gps: boolean;
-    baby_seat: number;
-    child_seat: number;
-    fdw: boolean;
-    additional_drivers: number;
-  },
+  selections: ExtrasSelection,
   rentalDays: number
 ): number {
-  const rate = (key: string) => extras.find((e) => e.key === key)?.daily_rate ?? 0;
-  let daily = 0;
-  if (selections.gps) daily += rate("gps");
-  if (selections.fdw) daily += rate("fdw");
-  daily += selections.baby_seat * rate("baby_seat");
-  daily += selections.child_seat * rate("child_seat");
-  daily += selections.additional_drivers * rate("additional_drivers");
-  return parseFloat((daily * rentalDays).toFixed(2));
+  return parseFloat(
+    calcExtrasLines(extras, selections, rentalDays)
+      .reduce((sum, line) => sum + line.total, 0)
+      .toFixed(2)
+  );
 }
 
 export function calcRentalDays(

@@ -30,6 +30,44 @@ export const YOUNG_DRIVER_BAND = "21–25";
 export const DRIVER_AGE_BANDS = ["21–25", "26–65", "66+"] as const;
 export type DriverAgeBand = (typeof DRIVER_AGE_BANDS)[number];
 
+function dateParts(value: string): { year: number; month: number; day: number } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) return null;
+  return { year, month, day };
+}
+
+/** Completed years of age on the pick-up date, independent of browser timezone. */
+export function ageOnDate(dob: string, referenceDate: string): number | null {
+  const birth = dateParts(dob);
+  const reference = dateParts(referenceDate);
+  if (!birth || !reference) return null;
+
+  let age = reference.year - birth.year;
+  if (
+    reference.month < birth.month ||
+    (reference.month === birth.month && reference.day < birth.day)
+  ) age -= 1;
+  return age >= 0 ? age : null;
+}
+
+/** The booking band implied by DOB on the actual rental start date. */
+export function driverAgeBandForDob(dob: string, pickupDate: string): DriverAgeBand | null {
+  const age = ageOnDate(dob, pickupDate);
+  if (age === null || age < MIN_DRIVER_AGE) return null;
+  if (age <= 25) return "21–25";
+  if (age <= 65) return "26–65";
+  return "66+";
+}
+
 /** The single approved sentence. Used verbatim in the terms, the booking modal and the FAQ. */
 export const DRIVER_AGE_POLICY =
   `Minimum driver's age is ${MIN_DRIVER_AGE} years. A young driver surcharge may apply for drivers aged ${YOUNG_DRIVER_BAND}.`;

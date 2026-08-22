@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { X, Plus, Trash2, AlertTriangle } from "lucide-react";
-import { useScrollLock } from "./useScrollLock";
+import { useModalBehavior } from "@/app/hooks/useModalBehavior";
 import Select from "./Select";
 import { vehicleDateStatuses, rentalBar, type Severity } from "@/lib/fleetStatus";
 
@@ -69,7 +69,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export default function VehicleModal({
   vehicle, onClose, onSaved,
 }: { vehicle: FleetVehicle; onClose: () => void; onSaved: () => void }) {
-  useScrollLock();
+  const dialogRef = useModalBehavior<HTMLDivElement>(onClose);
   const [form, setForm] = useState<FleetVehicle>(vehicle);
   const [ledger, setLedger] = useState<Ledger | null>(null);
   const [tab, setTab] = useState<"details" | "costs" | "damages">("details");
@@ -127,16 +127,16 @@ export default function VehicleModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start sm:items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[calc(100vh-2rem)] flex flex-col">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="vehicle-dialog-title" tabIndex={-1} className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[calc(100vh-2rem)] flex flex-col">
 
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <div>
-            <h2 className="font-bold text-gray-900">{form.name}</h2>
+            <h2 id="vehicle-dialog-title" className="font-bold text-gray-900">{form.name}</h2>
             <p className="text-xs text-gray-500 mt-0.5">
               {form.plate || "no plate recorded"} · {form.transmission ?? "n/a"} · {form.pricing_group}
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 -mr-2"><X size={20} /></button>
+          <button type="button" aria-label="Close vehicle dialog" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 -mr-2"><X size={20} /></button>
         </div>
 
         {/* The single most important thing about a vehicle: may it go out? */}

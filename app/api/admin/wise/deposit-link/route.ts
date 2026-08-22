@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   const { data: res, error } = await supabaseAdmin
     .from("reservations")
-    .select("id, customer_name, deposit, notes")
+    .select("id, customer_name, deposit, notes, quotes(ref)")
     .eq("id", reservationId)
     .single();
 
@@ -30,7 +30,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No deposit amount on this reservation" }, { status: 400 });
   }
 
-  const link = buildWiseDepositLink({ handle, reservationId: res.id, amount: deposit, notes: res.notes });
+  const linkedQuote = Array.isArray(res.quotes) ? res.quotes[0] : res.quotes;
+  const link = buildWiseDepositLink({
+    handle,
+    reservationId: res.id,
+    amount: deposit,
+    notes: res.notes,
+    quoteRef: linkedQuote?.ref,
+  });
 
   // Rendered server-side so the client bundle stays untouched. A data URI is
   // fine here: the CSP allows img-src data:, and it lets the QR be shown or

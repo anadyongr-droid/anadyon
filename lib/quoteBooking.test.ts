@@ -217,6 +217,18 @@ describe("POST /api/quote atomic booking", () => {
     });
   });
 
+  it("stores the DOB-derived age band even when the client sends a contradictory band", async () => {
+    const response = await POST(post(requestBody({
+      dob: "2002-01-01",
+      pickupDate: "2026-08-21",
+      driverAge: "26–65",
+    })));
+
+    expect(response.status).toBe(200);
+    const [, args] = mocks.rpc.mock.calls[0];
+    expect(args.p_quote.driver_age).toBe("21–25");
+  });
+
   it("copies every website field represented on an operational reservation", async () => {
     const response = await POST(post(requestBody({
       babySeat: 1,

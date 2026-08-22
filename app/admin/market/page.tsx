@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, Save } from "lucide-react";
+import Link from "next/link";
+import { BarChart3, PencilLine, Save } from "lucide-react";
 
 interface GroupRow {
   competitor: string;
@@ -117,9 +118,17 @@ export default function MarketPage() {
 
   return (
     <div className="p-6 max-w-5xl">
-      <div className="flex items-center gap-2 mb-1">
-        <BarChart3 size={20} className="text-blue-600" />
-        <h1 className="text-xl font-bold text-gray-900">Market</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
+        <div className="flex items-center gap-2">
+          <BarChart3 size={20} className="text-blue-600" />
+          <h1 className="text-xl font-bold text-gray-900">Market</h1>
+        </div>
+        <Link
+          href="/admin/rates"
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800"
+        >
+          <PencilLine size={15} /> Edit Rates
+        </Link>
       </div>
       <p className="text-sm text-gray-500 mb-6">
         Cars and scooters from EzCar, bicycles from Podilatadiko, international brands from

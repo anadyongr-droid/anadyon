@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getStripe } from "@/lib/stripe";
+import { reservationRef } from "@/lib/wise";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://anadyon.gr";
 
@@ -48,13 +49,15 @@ export async function POST(req: NextRequest) {
 
   const { data: res, error } = await supabaseAdmin
     .from("reservations")
-    .select("id, customer_name, customer_email, deposit, stripe_payment_intent")
+    .select("id, customer_name, customer_email, deposit, stripe_payment_intent, notes, quotes(ref)")
     .eq("id", reservationId)
     .single();
 
   if (error || !res) return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
 
   const stripe = getStripe();
+  const linkedQuote = Array.isArray(res.quotes) ? res.quotes[0] : res.quotes;
+  const displayReference = reservationRef(res.id, res.notes, linkedQuote?.ref);
 
   // A previously created link. The stored value may be either a payment intent
   // or a checkout session id — the write below falls back to the session id
@@ -66,7 +69,13 @@ export async function POST(req: NextRequest) {
       if (res.stripe_payment_intent.startsWith("cs_")) {
         const existing = await stripe.checkout.sessions.retrieve(res.stripe_payment_intent);
         if (existing.status === "open" && existing.url) {
-          return NextResponse.json({ checkoutUrl: existing.url, sessionId: existing.id, reused: true });
+          if (existing.client_reference_id === displayReference) {
+            return NextResponse.json({ checkoutUrl: existing.url, sessionId: existing.id, reference: displayReference, reused: true });
+          }
+          // Links created before the reference fix display the internal UUID.
+          // Expire that unpaid session once so the replacement visibly carries
+          // the same reference the customer received from the website.
+          await stripe.checkout.sessions.expire(existing.id);
         }
         if (existing.payment_status === "paid") {
           return NextResponse.json({ error: "This deposit has already been paid." }, { status: 400 });
@@ -94,6 +103,7 @@ export async function POST(req: NextRequest) {
       mode: "payment",
       payment_method_types: ["card"],
       customer_email: res.customer_email ?? undefined,
+      client_reference_id: displayReference,
       line_items: [
         {
           quantity: 1,
@@ -101,13 +111,16 @@ export async function POST(req: NextRequest) {
             currency: "eur",
             unit_amount: depositCents,
             product_data: {
-              name: "Anadyon Rentals — Deposit for reservation",
-              description: `Reservation ID: ${res.id}`,
+              name: `Anadyon Rentals — Deposit ${displayReference}`,
+              description: `Reservation reference: ${displayReference}`,
             },
           },
         },
       ],
-      metadata: { reservation_id: res.id },
+      metadata: { reservation_id: res.id, reservation_reference: displayReference },
+      payment_intent_data: {
+        metadata: { reservation_id: res.id, reservation_reference: displayReference },
+      },
       success_url: `${SITE_URL}/api/admin/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${SITE_URL}/admin/reservations/${res.id}?deposit=cancelled`,
     });
@@ -118,7 +131,7 @@ export async function POST(req: NextRequest) {
       .update({ stripe_payment_intent: reference })
       .eq("id", res.id);
 
-    return NextResponse.json({ checkoutUrl: session.url, sessionId: session.id });
+    return NextResponse.json({ checkoutUrl: session.url, sessionId: session.id, reference: displayReference });
   } catch (err) {
     // Stripe's own message names the actual problem — an inactive account, a
     // capability that has not been granted, a key from the wrong mode. Passing

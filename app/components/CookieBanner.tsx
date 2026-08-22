@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Script from "next/script";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { translator, type Locale } from "@/lib/i18n";
+import { useModalBehavior } from "@/app/hooks/useModalBehavior";
 
 const GA_ID = "G-00X72SCDNW";
 
@@ -23,6 +24,7 @@ export default function CookieBanner({ locale = "en" }: { locale?: Locale }) {
   const [consent, setConsent] = useState<Consent>(null);
   const [visible, setVisible] = useState(false);
   const [showPrefs, setShowPrefs] = useState(false);
+  const preferencesRef = useModalBehavior<HTMLDivElement>(() => setShowPrefs(false), visible && showPrefs);
 
   useEffect(() => {
     // Withdrawal must be as easy as consent, so the panel can be reopened at
@@ -117,8 +119,8 @@ export default function CookieBanner({ locale = "en" }: { locale?: Locale }) {
       {/* Preferences panel */}
       {visible && showPrefs && (
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900 text-white px-4 py-5 shadow-lg safe-bottom">
-          <div className="max-w-4xl mx-auto space-y-4">
-            <h2 className="text-sm font-semibold text-white">{tr("cookie.prefsTitle")}</h2>
+          <div ref={preferencesRef} role="dialog" aria-modal="true" aria-labelledby="cookie-preferences-title" tabIndex={-1} className="max-w-4xl mx-auto space-y-4">
+            <h2 id="cookie-preferences-title" className="text-sm font-semibold text-white">{tr("cookie.prefsTitle")}</h2>
 
             <div className="space-y-3 text-sm">
               <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-800">

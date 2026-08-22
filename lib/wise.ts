@@ -31,7 +31,8 @@ const MAX_DESCRIPTION = 20;
  * created directly in the admin panel have no quote, so those fall back to a
  * short code derived from the id.
  */
-export function reservationRef(id: string, notes?: string | null): string {
+export function reservationRef(id: string, notes?: string | null, quoteRef?: string | null): string {
+  if (quoteRef?.trim()) return quoteRef.trim().toUpperCase();
   const fromQuote = notes?.match(/Quote ref:\s*([A-Za-z0-9-]+)/i);
   if (fromQuote) return fromQuote[1].trim().toUpperCase();
   return id.replace(/-/g, "").slice(0, 6).toUpperCase();
@@ -57,10 +58,11 @@ export function buildWiseDepositLink(opts: {
   reservationId: string;
   amount: number;
   notes?: string | null;
+  quoteRef?: string | null;
   currency?: string;
 }): WiseDepositLink {
   const currency = opts.currency ?? "EUR";
-  const reference = reservationRef(opts.reservationId, opts.notes);
+  const reference = reservationRef(opts.reservationId, opts.notes, opts.quoteRef);
   const description = depositDescription(reference);
 
   const params = new URLSearchParams({
