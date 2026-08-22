@@ -14,5 +14,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <QuoteLookupLanding locale="el" />;
+  return <QuoteLookupLanding />;
 }

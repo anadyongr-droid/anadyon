@@ -1,9 +1,14 @@
 "use client";
 import { translator, localePath, type Locale } from "@/lib/i18n";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
-export default function QuoteLookupLanding({ locale = "en" }: { locale?: Locale }) {
+// App Router pages may receive only Next's PageProps. Locale is derived from
+// the actual route so this component can be reused by /el/quote without
+// making the default page export fail Next's production type check.
+export default function QuoteLookupLanding() {
+  const pathname = usePathname();
+  const locale: Locale = pathname.startsWith("/el/") ? "el" : "en";
   const tr = translator(locale);
   const router = useRouter();
   const [ref, setRef] = useState("");
