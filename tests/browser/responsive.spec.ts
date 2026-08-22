@@ -270,3 +270,75 @@ for (const sample of [
     expect(await findOverflow(page), "details fields must remain inside 320px").toEqual([]);
   });
 }
+
+test("the long Greek sights navigation label stays on one line", async ({ page }) => {
+  // Greek uses the compact menu at tablet width because the complete Greek
+  // navigation is wider than Firefox's 768px viewport. At desktop width the
+  // full navigation returns and every label must remain on one line.
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.goto("/el/cars");
+
+  const sights = page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Ζάκυνθος-Αξιοθέατα" });
+  await expect(sights).toBeVisible();
+  const metrics = await sights.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      whiteSpace: style.whiteSpace,
+      pageWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+    };
+  });
+
+  expect(metrics.whiteSpace).toBe("nowrap");
+  expect(metrics.pageWidth).toBeLessThanOrEqual(metrics.viewportWidth);
+});
+
+test("DOB drives the age bracket and prevents a contradictory manual choice", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto("/cars");
+  await openBookingForm(page, "Get Quote");
+  await page.getByRole("button", { name: /continue/i }).click();
+  await waitForScrollToSettle(page);
+
+  const dob = page.getByLabel(/Date of Birth/);
+  await dob.click();
+  const dialog = page.getByRole("dialog", { name: /Date of Birth/ });
+  const year = String(new Date().getFullYear() - 24);
+  await dialog.getByRole("listbox", { name: "Day" }).getByRole("option", { name: "1", exact: true }).click();
+  await dialog.getByRole("listbox", { name: "Month" }).getByRole("option", { name: "Jan", exact: true }).click();
+  await dialog.getByRole("listbox", { name: "Year" }).getByRole("option", { name: year, exact: true }).click();
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
+
+  await page.getByRole("button", { name: /Back/ }).click();
+  const age = page.getByLabel("Driver Age");
+  await expect(age).toHaveValue("21–25");
+  await expect(age).toBeDisabled();
+  await expect(page.getByText("Set automatically from date of birth")).toBeVisible();
+});
+
+test("terms dialog locks the underlying page and closes on Escape", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.goto("/cars");
+  await openBookingForm(page, "Get Quote");
+  await page.getByRole("button", { name: /continue/i }).click();
+  await page.getByRole("button", { name: "Terms & Conditions", exact: true }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Terms & Conditions" });
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => page.evaluate(() => ({
+    position: document.body.style.position,
+    overflow: document.body.style.overflow,
+  }))).toEqual({ position: "fixed", overflow: "hidden" });
+
+  const pageTop = await page.evaluate(() => document.body.style.top);
+  await dialog.hover();
+  await page.mouse.wheel(0, 1200);
+  expect(await page.evaluate(() => document.body.style.top)).toBe(pageTop);
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect.poll(() => page.evaluate(() => ({
+    position: document.body.style.position,
+    overflow: document.body.style.overflow,
+  }))).toEqual({ position: "", overflow: "" });
+});

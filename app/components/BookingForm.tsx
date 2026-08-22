@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { DRIVER_AGE_POLICY, DRIVER_AGE_POLICY_EL, DRIVER_AGE_BANDS } from "@/lib/rentalPolicy";
+import { DRIVER_AGE_POLICY, DRIVER_AGE_POLICY_EL, DRIVER_AGE_BANDS, driverAgeBandForDob } from "@/lib/rentalPolicy";
 import { termsCopy } from "@/lib/i18n/content/legal";
 import LegalSections from "./LegalSections";
 import ReCAPTCHA from "react-google-recaptcha";
@@ -11,6 +11,7 @@ import DobWheelPicker from "./DobWheelPicker";
 import { TIME_OPTIONS } from "@/lib/bookingFields";
 import { BOOKING_LOCATIONS, DEFAULT_PUBLIC_BOOKING_LOCATION } from "@/lib/bookingLocations";
 import { translator, localePath, type Locale } from "@/lib/i18n";
+import { useModalBehavior } from "@/app/hooks/useModalBehavior";
 
 /**
  * Pick-up and drop-off points.
@@ -87,6 +88,7 @@ type Props = {
 // Defined at module scope: declaring a component inside the render body makes
 // React remount the whole modal subtree on every parent render.
 function TermsModal({ onClose, locale = "en" }: { onClose: () => void; locale?: Locale }) {
+  const dialogRef = useModalBehavior<HTMLDivElement>(onClose);
   const tr = translator(locale);
   const copy = termsCopy(locale);
   const agePolicy = locale === "el" ? DRIVER_AGE_POLICY_EL : DRIVER_AGE_POLICY;
@@ -96,10 +98,17 @@ function TermsModal({ onClose, locale = "en" }: { onClose: () => void; locale?: 
   }));
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rental-terms-title"
+        tabIndex={-1}
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col"
+      >
         <div className="flex items-center justify-between p-6 border-b dark:border-gray-700">
-          <h2 className="text-lg font-semibold dark:text-white">{copy.title}</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl leading-none">&times;</button>
+          <h2 id="rental-terms-title" className="text-lg font-semibold dark:text-white">{copy.title}</h2>
+          <button type="button" aria-label={tr("form.close")} onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl leading-none">&times;</button>
         </div>
         {/*
           Rendered from lib/i18n/content/legal.ts — the same source the /terms
@@ -108,7 +117,7 @@ function TermsModal({ onClose, locale = "en" }: { onClose: () => void; locale?: 
           could drift from the terms published on the site, and only one of the
           two was ever translated.
         */}
-        <div className="overflow-y-auto p-6 space-y-5 text-sm text-gray-700 dark:text-gray-300">
+        <div className="overflow-y-auto overscroll-contain p-6 space-y-5 text-sm text-gray-700 dark:text-gray-300">
           <LegalSections sections={termsSections} locale={locale} />
         </div>
         <div className="p-6 border-t dark:border-gray-700">
@@ -254,6 +263,11 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [promoChecking, setPromoChecking] = useState(false);
   const promoDiscount = promoResult?.valid ? (promoResult.discount_amount ?? 0) : 0;
 
+  // DOB is authoritative. Re-evaluate against the rental start date too,
+  // because the customer can go back and move the booking across a birthday.
+  const impliedDriverAge = driverAgeBandForDob(dob, pickupDate);
+  const effectiveDriverAge = impliedDriverAge ?? driverAge;
+
   // Live price calculation
   const pricingGroup = modelPricingGroups?.[selectedModel];
   const rentalDays = pickupDate && dropoffDate ? calcRentalDays(pickupDate, dropoffDate, pickupTime, dropoffTime) : 0;
@@ -359,7 +373,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         dropoffDate,
         dropoffTime,
         transmission: vehicleType === "Cars" ? transmission : undefined,
-        driverAge,
+        driverAge: effectiveDriverAge,
         babySeat,
         childSeat,
         fdw,
@@ -537,12 +551,13 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
 
             {/* Driver Age */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.driverAge")}</label>
-              <select className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={driverAge} onChange={e => setDriverAge(e.target.value)}>
+              <label htmlFor="public-driver-age" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.driverAge")}</label>
+              <select id="public-driver-age" aria-describedby={impliedDriverAge ? "public-driver-age-help" : undefined} disabled={!!impliedDriverAge} className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-gray-800" value={effectiveDriverAge} onChange={e => setDriverAge(e.target.value)}>
                 <option>21–25</option>
                 <option>26–65</option>
                 <option>66+</option>
               </select>
+              {impliedDriverAge && <p id="public-driver-age-help" className="mt-1 text-xs text-gray-500 dark:text-gray-400">{tr("form.driverAgeFromDob")}</p>}
             </div>
 
             {/* Extras — cars only */}
@@ -835,7 +850,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                     onChange={(next) => { setDob(next); clearFieldError("dob"); }}
                     minYear={currentYear - 110}
                     maxYear={currentYear - 18}
-                    preferredYear={preferredDobYear(driverAge)}
+                    preferredYear={preferredDobYear(effectiveDriverAge)}
                     locale={locale}
                     invalid={!!fieldErrors.dob}
                     errorId="public-dob-error"

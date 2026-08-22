@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { X, Trash2 } from "lucide-react";
-import { useScrollLock } from "./useScrollLock";
+import { useModalBehavior } from "@/app/hooks/useModalBehavior";
 import Select from "./Select";
 import SegmentedDateInput from "@/app/components/SegmentedDateInput";
 import { validateCustomer, normaliseForStorage, customerStillNeeds } from "@/lib/bookingFields";
@@ -114,7 +114,7 @@ const inputCls = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm";
 const CURRENT_YEAR = new Date().getFullYear();
 
 export default function CustomerModal({ customer, onClose, onSaved }: Props) {
-  useScrollLock();
+  const dialogRef = useModalBehavior<HTMLDivElement>(onClose);
   const [form, setForm] = useState<Customer>({ ...EMPTY, ...(customer ?? {}) });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -163,10 +163,10 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start sm:items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[calc(100vh-2rem)] flex flex-col">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="customer-dialog-title" tabIndex={-1} className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[calc(100vh-2rem)] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="font-bold text-gray-900">{isEdit ? "Edit Customer" : "New Customer"}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+          <h2 id="customer-dialog-title" className="font-bold text-gray-900">{isEdit ? "Edit Customer" : "New Customer"}</h2>
+          <button type="button" aria-label="Close customer dialog" onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
         <div className="p-6 grid grid-cols-2 gap-4 overflow-y-auto overscroll-contain flex-1 min-h-0">

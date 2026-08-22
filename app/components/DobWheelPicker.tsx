@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { daysInMonth, joinIsoDate, splitIsoDate, type DateParts } from "@/lib/dateFields";
+import { useModalBehavior } from "@/app/hooks/useModalBehavior";
 
 const ITEM_HEIGHT = 44;
 const VISIBLE_ITEMS = 5;
@@ -168,8 +169,8 @@ export default function DobWheelPicker({
   errorId,
 }: Props) {
   const triggerRef = useRef<HTMLInputElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const dialogRef = useModalBehavior<HTMLDivElement>(() => setOpen(false), open);
   const [draft, setDraft] = useState<DateParts>(() => initialParts(value, preferredYear, minYear, maxYear));
 
   const years = useMemo(
@@ -191,25 +192,6 @@ export default function DobWheelPicker({
     [draft.month, draft.year],
   );
 
-  useEffect(() => {
-    if (!open) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const focusFrame = requestAnimationFrame(() => dialogRef.current?.focus());
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-        requestAnimationFrame(() => triggerRef.current?.focus());
-      }
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      cancelAnimationFrame(focusFrame);
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open]);
-
   function update(part: keyof DateParts, nextValue: string) {
     setDraft((current) => {
       const next = { ...current, [part]: nextValue };
@@ -221,7 +203,6 @@ export default function DobWheelPicker({
 
   function closePicker() {
     setOpen(false);
-    requestAnimationFrame(() => triggerRef.current?.focus());
   }
 
   function openPicker() {

@@ -67,7 +67,7 @@ export default function Header({ locale = "en" }: { locale?: Locale }) {
               minimum in WCAG 2.5.5 and the Apple HIG. The matching negative
               margin keeps the icon optically aligned with the container padding. */}
           <button
-            className="md:hidden text-gray-700 dark:text-gray-300 p-2.5 -mr-2.5"
+            className={`${locale === "el" ? "lg:hidden" : "md:hidden"} text-gray-700 dark:text-gray-300 p-2.5 -mr-2.5`}
             onClick={() => setOpen(!open)}
             aria-label={tr("nav.toggleMenu")}
             aria-expanded={open}
@@ -78,13 +78,16 @@ export default function Header({ locale = "en" }: { locale?: Locale }) {
       </div>
 
       {/* Desktop nav — aligned to the same content column as the logo */}
-      <nav aria-label="Main" className="hidden md:block bg-orange-700 w-full">
+      <nav aria-label="Main" className={`${locale === "el" ? "hidden lg:block" : "hidden md:block"} bg-orange-700 w-full`}>
         <div className="max-w-6xl mx-auto px-4 flex">
           {routes.map(r => (
             <a
               key={r.path}
               href={href(r.path)}
-              className="flex-1 text-center text-sm font-semibold text-white py-3 hover:bg-orange-800 dark:hover:bg-orange-900 transition border-r border-orange-400/40 dark:border-orange-500/40 last:border-r-0"
+              className={`${locale === "el"
+                ? "flex-auto whitespace-nowrap px-2 text-[11px] lg:text-xs xl:text-sm"
+                : "flex-1 text-sm"
+              } text-center font-semibold text-white py-3 hover:bg-orange-800 dark:hover:bg-orange-900 transition border-r border-orange-400/40 dark:border-orange-500/40 last:border-r-0`}
             >
               {tr(r.key)}
             </a>
@@ -94,7 +97,7 @@ export default function Header({ locale = "en" }: { locale?: Locale }) {
 
       {/* Mobile menu */}
       {open && (
-        <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 px-4 py-2 space-y-1">
+        <div className={`${locale === "el" ? "lg:hidden" : "md:hidden"} bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 px-4 py-2 space-y-1`}>
           {routes.map(r => (
             <a
               key={r.path}
