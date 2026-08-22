@@ -8,6 +8,15 @@ describe("translation coverage", () => {
     expect(missingKeys("el")).toEqual([]);
   });
 
+  it("uses the approved booking-estimate wording in the visible price window", () => {
+    expect(t("en", "form.finalPriceNote")).toBe(
+      "This is an estimate only. Final price confirmed upon booking confirmation email.",
+    );
+    expect(t("el", "form.finalPriceNote")).toBe(
+      "Ενδεικτική τιμή. Η τελική τιμή επιβεβαιώνεται στο email επιβεβαίωσης κράτησης.",
+    );
+  });
+
   it("falls back to English rather than showing the key", () => {
     // A raw key in the middle of a sentence looks like a fault; English does not.
     expect(t("el", "definitely.not.a.key")).toBe("definitely.not.a.key");
