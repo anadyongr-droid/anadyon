@@ -42,6 +42,27 @@ async function openBookingForm(page: Page, quoteLabel: string) {
   await page.locator("#booking-form select").first().waitFor({ state: "visible" });
 }
 
+/** Wait until a deliberate smooth scroll has stopped before measuring layout. */
+async function waitForScrollToSettle(page: Page) {
+  // The booking form schedules its scroll 50 ms after switching steps.
+  await page.waitForTimeout(100);
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    let previousY = window.scrollY;
+    let stableFrames = 0;
+
+    const check = () => {
+      const currentY = window.scrollY;
+      stableFrames = Math.abs(currentY - previousY) < 0.5 ? stableFrames + 1 : 0;
+      previousY = currentY;
+
+      if (stableFrames >= 4) resolve();
+      else requestAnimationFrame(check);
+    };
+
+    requestAnimationFrame(check);
+  }));
+}
+
 /**
  * True when the page was served with the rate card embedded.
  *
@@ -189,6 +210,10 @@ for (const sample of [
     await page.goto(sample.path);
     await openBookingForm(page, sample.quote);
     await page.getByRole("button", { name: sample.next }).click();
+    // Step two intentionally scrolls the booking card back to its heading.
+    // Measuring while that animation is running compares two different page
+    // positions even though the controls occupy the same grid row.
+    await waitForScrollToSettle(page);
 
     const dob = page.getByLabel(sample.dob);
     const flight = page.getByLabel(sample.flight);
