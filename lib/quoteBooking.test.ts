@@ -95,6 +95,7 @@ const requestBody = (overrides: Record<string, unknown> = {}) => ({
   lastName: "Customer",
   email: "test@example.com",
   dob: "1980-01-02",
+  flightNumber: "a3 320",
   mobileTel: "+30 6900000000",
   ...overrides,
 });
@@ -212,6 +213,7 @@ describe("POST /api/quote atomic booking", () => {
       customer_first_name: "Test",
       customer_last_name: "Customer",
       customer_dob: "1980-01-02",
+      flight_number: "A3 320",
     });
   });
 
@@ -256,5 +258,6 @@ describe("POST /api/quote atomic booking", () => {
       source: "website",
       notes: expect.stringMatching(/^Quote ref: [A-Z0-9]+\. Customer notes: Please meet us at arrivals\.$/),
     });
+    expect(args.p_quote).toMatchObject({ flight_number: "A3 320" });
   });
 });

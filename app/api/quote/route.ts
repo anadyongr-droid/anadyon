@@ -85,6 +85,7 @@ const QuoteSchema = z.object({
   extrasLines: z.array(z.unknown()).optional(),
   title: z.string().max(20).optional(),
   dob: z.string().max(40).optional(),
+  flightNumber: z.string().max(40).optional(),
   address: z.string().max(300).optional(),
   postalCode: z.string().max(30).optional(),
   city: z.string().max(120).optional(),
@@ -154,6 +155,7 @@ export async function POST(req: NextRequest) {
     lastName,
     email,
     dob,
+    flightNumber,
     address,
     postalCode,
     city,
@@ -251,6 +253,7 @@ export async function POST(req: NextRequest) {
     last_name: lastName,
     email,
     dob,
+    flight_number: flightNumber?.trim().toUpperCase() || null,
     address,
     postal_code: postalCode,
     city,
@@ -305,6 +308,7 @@ export async function POST(req: NextRequest) {
     // date of birth only on its source quote made a customer who had supplied
     // it look incomplete at collection time.
     customer_dob: dob || null,
+    flight_number: flightNumber?.trim().toUpperCase() || null,
     pickup_date: pickupDate,
     pickup_time: pickupTime ?? "09:00",
     return_date: dropoffDate,
@@ -354,6 +358,7 @@ export async function POST(req: NextRequest) {
     promoCode: promoCode?.trim().toLowerCase() ?? "",
     clientTotal: Number(clientTotal),
     comments: comments?.trim() ?? "",
+    flightNumber: flightNumber?.trim().toUpperCase() ?? "",
   });
 
   const { data: bookingData, error: bookingError } = await supabaseAdmin.rpc(

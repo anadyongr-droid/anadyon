@@ -179,3 +179,28 @@ test("the price panel is present without waiting for a rate request", async ({ p
   await expect(page.locator("text=/€/").first()).toBeVisible();
   expect(rateRequests, "the form should not need to fetch rates").toEqual([]);
 });
+
+test("DOB and flight number are compact and reachable on the narrowest phone", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await page.goto("/cars");
+  await openBookingForm(page, "Get Quote");
+  await page.getByRole("button", { name: /continue/i }).click();
+
+  const day = page.getByLabel("Day");
+  const month = page.getByLabel("Month");
+  const year = page.getByLabel("Year");
+  const flight = page.getByLabel("Flight number");
+  await expect(day).toBeVisible();
+  await expect(month).toBeVisible();
+  await expect(year).toBeVisible();
+  await expect(flight).toBeVisible();
+
+  await day.selectOption("07");
+  await month.selectOption("05");
+  await year.selectOption("2000");
+  await expect(day).toHaveValue("07");
+  await expect(month).toHaveValue("05");
+  await expect(year).toHaveValue("2000");
+
+  expect(await findOverflow(page), "details fields must remain inside 320px").toEqual([]);
+});

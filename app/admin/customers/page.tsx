@@ -18,6 +18,7 @@ interface Customer {
   driving_licence_number: string;
   driving_licence_expiry: string;
   passport_number: string;
+  passport_expiry: string;
   do_not_rent: boolean;
   dnr_reason: string;
   notes: string;
