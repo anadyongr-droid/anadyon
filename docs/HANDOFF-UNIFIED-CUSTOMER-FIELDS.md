@@ -26,12 +26,14 @@ not persisted customer data.
   action. No date is inferred.
 - Public booking now collects optional flight number and stores the normalized
   value in its Quote and automatically-created Reservation.
-- Migration 029 synchronizes only mutable customer identity/contact fields
-  between Customer, linked Quotes and linked Reservations.
+- Migration 029 synchronizes mutable customer identity/contact fields; migration
+  030 narrows that synchronization and its one-time backfill to current
+  pending/confirmed/active bookings. Finished records remain historical
+  snapshots.
 - Flight number synchronizes only within its Quote/Reservation pair because it
   belongs to a trip, not a customer.
-- Pricing, dates, vehicles, extras, statuses and payment values remain booking
-  snapshots and are never changed by the synchronization triggers.
+- Pricing, dates, vehicles, extras, statuses and payment values are never
+  changed by the synchronization triggers.
 - Customer PATCH now whitelists editable columns and cannot overwrite stored
   payment-provider metadata that happens to be present in the form payload.
 
@@ -41,6 +43,9 @@ not persisted customer data.
   `supabase/migrations/20260822150000_sync_customer_booking_fields.sql`
 - SQL-editor copy:
   `supabase/migrations/paste/029_sync_customer_booking_fields_paste.sql`
+- One-time canonical backfill:
+  `supabase/migrations/20260822153000_backfill_shared_customer_fields.sql`
+  and `supabase/migrations/paste/030_backfill_shared_customer_fields_paste.sql`.
 - Both are transaction wrapped and end with:
   `REACHED THE END — shared customer fields synchronized`.
 - Trigger functions are security-definer with an empty search path and have no
@@ -62,18 +67,29 @@ not persisted customer data.
 
 ## Production sequence
 
-1. Review/merge the PR only after CI is green.
-2. Apply migration 029 through the authorized Supabase migration mechanism.
-3. Re-run Supabase security and performance advisors.
+1. Review/merge PR #14 only after CI is green.
+2. Migrations 029 and 030 have been applied through the authorized Supabase
+   migration mechanism; do not paste them into production again.
+3. Supabase advisors were re-run after DDL. No new migration-related warning
+   appeared.
 4. Deploy the merged commit through Vercel.
 5. Verify a blank Customer passport/licence expiry displays blank.
-6. Edit one linked customer identity field and confirm Customer, Quote and
+6. Edit one linked current customer identity field and confirm Customer, Quote and
    Reservation agree.
 7. Edit one Reservation flight number and confirm only its linked Quote changes.
 8. Submit one controlled website quote with a flight number; confirm one Quote,
    one pending Reservation and one Customer are created/linked, then remove the
    test rows.
 9. Review Vercel runtime logs for new errors.
+
+## Production database verification
+
+- Both synchronization triggers are enabled.
+- Direct execute grants to PUBLIC, anon, authenticated and service_role: 0.
+- Customer document expiry values equal to the migration date: 0.
+- Identity mismatches across current pending/confirmed/active Reservations: 0.
+- Identity mismatches across their linked Quotes: 0.
+- Finished records were excluded from the backfill and remain snapshots.
 
 ## Safety notes
 
@@ -83,4 +99,3 @@ not persisted customer data.
   does not collect them.
 - Do not deploy guessed NBG Pay or Key2Pay behavior. Bank onboarding and the
   official merchant integration specification are mandatory.
-

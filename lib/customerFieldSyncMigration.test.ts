@@ -26,7 +26,7 @@ async function migratedDatabase() {
       id uuid primary key default gen_random_uuid(), customer_id uuid references public.customers(id),
       quote_id uuid references public.quotes(id), customer_first_name text,
       customer_last_name text, customer_name text, customer_email text,
-      customer_phone text, customer_dob date, customer_nationality text,
+      customer_phone text, customer_dob date, customer_nationality text, status text default 'pending',
       flight_number text, updated_at timestamptz default now()
     );
   `);
@@ -44,6 +44,46 @@ async function migratedDatabase() {
 }
 
 describe("shared customer field synchronization", () => {
+  it("backfills pre-existing identity drift from the customer master", async () => {
+    const db = await migratedDatabase();
+    try {
+      const customer = await db.query<{ id: string }>(`
+        insert into public.customers(first_name, last_name, full_name, email, phone, dob)
+        values ('Canonical', 'Customer', 'Canonical Customer', 'right@example.test', '222', '1991-04-05') returning id
+      `);
+      const customerId = customer.rows[0].id;
+      const quote = await db.query<{ id: string }>(`insert into public.quotes(customer_id, first_name, last_name, email, mobile_tel, dob)
+        values ($1, 'Old', 'Snapshot', 'wrong@example.test', '111', null) returning id`, [customerId]);
+      await db.query(`insert into public.reservations(customer_id, quote_id, customer_first_name, customer_last_name,
+        customer_name, customer_email, customer_phone, customer_dob)
+        values ($1, $2, 'Old', 'Snapshot', 'Old Snapshot', 'wrong@example.test', '111', null)`, [customerId, quote.rows[0].id]);
+
+      const migration = await readFile(
+        join(process.cwd(), "supabase/migrations/20260822153000_backfill_shared_customer_fields.sql"),
+        "utf8",
+      );
+      const paste = await readFile(
+        join(process.cwd(), "supabase/migrations/paste/030_backfill_shared_customer_fields_paste.sql"),
+        "utf8",
+      );
+      await db.exec(migration);
+      await db.exec(paste);
+
+      const storedQuote = await db.query(`select first_name, last_name, email, mobile_tel, dob
+        from public.quotes where customer_id=$1`, [customerId]);
+      expect(storedQuote.rows[0]).toEqual({ first_name: "Canonical", last_name: "Customer",
+        email: "right@example.test", mobile_tel: "222", dob: "1991-04-05" });
+      const reservation = await db.query(`select customer_first_name, customer_last_name,
+        customer_name, customer_email, customer_phone, customer_dob::text
+        from public.reservations where customer_id=$1`, [customerId]);
+      expect(reservation.rows[0]).toEqual({ customer_first_name: "Canonical", customer_last_name: "Customer",
+        customer_name: "Canonical Customer", customer_email: "right@example.test",
+        customer_phone: "222", customer_dob: "1991-04-05" });
+    } finally {
+      await db.close();
+    }
+  });
+
   it("fans a customer correction out to linked quotes and reservations", async () => {
     const db = await migratedDatabase();
     try {
