@@ -1,82 +1,132 @@
-# NBG Pay and Key2Pay integration gate
+# NBG Pay hosted checkout and Key2Pay handover
 
-Status: bank onboarding required before code can safely be connected or deployed.
+Status: code complete behind a disabled feature gate; NBG sandbox onboarding and
+migration 031 are required before Preview testing. Production is not enabled.
 
-## Product roles
+## Official implementation selected
 
-- **NBG Pay e-Commerce** is the appropriate product for card checkout from the
-  Anadyon website. The customer should be redirected to an NBG-hosted payment
-  page with EMV 3-D Secure / Strong Customer Authentication. Anadyon must never
-  collect or log the card number, CVC or authentication data.
-- **Key2Pay** is NBG Pay's remote payment-order service for sales by email or
-  telephone, including businesses without an e-shop or POS. It fits the staff
-  workflow for sending a deposit request. NBG's public material describes a
-  managed portal and emailed payment order; it does not publish a supported
-  public API that this repository can implement against without bank-issued
-  documentation.
+Anadyon uses NBG's **Hosted Checkout payment-link mode**, API version 100. This
+is the bank's documented low-PCI-scope integration:
 
-These are complementary workflows, not two interchangeable APIs.
-
-## Official onboarding
-
-Apply for e-Commerce and Key2Pay through NBG Business Internet Banking or an
-NBG branch. NBG states that the application is assessed, contractual documents
-must be signed, and activation instructions are then sent by email.
+1. the admin API creates an order with `INITIATE_CHECKOUT`,
+   `checkoutMode=PAYMENT_LINK` and `interaction.operation=PURCHASE`;
+2. the customer opens only the HTTPS URL returned by NBG;
+3. no PAN, CVC, card expiry or 3-D Secure authentication data touches Anadyon;
+4. the browser return contains only an opaque Anadyon attempt ID;
+5. Anadyon retrieves the order directly from NBG and requires the exact order
+   ID, EUR amount, `CAPTURED` status and an approved successful payment;
+6. one database transaction records the attempt and confirms the reservation.
 
 Official sources:
 
-- https://www.nbg.gr/en/business/banking-products-services/digital-banking/everyday-transactions/e-commerce-key2pay
-- https://www.nbg.gr/en/business/banking-products-services/standing-orders/e-commerce-services
-- https://www.nbg.gr/en/business/banking-products-services/standing-orders/e-commerce-services/key2pay
+- NBG Developer Portal — E-Commerce Enterprise:
+  https://developer.nbg.gr/apiProduct/ECommerceEnterprise
+- NBG i-bank e-Commerce Enterprise integration guide:
+  https://files.nbg.gr/ecommerce/docs/Integration%20Guide%20i-Bank%20e-Enterprise.pdf
+- NBG API v100 — Initiate Checkout:
+  https://test.ibanke-commerce.nbg.gr/api/documentation/apiDocumentation/rest-json/version/100/operation/Hosted%20Checkout%3A%20Initiate%20Checkout.html?locale=en_US
+- NBG API v100 — Retrieve Order:
+  https://test.ibanke-commerce.nbg.gr/api/documentation/documentation/apiDocumentation/rest-json/version/100/operation/Transaction%3A%20%20Retrieve%20Order.html?locale=en_US
 
-## Information Anadyon must receive from NBG Pay
+## Code added
 
-Do not begin live implementation until NBG Pay supplies all applicable items:
+- `lib/nbg.ts` — allow-listed test/production gateway adapter, Basic HTTP
+  authentication, 10-second timeout, payment-link initiation, Retrieve Order
+  and fail-closed response validation.
+- `lib/nbgReconciliation.ts` — common server-side reconciliation used by both
+  the customer return and the admin check.
+- `app/api/admin/nbg/create-payment-link/route.ts` — admin/MFA-protected link
+  creation. The server, not the browser, supplies reservation and amount.
+- `app/api/admin/nbg/check-payment/route.ts` — admin/MFA-protected manual
+  reconciliation for customers who close the bank page before returning.
+- `app/api/nbg/return/route.ts` — rate-limited public return that never trusts
+  the redirect alone and always queries NBG.
+- `app/payment/complete/page.tsx` — non-indexed customer result page.
+- `supabase/migrations/20260822180000_nbg_payment_attempts.sql` — payment ledger,
+  one-active-link constraint, RLS and atomic completion RPC.
+- `supabase/migrations/paste/031_nbg_payment_attempts_paste.sql` — manual
+  SQL-editor copy, ending with `REACHED THE END`.
+- `app/admin/components/ReservationModal.tsx` — create/copy and check-payment
+  controls next to the existing Stripe and Wise options.
 
-1. selected e-Commerce product and technical integration manual;
-2. sandbox and production endpoints;
-3. merchant and terminal identifiers;
-4. test credentials and production credentials;
-5. request-signing or MAC/hash specification and exact character encoding;
-6. hosted-payment redirect/return parameters;
-7. server-to-server callback/webhook specification and retry rules;
-8. payment-status query, cancellation, refund and reconciliation APIs;
-9. test cards and required approval scenarios, including failed and challenged
-   3-D Secure;
-10. allowed return/callback domains for Preview and Production;
-11. settlement currency, fees, instalment rules and payout schedule;
-12. Key2Pay API documentation, if NBG offers API access for the approved
-    account; otherwise Key2Pay remains a controlled staff portal workflow.
+## Environment variables
 
-Credentials belong only in Vercel encrypted environment variables, scoped
-separately to Preview and Production. They must never be committed to GitHub.
+All are server-only except the pre-existing site URL. Secrets must be entered
+in Vercel as encrypted values and must never be committed.
 
-## Intended implementation after onboarding
+| Variable | Preview sandbox | Production |
+|---|---|---|
+| `NBG_PAY_ENABLED` | `true` only during controlled test | keep absent/`false` until sign-off |
+| `NBG_PAY_ENVIRONMENT` | `test` | `production` |
+| `NBG_PAY_MERCHANT_ID` | sandbox merchant ID from NBG | production merchant ID from NBG |
+| `NBG_PAY_API_PASSWORD` | sandbox API password from NBG | production API password from NBG |
+| `NEXT_PUBLIC_SITE_URL` | exact Preview URL used for returns | `https://anadyon.gr` |
 
-1. Add an NBG Pay provider adapter behind the existing deposit-payment
-   interface; do not remove Stripe during the pilot.
-2. Create a payment order from the server using the reservation ID, amount,
-   currency and an idempotency key.
-3. Redirect the customer only to the bank-hosted payment page.
-4. Verify every callback cryptographically and independently query payment
-   status when the bank supports it.
-5. Store provider, provider transaction ID, amount, currency, status and
-   timestamps. Never store PAN/CVC.
-6. Mark a deposit paid only from a verified server-to-server event or verified
-   status query—not from the browser success redirect.
-7. Make callbacks replay-safe, validate amount/currency/reservation, and reject
-   stale or mismatched events.
-8. Add audit logs, refund/cancellation handling and daily settlement
-   reconciliation.
-9. Test in Preview with NBG's sandbox matrix; then enable Production with a
-   small controlled payment and immediate reconciliation.
-10. Keep Stripe available for rollback until NBG Pay has completed a stable
-    production observation window.
+The code accepts only the two official gateway origins:
 
-## Current release boundary
+- test: `https://test.ibanke-commerce.nbg.gr`
+- production: `https://ibanke-commerce.nbg.gr`
 
-The customer-field/date/flight release must not contain a guessed NBG endpoint,
-placeholder payment route or simulated success response. That would create a
-false impression that card payments are protected when no bank contract,
-credentials or signature specification has been supplied.
+There is no custom endpoint variable, preventing a configuration mistake from
+sending the Basic-auth credential to another host.
 
+## Mandatory deployment gate
+
+Do not enable or merge this payment feature as a live payment method until all
+items are complete:
+
+- [ ] NBG has activated an Anadyon sandbox merchant and supplied the API
+      password through a secure channel.
+- [ ] NBG confirms PAYMENT_LINK, PURCHASE, EUR and 3-D Secure are enabled.
+- [ ] PR is deployed to a Preview branch with `NBG_PAY_ENVIRONMENT=test`.
+- [ ] Tasos manually runs `031_nbg_payment_attempts_paste.sql` and sees exactly
+      `REACHED THE END`. Codex/CLI must never apply it automatically.
+- [ ] Preview creates one bank-hosted link for one test reservation.
+- [ ] A double-click/retry reuses the same active link and cannot create two
+      simultaneously payable links.
+- [ ] NBG test cases pass: approved, declined, cancelled, 3DS challenge,
+      abandoned return and expired link.
+- [ ] Approved exact EUR amount confirms the reservation once.
+- [ ] Wrong order, amount, currency, non-captured status and forged browser
+      return never mark a reservation paid.
+- [ ] "Check NBG payment" correctly reconciles a paid order after the customer
+      closes the browser before returning.
+- [ ] NBG settlement report is reconciled to Anadyon payment attempts.
+- [ ] Production credentials are separately added to Production; sandbox
+      credentials are not copied.
+- [ ] A small controlled production payment and refund are completed with NBG
+      support available.
+- [ ] Stripe remains enabled during the observation/rollback period.
+
+## Key2Pay boundary
+
+NBG's public Key2Pay material documents a bank-managed merchant portal: staff
+create customers/invoices/payment requests in Key2Pay and NBG sends or presents
+the payment order. It does **not** publish a supported public Key2Pay API
+contract that can safely be coded against.
+
+Official Key2Pay sources:
+
+- service walkthrough:
+  https://www.nbg.gr/en/individuals/questions/helping-videos/how-to-use-the-key2pay-service
+- merchant manual:
+  https://www.nbg.gr/-/jssmedia/Files/Business/Proionta-ypiresies/eisprakseis-plirwmes/key-2-pay/MANUAL-Key2Pay_Timologiou-_final.pdf
+
+Therefore Key2Pay remains an external staff workflow unless NBG supplies a
+private API specification for Anadyon's approved account. Never infer that API
+from the web portal or automate the portal by scraping.
+
+## Local verification (22 August 2026)
+
+- TypeScript: passed with `npx tsc --noEmit`.
+- Unit and database-migration tests: 232/232 passed across 33 files.
+- NBG-specific tests: hosted-link payload/authentication, gateway-origin
+  allow-list, exact amount/currency/captured-state validation, documented
+  nested transaction shape, replay safety, amount-mismatch rollback, RLS and
+  service-role-only function execution.
+- ESLint: zero errors. The repository still reports 22 pre-existing React
+  effect warnings; this change adds none.
+- GitHub CI build, CodeQL analysis and the Vercel Preview deployment all passed
+  on draft PR #16. Locally, compilation and TypeScript passed; final packaging
+  was limited only by the workstation having less than 1 GB free for Next's
+  generated cache.
