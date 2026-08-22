@@ -7,7 +7,6 @@ import ReCAPTCHA from "react-google-recaptcha";
 import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup, RateSegment } from "@/lib/pricing";
 import DateRangePicker from "./DateRangePicker";
-import SegmentedDateInput from "./SegmentedDateInput";
 import { TIME_OPTIONS } from "@/lib/bookingFields";
 import { BOOKING_LOCATIONS, DEFAULT_PUBLIC_BOOKING_LOCATION } from "@/lib/bookingLocations";
 import { translator, localePath, type Locale } from "@/lib/i18n";
@@ -815,41 +814,44 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                   {fieldErrors.lastName && <p className="text-red-500 text-xs mt-1">{tr("err.lastName")}</p>}
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.email")} *</label>
-                  <input ref={emailRef} type="email" value={email} onChange={e => { setEmail(e.target.value); clearFieldError("email"); }} className={`w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 ${fieldErrors.email ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`} placeholder={tr("form.emailPh")} />
-                  {fieldErrors.email && <p className="text-red-500 text-xs mt-1">{tr("err.email")}</p>}
-                </div>
-                <div ref={dobFieldRef}>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.dob")} *</label>
-                  <SegmentedDateInput
-                    key={dob || "public-dob-blank"}
-                    idPrefix="public-dob"
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.email")} *</label>
+                <input ref={emailRef} type="email" value={email} onChange={e => { setEmail(e.target.value); clearFieldError("email"); }} className={`w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 ${fieldErrors.email ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`} placeholder={tr("form.emailPh")} />
+                {fieldErrors.email && <p className="text-red-500 text-xs mt-1">{tr("err.email")}</p>}
+              </div>
+              <div ref={dobFieldRef} className="grid grid-cols-2 gap-x-3" data-testid="dob-flight-row">
+                <label htmlFor="public-dob" className="mb-1 block min-w-0 text-sm font-medium text-gray-700 dark:text-gray-300">{tr("form.dob")} *</label>
+                <label htmlFor="public-flight-number" className="mb-1 block min-w-0 text-sm font-medium text-gray-700 dark:text-gray-300">{tr("form.flightNumber")}</label>
+                <div className="min-w-0">
+                  {/* Keep this native: iOS Safari owns the wheel/date-picker UI,
+                      while the submitted value remains the ISO date the API expects. */}
+                  <input
+                    id="public-dob"
+                    type="date"
                     value={dob}
-                    onChange={(value) => { setDob(value); clearFieldError("dob"); }}
-                    minYear={currentYear - 110}
-                    maxYear={currentYear - 18}
-                    locale={locale}
+                    onChange={(event) => { setDob(event.target.value); clearFieldError("dob"); }}
+                    min={`${currentYear - 110}-01-01`}
+                    max={`${currentYear - 18}-12-31`}
+                    autoComplete="bday"
                     required
-                    invalid={!!fieldErrors.dob}
+                    aria-invalid={fieldErrors.dob || undefined}
+                    className={`block h-[42px] w-full min-w-0 rounded-lg border bg-white px-2 py-2 text-sm text-gray-900 [color-scheme:light] dark:bg-gray-700 dark:text-gray-200 dark:[color-scheme:dark] ${fieldErrors.dob ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`}
                   />
                   {fieldErrors.dob && <p className="text-red-500 text-xs mt-1">{tr("err.dob")}</p>}
                 </div>
-              </div>
-              <div className="max-w-sm">
-                <label htmlFor="public-flight-number" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.flightNumber")}</label>
-                <input
-                  id="public-flight-number"
-                  type="text"
-                  value={flightNumber}
-                  onChange={(event) => setFlightNumber(event.target.value.toUpperCase())}
-                  maxLength={40}
-                  autoComplete="off"
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
-                  placeholder={tr("form.flightNumberPh")}
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{tr("form.flightNumberHelp")}</p>
+                <div className="min-w-0">
+                  <input
+                    id="public-flight-number"
+                    type="text"
+                    value={flightNumber}
+                    onChange={(event) => setFlightNumber(event.target.value.toUpperCase())}
+                    maxLength={40}
+                    autoComplete="off"
+                    className="h-[42px] w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                    placeholder={tr("form.flightNumberPh")}
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{tr("form.flightNumberHelp")}</p>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.address")}</label>
