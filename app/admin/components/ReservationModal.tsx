@@ -5,6 +5,7 @@ import { useScrollLock } from "./useScrollLock";
 import { RESERVATION_STATUSES } from "@/lib/reservationStatus";
 import { vehicleLabel } from "@/lib/vehicleLabel";
 import Select from "./Select";
+import SegmentedDateInput from "@/app/components/SegmentedDateInput";
 import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, calcExtrasTotal, resolveVehiclePricing, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "@/app/components/DateRangePicker";
@@ -659,8 +660,14 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Date of birth</label>
-                <input type="date" value={form.customer_dob} onChange={(e) => set("customer_dob", e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                <SegmentedDateInput
+                  key={form.customer_dob || "reservation-dob-blank"}
+                  idPrefix="reservation-customer-dob"
+                  value={form.customer_dob}
+                  onChange={(value) => set("customer_dob", value)}
+                  minYear={new Date().getFullYear() - 110}
+                  maxYear={new Date().getFullYear() - 18}
+                />
                 {/* Not enforced — a phone booking rarely yields a birth date on
                     the spot — but the agreement cannot be produced without it,
                     so the reservation is flagged incomplete until it arrives. */}

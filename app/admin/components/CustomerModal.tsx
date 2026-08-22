@@ -3,7 +3,8 @@ import { useState } from "react";
 import { X, Trash2 } from "lucide-react";
 import { useScrollLock } from "./useScrollLock";
 import Select from "./Select";
-import { validateCustomer, normaliseForStorage, customerStillNeeds, dateInputValue } from "@/lib/bookingFields";
+import SegmentedDateInput from "@/app/components/SegmentedDateInput";
+import { validateCustomer, normaliseForStorage, customerStillNeeds } from "@/lib/bookingFields";
 
 interface Customer {
   id: string;
@@ -110,6 +111,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
 }
 
 const inputCls = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm";
+const CURRENT_YEAR = new Date().getFullYear();
 
 export default function CustomerModal({ customer, onClose, onSaved }: Props) {
   useScrollLock();
@@ -183,7 +185,7 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
             <input type="text" value={form.last_name} onChange={(e) => set("last_name", e.target.value)} className={inputCls} />
           </Field>
           <Field label="Date of birth">
-            <input type="date" value={dateInputValue(form.dob)} onChange={(e) => set("dob", e.target.value)} className={inputCls} />
+            <SegmentedDateInput key={form.dob || "customer-dob-blank"} idPrefix="customer-dob" value={form.dob} onChange={(value) => set("dob", value)} minYear={CURRENT_YEAR - 110} maxYear={CURRENT_YEAR - 18} />
           </Field>
           <Field label="Nationality">
             <input type="text" value={form.nationality} onChange={(e) => set("nationality", e.target.value)} className={inputCls} placeholder="e.g. British" />
@@ -223,13 +225,13 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
             <input type="text" value={form.passport_number} onChange={(e) => set("passport_number", e.target.value)} className={inputCls} />
           </Field>
           <Field label="Passport expiry">
-            <input type="date" value={dateInputValue(form.passport_expiry)} onChange={(e) => set("passport_expiry", e.target.value)} className={inputCls} />
+            <SegmentedDateInput key={form.passport_expiry || "passport-expiry-blank"} idPrefix="passport-expiry" value={form.passport_expiry} onChange={(value) => set("passport_expiry", value)} minYear={CURRENT_YEAR - 10} maxYear={CURRENT_YEAR + 20} />
           </Field>
           <Field label="Driving licence number">
             <input type="text" value={form.driving_licence_number} onChange={(e) => set("driving_licence_number", e.target.value)} className={inputCls} />
           </Field>
           <Field label="Licence expiry">
-            <input type="date" value={dateInputValue(form.driving_licence_expiry)} onChange={(e) => set("driving_licence_expiry", e.target.value)} className={inputCls} />
+            <SegmentedDateInput key={form.driving_licence_expiry || "licence-expiry-blank"} idPrefix="licence-expiry" value={form.driving_licence_expiry} onChange={(value) => set("driving_licence_expiry", value)} minYear={CURRENT_YEAR - 10} maxYear={CURRENT_YEAR + 20} />
           </Field>
           <div className="col-span-2">
             <Field label="Licence issuing country">

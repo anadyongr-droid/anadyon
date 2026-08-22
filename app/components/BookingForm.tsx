@@ -7,6 +7,7 @@ import ReCAPTCHA from "react-google-recaptcha";
 import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup, RateSegment } from "@/lib/pricing";
 import DateRangePicker from "./DateRangePicker";
+import SegmentedDateInput from "./SegmentedDateInput";
 import { TIME_OPTIONS } from "@/lib/bookingFields";
 import { BOOKING_LOCATIONS, DEFAULT_PUBLIC_BOOKING_LOCATION } from "@/lib/bookingLocations";
 import { translator, localePath, type Locale } from "@/lib/i18n";
@@ -50,23 +51,6 @@ function localDateStr(d = new Date()) {
 const today = localDateStr();
 const tomorrow = localDateStr(new Date(Date.now() + 86400000));
 const currentYear = new Date().getFullYear();
-
-/**
- * Month names come from the platform rather than a hand-written list, so the
- * date-of-birth picker follows the page language without a second translation
- * table to keep in step.
- */
-function dobMonths(locale: Locale) {
-  const fmt = new Intl.DateTimeFormat(locale === "el" ? "el-GR" : "en-GB", { month: "long" });
-  return Array.from({ length: 12 }, (_, i) => ({
-    value: String(i + 1).padStart(2, "0"),
-    label: fmt.format(new Date(Date.UTC(2000, i, 1))),
-  }));
-}
-function daysInDobMonth(month: string, year: string): number {
-  if (!month) return 31;
-  return new Date(Number(year || currentYear), Number(month), 0).getDate();
-}
 
 /** Stored value stays English; the label follows the page language. */
 const TITLES = [
@@ -227,22 +211,8 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [dobDay, setDobDay] = useState("");
-  const [dobMonth, setDobMonth] = useState("");
-  const [dobYear, setDobYear] = useState("");
-  const dob = dobDay && dobMonth && dobYear ? `${dobYear}-${dobMonth}-${dobDay}` : "";
-  const dobDayOptions = Array.from({ length: daysInDobMonth(dobMonth, dobYear) }, (_, i) => String(i + 1).padStart(2, "0"));
-  const dobYearOptions = Array.from({ length: 100 }, (_, i) => String(currentYear - 18 - i));
-  function handleDobMonthChange(value: string) {
-    setDobMonth(value);
-    const max = daysInDobMonth(value, dobYear);
-    if (dobDay && Number(dobDay) > max) setDobDay(String(max).padStart(2, "0"));
-  }
-  function handleDobYearChange(value: string) {
-    setDobYear(value);
-    const max = daysInDobMonth(dobMonth, value);
-    if (dobDay && Number(dobDay) > max) setDobDay(String(max).padStart(2, "0"));
-  }
+  const [dob, setDob] = useState("");
+  const [flightNumber, setFlightNumber] = useState("");
   const [address, setAddress] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [city, setCity] = useState("");
@@ -410,6 +380,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         lastName,
         email,
         dob,
+        flightNumber,
         address,
         postalCode,
         city,
@@ -852,22 +823,33 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 </div>
                 <div ref={dobFieldRef}>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.dob")} *</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <select value={dobDay} onChange={e => { setDobDay(e.target.value); clearFieldError("dob"); }} className={`border rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 ${fieldErrors.dob ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`}>
-                      <option value="">{tr("form.day")}</option>
-                      {dobDayOptions.map(d => <option key={d} value={d}>{Number(d)}</option>)}
-                    </select>
-                    <select value={dobMonth} onChange={e => { handleDobMonthChange(e.target.value); clearFieldError("dob"); }} className={`border rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 ${fieldErrors.dob ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`}>
-                      <option value="">{tr("form.month")}</option>
-                      {dobMonths(locale).map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                    </select>
-                    <select value={dobYear} onChange={e => { handleDobYearChange(e.target.value); clearFieldError("dob"); }} className={`border rounded-lg px-2 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 ${fieldErrors.dob ? invalidFieldClass : "border-gray-300 dark:border-gray-600"}`}>
-                      <option value="">{tr("form.year")}</option>
-                      {dobYearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
-                  </div>
+                  <SegmentedDateInput
+                    key={dob || "public-dob-blank"}
+                    idPrefix="public-dob"
+                    value={dob}
+                    onChange={(value) => { setDob(value); clearFieldError("dob"); }}
+                    minYear={currentYear - 110}
+                    maxYear={currentYear - 18}
+                    locale={locale}
+                    required
+                    invalid={!!fieldErrors.dob}
+                  />
                   {fieldErrors.dob && <p className="text-red-500 text-xs mt-1">{tr("err.dob")}</p>}
                 </div>
+              </div>
+              <div className="max-w-sm">
+                <label htmlFor="public-flight-number" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.flightNumber")}</label>
+                <input
+                  id="public-flight-number"
+                  type="text"
+                  value={flightNumber}
+                  onChange={(event) => setFlightNumber(event.target.value.toUpperCase())}
+                  maxLength={40}
+                  autoComplete="off"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                  placeholder={tr("form.flightNumberPh")}
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{tr("form.flightNumberHelp")}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{tr("form.address")}</label>
