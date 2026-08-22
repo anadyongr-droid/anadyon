@@ -902,6 +902,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
               <label className="block text-xs font-medium text-gray-600 mb-1">Deposit Payment Link</label>
               <StripeDepositButton reservationId={reservationId!} />
               <WiseDepositButton reservationId={reservationId!} />
+              <NbgDepositButton reservationId={reservationId!} onPaid={onSaved} />
             </div>
           )}
 
@@ -1086,6 +1087,90 @@ function StripeDepositButton({ reservationId }: { reservationId: string }) {
         <Link size={11} /> {loading ? "Generating…" : "Generate Deposit Link"}
       </button>
       {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * NBG-hosted checkout. The browser only receives the bank-hosted URL; card
+ * details never pass through Anadyon. "Check payment" performs a fresh
+ * server-to-server Retrieve Order before the reservation can be confirmed.
+ */
+function NbgDepositButton({ reservationId, onPaid }: { reservationId: string; onPaid: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [url, setUrl] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const create = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    const res = await fetch("/api/admin/nbg/create-payment-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reservationId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setLoading(false);
+    if (res.ok && data.checkoutUrl) {
+      setUrl(data.checkoutUrl);
+      setMessage(data.warning
+        ?? (data.reused ? "Existing active NBG link loaded." : "NBG link created. Send it to the customer."));
+    } else {
+      setError(data.error ?? "Failed to create the NBG payment link.");
+    }
+  }, [reservationId]);
+
+  const check = useCallback(async () => {
+    setChecking(true);
+    setError(null);
+    setMessage(null);
+    const res = await fetch("/api/admin/nbg/check-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reservationId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setChecking(false);
+    if (res.ok && data.status === "paid") {
+      setMessage("✓ NBG verified the deposit. The reservation is confirmed.");
+      onPaid();
+    } else if (res.status === 202) {
+      setMessage("NBG has not reported a captured payment yet. Do not mark it paid manually.");
+    } else {
+      setError(data.error ?? "The NBG payment could not be checked.");
+    }
+  }, [reservationId, onPaid]);
+
+  return (
+    <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <button onClick={create} disabled={loading || checking}
+          className="flex items-center gap-1.5 text-xs bg-blue-800 text-white px-3 py-1.5 rounded-lg hover:bg-blue-900 disabled:opacity-50 transition">
+          <Link size={11} /> {loading ? "Creating…" : "NBG Pay Deposit Link"}
+        </button>
+        <button onClick={check} disabled={loading || checking}
+          className="text-xs border border-blue-300 text-blue-800 bg-white px-3 py-1.5 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition">
+          {checking ? "Checking NBG…" : "Check NBG payment"}
+        </button>
+      </div>
+      {url && (
+        <div className="flex items-start gap-2 mt-2">
+          <a href={url} target="_blank" rel="noopener noreferrer"
+            className="text-xs text-blue-700 underline break-all">{url}</a>
+          <button onClick={() => navigator.clipboard.writeText(url)}
+            className="text-xs text-gray-500 hover:text-gray-700 bg-white px-2 py-0.5 rounded border border-gray-200">
+            Copy
+          </button>
+        </div>
+      )}
+      {message && <p className="text-xs text-blue-700 mt-2">{message}</p>}
+      {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+      <p className="text-[11px] text-gray-500 mt-2">
+        Card details remain on NBG. Anadyon confirms payment only after checking the bank directly.
+      </p>
     </div>
   );
 }
