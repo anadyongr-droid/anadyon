@@ -24,4 +24,13 @@ describe("htmlToText", () => {
   it("strips a style block whose closing tag has trailing whitespace", () => {
     expect(htmlToText("before<style>.a{}</style >after")).toBe("before after");
   });
+
+  it("strips a script block whose closing tag carries garbage before '>'", () => {
+    // The CodeQL counter-example: whitespace-only tolerance still misses this.
+    expect(htmlToText("before<script>alert(1)</script\t\n bar>after")).toBe("before after");
+  });
+
+  it("strips a style block whose closing tag carries garbage before '>'", () => {
+    expect(htmlToText("before<style>.a{}</style\t\n bar>after")).toBe("before after");
+  });
 });

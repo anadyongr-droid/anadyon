@@ -108,8 +108,8 @@ function findPart(part: MailPart, mimeType: string): string {
 
 export function htmlToText(html: string): string {
   return html
-    .replace(/<style[\s\S]*?<\/\s*style\s*>/gi, " ")
-    .replace(/<script[\s\S]*?<\/\s*script\s*>/gi, " ")
+    .replace(/<style[\s\S]*?<\/\s*style\b[^>]*>/gi, " ")
+    .replace(/<script[\s\S]*?<\/\s*script\b[^>]*>/gi, " ")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n\n")
     .replace(/<[^>]+>/g, " ")
