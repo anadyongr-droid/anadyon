@@ -45,6 +45,15 @@ interface Props {
 // Single source of truth, shared with the database constraint check in the
 // end-to-end suite. See lib/reservationStatus.ts.
 const STATUS_OPTIONS = RESERVATION_STATUSES;
+const STATUS_LABELS: Record<string, string> = {
+  pending: "Pending / quote stage",
+  confirmed: "Booking confirmed / payment received",
+  active: "Active",
+  returned: "Returned",
+  cancelled: "Cancelled",
+  no_show: "No show",
+  voided: "Voided",
+};
 const LOCATIONS = BOOKING_LOCATION_VALUES;
 
 const EMPTY_FORM = {
@@ -68,7 +77,7 @@ const EMPTY_FORM = {
   child_seat: 0,
   fdw: false,
   additional_drivers: 0,
-  status: "confirmed",
+  status: "pending",
   notes: "",
   // Leading underscore: UI-only, stripped before the payload reaches the API.
   // Empty means "use the seasonal card rate"; set, it is the rate agreed at the
@@ -446,6 +455,22 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
       return;
     }
 
+    const paymentConfirmation = form.status === "confirmed" && originalStatus !== "confirmed";
+    let paymentAmount: number | undefined;
+    if (paymentConfirmation) {
+      const entered = prompt(
+        `Enter the verified payment received in euros. It must be either the 30% deposit (€${deposit.toFixed(2)}) or the full rental amount (€${total.toFixed(2)}). This will confirm the booking and send the formal confirmation email.`
+      );
+      if (entered === null) return;
+      paymentAmount = Number(entered.trim().replace(",", "."));
+      const matchesDeposit = Number.isFinite(paymentAmount) && Math.abs(paymentAmount - deposit) < 0.01;
+      const matchesTotal = Number.isFinite(paymentAmount) && Math.abs(paymentAmount - total) < 0.01;
+      if (!matchesDeposit && !matchesTotal) {
+        setSaveError(`Enter exactly €${deposit.toFixed(2)} (deposit) or €${total.toFixed(2)} (full payment).`);
+        return;
+      }
+    }
+
     setSaving(true);
     setSaveError("");
     const fullName = [form.customer_first_name, form.customer_last_name].filter(Boolean).join(" ") || form.customer_name;
@@ -462,7 +487,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
       total,
       deposit,
       balance_due: balanceDue,
-      ...(isEdit && originalStatus ? { _prev_status: originalStatus } : {}),
+      ...(paymentConfirmation ? { _payment_verified: true, _payment_amount: paymentAmount } : {}),
       ...(linkedCustomerId ? { customer_id: linkedCustomerId } : {}),
       ...(quoteId ? { quote_id: quoteId } : {}),
     });
@@ -618,7 +643,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
             <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
             <Select value={form.status} onChange={(e) => set("status", e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm capitalize">
-              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
+              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{STATUS_LABELS[s] ?? s.replace("_", " ")}</option>)}
             </Select>
           </div>
           <div>
@@ -906,6 +931,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
           {/* Stripe Deposit */}
           {isEdit && (
             <div className="col-span-2 border-t border-gray-100 pt-4">
+              <QuoteConfirmationButton reservationId={reservationId!} disabled={form.status === "confirmed"} />
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Deposit payment links</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <StripeDepositButton reservationId={reservationId!} />
@@ -1053,6 +1079,67 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
 
 // ─── Sub-components ───────────────────────────────────────────
 
+function QuoteConfirmationButton({ reservationId, disabled }: { reservationId: string; disabled: boolean }) {
+  const [deadline, setDeadline] = useState("");
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const send = useCallback(async () => {
+    if (!deadline) {
+      setError("Choose the deposit payment deadline first.");
+      return;
+    }
+    setSending(true);
+    setError(null);
+    setResult(null);
+    const res = await fetch(`/api/admin/reservations/${reservationId}/quote-confirmation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deadline }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setSending(false);
+    if (!res.ok) {
+      setError(data.error ?? "The quote confirmation could not be sent.");
+      return;
+    }
+    setResult(data.queued ? "Quote confirmation queued for delivery." : "Quote confirmation sent.");
+  }, [deadline, reservationId]);
+
+  return (
+    <div className="mb-4 rounded-xl border-2 border-blue-200 bg-blue-50 p-3">
+      <p className="text-sm font-bold text-blue-900">Quote confirmation</p>
+      <p className="mb-3 text-xs text-blue-700">
+        Confirms category availability and final price. It does not confirm the booking.
+      </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <label className="flex-1 text-xs font-medium text-blue-900">
+          Deposit payment deadline (Zakynthos time)
+          <input
+            type="datetime-local"
+            value={deadline}
+            onChange={(event) => setDeadline(event.target.value)}
+            disabled={disabled || sending}
+            className="mt-1 w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:opacity-50"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={send}
+          disabled={disabled || sending || !deadline}
+          className="flex items-center justify-center gap-1.5 rounded-lg bg-blue-800 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-900 disabled:opacity-50"
+        >
+          <Send size={12} /> {sending ? "Sending…" : "Send quote confirmation"}
+        </button>
+      </div>
+      {disabled && <p className="mt-2 text-xs text-blue-700">Payment is already recorded; this booking is confirmed.</p>}
+      {result && <p className="mt-2 text-xs font-medium text-green-700">✓ {result}</p>}
+      {error && <p className="mt-2 text-xs font-medium text-red-600">{error}</p>}
+    </div>
+  );
+}
+
 function StripeDepositButton({ reservationId }: { reservationId: string }) {
   const [loading, setLoading] = useState(false);
   const [link, setLink] = useState<{ url: string; reference: string } | null>(null);
@@ -1123,7 +1210,7 @@ function SmsButton({ reservationId }: { reservationId: string }) {
     <div className="flex items-center gap-2">
       <Select value={template} onChange={(e) => setTemplate(e.target.value)}
         className="text-xs border border-gray-300 rounded px-2 py-1">
-        <option value="confirmation">Booking confirmed</option>
+        <option value="confirmation">Booking confirmed (payment received)</option>
         <option value="pickup_reminder">Pickup reminder</option>
         <option value="return_reminder">Return reminder</option>
       </Select>

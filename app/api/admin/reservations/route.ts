@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { vehicleLabel } from "@/lib/vehicleLabel";
 import { sendMail } from "@/lib/mailer";
 import { validateQuoteVehicleAssignment } from "@/lib/quoteVehicleAssignment";
+import { confirmPaidBooking } from "@/lib/confirmPaidBooking";
 
 /**
  * Postgres integrity errors are caused by the request, not by the server.
@@ -57,6 +58,29 @@ export async function POST(req: NextRequest) {
   // staff is completing its allocation. Every other row created here is an
   // office/walk-in reservation. The client cannot choose this classification.
   const source = body.quote_id ? "website" : "admin";
+  const createAsPaid = body.status === "confirmed";
+  if (createAsPaid && raw._payment_verified !== true) {
+    return NextResponse.json(
+      { error: "Confirm the booking only after verifying that the deposit or full payment has been received." },
+      { status: 400 },
+    );
+  }
+  const paymentAmount = Number(raw._payment_amount);
+  if (createAsPaid) {
+    const total = Number(body.total);
+    const expectedDeposit = Number((total * 0.3).toFixed(2));
+    const matchesDeposit = Number.isFinite(paymentAmount) && Math.abs(paymentAmount - expectedDeposit) < 0.01;
+    const matchesTotal = Number.isFinite(paymentAmount) && Math.abs(paymentAmount - total) < 0.01;
+    if (!matchesDeposit && !matchesTotal) {
+      return NextResponse.json(
+        { error: `Enter exactly €${expectedDeposit.toFixed(2)} (deposit) or €${total.toFixed(2)} (full payment).` },
+        { status: 400 },
+      );
+    }
+  }
+  // Insert first as pending, then let the shared idempotent payment path set
+  // both status and deposit_paid_at and send the formal confirmation.
+  if (createAsPaid) body.status = "pending";
 
   // The browser restricts its list for quote-origin reservations, but this is
   // the actual integrity boundary. It prevents a stale tab or crafted request
@@ -101,12 +125,31 @@ export async function POST(req: NextRequest) {
 
   await touchCustomer(body.customer_id);
 
+  let responseData = data;
+  if (createAsPaid) {
+    const paidAt = new Date().toISOString();
+    const confirmation = await confirmPaidBooking({
+      reservationId: data.id,
+      paidAt,
+      amountPaid: paymentAmount,
+      manuallyVerified: true,
+    });
+    if (confirmation.outcome === "error") {
+      return NextResponse.json({ error: confirmation.error }, { status: 503 });
+    }
+    if (confirmation.outcome !== "confirmed" && confirmation.outcome !== "already_confirmed") {
+      return NextResponse.json({ error: "The payment could not confirm this booking." }, { status: 409 });
+    }
+    const fullyPaid = Math.abs(paymentAmount - Number(data.total)) < 0.01;
+    responseData = { ...data, status: "confirmed", deposit_paid_at: paidAt, balance_due: fullyPaid ? 0 : data.balance_due };
+  }
+
   // Send notification email.
   //
   // Skipped for a reservation created already cancelled or voided: announcing a
   // "New Reservation" for something that is not one is how the office ended up
   // with cancellation emails that read as bookings.
-  const announceable = !["cancelled", "voided", "no_show"].includes(String(data.status));
+  const announceable = !["cancelled", "voided", "no_show"].includes(String(responseData.status));
   if (announceable) try {
     await sendMail({
       // Was onboarding@resend.dev — Resend's sandbox sender, which only ever
@@ -117,8 +160,8 @@ export async function POST(req: NextRequest) {
       // itself, which is what a from/to on the same box would do.
       from: "Anadyon Alerts <no-reply@anadyon.gr>",
       to: ["customerservice@anadyon.gr", "anadyon.gr@gmail.com"],
-      subject: `New Reservation — ${vehicleLabel(data.vehicles)} — ${data.customer_name}`,
-      html: buildEmailHtml(data),
+      subject: `New Reservation — ${vehicleLabel(responseData.vehicles)} — ${responseData.customer_name}`,
+      html: buildEmailHtml(responseData),
     });
   } catch (err) {
     // A failed notification must not roll back a saved reservation, but it should
@@ -127,7 +170,7 @@ export async function POST(req: NextRequest) {
     console.error("Reservation notification email failed:", err);
   }
 
-  return NextResponse.json(data, { status: 201 });
+  return NextResponse.json(responseData, { status: 201 });
 }
 
 function esc(v: unknown): string {

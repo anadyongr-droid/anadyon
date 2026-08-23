@@ -342,3 +342,47 @@ test("terms dialog locks the underlying page and closes on Escape", async ({ pag
     overflow: document.body.style.overflow,
   }))).toEqual({ position: "", overflow: "" });
 });
+
+test.describe("My Rental acknowledgment wording", () => {
+  test("English distinguishes the request acknowledgment from confirmation", async ({ page }) => {
+    await page.goto("/quote");
+    await expect(page.getByText(
+      "Enter the reference number from your reservation request acknowledgment email and the last name you used when submitting the request.",
+      { exact: true },
+    )).toBeVisible();
+    await expect(page.getByText(/Check your reservation request acknowledgment email from/)).toBeVisible();
+    await page.getByRole("button", { name: "View My Rental" }).click();
+    await expect(page.getByText("Please enter your reference number.", { exact: true })).toBeVisible();
+  });
+
+  test("Greek uses consistent acknowledgment and validation wording", async ({ page }) => {
+    await page.goto("/el/quote");
+    await expect(page.getByText(
+      "Εισαγάγετε τον αριθμό αναφοράς από το email επιβεβαίωσης παραλαβής του αιτήματος κράτησης και το επώνυμο που χρησιμοποιήσατε κατά την υποβολή του αιτήματος.",
+      { exact: true },
+    )).toBeVisible();
+    await expect(page.getByText(/Ελέγξτε το email επιβεβαίωσης παραλαβής του αιτήματος κράτησης από/)).toBeVisible();
+    await page.getByRole("button", { name: "Δείτε την Κράτησή μου" }).click();
+    await expect(page.getByText("Εισαγάγετε τον αριθμό αναφοράς σας.", { exact: true })).toBeVisible();
+  });
+});
+
+test.describe("Public payment result pages", () => {
+  test("a completed payment shows the formal booking-confirmation wording", async ({ page }) => {
+    await page.goto("/payment/success?reference=ABC123");
+    await expect(page).toHaveURL(/\/payment\/success/);
+    await expect(page.getByRole("heading", { name: "Payment received" })).toBeVisible();
+    await expect(page.getByText(
+      "We have received your payment and your booking is now confirmed. A confirmation email has been sent to you.",
+      { exact: true },
+    )).toBeVisible();
+    await expect(page.getByText("Reference: ABC123", { exact: true })).toBeVisible();
+  });
+
+  test("a cancelled Checkout does not claim the booking is confirmed", async ({ page }) => {
+    await page.goto("/payment/cancelled?reference=ABC123");
+    await expect(page).toHaveURL(/\/payment\/cancelled/);
+    await expect(page.getByRole("heading", { name: "Payment not completed" })).toBeVisible();
+    await expect(page.getByText(/No booking confirmation has been issued/)).toBeVisible();
+  });
+});

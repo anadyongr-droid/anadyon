@@ -194,6 +194,33 @@ describe("POST /api/quote atomic booking", () => {
     expect(html).not.toContain("Promo code (EXHAUSTED)");
   });
 
+  it("labels the first customer email as an acknowledgment, not a reservation confirmation", async () => {
+    const response = await POST(post());
+
+    expect(response.status).toBe(200);
+    const customerMail = mocks.sendMail.mock.calls
+      .map(([mail]) => mail)
+      .find((mail) => mail.to === "test@example.com");
+    expect(customerMail).toMatchObject({
+      subject: "Reservation request acknowledgment — BOOK01",
+    });
+    expect(customerMail.html).toContain("acknowledges receipt of your request");
+    expect(customerMail.html).toContain("is not a reservation confirmation");
+  });
+
+  it("sends a Greek acknowledgment for a request submitted on the Greek site", async () => {
+    const response = await POST(post(requestBody({ locale: "el", fdw: true, extrasSubtotal: 5, total: 63 })));
+
+    expect(response.status).toBe(200);
+    const customerMail = mocks.sendMail.mock.calls
+      .map(([mail]) => mail)
+      .find((mail) => mail.to === "test@example.com");
+    expect(customerMail.subject).toBe("Επιβεβαίωση παραλαβής αιτήματος κράτησης — BOOK01");
+    expect(customerMail.html).toContain("δεν αποτελεί επιβεβαίωση κράτησης");
+    expect(customerMail.html).toContain("Πλήρης Κάλυψη Ζημιών");
+    expect(customerMail.html).toContain("https://anadyon.gr/el/quote/BOOK01");
+  });
+
   it("derives the same idempotency key for the same submission", async () => {
     await POST(post());
     await POST(post());

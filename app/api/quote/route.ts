@@ -424,6 +424,13 @@ export async function POST(req: NextRequest) {
     Number(additionalDrivers) > 0 ? `<tr><td>Additional Driver ×${additionalDrivers} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("additional_drivers").toFixed(2)}</td><td align="right">€${(xRate("additional_drivers") * Number(additionalDrivers) * rentalDays).toFixed(2)}</td></tr>` : "",
   ].filter(Boolean).join("\n        ");
 
+  const customerExtrasRows = locale === "el" ? [
+    fdw ? `<tr><td>Πλήρης Κάλυψη Ζημιών (FDW) — ${rentalDays} ${rentalDays === 1 ? "ημέρα" : "ημέρες"} × €${xRate("fdw").toFixed(2)}</td><td align="right">€${(xRate("fdw") * rentalDays).toFixed(2)}</td></tr>` : "",
+    Number(babySeat) > 0 ? `<tr><td>Παιδικό Κάθισμα (0–9 μηνών) ×${babySeat} — ${rentalDays} ${rentalDays === 1 ? "ημέρα" : "ημέρες"} × €${xRate("baby_seat").toFixed(2)}</td><td align="right">€${(xRate("baby_seat") * Number(babySeat) * rentalDays).toFixed(2)}</td></tr>` : "",
+    Number(childSeat) > 0 ? `<tr><td>Παιδικό Κάθισμα (9+ μηνών) ×${childSeat} — ${rentalDays} ${rentalDays === 1 ? "ημέρα" : "ημέρες"} × €${xRate("child_seat").toFixed(2)}</td><td align="right">€${(xRate("child_seat") * Number(childSeat) * rentalDays).toFixed(2)}</td></tr>` : "",
+    Number(additionalDrivers) > 0 ? `<tr><td>Πρόσθετοι Οδηγοί ×${additionalDrivers} — ${rentalDays} ${rentalDays === 1 ? "ημέρα" : "ημέρες"} × €${xRate("additional_drivers").toFixed(2)}</td><td align="right">€${(xRate("additional_drivers") * Number(additionalDrivers) * rentalDays).toFixed(2)}</td></tr>` : "",
+  ].filter(Boolean).join("\n        ") : serverExtrasRows;
+
   // A Greek customer gets the Greek page; anyone else the English one.
   const quoteUrl = `https://anadyon.gr${locale === "el" ? "/el" : ""}/quote/${ref}`;
 
@@ -480,10 +487,10 @@ export async function POST(req: NextRequest) {
         ${serverExtrasRows}
         ${promoDiscount > 0 ? `<tr><td>Promo code (${esc(promoCode)})</td><td align="right">−€${promoDiscount.toFixed(2)}</td></tr>` : ""}
         <tr style="border-top:2px solid #ccc;"><td><strong>Total (incl. VAT)</strong></td><td align="right"><strong>€${total.toFixed(2)}</strong></td></tr>
-        <tr><td style="color:#666;">Deposit (30%) due on confirmation</td><td align="right" style="color:#666;">€${deposit.toFixed(2)}</td></tr>
+        <tr><td style="color:#666;">Deposit (30%) required to confirm booking</td><td align="right" style="color:#666;">€${deposit.toFixed(2)}</td></tr>
         <tr><td style="color:#666;">Balance due at pick-up</td><td align="right" style="color:#666;">€${balanceDue.toFixed(2)}</td></tr>
       </table>
-      <p style="color:#888;font-size:12px;">This is an estimate only. Final price confirmed upon booking confirmation email.</p>
+      <p style="color:#888;font-size:12px;">This is an estimate only. Final price and vehicle-category availability will be confirmed in our quote confirmation email.</p>
       ` : ""}
 
       <h3>Customer Details</h3>
@@ -498,18 +505,55 @@ export async function POST(req: NextRequest) {
       </table>
 
       <hr/>
-      <p style="color:#888;font-size:12px;">This is not a confirmed reservation. Anadyon Rentals will contact you shortly to confirm availability.</p>
+      <p style="color:#888;font-size:12px;">This is not a confirmed reservation. Anadyon Rentals will contact you shortly with availability and the final price.</p>
     `,
   });
 
-  // Auto-confirmation to customer — always uses correct server figures
+  // Receipt acknowledgment to the customer — deliberately distinct from the
+  // later quote confirmation and post-payment booking confirmation emails.
+  // It always uses the correct server figures and follows the language used on
+  // the public booking form.
   const customerMail = () => sendMail({
     from: "Anadyon Rentals <customerservice@anadyon.gr>",
     to: email,
-    subject: `Quote Request — ${lastName}, ${ref}`,
-    html: `
+    subject: locale === "el"
+      ? `Επιβεβαίωση παραλαβής αιτήματος κράτησης — ${ref}`
+      : `Reservation request acknowledgment — ${ref}`,
+    html: locale === "el" ? `
+      <p>Αγαπητέ/ή ${esc(firstName)} ${esc(lastName)},</p>
+      <p>Σας ευχαριστούμε για το αίτημα κράτησης. Το παρόν email <strong>επιβεβαιώνει μόνο την παραλαβή του αιτήματός σας και δεν αποτελεί επιβεβαίωση κράτησης</strong>. Θα επικοινωνήσουμε μαζί σας το συντομότερο δυνατό σχετικά με τη διαθεσιμότητα και την τελική τιμή.</p>
+      <p>Ο αριθμός αναφοράς σας είναι: <strong>${ref}</strong></p>
+
+      <h3>Σύνοψη Αιτήματος</h3>
+      <table cellpadding="6" style="border-collapse:collapse;">
+        <tr><td><strong>Αριθμός αναφοράς:</strong></td><td><strong>${ref}</strong></td></tr>
+        <tr><td><strong>Όχημα:</strong></td><td>${selectedModel}</td></tr>
+        <tr><td><strong>Παραλαβή:</strong></td><td>${pickupLocation}, ${pickupDate} στις ${pickupTime}</td></tr>
+        <tr><td><strong>Επιστροφή:</strong></td><td>${dropoffLocation}, ${dropoffDate} στις ${dropoffTime}</td></tr>
+        <tr><td><strong>Ημέρες ενοικίασης:</strong></td><td>${rentalDays}</td></tr>
+      </table>
+
+      ${showPrice ? `
+      <h3>Εκτίμηση Κόστους</h3>
+      <table cellpadding="6" style="border-collapse:collapse; width:100%; max-width:420px;">
+        <tr><td><strong>${selectedModel}</strong> — ${rentalDays} ${rentalDays === 1 ? "ημέρα" : "ημέρες"} × €${dailyRate.toFixed(2)}</td><td align="right">€${vehicleSubtotal.toFixed(2)}</td></tr>
+        ${customerExtrasRows}
+        ${promoDiscount > 0 ? `<tr><td>Κωδικός προσφοράς (${esc(promoCode)})</td><td align="right">−€${promoDiscount.toFixed(2)}</td></tr>` : ""}
+        <tr style="border-top:2px solid #ccc;"><td><strong>Σύνολο (με ΦΠΑ)</strong></td><td align="right"><strong>€${total.toFixed(2)}</strong></td></tr>
+        <tr><td style="color:#666;">Προκαταβολή (30%) απαραίτητη για την επιβεβαίωση της κράτησης</td><td align="right" style="color:#666;">€${deposit.toFixed(2)}</td></tr>
+        <tr><td style="color:#666;">Υπόλοιπο κατά την παραλαβή</td><td align="right" style="color:#666;">€${balanceDue.toFixed(2)}</td></tr>
+      </table>
+      <p style="color:#888;font-size:12px;">Ενδεικτική τιμή. Η τελική τιμή και η διαθεσιμότητα της κατηγορίας οχήματος θα επιβεβαιωθούν στο email επιβεβαίωσης προσφοράς.</p>
+      ` : ""}
+
+      <p>Μπορείτε να δείτε την προσφορά σας online για ένα έτος, χρησιμοποιώντας τον αριθμό αναφοράς και το επώνυμό σας:<br/>
+      <a href="${quoteUrl}">${quoteUrl}</a></p>
+
+      <p>Προσθέστε το <strong>customerservice@anadyon.gr</strong> στους ασφαλείς αποστολείς σας, ώστε η απάντησή μας να μην καταλήξει στα ανεπιθύμητα.</p>
+      <p>Ευχαριστούμε,<br/>Anadyon Rentals<br/>Τηλ.: +30 6988 010188</p>
+    ` : `
       <p>Dear ${esc(title)} ${esc(firstName)} ${esc(lastName)},</p>
-      <p>Thank you for your quote request. Please note that <strong>this is not a confirmed reservation</strong>. We will contact you as soon as possible with availability and pricing.</p>
+      <p>Thank you for your reservation request. This email <strong>acknowledges receipt of your request and is not a reservation confirmation</strong>. We will contact you as soon as possible with availability and final pricing.</p>
       <p>Your reference number is: <strong>${ref}</strong></p>
 
       <h3>Your Request Summary</h3>
@@ -525,13 +569,13 @@ export async function POST(req: NextRequest) {
       <h3>Price Estimate</h3>
       <table cellpadding="6" style="border-collapse:collapse; width:100%; max-width:420px;">
         <tr><td><strong>${selectedModel}</strong> — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${dailyRate.toFixed(2)}</td><td align="right">€${vehicleSubtotal.toFixed(2)}</td></tr>
-        ${serverExtrasRows}
+        ${customerExtrasRows}
         ${promoDiscount > 0 ? `<tr><td>Promo code (${esc(promoCode)})</td><td align="right">−€${promoDiscount.toFixed(2)}</td></tr>` : ""}
         <tr style="border-top:2px solid #ccc;"><td><strong>Total (incl. VAT)</strong></td><td align="right"><strong>€${total.toFixed(2)}</strong></td></tr>
-        <tr><td style="color:#666;">Deposit (30%) due on confirmation</td><td align="right" style="color:#666;">€${deposit.toFixed(2)}</td></tr>
+        <tr><td style="color:#666;">Deposit (30%) required to confirm booking</td><td align="right" style="color:#666;">€${deposit.toFixed(2)}</td></tr>
         <tr><td style="color:#666;">Balance due at pick-up</td><td align="right" style="color:#666;">€${balanceDue.toFixed(2)}</td></tr>
       </table>
-      <p style="color:#888;font-size:12px;">This is an estimate only. Final price confirmed upon booking confirmation email.</p>
+      <p style="color:#888;font-size:12px;">This is an estimate only. Final price and vehicle-category availability will be confirmed in our quote confirmation email.</p>
       ` : ""}
 
       <p>You can view your quote online at any time within one year using your reference number and surname:<br/>

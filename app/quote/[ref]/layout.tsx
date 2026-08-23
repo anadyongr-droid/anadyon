@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 // declared here.
 export const metadata: Metadata = {
   title: "Your Quote",
-  description: "View and confirm your Anadyon Rentals quote for Zakynthos.",
+  description: "View your Anadyon Rentals quote for Zakynthos using your reference and surname.",
   robots: { index: false, follow: true },
 };
 

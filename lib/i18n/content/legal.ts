@@ -56,10 +56,11 @@ const termsEn: LegalPage = {
       list: ["Third party insurance", "Theft insurance", "Collision Damage Waiver (CDW)"],
       after: ["Additional cover such as Full Damage Waiver (FDW) is available for an additional fee. Bicycles are not covered by the above."],
     },
-    { heading: "7. Cancellation", paragraphs: ["All cancellations received more than 24 hours prior to the start of the rental are free of charge. All other cancellations will be subject to one day's rental charge."] },
-    { heading: "8. Taxes", paragraphs: ["Our fees include VAT and all local taxes."] },
-    { heading: "9. Road Assistance", paragraphs: ["We provide free 24-hour roadside assistance."] },
-    { heading: "10. Customer Service", paragraphs: ["Our staff will go above and beyond to ensure you get a hassle-free rental experience. For any additional information please {contact}."] },
+    { heading: "7. Requests, Quotes & Booking Confirmation", paragraphs: ["Submitting a reservation request and receiving its acknowledgment does not confirm a booking. We confirm the requested vehicle-category availability, final rental price and payment deadline in a quote confirmation email. The booking is confirmed only after we receive the 30% deposit or the full rental amount and issue a booking confirmation email. A quote is valid only until the payment deadline stated in it."] },
+    { heading: "8. Cancellation", paragraphs: ["All cancellations received more than 24 hours prior to the start of the rental are free of charge. All other cancellations will be subject to one day's rental charge."] },
+    { heading: "9. Taxes", paragraphs: ["Our fees include VAT and all local taxes."] },
+    { heading: "10. Road Assistance", paragraphs: ["We provide free 24-hour roadside assistance."] },
+    { heading: "11. Customer Service", paragraphs: ["Our staff will go above and beyond to ensure you get a hassle-free rental experience. For any additional information please {contact}."] },
   ],
 };
 
@@ -77,10 +78,11 @@ const termsEl: LegalPage = {
       list: ["Ασφάλιση αστικής ευθύνης προς τρίτους", "Ασφάλιση κλοπής", "Μεικτή Ασφάλεια (CDW)"],
       after: ["Πρόσθετη κάλυψη, όπως η Πλήρης Απαλλαγή Ζημιών (FDW), διατίθεται με επιπλέον χρέωση. Τα ποδήλατα δεν καλύπτονται από τα παραπάνω."],
     },
-    { heading: "7. Ακύρωση", paragraphs: ["Όλες οι ακυρώσεις που γίνονται περισσότερο από 24 ώρες πριν από την έναρξη της ενοικίασης είναι δωρεάν. Για κάθε άλλη ακύρωση χρεώνεται το κόστος μίας ημέρας ενοικίασης."] },
-    { heading: "8. Φόροι", paragraphs: ["Οι τιμές μας περιλαμβάνουν ΦΠΑ και όλους τους τοπικούς φόρους."] },
-    { heading: "9. Οδική Βοήθεια", paragraphs: ["Παρέχουμε δωρεάν οδική βοήθεια 24 ώρες το 24ωρο."] },
-    { heading: "10. Εξυπηρέτηση Πελατών", paragraphs: ["Το προσωπικό μας θα κάνει ό,τι χρειαστεί ώστε η ενοικίασή σας να είναι απόλυτα ξεκούραστη. Για οποιαδήποτε επιπλέον πληροφορία {contact}."] },
+    { heading: "7. Αιτήματα, Προσφορές & Επιβεβαίωση Κράτησης", paragraphs: ["Η υποβολή αιτήματος κράτησης και η παραλαβή του σχετικού email επιβεβαίωσης παραλαβής δεν επιβεβαιώνουν την κράτηση. Επιβεβαιώνουμε τη διαθεσιμότητα της ζητούμενης κατηγορίας οχήματος, την τελική τιμή ενοικίασης και την προθεσμία πληρωμής σε email επιβεβαίωσης προσφοράς. Η κράτηση επιβεβαιώνεται μόνο αφού λάβουμε την προκαταβολή 30% ή ολόκληρο το ποσό ενοικίασης και εκδώσουμε email επιβεβαίωσης κράτησης. Η προσφορά ισχύει μόνο έως την προθεσμία πληρωμής που αναφέρεται σε αυτήν."] },
+    { heading: "8. Ακύρωση", paragraphs: ["Όλες οι ακυρώσεις που γίνονται περισσότερο από 24 ώρες πριν από την έναρξη της ενοικίασης είναι δωρεάν. Για κάθε άλλη ακύρωση χρεώνεται το κόστος μίας ημέρας ενοικίασης."] },
+    { heading: "9. Φόροι", paragraphs: ["Οι τιμές μας περιλαμβάνουν ΦΠΑ και όλους τους τοπικούς φόρους."] },
+    { heading: "10. Οδική Βοήθεια", paragraphs: ["Παρέχουμε δωρεάν οδική βοήθεια 24 ώρες το 24ωρο."] },
+    { heading: "11. Εξυπηρέτηση Πελατών", paragraphs: ["Το προσωπικό μας θα κάνει ό,τι χρειαστεί ώστε η ενοικίασή σας να είναι απόλυτα ξεκούραστη. Για οποιαδήποτε επιπλέον πληροφορία {contact}."] },
   ],
 };
 

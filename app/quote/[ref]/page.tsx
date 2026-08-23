@@ -1,6 +1,6 @@
 "use client";
 import { translator, type Locale } from "@/lib/i18n";
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { use } from "react";
 import { useSearchParams } from "next/navigation";
 import type { ExtrasConfig } from "@/lib/pricing";
@@ -38,37 +38,34 @@ type Quote = {
 };
 
 export default function QuoteLookupPage({ params, locale = "en" }: { params: Promise<{ ref: string }>; locale?: Locale }) {
-  const tr = translator(locale);
+  const tr = useMemo(() => translator(locale), [locale]);
   const { ref } = use(params);
   const searchParams = useSearchParams();
-  const [surname, setSurname] = useState("");
+  const surnameParam = searchParams.get("surname") ?? "";
+  const [surname, setSurname] = useState(surnameParam);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [extrasConfig, setExtrasConfig] = useState<ExtrasConfig[]>([]);
 
-  // Auto-fetch when arriving from the landing page with surname in URL
-  useEffect(() => {
-    const s = searchParams.get("surname");
-    if (s) {
-      setSurname(s);
-      fetchQuote(ref, s);
-    }
-    fetch("/api/admin/rates").then(r => r.json()).then(({ extras }) => setExtrasConfig(extras ?? []));
-  }, []);
-
-  async function fetchQuote(r: string, s: string) {
+  const fetchQuote = useCallback(async (r: string, s: string) => {
     setError(null);
     setLoading(true);
     const res = await fetch(`/api/quote/${encodeURIComponent(r)}?surname=${encodeURIComponent(s)}`);
     const data = await res.json();
     setLoading(false);
     if (!res.ok) {
-      setError(data.error ?? "Something went wrong.");
+      setError(res.status === 410 ? tr("quote.expired") : res.status === 404 ? tr("quote.notFoundHelp") : tr("quote.genericError"));
     } else {
       setQuote(data);
     }
-  }
+  }, [tr]);
+
+  // Auto-fetch when arriving from the landing page with surname in URL.
+  useEffect(() => {
+    if (surnameParam) void fetchQuote(ref, surnameParam);
+    fetch("/api/admin/rates").then(r => r.json()).then(({ extras }) => setExtrasConfig(extras ?? []));
+  }, [fetchQuote, ref, surnameParam]);
 
   async function handleLookup(e: React.FormEvent) {
     e.preventDefault();
@@ -82,7 +79,7 @@ export default function QuoteLookupPage({ params, locale = "en" }: { params: Pro
       <div className="max-w-2xl mx-auto px-4 py-16">
         <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">{tr("quote.viewYourQuote")}</h1>
         <p className="text-gray-500 dark:text-gray-400 mb-8 text-sm">
-          Reference: <span className="font-mono font-semibold text-gray-800 dark:text-gray-200">{ref.toUpperCase()}</span>
+          {tr("quote.referenceLabel")}: <span className="font-mono font-semibold text-gray-800 dark:text-gray-200">{ref.toUpperCase()}</span>
         </p>
 
         {!quote && (
@@ -107,7 +104,7 @@ export default function QuoteLookupPage({ params, locale = "en" }: { params: Pro
               disabled={loading}
               className="w-full bg-orange-700 text-white font-semibold py-3 rounded-lg hover:bg-orange-800 transition disabled:opacity-50"
             >
-              {loading ? "Looking up…" : "View Quote"}
+              {loading ? tr("quote.lookingUp") : tr("quote.view")}
             </button>
           </form>
         )}
@@ -138,9 +135,9 @@ export default function QuoteLookupPage({ params, locale = "en" }: { params: Pro
               <h3 className="font-semibold text-gray-900 dark:text-white mb-4">{tr("form.stepRental")}</h3>
               <dl className="space-y-2 text-sm">
                 <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("form.vehicle")}</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.selected_model}</dd></div>
-                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("form.pickup")}</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.pickup_location} — {quote.pickup_date} at {quote.pickup_time}</dd></div>
-                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("quote.dropoff")}</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.dropoff_location} — {quote.dropoff_date} at {quote.dropoff_time}</dd></div>
-                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("quote.duration")}</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.rental_days} day{quote.rental_days > 1 ? "s" : ""}</dd></div>
+                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("form.pickup")}</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.pickup_location} — {quote.pickup_date} {tr("quote.at")} {quote.pickup_time}</dd></div>
+                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("quote.dropoff")}</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.dropoff_location} — {quote.dropoff_date} {tr("quote.at")} {quote.dropoff_time}</dd></div>
+                <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("quote.duration")}</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.rental_days} {tr(quote.rental_days === 1 ? "quote.day" : "quote.days")}</dd></div>
                 <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("quote.driverAge")}</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.driver_age}</dd></div>
                 {quote.transmission && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("form.transmission")}</dt><dd className="font-medium text-gray-900 dark:text-white">{quote.transmission}</dd></div>}
               </dl>
@@ -153,7 +150,7 @@ export default function QuoteLookupPage({ params, locale = "en" }: { params: Pro
                 <dl className="space-y-2 text-sm">
                   {quote.baby_seat > 0 && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("extra.babySeat")}</dt><dd className="font-medium text-gray-900 dark:text-white">×{quote.baby_seat}</dd></div>}
                   {quote.child_seat > 0 && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("extra.childSeat")}</dt><dd className="font-medium text-gray-900 dark:text-white">×{quote.child_seat}</dd></div>}
-                  {quote.fdw && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("extra.fdw")}</dt><dd className="font-medium text-gray-900 dark:text-white">Yes</dd></div>}
+                  {quote.fdw && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("extra.fdw")}</dt><dd className="font-medium text-gray-900 dark:text-white">{tr("quote.yes")}</dd></div>}
                   {quote.additional_drivers > 0 && <div className="flex justify-between"><dt className="text-gray-500 dark:text-gray-400">{tr("extra.additionalDrivers")}</dt><dd className="font-medium text-gray-900 dark:text-white">×{quote.additional_drivers}</dd></div>}
                 </dl>
               </div>
@@ -165,30 +162,30 @@ export default function QuoteLookupPage({ params, locale = "en" }: { params: Pro
                 <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-4">{tr("form.priceEstimate")}</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between text-gray-700 dark:text-gray-300">
-                    <span>{quote.selected_model} — {quote.rental_days} day{quote.rental_days > 1 ? "s" : ""} × €{quote.rental_days > 0 ? (Number(quote.vehicle_subtotal) / quote.rental_days).toFixed(2) : "0.00"}/day</span>
+                    <span>{quote.selected_model} — {quote.rental_days} {tr(quote.rental_days === 1 ? "quote.day" : "quote.days")} × €{quote.rental_days > 0 ? (Number(quote.vehicle_subtotal) / quote.rental_days).toFixed(2) : "0.00"}/{tr("quote.perDay")}</span>
                     <span>€{Number(quote.vehicle_subtotal).toFixed(2)}</span>
                   </div>
                   {quote.fdw && (
                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                      <span>Full Damage Waiver (FDW) — {quote.rental_days} day{quote.rental_days > 1 ? "s" : ""} × €{(extrasConfig.find(e => e.key === "fdw")?.daily_rate ?? 0).toFixed(2)}</span>
+                      <span>{tr("extra.fdw")} — {quote.rental_days} {tr(quote.rental_days === 1 ? "quote.day" : "quote.days")} × €{(extrasConfig.find(e => e.key === "fdw")?.daily_rate ?? 0).toFixed(2)}</span>
                       <span>€{((extrasConfig.find(e => e.key === "fdw")?.daily_rate ?? 0) * quote.rental_days).toFixed(2)}</span>
                     </div>
                   )}
                   {quote.baby_seat > 0 && (
                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                      <span>Baby Seat ×{quote.baby_seat} — {quote.rental_days} day{quote.rental_days > 1 ? "s" : ""} × €{(extrasConfig.find(e => e.key === "baby_seat")?.daily_rate ?? 0).toFixed(2)}</span>
+                      <span>{tr("extra.babySeat")} ×{quote.baby_seat} — {quote.rental_days} {tr(quote.rental_days === 1 ? "quote.day" : "quote.days")} × €{(extrasConfig.find(e => e.key === "baby_seat")?.daily_rate ?? 0).toFixed(2)}</span>
                       <span>€{((extrasConfig.find(e => e.key === "baby_seat")?.daily_rate ?? 0) * quote.baby_seat * quote.rental_days).toFixed(2)}</span>
                     </div>
                   )}
                   {quote.child_seat > 0 && (
                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                      <span>Child Seat ×{quote.child_seat} — {quote.rental_days} day{quote.rental_days > 1 ? "s" : ""} × €{(extrasConfig.find(e => e.key === "child_seat")?.daily_rate ?? 0).toFixed(2)}</span>
+                      <span>{tr("extra.childSeat")} ×{quote.child_seat} — {quote.rental_days} {tr(quote.rental_days === 1 ? "quote.day" : "quote.days")} × €{(extrasConfig.find(e => e.key === "child_seat")?.daily_rate ?? 0).toFixed(2)}</span>
                       <span>€{((extrasConfig.find(e => e.key === "child_seat")?.daily_rate ?? 0) * quote.child_seat * quote.rental_days).toFixed(2)}</span>
                     </div>
                   )}
                   {quote.additional_drivers > 0 && (
                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                      <span>Additional Driver ×{quote.additional_drivers} — {quote.rental_days} day{quote.rental_days > 1 ? "s" : ""} × €{(extrasConfig.find(e => e.key === "additional_drivers")?.daily_rate ?? 0).toFixed(2)}</span>
+                      <span>{tr("extra.additionalDrivers")} ×{quote.additional_drivers} — {quote.rental_days} {tr(quote.rental_days === 1 ? "quote.day" : "quote.days")} × €{(extrasConfig.find(e => e.key === "additional_drivers")?.daily_rate ?? 0).toFixed(2)}</span>
                       <span>€{((extrasConfig.find(e => e.key === "additional_drivers")?.daily_rate ?? 0) * quote.additional_drivers * quote.rental_days).toFixed(2)}</span>
                     </div>
                   )}
@@ -220,7 +217,7 @@ export default function QuoteLookupPage({ params, locale = "en" }: { params: Pro
             {/* Footer note */}
             <div className="text-center text-sm text-gray-500 dark:text-gray-400 space-y-1">
               <p>{tr("quote.questionsContact")} <a href="mailto:customerservice@anadyon.gr" className="text-blue-700 dark:text-blue-400 underline">customerservice@anadyon.gr</a> {tr("quote.orCall")} <a href="tel:+306988010188" className="text-blue-700 dark:text-blue-400 underline">+30 6988 010188</a>.</p>
-              <p>Always quote your reference: <span className="font-mono font-semibold">{quote.ref}</span></p>
+              <p>{tr("quote.alwaysReference")} <span className="font-mono font-semibold">{quote.ref}</span></p>
             </div>
           </div>
         )}

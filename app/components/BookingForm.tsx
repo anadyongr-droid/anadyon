@@ -389,10 +389,10 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         promoCodeId: promoResult?.valid ? promoResult.id : undefined,
         discountAmount: promoResult?.valid ? promoResult.discount_amount : undefined,
         extrasLines: [
-          ...(fdw ? [{ label: `Full Damage Waiver (FDW) — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("fdw", 5).toFixed(2)}`, amount: (xRate("fdw", 5) * rentalDays).toFixed(2) }] : []),
-          ...(Number(babySeat) > 0 ? [{ label: `Baby Seat ×${babySeat} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("baby_seat", 3).toFixed(2)}`, amount: (xRate("baby_seat", 3) * Number(babySeat) * rentalDays).toFixed(2) }] : []),
-          ...(Number(childSeat) > 0 ? [{ label: `Child Seat ×${childSeat} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("child_seat", 3).toFixed(2)}`, amount: (xRate("child_seat", 3) * Number(childSeat) * rentalDays).toFixed(2) }] : []),
-          ...(Number(additionalDrivers) > 0 ? [{ label: `Additional Driver ×${additionalDrivers} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("additional_drivers", 2.5).toFixed(2)}`, amount: (xRate("additional_drivers", 2.5) * Number(additionalDrivers) * rentalDays).toFixed(2) }] : []),
+          ...(fdw ? [{ label: `${tr("extra.fdw")} — ${rentalDays} ${tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €${xRate("fdw", 5).toFixed(2)}`, amount: (xRate("fdw", 5) * rentalDays).toFixed(2) }] : []),
+          ...(Number(babySeat) > 0 ? [{ label: `${tr("extra.babySeat")} ×${babySeat} — ${rentalDays} ${tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €${xRate("baby_seat", 3).toFixed(2)}`, amount: (xRate("baby_seat", 3) * Number(babySeat) * rentalDays).toFixed(2) }] : []),
+          ...(Number(childSeat) > 0 ? [{ label: `${tr("extra.childSeat")} ×${childSeat} — ${rentalDays} ${tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €${xRate("child_seat", 3).toFixed(2)}`, amount: (xRate("child_seat", 3) * Number(childSeat) * rentalDays).toFixed(2) }] : []),
+          ...(Number(additionalDrivers) > 0 ? [{ label: `${tr("extra.additionalDrivers")} ×${additionalDrivers} — ${rentalDays} ${tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €${xRate("additional_drivers", 2.5).toFixed(2)}`, amount: (xRate("additional_drivers", 2.5) * Number(additionalDrivers) * rentalDays).toFixed(2) }] : []),
         ],
         title,
         firstName,
@@ -413,7 +413,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
       const data = await res.json();
       setQuoteRef(data.ref ?? null);
       setStatus("sent");
-      // Deliberately not released: the form is replaced by the confirmation, and
+      // Deliberately not released: the form is replaced by the acknowledgment, and
       // a resubmission after success would be a second quote for one enquiry.
     } else {
       // The route already answers with something specific and usable — the
@@ -674,31 +674,31 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                   </div>
                   {fdw && (
                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                      <span>Full Damage Waiver — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("fdw", 5).toFixed(2)}</span>
+                      <span>{tr("extra.fdw")} — {rentalDays} {tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €{xRate("fdw", 5).toFixed(2)}</span>
                       <span>€{(xRate("fdw", 5) * rentalDays).toFixed(2)}</span>
                     </div>
                   )}
                   {Number(babySeat) > 0 && (
                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                      <span>Baby Seat ×{babySeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("baby_seat", 3).toFixed(2)}</span>
+                      <span>{tr("extra.babySeat")} ×{babySeat} — {rentalDays} {tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €{xRate("baby_seat", 3).toFixed(2)}</span>
                       <span>€{(xRate("baby_seat", 3) * Number(babySeat) * rentalDays).toFixed(2)}</span>
                     </div>
                   )}
                   {Number(childSeat) > 0 && (
                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                      <span>Child Seat ×{childSeat} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("child_seat", 3).toFixed(2)}</span>
+                      <span>{tr("extra.childSeat")} ×{childSeat} — {rentalDays} {tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €{xRate("child_seat", 3).toFixed(2)}</span>
                       <span>€{(xRate("child_seat", 3) * Number(childSeat) * rentalDays).toFixed(2)}</span>
                     </div>
                   )}
                   {Number(additionalDrivers) > 0 && (
                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
-                      <span>Additional Driver ×{additionalDrivers} — {rentalDays} day{rentalDays > 1 ? "s" : ""} × €{xRate("additional_drivers", 2.5).toFixed(2)}</span>
+                      <span>{tr("extra.additionalDrivers")} ×{additionalDrivers} — {rentalDays} {tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €{xRate("additional_drivers", 2.5).toFixed(2)}</span>
                       <span>€{(xRate("additional_drivers", 2.5) * Number(additionalDrivers) * rentalDays).toFixed(2)}</span>
                     </div>
                   )}
                   {promoDiscount > 0 && (
                     <div className="flex justify-between text-green-600 dark:text-green-400">
-                      <span>Promo code ({promoResult?.code})</span>
+                      <span>{tr("form.promoCode")} ({promoResult?.code})</span>
                       <span>−€{promoDiscount.toFixed(2)}</span>
                     </div>
                   )}
@@ -721,7 +721,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                 <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
                   {promoResult?.valid ? (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-green-600 dark:text-green-400 font-medium">✓ Code &ldquo;{promoResult.code}&rdquo; applied</span>
+                      <span className="text-green-600 dark:text-green-400 font-medium">✓ {tr("form.codeApplied").replace("{code}", promoResult.code ?? "")}</span>
                       <button onClick={() => { setPromoResult(null); setPromoInput(""); }}
                         className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline">{tr("form.remove")}</button>
                     </div>
