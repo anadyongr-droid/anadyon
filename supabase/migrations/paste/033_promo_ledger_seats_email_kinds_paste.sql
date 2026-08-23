@@ -341,9 +341,14 @@ alter table public.booking_email_deliveries
 -- per reservation, so the uniqueness is the idempotency guard.  A quote
 -- confirmation is deliberately excluded: staff may resend it, and its history
 -- is what the reservation screen shows.
+--
+-- 'failed' rows are excluded so a message that could be neither sent nor queued
+-- can be retried.  The failed attempt stays in the table as the audit record —
+-- deleting it would be the other way to allow the retry, and would lose the
+-- evidence that a confirmation once went missing.
 create unique index if not exists booking_email_deliveries_once_per_kind_uniq
   on public.booking_email_deliveries (reservation_id, kind)
-  where kind in ('acknowledgment', 'booking_confirmation');
+  where kind in ('acknowledgment', 'booking_confirmation') and status <> 'failed';
 
 -- ─── 4. create_web_booking no longer consumes a promo use ────────────────
 
@@ -368,8 +373,10 @@ declare
   v_customer_id       uuid := null;
   v_customer_email    text := nullif(lower(trim(p_quote->>'email')), '');
   v_quote_id          uuid;
+  v_reservation_id    uuid;
   v_ref               text := p_quote->>'ref';
   v_existing_ref      text;
+  v_existing_reservation uuid;
   v_existing_discount numeric;
   v_pre_discount      numeric;
   v_final_total       numeric;
@@ -398,16 +405,19 @@ begin
     p_idempotency_key := trim(p_idempotency_key);
     perform pg_advisory_xact_lock(hashtextextended(p_idempotency_key, 0));
 
-    select ref, total, deposit, balance_due, discount_amount
+    select q.ref, q.total, q.deposit, q.balance_due, q.discount_amount, q.id,
+           (select r.id from public.reservations r where r.quote_id = q.id limit 1)
       into v_existing_ref, v_final_total, v_final_deposit,
-           v_final_balance, v_existing_discount
-      from public.quotes
-     where idempotency_key = p_idempotency_key
+           v_final_balance, v_existing_discount, v_quote_id, v_existing_reservation
+      from public.quotes q
+     where q.idempotency_key = p_idempotency_key
      limit 1;
 
     if found then
       return jsonb_build_object(
         'ref', v_existing_ref,
+        'quote_id', v_quote_id,
+        'reservation_id', v_existing_reservation,
         'discount', coalesce(v_existing_discount, 0),
         'total', v_final_total,
         'deposit', v_final_deposit,
@@ -514,13 +524,16 @@ begin
     from information_schema.columns c
    where c.table_schema = 'public' and c.table_name = 'reservations' and p_reservation ? c.column_name;
 
+  -- The reservation id is returned so the route can attach the acknowledgment
+  -- email's audit row to it without a second lookup.
   execute format(
-    'insert into public.reservations (%1$s) select %1$s from jsonb_populate_record(null::public.reservations, $1)',
+    'insert into public.reservations (%1$s) select %1$s from jsonb_populate_record(null::public.reservations, $1) returning id',
     v_reservation_cols
-  ) using p_reservation;
+  ) into v_reservation_id using p_reservation;
 
   return jsonb_build_object(
-    'ref', v_ref, 'quote_id', v_quote_id, 'customer_id', v_customer_id,
+    'ref', v_ref, 'quote_id', v_quote_id, 'reservation_id', v_reservation_id,
+    'customer_id', v_customer_id,
     'promo_id', v_promo_id, 'discount', v_discount, 'total', v_final_total,
     'deposit', v_final_deposit, 'balance_due', v_final_balance,
     'idempotent_replay', false

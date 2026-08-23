@@ -519,8 +519,8 @@ export async function POST(req: NextRequest) {
   // No replyTo. This is an internal notification, and setting the customer as
   // the reply address meant a member of staff hitting Reply — to ask a
   // colleague about availability, say — wrote to the customer instead. Replies
-  // now stay inside the office; the "Compose email to customer" link below is
-  // the deliberate, one-click way to actually contact them.
+  // now stay inside the office. The customer's address is in the details below
+  // for anyone who does need to write to them.
   const officeMail = (noVehicle: boolean) => sendMail({
     from: "Anadyon Website <customerservice@anadyon.gr>",
     to: ["customerservice@anadyon.gr"],
@@ -581,15 +581,6 @@ export async function POST(req: NextRequest) {
         ${landlineTel ? `<tr><td><strong>Landline:</strong></td><td>${esc(landlineTel)}</td></tr>` : ""}
         ${comments ? `<tr><td><strong>Comments:</strong></td><td>${esc(comments)}</td></tr>` : ""}
       </table>
-
-      <p style="margin:16px 0;">
-        <a href="mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Anadyon Rentals — your reservation request ${ref}`)}"
-           style="display:inline-block;background:#c2410c;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;font-weight:600;">
-          Compose email to customer
-        </a>
-        <br/>
-        <span style="color:#888;font-size:12px;">Replying to this notification reaches the office only, not the customer. Use this button to write to them.</span>
-      </p>
 
       <hr/>
       <p style="color:#888;font-size:12px;">This is not a confirmed reservation. Anadyon Rentals will contact you shortly with availability and the final price.</p>
