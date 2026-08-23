@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: reservation, error } = await supabaseAdmin
     .from("reservations")
-    .select("id, customer_name, customer_email, pickup_date, pickup_time, pickup_location, return_date, return_time, total, deposit, balance_due, notes, status, deposit_paid_at, vehicles(name), quotes(ref)")
+    .select("id, customer_name, customer_email, pickup_date, pickup_time, pickup_location, return_date, return_time, total, deposit, balance_due, notes, status, deposit_paid_at, promo_code_id, discount_amount, quote_id, vehicles(name), quotes(ref)")
     .eq("id", id)
     .maybeSingle();
 
@@ -68,6 +68,41 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!vehicle?.name) {
     return NextResponse.json({ error: "Assign an eligible vehicle before confirming the quote." }, { status: 409 });
   }
+  // This is the point at which a limited promo is actually claimed. A website
+  // request only validates the code, so codes can no longer be exhausted by
+  // people who never pay; the hold runs until the payment deadline and is
+  // released if that passes or the booking is cancelled.
+  //
+  // Taken before the email goes out: a customer must never be sent a price that
+  // includes a discount the code could not supply.
+  if (reservation.promo_code_id) {
+    const { data: held, error: holdError } = await supabaseAdmin.rpc("promo_hold", {
+      p_promo_id: reservation.promo_code_id,
+      p_reservation_id: reservation.id,
+      p_expires_at: deadline.toISOString(),
+      p_amount: Number(reservation.discount_amount) || 0,
+      p_quote_id: reservation.quote_id ?? null,
+    });
+    if (holdError) {
+      console.error("[quote-confirmation] promo hold failed:", holdError.message);
+      return NextResponse.json({ error: "The promo code on this booking could not be reserved. Please try again." }, { status: 503 });
+    }
+    const result = held as { ok?: boolean; reason?: string } | null;
+    if (!result?.ok) {
+      const because: Record<string, string> = {
+        exhausted: "That promo code has now been fully used. Remove the discount or apply a different code before confirming.",
+        expired: "That promo code has expired. Remove the discount or apply a different code before confirming.",
+        inactive: "That promo code is no longer active. Remove the discount or apply a different code before confirming.",
+        unknown_code: "The promo code on this booking no longer exists. Remove the discount before confirming.",
+        other_code_held: "A different promo code is already held for this booking. Review the discount before confirming.",
+      };
+      return NextResponse.json(
+        { error: because[result?.reason ?? ""] ?? "The promo code on this booking is no longer usable." },
+        { status: 409 },
+      );
+    }
+  }
+
   const reference = reservationRef(reservation.id, reservation.notes, linkedQuote?.ref);
   const mail = quoteConfirmationMail({
     customerName: reservation.customer_name,

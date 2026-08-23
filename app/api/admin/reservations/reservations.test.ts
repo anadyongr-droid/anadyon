@@ -34,12 +34,28 @@ vi.mock("@/lib/supabase", () => {
         emailClaims.add(key);
         return Promise.resolve({ error: null });
       }
+      // The workflow-email audit trail. Its partial unique index on
+      // (reservation_id, kind) is what makes the acknowledgment and the formal
+      // booking confirmation send exactly once.
+      if (name === "booking_email_deliveries") {
+        const key = `${payload.reservation_id}:${payload.kind}`;
+        if (emailClaims.has(key)) {
+          return {
+            select: () => ({ single: async () => ({ data: null, error: { code: "23505", message: "duplicate" } }) }),
+          };
+        }
+        emailClaims.add(key);
+        return {
+          select: () => ({ single: async () => ({ data: { id: `delivery-${emailClaims.size}` }, error: null }) }),
+        };
+      }
       insertPayload = payload;
       inserted = { ...payload, id: "res-1", vehicles: { name: "Fiat Panda" } };
       return result(inserted);
     },
     update: (payload: Record<string, unknown>) => {
       if (name === "alert_outbox") return { eq: async () => ({ error: null }) };
+      if (name === "booking_email_deliveries") return { eq: async () => ({ error: null }) };
       if (name === "reservations") updatePayload = payload;
       const row = { ...inserted, ...payload };
       inserted = row;
@@ -54,12 +70,20 @@ vi.mock("@/lib/supabase", () => {
     },
     delete: () => ({ eq: async () => ({ error: null }) }),
   });
-  return { supabaseAdmin: { from: (name: string) => table(name) } };
+  return {
+    supabaseAdmin: {
+      from: (name: string) => table(name),
+      // promo_hold / promo_redeem / promo_release. No promo is attached to
+      // these fixtures, so a no-op answer is the faithful one.
+      rpc: async () => ({ data: { ok: true }, error: null }),
+    },
+  };
 });
 
 vi.mock("@/lib/mailer", () => ({
   sendMail: async (m: { subject: string }) => { sentEmails.push(m); return { ok: true, queued: false }; },
   mailIsRedirected: false,
+  mailRedirectTarget: null,
 }));
 
 const { PATCH } = await import("./[id]/route");

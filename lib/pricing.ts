@@ -198,6 +198,37 @@ export function calcExtrasTotal(
   );
 }
 
+/** What a promo code is, rather than what it was once worth. */
+export type PromoType = "percentage" | "fixed";
+
+export interface PromoFormula {
+  type: PromoType;
+  /** Percent for "percentage", euros for "fixed". */
+  value: number;
+}
+
+/**
+ * The deduction a promo produces against a given subtotal.
+ *
+ * Deliberately a function of the *current* subtotal rather than a stored
+ * amount. `/api/promo/validate` used to compute the figure once from a
+ * client-supplied total and the form kept it, so a percentage code applied
+ * before the customer changed dates, model or extras stayed frozen at its old
+ * value — too small when the rental grew, too large when it shrank. Recomputing
+ * on every render is what keeps the displayed deduction honest.
+ *
+ * A fixed code is capped at the subtotal so the total can never go negative,
+ * which matches the cap the database applies when it settles the booking.
+ */
+export function calcPromoDiscount(promo: PromoFormula | null | undefined, subtotal: number): number {
+  if (!promo || !Number.isFinite(subtotal) || subtotal <= 0) return 0;
+  const value = Number(promo.value);
+  if (!Number.isFinite(value) || value <= 0) return 0;
+
+  const raw = promo.type === "percentage" ? (subtotal * value) / 100 : value;
+  return parseFloat(Math.min(Math.max(raw, 0), subtotal).toFixed(2));
+}
+
 export function calcRentalDays(
   pickupDate: string,
   returnDate: string,

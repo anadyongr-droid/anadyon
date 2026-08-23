@@ -68,6 +68,28 @@ export function driverAgeBandForDob(dob: string, pickupDate: string): DriverAgeB
   return "66+";
 }
 
+/**
+ * Baby seats and child seats occupy the same back seat, so the limit applies to
+ * the two together rather than to each. Enforced in the public form, the public
+ * API, both admin reservation routes and finally as a check constraint on
+ * `quotes` and `reservations`. A quantity is never silently reduced — a customer
+ * who asked for four seats needs to be told we cannot fit four.
+ */
+export const MAX_CHILD_SEATS_TOTAL = 3;
+
+/** True when a baby/child seat combination is one that can actually be fitted. */
+export function seatsWithinLimit(babySeat: number, childSeat: number): boolean {
+  return (
+    [babySeat, childSeat].every(
+      (value) => Number.isInteger(value) && value >= 0 && value <= MAX_CHILD_SEATS_TOTAL,
+    ) && babySeat + childSeat <= MAX_CHILD_SEATS_TOTAL
+  );
+}
+
+/** The one message shown wherever the combined seat limit is breached. */
+export const SEATS_LIMIT_MESSAGE =
+  `A maximum of ${MAX_CHILD_SEATS_TOTAL} child seats in total (baby and child seats combined) can be fitted to one vehicle.`;
+
 /** The single approved sentence. Used verbatim in the terms, the booking modal and the FAQ. */
 export const DRIVER_AGE_POLICY =
   `Minimum driver's age is ${MIN_DRIVER_AGE} years. A young driver surcharge may apply for drivers aged ${YOUNG_DRIVER_BAND}.`;
