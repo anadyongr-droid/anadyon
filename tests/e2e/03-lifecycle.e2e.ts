@@ -3,7 +3,7 @@ import { db, req, ctx, MARK, TEST_EMAIL, futureDates, cleanup, clockSkewMs } fro
 
 const sent: { subject: string; to: string | string[] }[] = [];
 vi.mock("@/lib/mailer", () => ({
-  sendMail: async (m: { subject: string; to: string | string[] }) => { sent.push(m); return { data: null, error: null }; },
+  sendMail: async (m: { subject: string; to: string | string[] }) => { sent.push(m); return { ok: true, queued: false }; },
   mailIsRedirected: true,
 }));
 
@@ -25,14 +25,18 @@ async function makeReservation(offset: number, status = "pending") {
     pickup_date: d.pickup_date, return_date: d.return_date,
     pickup_time: "10:00", return_time: "10:00",
     rental_days: 3, daily_rate: 30, vehicle_subtotal: 90, extras_subtotal: 0, total: 90,
-    status,
+    status, ...(status === "confirmed" ? { _payment_verified: true, _payment_amount: 27 } : {}),
     notes: `Quote ref: LIFECYCLE. ${MARK}`,
   }));
   return (await res.json()).id as string;
 }
 
 const move = (to: string, from: string) =>
-  PATCH(req(`/api/admin/reservations/${id}`, "PATCH", { status: to, _prev_status: from }), ctx(id));
+  PATCH(req(`/api/admin/reservations/${id}`, "PATCH", {
+    status: to,
+    _prev_status: from,
+    ...(to === "confirmed" ? { _payment_verified: true, _payment_amount: 27 } : {}),
+  }), ctx(id));
 
 describe("phase 3 — reservation lifecycle", () => {
   beforeAll(async () => {
@@ -54,7 +58,7 @@ describe("phase 3 — reservation lifecycle", () => {
     expect(new Date(data!.updated_at).getTime() + skew).toBeGreaterThanOrEqual(
       new Date(data!.created_at).getTime() - 5
     );
-    expect(sent.map((m) => m.subject)).toContain("Your reservation is confirmed — Anadyon Rentals");
+    expect(sent.map((m) => m.subject)).toContain("Booking confirmed — LIFECYCLE");
   });
 
   it("confirmed → active tells the customer the vehicle is ready", async () => {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendTelegram } from "@/lib/telegram";
+import { confirmPaidBooking } from "@/lib/confirmPaidBooking";
 
 /**
  * Stripe's deposit webhook.
@@ -91,74 +92,59 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin.from("alert_outbox").delete().eq("key", CLAIM(event.id));
   };
 
-  // ── Sanity-check the payment against the reservation ────────────────────
-  const { data: reservation, error: lookupError } = await supabaseAdmin
-    .from("reservations")
-    .select("id, deposit, status")
-    .eq("id", reservationId)
-    .maybeSingle();
-
-  if (lookupError) {
-    console.error("[stripe] reservation lookup failed:", lookupError.message);
-    await releaseClaim();
-    return NextResponse.json({ error: "Lookup failed" }, { status: 503 });
-  }
-
-  if (!reservation) {
-    // A paid session naming a reservation that does not exist is worth a human
-    // looking at, but retrying will not conjure the row — so it is not a 5xx.
-    console.error(`[stripe] paid session references unknown reservation ${reservationId}`);
-    await sendTelegram(
-      `⚠️ <b>Payment for an unknown reservation</b>\nStripe event <code>${event.id}</code> paid against ` +
-      `reservation <code>${reservationId}</code>, which does not exist. Check Stripe before refunding.`
-    );
-    return NextResponse.json({ received: true, applied: false });
-  }
-
-  // Currency and amount are checked but not enforced as a rejection: the money
-  // has already moved, so refusing here would only lose the record of it. A
-  // mismatch is something a person needs to see.
+  // A deposit or the complete rental total confirms the booking. Any other
+  // amount is recorded by Stripe but deliberately does not confirm it: a €1
+  // payment against a €100 deposit must not send a formal booking confirmation.
   const paid = typeof session.amount_total === "number" ? session.amount_total / 100 : null;
-  const expected = Number(reservation.deposit);
-  const currencyOk = (session.currency ?? "eur").toLowerCase() === "eur";
-  const amountOk = paid !== null && Math.abs(paid - expected) < 0.01;
-
-  if (!currencyOk || !amountOk) {
-    await sendTelegram(
-      `⚠️ <b>Deposit does not match</b>\nReservation <code>${reservationId}</code>\n` +
-      `expected €${expected.toFixed(2)}, received ${paid === null ? "unknown" : `${session.currency?.toUpperCase()} ${paid.toFixed(2)}`}\n` +
-      `Recorded anyway — check Stripe.`
-    );
-  }
-
-  // ── Apply it, and check that it applied ─────────────────────────────────
-  // Stripe's own event time, not this function's clock: a redelivery hours
-  // later must not record the payment as having happened hours late.
   const paidAt = new Date(event.created * 1000).toISOString();
+  const confirmation = await confirmPaidBooking({
+    reservationId,
+    paidAt,
+    amountPaid: paid,
+    currency: session.currency,
+  });
 
-  const { data: updated, error: updateError } = await supabaseAdmin
-    .from("reservations")
-    .update({ status: "confirmed", deposit_paid_at: paidAt })
-    .eq("id", reservationId)
-    .select("id");
-
-  if (updateError || !updated?.length) {
-    console.error(
-      `[stripe] failed to record deposit for ${reservationId}:`,
-      updateError?.message ?? "no rows updated"
-    );
+  if (confirmation.outcome === "error") {
+    console.error(`[stripe] failed to confirm paid booking ${reservationId}:`, confirmation.error);
     await releaseClaim();
     // 5xx on purpose. Stripe retries, and a retry is exactly what should
     // happen — answering 200 here is how a real payment goes unrecorded.
     return NextResponse.json({ error: "Could not record payment" }, { status: 503 });
   }
 
-  await sendTelegram(`✅ <b>Deposit Received</b>\nReservation: ${reservationId}\n€${expected.toFixed(2)}`);
+  if (confirmation.outcome === "not_found") {
+    console.error(`[stripe] paid session references unknown reservation ${reservationId}`);
+    await sendTelegram(
+      `⚠️ <b>Payment for an unknown reservation</b>\nStripe event <code>${event.id}</code> paid against ` +
+      `reservation <code>${reservationId}</code>, which does not exist. Check Stripe before refunding.`
+    );
+  } else if (confirmation.outcome === "payment_mismatch") {
+    await sendTelegram(
+      `⚠️ <b>Payment does not match</b>\nReservation <code>${reservationId}</code>\n` +
+      `expected deposit €${confirmation.expectedDeposit.toFixed(2)} or full price €${confirmation.total.toFixed(2)}, received ` +
+      `${paid === null ? "unknown" : `${session.currency?.toUpperCase()} ${paid.toFixed(2)}`}\n` +
+      `Booking remains unconfirmed — check Stripe.`
+    );
+  } else if (confirmation.outcome === "invalid_state") {
+    await sendTelegram(
+      `⚠️ <b>Payment received for a non-pending booking</b>\nReservation <code>${reservationId}</code>\n` +
+      `Current status: ${confirmation.status}\nPayment was not used to change the booking — reconcile it in Stripe.`
+    );
+  } else if (confirmation.outcome === "confirmed") {
+    await sendTelegram(
+      `✅ <b>Payment Received — Booking Confirmed</b>\nReference: ${confirmation.reference}\n` +
+      `${session.currency?.toUpperCase()} ${paid?.toFixed(2)}`
+    );
+  }
 
   await supabaseAdmin
     .from("alert_outbox")
     .update({ sent_at: new Date().toISOString() })
     .eq("key", CLAIM(event.id));
 
-  return NextResponse.json({ received: true, applied: true });
+  return NextResponse.json({
+    received: true,
+    applied: confirmation.outcome === "confirmed",
+    outcome: confirmation.outcome,
+  });
 }

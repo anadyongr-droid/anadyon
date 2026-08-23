@@ -202,7 +202,7 @@ describe("POST /api/quote atomic booking", () => {
       .map(([mail]) => mail)
       .find((mail) => mail.to === "test@example.com");
     expect(customerMail).toMatchObject({
-      subject: "Reservation request acknowledgment — Customer, BOOK01",
+      subject: "Reservation request acknowledgment — BOOK01",
     });
     expect(customerMail.html).toContain("acknowledges receipt of your request");
     expect(customerMail.html).toContain("is not a reservation confirmation");
@@ -215,7 +215,7 @@ describe("POST /api/quote atomic booking", () => {
     const customerMail = mocks.sendMail.mock.calls
       .map(([mail]) => mail)
       .find((mail) => mail.to === "test@example.com");
-    expect(customerMail.subject).toBe("Επιβεβαίωση παραλαβής αιτήματος κράτησης — Customer, BOOK01");
+    expect(customerMail.subject).toBe("Επιβεβαίωση παραλαβής αιτήματος κράτησης — BOOK01");
     expect(customerMail.html).toContain("δεν αποτελεί επιβεβαίωση κράτησης");
     expect(customerMail.html).toContain("Πλήρης Κάλυψη Ζημιών");
     expect(customerMail.html).toContain("https://anadyon.gr/el/quote/BOOK01");

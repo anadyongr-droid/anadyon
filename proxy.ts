@@ -45,6 +45,13 @@ export async function proxy(req: NextRequest) {
   // factor can possibly be enrolled. Enrolment is enforced immediately after,
   // by the MFA gate below, on the very next page they visit.
   if (pathname === "/admin/set-password") return NextResponse.next();
+  // Stripe redirects the customer here after Checkout. The route retrieves the
+  // unguessable session from Stripe and applies the same amount/idempotency
+  // checks as the signed webhook; requiring an admin session here left paying
+  // customers on the staff login screen.
+  if (pathname === "/api/admin/stripe/success" && req.method === "GET") {
+    return NextResponse.next();
+  }
   // The public booking form reads the rate card from here, so it is deliberately
   // unauthenticated — but for reads only. HEAD is included because it is a GET
   // without a body: CDNs and uptime monitors use it, and answering 401 to one

@@ -10,23 +10,23 @@ describe("translation coverage", () => {
 
   it("uses the approved booking-estimate wording in the visible price window", () => {
     expect(t("en", "form.finalPriceNote")).toBe(
-      "This is an estimate only. Final price confirmed upon booking confirmation email.",
+      "This is an estimate only. Final price and vehicle-category availability will be confirmed in our quote confirmation email.",
     );
     expect(t("el", "form.finalPriceNote")).toBe(
-      "Ενδεικτική τιμή. Η τελική τιμή επιβεβαιώνεται στο email επιβεβαίωσης κράτησης.",
+      "Ενδεικτική τιμή. Η τελική τιμή και η διαθεσιμότητα της κατηγορίας οχήματος θα επιβεβαιωθούν στο email επιβεβαίωσης προσφοράς.",
     );
   });
 
   it("distinguishes the initial acknowledgment from the later reservation confirmation", () => {
     expect(t("en", "quote.landingIntro")).toBe(
-      "Enter the reference number from your reservation acknowledgment email and the last name you used when submitting the request.",
+      "Enter the reference number from your reservation request acknowledgment email and the last name you used when submitting the request.",
     );
     expect(t("en", "quote.cantFind")).toBe(
-      "Can't find your reference? Check your reservation acknowledgment email from",
+      "Can't find your reference? Check your reservation request acknowledgment email from",
     );
     expect(t("el", "quote.landingIntro")).toContain("email επιβεβαίωσης παραλαβής του αιτήματος κράτησης");
     expect(t("el", "quote.cantFind")).toContain("email επιβεβαίωσης παραλαβής του αιτήματος κράτησης");
-    expect(t("en", "form.willContactYou")).toContain("reservation acknowledgment email");
+    expect(t("en", "form.willContactYou")).toContain("reservation request acknowledgment email");
     expect(t("el", "form.willContactYou")).toContain("επιβεβαίωσης παραλαβής");
     expect(t("en", "form.codeApplied")).toBe("Code “{code}” applied");
     expect(t("el", "form.codeApplied")).toBe("Ο κωδικός «{code}» εφαρμόστηκε");

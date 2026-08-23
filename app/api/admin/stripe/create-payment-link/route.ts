@@ -49,11 +49,14 @@ export async function POST(req: NextRequest) {
 
   const { data: res, error } = await supabaseAdmin
     .from("reservations")
-    .select("id, customer_name, customer_email, deposit, stripe_payment_intent, notes, quotes(ref)")
+    .select("id, customer_name, customer_email, deposit, status, deposit_paid_at, stripe_payment_intent, notes, quotes(ref)")
     .eq("id", reservationId)
     .single();
 
   if (error || !res) return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
+  if (res.deposit_paid_at || res.status === "confirmed") {
+    return NextResponse.json({ error: "This booking has already been confirmed as paid." }, { status: 409 });
+  }
 
   const stripe = getStripe();
   const linkedQuote = Array.isArray(res.quotes) ? res.quotes[0] : res.quotes;
@@ -122,7 +125,7 @@ export async function POST(req: NextRequest) {
         metadata: { reservation_id: res.id, reservation_reference: displayReference },
       },
       success_url: `${SITE_URL}/api/admin/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${SITE_URL}/admin/reservations/${res.id}?deposit=cancelled`,
+      cancel_url: `${SITE_URL}/payment/cancelled?reference=${encodeURIComponent(displayReference)}`,
     });
 
     const reference = typeof session.payment_intent === "string" ? session.payment_intent : session.id;

@@ -413,7 +413,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
       const data = await res.json();
       setQuoteRef(data.ref ?? null);
       setStatus("sent");
-      // Deliberately not released: the form is replaced by the confirmation, and
+      // Deliberately not released: the form is replaced by the acknowledgment, and
       // a resubmission after success would be a second quote for one enquiry.
     } else {
       // The route already answers with something specific and usable — the

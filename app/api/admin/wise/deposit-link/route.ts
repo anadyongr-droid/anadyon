@@ -19,11 +19,14 @@ export async function POST(req: NextRequest) {
 
   const { data: res, error } = await supabaseAdmin
     .from("reservations")
-    .select("id, customer_name, deposit, notes, quotes(ref)")
+    .select("id, customer_name, deposit, status, deposit_paid_at, notes, quotes(ref)")
     .eq("id", reservationId)
     .single();
 
   if (error || !res) return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
+  if (res.deposit_paid_at || res.status === "confirmed") {
+    return NextResponse.json({ error: "This booking has already been confirmed as paid." }, { status: 409 });
+  }
 
   const deposit = Number(res.deposit);
   if (!Number.isFinite(deposit) || deposit <= 0) {

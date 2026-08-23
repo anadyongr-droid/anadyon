@@ -27,12 +27,18 @@ export async function POST(req: NextRequest) {
 
   const { data: res, error } = await supabaseAdmin
     .from("reservations")
-    .select("customer_name, customer_phone, pickup_date, return_date")
+    .select("customer_name, customer_phone, pickup_date, return_date, status, deposit_paid_at")
     .eq("id", reservationId)
     .single();
 
   if (error || !res) return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
   if (!res.customer_phone) return NextResponse.json({ error: "No phone number on file" }, { status: 400 });
+  if (template === "confirmation" && (res.status !== "confirmed" || !res.deposit_paid_at)) {
+    return NextResponse.json(
+      { error: "A booking-confirmation SMS can be sent only after payment has been verified." },
+      { status: 409 },
+    );
+  }
 
   const message =
     template === "custom"
