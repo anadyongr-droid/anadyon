@@ -20,6 +20,8 @@ describe("booking lifecycle emails", () => {
   it("uses the approved quote-confirmation subject and wording", () => {
     const mail = quoteConfirmationMail(details, "2026-08-24T17:00:00+03:00");
     expect(mail.subject).toBe("Quote confirmation");
+    expect(mail.replyTo).toBe("customerservice@anadyon.gr");
+    expect(mail.bcc).toEqual(["customerservice@anadyon.gr"]);
     expect(mail.html).toContain(
       "We are pleased to confirm that the requested vehicle category is currently available and that the final rental price is €197.60. Your booking is not yet confirmed. To secure it, please pay the 30% deposit by",
     );
