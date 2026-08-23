@@ -204,8 +204,11 @@ describe("POST /api/quote atomic booking", () => {
     expect(customerMail).toMatchObject({
       subject: "Reservation request acknowledgment — BOOK01",
     });
-    expect(customerMail.html).toContain("acknowledges receipt of your request");
-    expect(customerMail.html).toContain("is not a reservation confirmation");
+    // The guardrail this pins is that the first email must never read as a
+    // confirmation — the wording softened, the distinction did not.
+    expect(customerMail.html).toContain("we've received it and we're checking availability now");
+    expect(customerMail.html).toContain("This isn't a confirmed booking yet.");
+    expect(customerMail.html).toContain("Anadyon Customer Service");
   });
 
   it("sends a Greek acknowledgment for a request submitted on the Greek site", async () => {
@@ -216,7 +219,8 @@ describe("POST /api/quote atomic booking", () => {
       .map(([mail]) => mail)
       .find((mail) => mail.to === "test@example.com");
     expect(customerMail.subject).toBe("Επιβεβαίωση παραλαβής αιτήματος κράτησης — BOOK01");
-    expect(customerMail.html).toContain("δεν αποτελεί επιβεβαίωση κράτησης");
+    // Same guardrail in Greek: received, but explicitly not yet confirmed.
+    expect(customerMail.html).toContain("Δεν πρόκειται ακόμη για επιβεβαιωμένη κράτηση.");
     expect(customerMail.html).toContain("Πλήρης Κάλυψη Ζημιών");
     expect(customerMail.html).toContain("https://anadyon.gr/el/quote/BOOK01");
   });

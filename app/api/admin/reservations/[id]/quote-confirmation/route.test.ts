@@ -90,7 +90,8 @@ describe("POST quote confirmation", () => {
     expect(mocks.sendMail).toHaveBeenCalledTimes(1);
     const mail = mocks.sendMail.mock.calls[0][0];
     expect(mail.subject).toBe("Quote confirmation");
-    expect(mail.html).toContain("Your booking is not yet confirmed");
+    // Reworded, but the guardrail is unchanged: this is not a confirmed booking.
+    expect(mail.html).toContain("Until then the booking isn't confirmed");
     expect(mail.html).toContain("30% deposit by");
     expect(mail.html).toContain("ABC123");
     expect(mail.replyTo).toBe("customerservice@anadyon.gr");

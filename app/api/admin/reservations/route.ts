@@ -37,10 +37,16 @@ export async function GET(req: NextRequest) {
   // has been taken through the email workflow. Derived on read from what was
   // actually dispatched — there is no stored stage column to drift, and
   // nothing here a client could set.
+  // quotes(ref) comes along so each row can show the customer-facing reference
+  // — the code a customer quotes back to you on the phone.
+  //
+  // Newest first. Ordering by pick-up date sorted by when the rental starts,
+  // which buried a request made minutes ago among rentals months away; the list
+  // is worked from the top as requests arrive.
   let query = supabaseAdmin
     .from("reservations")
-    .select("*, vehicles(name, plate, category), booking_email_deliveries(kind, status, created_at)")
-    .order("pickup_date");
+    .select("*, vehicles(name, plate, category), quotes(ref), booking_email_deliveries(kind, status, created_at)")
+    .order("created_at", { ascending: false });
 
   if (from) query = query.gte("pickup_date", from);
   if (to) query = query.lte("return_date", to);

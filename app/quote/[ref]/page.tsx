@@ -23,6 +23,8 @@ type Quote = {
   daily_rate: number;
   vehicle_subtotal: number;
   extras_subtotal: number;
+  discount_amount: number | null;
+  promo_code: string | null;
   total: number;
   deposit: number;
   balance_due: number;
@@ -187,6 +189,19 @@ export default function QuoteLookupPage({ params, locale = "en" }: { params: Pro
                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
                       <span>{tr("extra.additionalDrivers")} ×{quote.additional_drivers} — {quote.rental_days} {tr(quote.rental_days === 1 ? "quote.day" : "quote.days")} × €{(extrasConfig.find(e => e.key === "additional_drivers")?.daily_rate ?? 0).toFixed(2)}</span>
                       <span>€{((extrasConfig.find(e => e.key === "additional_drivers")?.daily_rate ?? 0) * quote.additional_drivers * quote.rental_days).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {/* Sits between the line items and the total, because that
+                      is the only place it explains the gap between them. The
+                      figure is the one the database settled, not a value the
+                      browser recomputes. */}
+                  {Number(quote.discount_amount) > 0 && (
+                    <div className="flex justify-between text-green-700 dark:text-green-400">
+                      <span>
+                        {tr("form.promoCode")}
+                        {quote.promo_code ? ` (${quote.promo_code})` : ""}
+                      </span>
+                      <span>−€{Number(quote.discount_amount).toFixed(2)}</span>
                     </div>
                   )}
                   <div className="border-t border-blue-200 dark:border-blue-700 pt-2 flex justify-between font-bold text-gray-900 dark:text-white">

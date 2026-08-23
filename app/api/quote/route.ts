@@ -521,12 +521,19 @@ export async function POST(req: NextRequest) {
   // colleague about availability, say — wrote to the customer instead. Replies
   // now stay inside the office; the "Compose email to customer" link below is
   // the deliberate, one-click way to actually contact them.
-  const officeMail = () => sendMail({
+  const officeMail = (noVehicle: boolean) => sendMail({
     from: "Anadyon Website <customerservice@anadyon.gr>",
     to: ["customerservice@anadyon.gr"],
-    subject: `${manipulated ? "⚠️ [ALERT] " : ""}Quote Request — ${lastName}, ${ref}`,
+    subject: `${manipulated ? "⚠️ [ALERT] " : ""}${noVehicle ? "🚗 [NO VEHICLE] " : ""}Quote Request — ${lastName}, ${ref}`,
     html: `
       ${manipulationWarning}
+      ${noVehicle ? `
+      <div style="background:#fee2e2;border:2px solid #dc2626;border-radius:8px;padding:16px;margin-bottom:20px;">
+        <p style="margin:0 0 8px;font-weight:bold;color:#991b1b;">🚗 NO VEHICLE COULD BE ASSIGNED</p>
+        <p style="margin:0 0 4px;color:#7f1d1d;">Nothing was available in the requested category (or a valid upgrade) with the right transmission for these dates, so the reservation was left unallocated rather than given an unsuitable vehicle.</p>
+        <p style="margin:0;color:#7f1d1d;font-size:13px;">This booking needs a manual assignment, or a conversation with the customer about alternatives. It is highlighted in red on the Reservations screen.</p>
+      </div>
+      ` : ""}
       <h2>New Quote Request</h2>
       <p><strong>Reference:</strong> ${ref}</p>
 
@@ -604,8 +611,8 @@ export async function POST(req: NextRequest) {
       ? `Επιβεβαίωση παραλαβής αιτήματος κράτησης — ${ref}`
       : `Reservation request acknowledgment — ${ref}`,
     html: locale === "el" ? `
-      <p>Αγαπητέ/ή ${esc(firstName)} ${esc(lastName)},</p>
-      <p>Σας ευχαριστούμε για το αίτημα κράτησης. Το παρόν email <strong>επιβεβαιώνει μόνο την παραλαβή του αιτήματός σας και δεν αποτελεί επιβεβαίωση κράτησης</strong>. Θα επικοινωνήσουμε μαζί σας το συντομότερο δυνατό σχετικά με τη διαθεσιμότητα και την τελική τιμή.</p>
+      <p>Αγαπητέ/ή ${esc(firstName)},</p>
+      <p>Σας ευχαριστούμε για το αίτημα κράτησης — το λάβαμε και ελέγχουμε τη διαθεσιμότητα. <strong>Δεν πρόκειται ακόμη για επιβεβαιωμένη κράτηση.</strong> Θα επικοινωνήσουμε μαζί σας σύντομα με τη διαθεσιμότητα και την τελική τιμή.</p>
       <p>Ο αριθμός αναφοράς σας είναι: <strong>${ref}</strong></p>
 
       <h3>Σύνοψη Αιτήματος</h3>
@@ -633,11 +640,11 @@ export async function POST(req: NextRequest) {
       <p>Μπορείτε να δείτε την προσφορά σας online για ένα έτος, χρησιμοποιώντας τον αριθμό αναφοράς και το επώνυμό σας:<br/>
       <a href="${quoteUrl}">${quoteUrl}</a></p>
 
-      <p>Προσθέστε το <strong>customerservice@anadyon.gr</strong> στους ασφαλείς αποστολείς σας, ώστε η απάντησή μας να μην καταλήξει στα ανεπιθύμητα.</p>
-      <p>Ευχαριστούμε,<br/>Anadyon Rentals<br/>Τηλ.: +30 6988 010188</p>
+      <p>Η απάντησή μας μερικές φορές καταλήγει στα ανεπιθύμητα — αξίζει να προσθέσετε το <strong>customerservice@anadyon.gr</strong> στις επαφές σας.</p>
+      <p>Ευχαριστούμε,<br/>Anadyon Customer Service<br/>Τηλ.: +30 6988 010188</p>
     ` : `
-      <p>Dear ${esc(title)} ${esc(firstName)} ${esc(lastName)},</p>
-      <p>Thank you for your reservation request. This email <strong>acknowledges receipt of your request and is not a reservation confirmation</strong>. We will contact you as soon as possible with availability and final pricing.</p>
+      <p>Dear ${esc(firstName)},</p>
+      <p>Thank you for your reservation request — we've received it and we're checking availability now. <strong>This isn't a confirmed booking yet.</strong> We'll come back to you shortly with availability and final pricing.</p>
       <p>Your reference number is: <strong>${ref}</strong></p>
 
       <h3>Your Request Summary</h3>
@@ -665,8 +672,8 @@ export async function POST(req: NextRequest) {
       <p>You can view your quote online at any time within one year using your reference number and surname:<br/>
       <a href="${quoteUrl}">${quoteUrl}</a></p>
 
-      <p>Please add <strong>customerservice@anadyon.gr</strong> to your safe senders list to avoid our reply going to spam.</p>
-      <p>Thank you,<br/>Anadyon Rentals<br/>Tel: +30 6988 010188</p>
+      <p>Our reply sometimes lands in spam — worth adding <strong>customerservice@anadyon.gr</strong> to your contacts.</p>
+      <p>Thank you,<br/>Anadyon Customer Service<br/>Tel: +30 6988 010188</p>
     `,
   };
 
@@ -680,12 +687,43 @@ export async function POST(req: NextRequest) {
       })
     : sendMail(acknowledgmentMail);
 
+  /**
+   * Did the auto-assignment trigger find a vehicle?
+   *
+   * A website reservation goes through `assign_eligible_vehicle_to_web_booking`
+   * on insert, which allocates a same-category-or-upgrade vehicle with matching
+   * transmission if one is free — and leaves `vehicle_id` NULL rather than
+   * assigning something unsuitable. A null here therefore means the system
+   * looked and found nothing, which is a decision for a person.
+   *
+   * Read after the fact rather than returned by the booking function, so this
+   * needs no migration. Never fatal: the booking is already committed, and
+   * failing to determine this must not turn a stored booking into an error.
+   */
+  const noVehicleAssigned = async (): Promise<boolean> => {
+    if (!reservationId) return false;
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("reservations")
+        .select("vehicle_id")
+        .eq("id", reservationId)
+        .maybeSingle();
+      if (error) return false;
+      return data ? data.vehicle_id === null : false;
+    } catch {
+      return false;
+    }
+  };
+
   // The booking has already been committed atomically. Do not make a customer
-  // wait for two external email round trips before seeing their reference:
+  // wait for external email round trips before seeing their reference:
   // `after` is the supported Next.js request-lifecycle hook, so Vercel keeps
   // the work alive after the response. sendMail itself records any failure in
   // the durable retry queue and alerts the office.
-  after(() => Promise.all([officeMail(), customerMail()]));
+  after(async () => {
+    const noVehicle = await noVehicleAssigned();
+    await Promise.all([officeMail(noVehicle), customerMail()]);
+  });
 
   return NextResponse.json({ success: true, ref });
 }

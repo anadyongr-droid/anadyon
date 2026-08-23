@@ -6,12 +6,14 @@ import { reservationRef } from "@/lib/wise";
 interface PaidReservationRow {
   id: string;
   customer_name: string;
+  customer_first_name?: string | null;
   customer_email: string | null;
   pickup_date: string;
   pickup_time: string;
   pickup_location: string;
   return_date: string;
   return_time: string;
+  dropoff_location?: string | null;
   total: number;
   deposit: number;
   balance_due: number;
@@ -32,6 +34,7 @@ function details(row: PaidReservationRow): BookingEmailDetails {
   const vehicle = one(row.vehicles);
   return {
     customerName: row.customer_name,
+    customerFirstName: row.customer_first_name,
     customerEmail: row.customer_email ?? "",
     reference: reservationRef(row.id, row.notes, quote?.ref ?? undefined),
     vehicle: vehicle?.name ?? "Requested vehicle category",
@@ -40,13 +43,14 @@ function details(row: PaidReservationRow): BookingEmailDetails {
     pickupLocation: row.pickup_location,
     returnDate: row.return_date,
     returnTime: row.return_time,
+    returnLocation: row.dropoff_location,
     total: Number(row.total),
     deposit: Number(row.deposit),
     balanceDue: Number(row.balance_due),
   };
 }
 
-const COLUMNS = "id, customer_name, customer_email, pickup_date, pickup_time, pickup_location, return_date, return_time, total, deposit, balance_due, notes, status, deposit_paid_at, vehicles(name), quotes(ref)";
+const COLUMNS = "id, customer_name, customer_first_name, customer_email, pickup_date, pickup_time, pickup_location, return_date, return_time, dropoff_location, total, deposit, balance_due, notes, status, deposit_paid_at, vehicles(name), quotes(ref)";
 
 export type ConfirmPaidBookingResult =
   | { outcome: "confirmed"; reference: string; expectedDeposit: number; total: number; emailQueued: boolean }

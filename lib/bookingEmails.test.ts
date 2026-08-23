@@ -3,6 +3,7 @@ import { athensDateTimeToUtc, bookingConfirmedMail, formatPaymentDeadline, quote
 
 const details = {
   customerName: "Alex Customer",
+  customerFirstName: "Alex",
   customerEmail: "alex@example.com",
   reference: "ABC123",
   vehicle: "Fiat Panda",
@@ -11,6 +12,7 @@ const details = {
   pickupLocation: "Zakynthos Airport",
   returnDate: "2026-08-28",
   returnTime: "09:00",
+  returnLocation: "Zakynthos Port",
   total: 197.6,
   deposit: 59.28,
   balanceDue: 138.32,
@@ -22,18 +24,80 @@ describe("booking lifecycle emails", () => {
     expect(mail.subject).toBe("Quote confirmation");
     expect(mail.replyTo).toBe("customerservice@anadyon.gr");
     expect(mail.bcc).toEqual(["customerservice@anadyon.gr"]);
+    expect(mail.html).toContain("Many thanks for choosing Anadyon for your rental.");
     expect(mail.html).toContain(
-      "We are pleased to confirm that the requested vehicle category is currently available and that the final rental price is €197.60. Your booking is not yet confirmed. To secure it, please pay the 30% deposit by",
+      "We are pleased to confirm that the requested vehicle category is available and that the final rental price is €197.60. To secure it, please pay the 30% deposit by",
     );
+    // The guardrail: this email must never read as a confirmed booking.
+    expect(mail.html).toContain("Until then the booking isn't confirmed, and we can't hold the car past that date.");
+    expect(mail.html).toContain("Anadyon Customer Service");
     expect(mail.html).toContain("ABC123");
   });
 
   it("confirms a booking only in the post-payment email", () => {
     const mail = bookingConfirmedMail(details);
     expect(mail.subject).toBe("Booking confirmed — ABC123");
-    expect(mail.html).toContain("We have received your payment and your booking is now confirmed.");
+    expect(mail.html).toContain("We've received your payment — you're all set, your booking is confirmed.");
     expect(mail.html).toContain("Payment received:</td><td>€59.28");
     expect(mail.html).toContain("Balance at pick-up:</td><td>€138.32");
+  });
+
+  it("tells the customer what to bring and what to do if their flight is late", () => {
+    // The email used to stop at "confirmed", which is exactly when the reader
+    // starts wondering what happens when they land.
+    const mail = bookingConfirmedMail(details);
+    expect(mail.html).toContain("please bring your driving licence, passport and the card you paid with");
+    expect(mail.html).toContain("+30 6988 010188");
+    expect(mail.html).toContain("See you in Zakynthos.");
+  });
+
+  it("signs both emails as Anadyon Customer Service", () => {
+    for (const mail of [quoteConfirmationMail(details, "2026-08-24T17:00:00+03:00"), bookingConfirmedMail(details)]) {
+      expect(mail.html).toContain("Anadyon Customer Service");
+    }
+  });
+
+  it("greets the customer by first name, not their full name", () => {
+    // "Dear Alex Customer," reads like a bank letter.
+    for (const mail of [quoteConfirmationMail(details, "2026-08-24T17:00:00+03:00"), bookingConfirmedMail(details)]) {
+      expect(mail.html).toContain("Dear Alex,");
+      expect(mail.html).not.toContain("Dear Alex Customer,");
+    }
+  });
+
+  it("falls back to the first word of the full name, then to a neutral greeting", () => {
+    const noFirst = bookingConfirmedMail({ ...details, customerFirstName: null });
+    expect(noFirst.html).toContain("Dear Alex,");
+
+    const noName = bookingConfirmedMail({ ...details, customerFirstName: null, customerName: "" });
+    // Never "Dear ,".
+    expect(noName.html).toContain("Hello,");
+    expect(noName.html).not.toContain("Dear ,");
+  });
+
+  it("tells the customer where to return the vehicle, not only when", () => {
+    for (const mail of [quoteConfirmationMail(details, "2026-08-24T17:00:00+03:00"), bookingConfirmedMail(details)]) {
+      expect(mail.html).toContain("2026-08-28 at 09:00 — Zakynthos Port");
+    }
+  });
+
+  it("falls back to the pick-up location when no return location is recorded", () => {
+    // A same-place rental, which is the common case — not an empty dash.
+    const mail = bookingConfirmedMail({ ...details, returnLocation: null });
+    expect(mail.html).toContain("2026-08-28 at 09:00 — Zakynthos Airport");
+  });
+
+  it("left-aligns the body rather than centring it in the window", () => {
+    for (const mail of [quoteConfirmationMail(details, "2026-08-24T17:00:00+03:00"), bookingConfirmedMail(details)]) {
+      expect(mail.html).toContain("text-align:left");
+      expect(mail.html).not.toContain("margin:0 auto");
+    }
+  });
+
+  it("escapes a name that contains markup", () => {
+    const mail = bookingConfirmedMail({ ...details, customerFirstName: '<script>x</script>' });
+    expect(mail.html).not.toContain("<script>x</script>");
+    expect(mail.html).toContain("&lt;script&gt;");
   });
 
   it("does not claim a pick-up balance after full payment", () => {
