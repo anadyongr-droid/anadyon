@@ -12,6 +12,8 @@ import DateRangePicker from "@/app/components/DateRangePicker";
 import { TIME_OPTIONS, validateReservation, missingDeferrable, normaliseForStorage } from "@/lib/bookingFields";
 import { BOOKING_LOCATION_VALUES, DEFAULT_ADMIN_BOOKING_LOCATION } from "@/lib/bookingLocations";
 import { checkSubstitution, isEligibleAssignment, type Quoted } from "@/lib/substitution";
+import { MAX_CHILD_SEATS_TOTAL, SEATS_LIMIT_MESSAGE } from "@/lib/rentalPolicy";
+import { deriveWorkflowStage, type DeliveryRow } from "@/lib/emailWorkflowStage";
 import { licenceStatus, instant } from "@/lib/operations";
 
 interface Vehicle {
@@ -729,16 +731,29 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
                   {e.label} <span className="text-gray-400 text-xs">€{e.daily_rate}/day</span>
                 </label>
               ))}
-              {extras.filter((e) => e.enabled && ["baby_seat", "child_seat"].includes(e.key)).map((e) => (
-                <div key={e.key} className="flex items-center gap-2 text-sm text-gray-700">
-                  <label>{e.label} <span className="text-gray-400 text-xs">€{e.daily_rate}/day</span></label>
-                  <Select value={form[e.key as keyof typeof form] as number}
-                    onChange={(ev) => set(e.key, Number(ev.target.value))}
-                    className="border border-gray-300 rounded px-2 py-1 text-sm ml-auto">
-                    {[0, 1, 2, 3].map((n) => <option key={n} value={n}>{n}</option>)}
-                  </Select>
-                </div>
-              ))}
+              {/* Baby and child seats share the same back seat, so each list
+                  offers only what the other leaves. The same rule is enforced
+                  in the API and as a database constraint — this is only the
+                  convenient end of it. */}
+              {extras.filter((e) => e.enabled && ["baby_seat", "child_seat"].includes(e.key)).map((e) => {
+                const own = Number(form[e.key as keyof typeof form]) || 0;
+                const other = Number(form[e.key === "baby_seat" ? "child_seat" : "baby_seat"]) || 0;
+                return (
+                  <div key={e.key} className="flex items-center gap-2 text-sm text-gray-700">
+                    <label>{e.label} <span className="text-gray-400 text-xs">€{e.daily_rate}/day</span></label>
+                    <Select value={own}
+                      onChange={(ev) => set(e.key, Number(ev.target.value))}
+                      className="border border-gray-300 rounded px-2 py-1 text-sm ml-auto">
+                      {Array.from({ length: MAX_CHILD_SEATS_TOTAL + 1 }, (_, n) => n)
+                        .filter((n) => n + other <= MAX_CHILD_SEATS_TOTAL || n === own)
+                        .map((n) => <option key={n} value={n}>{n}</option>)}
+                    </Select>
+                  </div>
+                );
+              })}
+              {(Number(form.baby_seat) || 0) + (Number(form.child_seat) || 0) > MAX_CHILD_SEATS_TOTAL && (
+                <p className="text-xs text-red-600">{SEATS_LIMIT_MESSAGE}</p>
+              )}
               {extras.filter((e) => e.enabled && e.key === "additional_drivers").map((e) => (
                 <div key={e.key} className="flex items-center gap-2 text-sm text-gray-700">
                   <label>{e.label} <span className="text-gray-400 text-xs">€{e.daily_rate}/day</span></label>
@@ -1081,6 +1096,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
 
 interface QuoteDelivery {
   id: string;
+  kind: "acknowledgment" | "quote_confirmation" | "booking_confirmation";
   intended_recipient_email: string;
   subject: string;
   payment_deadline: string | null;
@@ -1127,12 +1143,16 @@ function QuoteConfirmationButton({ reservationId, disabled }: { reservationId: s
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [deliveries, setDeliveries] = useState<QuoteDelivery[]>([]);
+  // Every workflow delivery, so the stage can be derived; the history list
+  // below still shows only the quote confirmations it is about.
+  const [allDeliveries, setAllDeliveries] = useState<QuoteDelivery[]>([]);
+  const deliveries = allDeliveries.filter((d) => d.kind === "quote_confirmation");
+  const workflow = deriveWorkflowStage(allDeliveries as unknown as DeliveryRow[]);
 
   const loadDeliveries = useCallback(async () => {
     const response = await fetch(`/api/admin/reservations/${reservationId}/quote-confirmation`);
     const data = await response.json().catch(() => ({}));
-    if (response.ok) setDeliveries(Array.isArray(data.deliveries) ? data.deliveries : []);
+    if (response.ok) setAllDeliveries(Array.isArray(data.deliveries) ? data.deliveries : []);
   }, [reservationId]);
 
   useEffect(() => { void loadDeliveries(); }, [loadDeliveries]);
@@ -1192,6 +1212,17 @@ function QuoteConfirmationButton({ reservationId, disabled }: { reservationId: s
           <Send size={12} /> {sending ? "Sending…" : deliveries.length ? "Send another confirmation" : "Send quote confirmation"}
         </button>
       </div>
+      {/* Derived from the delivery records, never editable. The condition is
+          shown beside the stage so "Booking confirmed" cannot be read as "the
+          customer received it" when the message actually bounced. */}
+      {workflow.display && (
+        <p className="mt-2 text-xs text-blue-900">
+          <span className="font-bold">Customer email stage:</span>{" "}
+          <span className={workflow.condition === "delivered" ? "" : "font-semibold text-amber-800"}>
+            {workflow.display}
+          </span>
+        </p>
+      )}
       {disabled && <p className="mt-2 text-xs text-blue-700">Payment is already recorded; this booking is confirmed.</p>}
       {result && <p className="mt-2 text-xs font-medium text-green-700">✓ {result}</p>}
       {error && <p className="mt-2 text-xs font-medium text-red-600">{error}</p>}

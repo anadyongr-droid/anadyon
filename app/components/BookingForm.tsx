@@ -1,11 +1,11 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { DRIVER_AGE_POLICY, DRIVER_AGE_POLICY_EL, DRIVER_AGE_BANDS, driverAgeBandForDob } from "@/lib/rentalPolicy";
+import { DRIVER_AGE_POLICY, DRIVER_AGE_POLICY_EL, DRIVER_AGE_BANDS, MAX_CHILD_SEATS_TOTAL, driverAgeBandForDob } from "@/lib/rentalPolicy";
 import { termsCopy } from "@/lib/i18n/content/legal";
 import LegalSections from "./LegalSections";
 import ReCAPTCHA from "react-google-recaptcha";
-import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, DEPOSIT_RATE } from "@/lib/pricing";
-import type { Rate, ExtrasConfig, PricingGroup, RateSegment } from "@/lib/pricing";
+import { calcPromoDiscount, calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, DEPOSIT_RATE } from "@/lib/pricing";
+import type { Rate, ExtrasConfig, PricingGroup, PromoType, RateSegment } from "@/lib/pricing";
 import DateRangePicker from "./DateRangePicker";
 import DobWheelPicker from "./DobWheelPicker";
 import { TIME_OPTIONS } from "@/lib/bookingFields";
@@ -257,11 +257,22 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
 
-  // Promo code
+  // Promo code. The applied code's *formula* is kept — its type and value —
+  // never a settled amount. A percentage code applied before the customer
+  // changes dates, model or extras used to keep the figure it was worth at the
+  // moment it was entered, so the deduction shown went stale in both
+  // directions. The discount is derived below on every render instead.
   const [promoInput, setPromoInput] = useState("");
-  const [promoResult, setPromoResult] = useState<{ valid: boolean; code?: string; id?: string; discount_amount?: number; description?: string; error?: string } | null>(null);
+  const [promoResult, setPromoResult] = useState<{
+    valid: boolean;
+    code?: string;
+    id?: string;
+    discount_type?: PromoType;
+    value?: number;
+    description?: string;
+    error?: string;
+  } | null>(null);
   const [promoChecking, setPromoChecking] = useState(false);
-  const promoDiscount = promoResult?.valid ? (promoResult.discount_amount ?? 0) : 0;
 
   // DOB is authoritative. Re-evaluate against the rental start date too,
   // because the customer can go back and move the booking across a birthday.
@@ -288,7 +299,26 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         Number(additionalDrivers) * xRate("additional_drivers", 2.5) * rentalDays
       ).toFixed(2))
     : 0;
+  // Baby and child seats share one back seat, so each dropdown offers only what
+  // is left after the other. The already-selected value stays in its own list
+  // even if the pair is over the limit, so a stale selection can still be seen
+  // and corrected rather than silently snapping to a number nobody chose.
+  const seatOptions = (own: number, other: number) =>
+    Array.from({ length: MAX_CHILD_SEATS_TOTAL + 1 }, (_, n) => n)
+      .filter(n => n + other <= MAX_CHILD_SEATS_TOTAL || n === own);
+  const babySeatOptions = seatOptions(Number(babySeat) || 0, Number(childSeat) || 0);
+  const childSeatOptions = seatOptions(Number(childSeat) || 0, Number(babySeat) || 0);
+
   const subtotalBeforePromo = parseFloat((vehicleSubtotal + extrasSubtotal).toFixed(2));
+  // Recomputed from the formula against the current subtotal, so changing the
+  // model, dates, times, FDW, seats or additional drivers moves the deduction
+  // with them. A fixed code is capped at the subtotal, matching the database.
+  const promoDiscount = promoResult?.valid
+    ? calcPromoDiscount(
+        { type: promoResult.discount_type ?? "percentage", value: Number(promoResult.value) },
+        subtotalBeforePromo,
+      )
+    : 0;
   const total = parseFloat(Math.max(0, subtotalBeforePromo - promoDiscount).toFixed(2));
   const deposit = parseFloat((total * DEPOSIT_RATE).toFixed(2));
   const balanceDue = parseFloat((total - deposit).toFixed(2));
@@ -296,10 +326,13 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
   async function applyPromo() {
     if (!promoInput.trim()) return;
     setPromoChecking(true);
+    // No total is sent. The endpoint returns the code's formula; letting the
+    // client name the base of a percentage is what made the deduction the
+    // client's to choose.
     const res = await fetch("/api/promo/validate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: promoInput, total: subtotalBeforePromo }),
+      body: JSON.stringify({ code: promoInput }),
     });
     const data = await res.json();
     setPromoResult(data);
@@ -385,9 +418,9 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
         total,
         deposit,
         balanceDue,
+        // The code only. Its id and the amount it is worth are the server's to
+        // resolve — sending either invited them to be trusted.
         promoCode: promoResult?.valid ? promoResult.code : undefined,
-        promoCodeId: promoResult?.valid ? promoResult.id : undefined,
-        discountAmount: promoResult?.valid ? promoResult.discount_amount : undefined,
         extrasLines: [
           ...(fdw ? [{ label: `${tr("extra.fdw")} — ${rentalDays} ${tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €${xRate("fdw", 5).toFixed(2)}`, amount: (xRate("fdw", 5) * rentalDays).toFixed(2) }] : []),
           ...(Number(babySeat) > 0 ? [{ label: `${tr("extra.babySeat")} ×${babySeat} — ${rentalDays} ${tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €${xRate("baby_seat", 3).toFixed(2)}`, amount: (xRate("baby_seat", 3) * Number(babySeat) * rentalDays).toFixed(2) }] : []),
@@ -592,7 +625,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                         <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("baby_seat", 3).toFixed(2)}</td>
                         <td className="px-4 py-3 text-center">
                           <select className="border dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={babySeat} onChange={e => setBabySeat(e.target.value)}>
-                            <option>0</option><option>1</option><option>2</option><option>3</option>
+                            {babySeatOptions.map(n => <option key={n}>{n}</option>)}
                           </select>
                         </td>
                       </tr>
@@ -601,7 +634,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                         <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">€ {xRate("child_seat", 3).toFixed(2)}</td>
                         <td className="px-4 py-3 text-center">
                           <select className="border dark:border-gray-600 rounded px-2 py-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700" value={childSeat} onChange={e => setChildSeat(e.target.value)}>
-                            <option>0</option><option>1</option><option>2</option><option>3</option>
+                            {childSeatOptions.map(n => <option key={n}>{n}</option>)}
                           </select>
                         </td>
                       </tr>

@@ -7,6 +7,7 @@ import BookingForm from "../components/BookingForm";
 import { Card } from "@/components/ui/card";
 import { translator, type Locale } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
+import { pricingGroupsForType } from "@/lib/vehicleCatalogue";
 
 const models = [
   {
@@ -160,15 +161,7 @@ export default function BikesClient({ locale = "en", initialRates, initialExtras
               vehicleType="Bikes"
               models={models.map((m) => m.name)}
               initialModel={selectedModel ?? models[0].name}
-              modelPricingGroups={{
-                "Cinzia Bombi Retro Women": "bike",
-                "Cinzia Bombi Retro Men": "bike",
-                "Scott Sportster 50": "bike",
-                "Ideal Crossmo": "bike",
-                "Kona Lanai": "bike",
-                "KTM Manhattan XC": "bike",
-                "Specialized Ariel": "bike",
-              }}
+              modelPricingGroups={pricingGroupsForType("Bikes")}
             />
           </div>
         )}

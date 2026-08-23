@@ -124,7 +124,10 @@ describe("seasonal pricing by billable-day start", () => {
   // 365 pickup dates × 9 durations × 6 groups. This is intentionally broad
   // enough to catch a future boundary regression and can exceed Vitest's
   // generic five-second single-test default on GitHub's shared runners.
-  }, 15_000);
+  // Raised from 15s once the PGlite migration suites started competing for the
+  // machine: it runs in ~3s alone and ~15s under a full-suite load, so 15 was
+  // close enough to the ceiling to fail on timing rather than on behaviour.
+  }, 60_000);
 
   it("does not change seasonal allocation with the browser or server timezone", () => {
     const original = process.env.TZ;

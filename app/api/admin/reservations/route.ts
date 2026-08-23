@@ -4,6 +4,7 @@ import { vehicleLabel } from "@/lib/vehicleLabel";
 import { sendMail } from "@/lib/mailer";
 import { validateQuoteVehicleAssignment } from "@/lib/quoteVehicleAssignment";
 import { confirmPaidBooking } from "@/lib/confirmPaidBooking";
+import { validateSeatTotals } from "@/lib/seatLimits";
 
 /**
  * Postgres integrity errors are caused by the request, not by the server.
@@ -32,9 +33,13 @@ export async function GET(req: NextRequest) {
   const to = searchParams.get("to");
   const quoteRef = searchParams.get("quote_ref");
 
+  // The delivery rows come along so the list can show how far each customer
+  // has been taken through the email workflow. Derived on read from what was
+  // actually dispatched — there is no stored stage column to drift, and
+  // nothing here a client could set.
   let query = supabaseAdmin
     .from("reservations")
-    .select("*, vehicles(name, plate, category)")
+    .select("*, vehicles(name, plate, category), booking_email_deliveries(kind, status, created_at)")
     .order("pickup_date");
 
   if (from) query = query.gte("pickup_date", from);
@@ -81,6 +86,12 @@ export async function POST(req: NextRequest) {
   // Insert first as pending, then let the shared idempotent payment path set
   // both status and deposit_paid_at and send the formal confirmation.
   if (createAsPaid) body.status = "pending";
+
+  // Baby and child seats share the same back seat, so the limit is on the two
+  // together. Enforced here as well as in the form, because the form is not the
+  // integrity boundary.
+  const seatProblem = await validateSeatTotals(null, body);
+  if (seatProblem) return NextResponse.json({ error: seatProblem }, { status: 400 });
 
   // The browser restricts its list for quote-origin reservations, but this is
   // the actual integrity boundary. It prevents a stale tab or crafted request

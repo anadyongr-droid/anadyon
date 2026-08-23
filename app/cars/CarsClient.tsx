@@ -9,6 +9,7 @@ import BookingForm from "../components/BookingForm";
 import { Card } from "@/components/ui/card";
 import { translator, type Locale } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
+import { pricingGroupsForType } from "@/lib/vehicleCatalogue";
 
 const models = [
   {
@@ -154,13 +155,7 @@ export default function CarsClient({ locale = "en", initialRates, initialExtras 
               vehicleType="Cars"
               models={models.map((m) => m.name)}
               initialModel={selectedModel ?? models[0].name}
-              modelPricingGroups={{
-                "Fiat Panda": "car_a",
-                "Hyundai Getz": "car_a",
-                "Hyundai i10": "car_a",
-                "Hyundai i20": "car_b",
-                "Peugeot 107": "car_c",
-              }}
+              modelPricingGroups={pricingGroupsForType("Cars")}
               modelTransmissions={Object.fromEntries(models.map(m => [m.name, m.transmissionKey]))}
             />
           </div>
