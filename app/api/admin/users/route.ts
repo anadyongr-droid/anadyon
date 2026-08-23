@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase";
 import { ROLES, isRole, type Role } from "@/lib/roles";
+import { looksLikeEmail } from "@/lib/email";
 
 /**
  * Managing who can sign in to the admin area.
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
   const email = body.email?.trim().toLowerCase() ?? "";
   const role = body.role ?? "";
 
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+  if (!looksLikeEmail(email)) {
     return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 });
   }
   if (!isRole(role)) {
