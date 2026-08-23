@@ -278,6 +278,44 @@ describe("promo ledger, child-seat limit and email kinds migration", () => {
     }
   });
 
+  it("blocks an update that would breach the limit, not only an insert", async () => {
+    const db = await migratedDatabase();
+    try {
+      // The constraint has to hold when staff edit an existing booking, which
+      // is the path a raw UPDATE takes. A CHECK that only bit on INSERT would
+      // leave every edit screen able to write 3+3.
+      const res = await db.query<{ id: string }>(
+        "insert into public.reservations (baby_seat, child_seat) values (1, 1) returning id",
+      );
+      const id = res.rows[0].id;
+
+      await expect(db.query(
+        "update public.reservations set child_seat = 3 where id = $1", [id],
+      )).rejects.toThrow();
+
+      await expect(db.query(
+        "update public.reservations set baby_seat = 3, child_seat = 3 where id = $1", [id],
+      )).rejects.toThrow();
+
+      // ...while a legitimate edit still goes through.
+      await expect(db.query(
+        "update public.reservations set baby_seat = 2, child_seat = 1 where id = $1", [id],
+      )).resolves.toBeDefined();
+
+      const after = await db.query("select baby_seat, child_seat from public.reservations where id=$1", [id]);
+      expect(after.rows[0]).toMatchObject({ baby_seat: 2, child_seat: 1 });
+
+      const quote = await db.query<{ id: string }>(
+        "insert into public.quotes (baby_seat, child_seat) values (0, 2) returning id",
+      );
+      await expect(db.query(
+        "update public.quotes set baby_seat = 2 where id = $1", [quote.rows[0].id],
+      )).rejects.toThrow();
+    } finally {
+      await db.close();
+    }
+  });
+
   it("refuses to apply the seat limit over rows that already breach it", async () => {
     const db = new PGlite();
     try {
