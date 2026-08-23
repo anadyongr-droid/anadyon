@@ -12,8 +12,10 @@ import type { NextRequest } from "next/server";
  */
 const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
-  sendMail: vi.fn(async () => ({ ok: true, queued: false })),
-  auditedMail: vi.fn(async () => ({ ok: true, queued: false, deliveryId: "delivery-1" })),
+  sendMail: vi.fn(async (_mail: Record<string, unknown>) => ({ ok: true, queued: false })),
+  auditedMail: vi.fn(async (_input: Record<string, unknown>) => (
+    { ok: true, queued: false, deliveryId: "delivery-1" }
+  )),
   after: vi.fn((task: () => unknown) => task()),
 }));
 

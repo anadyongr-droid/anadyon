@@ -11,17 +11,23 @@ const RequestSchema = z.object({
   deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),
 });
 
-const DELIVERY_COLUMNS = "id, intended_recipient_email, subject, payment_deadline, status, redirected, provider_message_id, accepted_at, delivered_at, last_event_at, last_error, created_at";
+const DELIVERY_COLUMNS = "id, kind, intended_recipient_email, subject, payment_deadline, status, redirected, provider_message_id, accepted_at, delivered_at, last_event_at, last_error, created_at";
 
+/**
+ * Every workflow delivery for this reservation, not only the quote
+ * confirmations. The caller shows the quote-confirmation history *and* derives
+ * the customer email workflow stage, which needs the acknowledgment and the
+ * booking confirmation too. The stage is computed from these rows rather than
+ * stored, so there is nothing here for a client to set.
+ */
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { data, error } = await supabaseAdmin
     .from("booking_email_deliveries")
     .select(DELIVERY_COLUMNS)
     .eq("reservation_id", id)
-    .eq("kind", "quote_confirmation")
     .order("created_at", { ascending: false })
-    .limit(10);
+    .limit(30);
   if (error) return NextResponse.json({ error: error.message }, { status: 503 });
   return NextResponse.json({ deliveries: data ?? [] });
 }

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import ReservationModal from "../components/ReservationModal";
+import { deriveWorkflowStage, type DeliveryRow } from "@/lib/emailWorkflowStage";
 
 interface Reservation {
   id: string;
@@ -16,6 +17,8 @@ interface Reservation {
   created_at?: string;
   dcl_status?: string;
   vehicles?: { name: string; category: string };
+  /** Audited workflow emails. The stage is derived from these, never stored. */
+  booking_email_deliveries?: DeliveryRow[];
 }
 
 interface Vehicle {
@@ -102,12 +105,13 @@ export default function ReservationsPage() {
                 <th className="text-center px-4 py-3 font-medium">Days</th>
                 <th className="text-right px-4 py-3 font-medium">Total</th>
                 <th className="text-center px-4 py-3 font-medium">Status</th>
+                <th className="text-left px-4 py-3 font-medium">Customer email</th>
                 <th className="text-center px-4 py-3 font-medium">DCL</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={9} className="px-5 py-8 text-center text-gray-400 text-sm">No reservations found.</td></tr>
+                <tr><td colSpan={10} className="px-5 py-8 text-center text-gray-400 text-sm">No reservations found.</td></tr>
               )}
               {filtered.map((r) => (
                 <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition cursor-pointer"
@@ -128,6 +132,21 @@ export default function ReservationsPage() {
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusClass(r.status)}`}>
                       {statusLabel(r.status)}
                     </span>
+                  </td>
+                  {/* Read-only, and never advanced by an email that is merely
+                      pending or queued. The delivery condition sits beside the
+                      stage so a bounce is not hidden behind "Booking
+                      confirmed". */}
+                  <td className="px-4 py-3 text-xs">
+                    {(() => {
+                      const workflow = deriveWorkflowStage(r.booking_email_deliveries);
+                      if (!workflow.display) return <span className="text-gray-400">—</span>;
+                      return (
+                        <span className={workflow.condition === "delivered" ? "text-gray-700" : "font-medium text-amber-700"}>
+                          {workflow.display}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-3 text-center">
                     {r.dcl_status && r.dcl_status !== "not_submitted" && (

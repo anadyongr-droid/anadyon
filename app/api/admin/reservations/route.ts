@@ -33,9 +33,13 @@ export async function GET(req: NextRequest) {
   const to = searchParams.get("to");
   const quoteRef = searchParams.get("quote_ref");
 
+  // The delivery rows come along so the list can show how far each customer
+  // has been taken through the email workflow. Derived on read from what was
+  // actually dispatched — there is no stored stage column to drift, and
+  // nothing here a client could set.
   let query = supabaseAdmin
     .from("reservations")
-    .select("*, vehicles(name, plate, category)")
+    .select("*, vehicles(name, plate, category), booking_email_deliveries(kind, status, created_at)")
     .order("pickup_date");
 
   if (from) query = query.gte("pickup_date", from);
