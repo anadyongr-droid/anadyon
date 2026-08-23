@@ -1,11 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendMail } from "@/lib/mailer";
+import { supabaseAdmin } from "@/lib/supabase";
 
 const ALERT_EVENTS = new Set([
   "email.bounced",
   "email.delivery_delayed",
   "email.complained",
+  "email.failed",
+  "email.suppressed",
 ]);
+
+const DELIVERY_EVENTS = new Set([
+  "email.sent",
+  "email.delivered",
+  "email.delivery_delayed",
+  "email.bounced",
+  "email.complained",
+  "email.failed",
+  "email.suppressed",
+]);
+
+type ResendPayload = {
+  type: string;
+  created_at?: string;
+  data: Record<string, unknown>;
+};
 
 /**
  * Constant-time comparison.
@@ -68,7 +87,7 @@ export async function POST(req: NextRequest) {
 
   // Only now is the payload trusted enough to parse. A body that is signed but
   // not valid JSON is a bad request, not a server error.
-  let payload: { type: string; data: Record<string, unknown> };
+  let payload: ResendPayload;
   try {
     payload = JSON.parse(body);
   } catch {
@@ -78,21 +97,85 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unexpected payload shape" }, { status: 400 });
   }
 
-  return handleEvent(payload);
+  return handleEvent(payload, svixId);
 }
 
-async function handleEvent(payload: { type: string; data: Record<string, unknown> }) {
+function deliveryIdFromTags(tags: unknown): string | null {
+  if (Array.isArray(tags)) {
+    const tag = tags.find((entry) => entry && typeof entry === "object" && (entry as { name?: unknown }).name === "delivery_id");
+    const value = tag && typeof (tag as { value?: unknown }).value === "string" ? (tag as { value: string }).value : null;
+    return value && /^[0-9a-f-]{36}$/i.test(value) ? value : null;
+  }
+  if (tags && typeof tags === "object") {
+    const value = (tags as Record<string, unknown>).delivery_id;
+    return typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value) ? value : null;
+  }
+  return null;
+}
+
+function eventError(data: Record<string, unknown>): string | null {
+  for (const key of ["bounce", "failed", "suppressed"]) {
+    const value = data[key];
+    if (value == null) continue;
+    return (typeof value === "string" ? value : JSON.stringify(value)).slice(0, 1000);
+  }
+  return null;
+}
+
+async function handleEvent(payload: ResendPayload, svixId: string) {
   const { type, data } = payload;
 
+  let deliveryMatched = false;
+  let deliveryChanged = false;
+  const deliveryId = deliveryIdFromTags(data.tags);
+  const emailId = typeof data.email_id === "string" ? data.email_id : null;
+  const recipients = Array.isArray(data.to)
+    ? data.to.filter((value): value is string => typeof value === "string")
+    : typeof data.to === "string" ? [data.to] : [];
+  const eventAt = new Date(
+    typeof payload.created_at === "string" ? payload.created_at
+      : typeof data.created_at === "string" ? data.created_at
+        : Date.now(),
+  );
+
+  if (DELIVERY_EVENTS.has(type) && deliveryId && emailId && recipients.length && Number.isFinite(eventAt.getTime())) {
+    for (const recipient of recipients) {
+      const { data: recorded, error } = await supabaseAdmin.rpc("record_booking_email_event", {
+        p_delivery_id: deliveryId,
+        p_svix_id: svixId,
+        p_email_id: emailId,
+        p_event_type: type,
+        p_event_created_at: eventAt.toISOString(),
+        p_recipient: recipient,
+        p_error: eventError(data),
+      });
+      if (error) {
+        console.error("[resend-webhook] delivery audit failed:", error.message);
+        return NextResponse.json({ error: "Could not record delivery event" }, { status: 503 });
+      }
+      const result = recorded as { matched?: boolean; changed?: boolean } | null;
+      deliveryMatched ||= result?.matched === true;
+      deliveryChanged ||= result?.changed === true;
+    }
+  }
+
   if (!ALERT_EVENTS.has(type)) {
-    return NextResponse.json({ received: true });
+    return NextResponse.json({ received: true, deliveryMatched });
   }
 
   const labels: Record<string, string> = {
     "email.bounced": "⚠️ Email Bounced",
     "email.delivery_delayed": "⏳ Email Delivery Delayed",
     "email.complained": "🚩 Spam Complaint",
+    "email.failed": "⚠️ Email Failed",
+    "email.suppressed": "⛔ Email Suppressed",
   };
+
+  // A retried webhook has already produced its alert. For messages outside
+  // the audited booking flow we retain the previous alert behaviour.
+  if (deliveryMatched && !deliveryChanged) {
+    return NextResponse.json({ received: true, deliveryMatched, duplicate: true });
+  }
 
   const esc = (v: unknown) =>
     String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -130,5 +213,5 @@ async function handleEvent(payload: { type: string; data: Record<string, unknown
     `,
   });
 
-  return NextResponse.json({ received: true });
+  return NextResponse.json({ received: true, deliveryMatched });
 }

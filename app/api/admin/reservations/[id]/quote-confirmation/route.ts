@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { athensDateTimeToUtc, quoteConfirmationMail } from "@/lib/bookingEmails";
-import { mailIsRedirected, sendMail } from "@/lib/mailer";
+import { mailIsRedirected, mailRedirectTarget, sendMail } from "@/lib/mailer";
 import { supabaseAdmin } from "@/lib/supabase";
 import { reservationRef } from "@/lib/wise";
 
@@ -10,6 +10,21 @@ const RequestSchema = z.object({
   // time regardless of where the staff member's device happens to be.
   deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),
 });
+
+const DELIVERY_COLUMNS = "id, intended_recipient_email, subject, payment_deadline, status, redirected, provider_message_id, accepted_at, delivered_at, last_event_at, last_error, created_at";
+
+export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { data, error } = await supabaseAdmin
+    .from("booking_email_deliveries")
+    .select(DELIVERY_COLUMNS)
+    .eq("reservation_id", id)
+    .eq("kind", "quote_confirmation")
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (error) return NextResponse.json({ error: error.message }, { status: 503 });
+  return NextResponse.json({ deliveries: data ?? [] });
+}
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -54,7 +69,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Assign an eligible vehicle before confirming the quote." }, { status: 409 });
   }
   const reference = reservationRef(reservation.id, reservation.notes, linkedQuote?.ref);
-  const sent = await sendMail(quoteConfirmationMail({
+  const mail = quoteConfirmationMail({
     customerName: reservation.customer_name,
     customerEmail: reservation.customer_email,
     reference,
@@ -67,7 +82,39 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     total: Number(reservation.total),
     deposit: Number(reservation.deposit),
     balanceDue: Number(reservation.balance_due),
-  }, deadline));
+  }, deadline);
+
+  // The audit row exists before the provider call, so every button press has a
+  // durable record even if Resend times out. Its UUID is also sent as a Resend
+  // tag, allowing an unusually fast webhook to correlate before the provider
+  // message ID has been written back.
+  const { data: delivery, error: deliveryError } = await supabaseAdmin
+    .from("booking_email_deliveries")
+    .insert({
+      reservation_id: reservation.id,
+      kind: "quote_confirmation",
+      intended_recipient_email: reservation.customer_email,
+      delivery_recipient_email: mailRedirectTarget ?? reservation.customer_email,
+      subject: mail.subject,
+      payment_deadline: deadline.toISOString(),
+      redirected: mailIsRedirected,
+    })
+    .select("id")
+    .single();
+
+  if (deliveryError || !delivery) {
+    console.error("[quote-confirmation] could not create delivery audit row:", deliveryError?.message);
+    return NextResponse.json({ error: "The quote confirmation could not be audited, so it was not sent." }, { status: 503 });
+  }
+
+  mail.tags = [
+    { name: "category", value: "quote_confirmation" },
+    { name: "delivery_id", value: delivery.id },
+  ];
+  const sent = await sendMail(mail, {
+    deliveryId: delivery.id,
+    idempotencyKey: `quote-confirmation-${delivery.id}`,
+  });
 
   if (!sent.ok && !sent.queued) {
     return NextResponse.json({ error: "The quote confirmation could not be sent or queued. Please try again." }, { status: 503 });
@@ -76,6 +123,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   return NextResponse.json({
     ok: true,
     reference,
+    deliveryId: delivery.id,
     queued: sent.queued,
     redirected: mailIsRedirected,
   });
