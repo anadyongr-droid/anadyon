@@ -2,23 +2,47 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   row: {} as Record<string, unknown>,
+  /**
+   * Stands in for the partial unique index on (reservation_id, kind), which
+   * excludes 'failed' rows so a send that could be neither delivered nor queued
+   * can be retried.
+   */
   claims: new Set<string>(),
+  deliveries: new Map<string, string>(),
+  rpc: vi.fn(async (_fn: string, _args: Record<string, unknown>) => ({ data: null, error: null })),
   sendMail: vi.fn(async (_mail: { subject: string }) => ({ ok: true, queued: false })),
 }));
 
-vi.mock("@/lib/mailer", () => ({ sendMail: mocks.sendMail }));
+vi.mock("@/lib/mailer", () => ({
+  sendMail: mocks.sendMail,
+  mailIsRedirected: false,
+  mailRedirectTarget: null,
+}));
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
-    from: (name: string) => name === "alert_outbox" ? ({
-      insert: async (payload: { key: string }) => {
-        if (mocks.claims.has(payload.key)) return { error: { code: "23505", message: "duplicate" } };
-        mocks.claims.add(payload.key);
-        return { error: null };
-      },
-      update: () => ({ eq: async () => ({ error: null }) }),
-      delete: () => ({
-        eq: async (_column: string, key: string) => {
-          mocks.claims.delete(key);
+    rpc: mocks.rpc,
+    from: (name: string) => name === "booking_email_deliveries" ? ({
+      insert: (payload: { reservation_id: string; kind: string }) => ({
+        select: () => ({
+          single: async () => {
+            const key = `${payload.reservation_id}:${payload.kind}`;
+            if (mocks.claims.has(key)) {
+              return { data: null, error: { code: "23505", message: "duplicate key" } };
+            }
+            mocks.claims.add(key);
+            mocks.deliveries.set(`delivery-${mocks.claims.size}`, key);
+            return { data: { id: `delivery-${mocks.claims.size}` }, error: null };
+          },
+        }),
+      }),
+      // A hard failure is marked 'failed', which drops the row out of the
+      // partial unique index and frees that kind to be attempted again.
+      update: (values: { status?: string }) => ({
+        eq: async (_column: string, deliveryId: string) => {
+          if (values.status === "failed") {
+            const key = mocks.deliveries.get(deliveryId);
+            if (key) mocks.claims.delete(key);
+          }
           return { error: null };
         },
       }),
@@ -69,7 +93,9 @@ beforeEach(() => {
     quotes: { ref: "ABC123" },
   };
   mocks.sendMail.mockClear();
+  mocks.rpc.mockClear();
   mocks.claims.clear();
+  mocks.deliveries.clear();
 });
 
 describe("confirmPaidBooking", () => {

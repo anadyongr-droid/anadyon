@@ -1,4 +1,5 @@
-import { sendMail } from "@/lib/mailer";
+import { sendMail, type Mail } from "@/lib/mailer";
+import { sendAuditedWorkflowMail } from "@/lib/auditedMail";
 import { createHash } from "node:crypto";
 import { after, NextRequest, NextResponse } from "next/server";
 import { verifyRecaptcha } from "@/lib/recaptcha";
@@ -6,7 +7,15 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { calcVehicleSubtotal, calcRentalDays, DEPOSIT_RATE, type Rate, type ExtrasConfig } from "@/lib/pricing";
 import { z } from "zod";
-import { DRIVER_AGE_BANDS, ageOnDate, driverAgeBandForDob } from "@/lib/rentalPolicy";
+import {
+  DRIVER_AGE_BANDS,
+  MAX_CHILD_SEATS_TOTAL,
+  SEATS_LIMIT_MESSAGE,
+  ageOnDate,
+  driverAgeBandForDob,
+  seatsWithinLimit,
+} from "@/lib/rentalPolicy";
+import { resolveModel } from "@/lib/vehicleCatalogue";
 
 const TOLERANCE = 0.02; // allow up to €0.02 rounding difference before flagging
 
@@ -32,15 +41,17 @@ function bookingIdempotencyKey(payload: Record<string, unknown>): string {
 /**
  * Shape validation for the public booking endpoint.
  *
- * Deliberately validates types and formats only — it never recomputes a price.
- * All pricing is calculated in BookingForm.tsx and this route formats and
- * stores what it is given; recalculating here would create a second pricing
- * implementation that silently drifts from the first.
+ * Validates types and formats only. Every monetary field below is accepted so
+ * an older cached form is not rejected, and then discarded — the price is
+ * recalculated here from the rate card, and the pricing group is derived from
+ * the selected model rather than taken from the request. See the destructure
+ * below for what is deliberately thrown away.
  *
  * Optional fields stay permissive so a valid booking is never rejected over a
  * field the form may legitimately omit.
  */
 const money = z.coerce.number().nonnegative().finite();
+const seatCount = z.coerce.number().int().min(0).max(MAX_CHILD_SEATS_TOTAL);
 const QuoteSchema = z.object({
   // Required to identify the booking
   vehicleType: z.string().min(1),
@@ -50,11 +61,15 @@ const QuoteSchema = z.object({
   lastName: z.string().min(1).max(100),
   email: z.string().email().max(200),
 
-  // Required numerically — these are stored and emailed as the price
-  rentalDays: z.coerce.number().int().positive(),
-  total: money,
-  deposit: money,
-  balanceDue: money,
+  // Accepted for backwards compatibility and then discarded. They were once
+  // required, because they were what got stored; the price is now recalculated
+  // here, so a caller that omits them is not missing anything the server needs.
+  // `total` survives only to compare against the server's figure and raise the
+  // price-manipulation alert.
+  rentalDays: z.coerce.number().int().positive().optional(),
+  total: money.optional(),
+  deposit: money.optional(),
+  balanceDue: money.optional(),
 
   // Present but not critical to reject on
   selectedModel: z.string().max(120).optional(),
@@ -72,8 +87,8 @@ const QuoteSchema = z.object({
   // calculation directly, and an omitted field arrived there as Number(undefined)
   // — NaN — which propagated through the total and was serialised to the database
   // as null. The quote then stored no price at all while still looking accepted.
-  babySeat: z.coerce.number().int().min(0).max(10).default(0),
-  childSeat: z.coerce.number().int().min(0).max(10).default(0),
+  babySeat: seatCount.default(0),
+  childSeat: seatCount.default(0),
   fdw: z.boolean().default(false),
   additionalDrivers: z.coerce.number().int().min(0).max(10).default(0),
   dailyRate: money.optional(),
@@ -97,10 +112,24 @@ const QuoteSchema = z.object({
   // Which language the booking was made in, so the link in the confirmation
   // email lands the customer back where they were rather than in English.
   locale: z.enum(["en", "el"]).optional(),
-}).passthrough();
+}).passthrough().superRefine((value, ctx) => {
+  // Each seat field is already capped individually; this is the combined limit,
+  // which is the one that reflects how many seats fit in the car.
+  if (!seatsWithinLimit(value.babySeat, value.childSeat)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["childSeat"],
+      message: SEATS_LIMIT_MESSAGE,
+    });
+  }
+});
 
 const BookingResultSchema = z.object({
   ref: z.string().min(1),
+  // Nullable rather than required: an older deployment of create_web_booking
+  // does not return it, and a missing id must degrade to an unaudited send
+  // rather than failing a booking that is already committed.
+  reservation_id: z.string().uuid().nullable().optional(),
   discount: money,
   total: money,
   deposit: money,
@@ -127,15 +156,17 @@ export async function POST(req: NextRequest) {
   const parsed = QuoteSchema.safeParse(body);
   if (!parsed.success) {
     const first = parsed.error.issues[0];
-    return NextResponse.json(
-      { error: `Invalid ${first?.path.join(".") || "request"}: ${first?.message ?? "check your details"}` },
-      { status: 400 }
-    );
+    // A custom rule (the combined seat limit) already reads as a sentence a
+    // customer can act on. Prefixing it with the field name would not.
+    const message = first?.code === z.ZodIssueCode.custom
+      ? first.message
+      : `Invalid ${first?.path.join(".") || "request"}: ${first?.message ?? "check your details"}`;
+    return NextResponse.json({ error: message }, { status: 400 });
   }
   body = parsed.data;
 
   const {
-    vehicleType,
+    vehicleType: _clientVehicleType,
     selectedModel,
     pickupLocation,
     dropoffLocation,
@@ -143,13 +174,15 @@ export async function POST(req: NextRequest) {
     pickupTime,
     dropoffDate,
     dropoffTime,
-    transmission,
+    transmission: _clientTransmission,
     driverAge,
     babySeat,
     childSeat,
     fdw,
     additionalDrivers,
-    pricingGroup,
+    // Submitted but never used for pricing. The catalogue decides all three;
+    // see `catalogueModel` below.
+    pricingGroup: _clientPricingGroup,
     title,
     firstName,
     lastName,
@@ -179,6 +212,24 @@ export async function POST(req: NextRequest) {
     extrasLines: _extrasLines,
     locale,
   } = body;
+
+  // The model is the only vehicle field the customer actually chooses; type,
+  // pricing group and transmission all follow from it. Deriving them here is
+  // what stops a crafted request naming an expensive model alongside a cheaper
+  // group — previously the submitted group was priced as-is, so a Peugeot 107
+  // could be bought at a bicycle's rate.
+  const catalogueModel = resolveModel(selectedModel);
+  if (!catalogueModel) {
+    // Refused rather than priced at zero. An unknown model used to fall through
+    // to a €0 vehicle subtotal and still produce an accepted-looking quote.
+    return NextResponse.json(
+      { error: "Please choose one of our available vehicles." },
+      { status: 400 },
+    );
+  }
+  const vehicleType = catalogueModel.vehicleType;
+  const pricingGroup = catalogueModel.pricingGroup;
+  const transmission = catalogueModel.transmission;
 
   // DOB is the authoritative age answer. Recompute on the actual pick-up date
   // so a stale or manually altered dropdown cannot store a contradictory band.
@@ -226,9 +277,15 @@ export async function POST(req: NextRequest) {
   const xRate = (key: string) =>
     (extrasConfig as ExtrasConfig[]).find(e => e.key === key)?.daily_rate ?? 0;
 
-  const serverVehicleSubtotal = pricingGroup
-    ? calcVehicleSubtotal(rates as Rate[], pricingGroup, pickupDate, dropoffDate, serverRentalDays)
-    : 0;
+  const serverVehicleSubtotal = calcVehicleSubtotal(
+    rates as Rate[], pricingGroup, pickupDate, dropoffDate, serverRentalDays,
+  );
+  // A known model with no rate row for its group is a rate-card problem, not a
+  // free rental. Refuse instead of storing a zero-priced quote.
+  if (serverVehicleSubtotal <= 0) {
+    console.error("[quote] no rate found", { model: catalogueModel.name, pricingGroup });
+    return NextResponse.json({ error: "Unable to verify pricing. Please try again." }, { status: 503 });
+  }
   const serverDailyRate = serverVehicleSubtotal && serverRentalDays ? parseFloat((serverVehicleSubtotal / serverRentalDays).toFixed(2)) : 0;
   const serverExtrasSubtotal = parseFloat((
     (fdw ? xRate("fdw") : 0) * serverRentalDays +
@@ -274,12 +331,13 @@ export async function POST(req: NextRequest) {
     mobile_tel: mobileTel,
     landline_tel: landlineTel,
     vehicle_type: vehicleType,
-    selected_model: selectedModel,
-    // The client already sends this and the route already validates against it;
-    // it simply was never stored. Without it every quote reached the admin with
-    // no category, so the reservation form could not tell an upgrade from a
-    // downgrade and silently treated both as unremarkable.
-    pricing_group: pricingGroup ?? null,
+    // The catalogue's spelling, not the submitted one, so a near-miss match
+    // cannot write a variant model name into the database.
+    selected_model: catalogueModel.name,
+    // Derived from the model above. Without it every quote reached the admin
+    // with no category, so the reservation form could not tell an upgrade from
+    // a downgrade and silently treated both as unremarkable.
+    pricing_group: pricingGroup,
     pickup_location: pickupLocation,
     dropoff_location: dropoffLocation,
     pickup_date: pickupDate,
@@ -287,7 +345,7 @@ export async function POST(req: NextRequest) {
     dropoff_date: dropoffDate,
     dropoff_time: dropoffTime,
     driver_age: effectiveDriverAge,
-    transmission: transmission ?? null,
+    transmission,
     baby_seat: Number(babySeat) || 0,
     child_seat: Number(childSeat) || 0,
     fdw: !!fdw,
@@ -348,15 +406,21 @@ export async function POST(req: NextRequest) {
   };
 
   // Content-derived rather than random: a retry after a timeout sends the same
-  // key, while a changed booking produces a different one.
+  // key, while a genuinely changed booking produces a different one.
+  //
+  // Every field here describes what the customer asked for. No monetary value
+  // appears — `clientTotal` used to, which meant altering the submitted total
+  // produced a different key for an otherwise identical request, defeating the
+  // replay protection it was supposed to provide. The vehicle fields are the
+  // catalogue's, not the caller's, for the same reason.
   const idempotencyKey = bookingIdempotencyKey({
     email: email.trim().toLowerCase(),
     firstName: firstName.trim(),
     lastName: lastName.trim(),
     mobileTel: mobileTel?.trim() ?? "",
     vehicleType,
-    selectedModel: selectedModel ?? "",
-    pricingGroup: pricingGroup ?? "",
+    selectedModel: catalogueModel.name,
+    pricingGroup,
     pickupLocation: pickupLocation ?? "",
     dropoffLocation: dropoffLocation ?? "",
     pickupDate,
@@ -369,7 +433,6 @@ export async function POST(req: NextRequest) {
     fdw,
     additionalDrivers,
     promoCode: promoCode?.trim().toLowerCase() ?? "",
-    clientTotal: Number(clientTotal),
     comments: comments?.trim() ?? "",
     flightNumber: flightNumber?.trim().toUpperCase() ?? "",
     dob: dob ?? "",
@@ -413,7 +476,11 @@ export async function POST(req: NextRequest) {
   const total = Number(booking.data.total);
   const deposit = Number(booking.data.deposit);
   const balanceDue = Number(booking.data.balance_due);
-  const manipulated = total > 0 && Math.abs(Number(clientTotal) - total) > TOLERANCE;
+  // Only a total that was actually submitted can disagree with the server's.
+  // A caller that sends none is not suspicious — it is simply not asserting a
+  // price, which is the direction this route is moving in anyway.
+  const manipulated = total > 0 && clientTotal !== undefined
+    && Math.abs(Number(clientTotal) - total) > TOLERANCE;
   const showPrice = total > 0;
 
   // Rebuild extras rows using server rates (ignoring client extrasLines amounts)
@@ -449,10 +516,14 @@ export async function POST(req: NextRequest) {
   // independent — the office copy and the customer copy — and sending them one
   // after the other made the customer wait for both round trips before their
   // booking reference appeared.
+  // No replyTo. This is an internal notification, and setting the customer as
+  // the reply address meant a member of staff hitting Reply — to ask a
+  // colleague about availability, say — wrote to the customer instead. Replies
+  // now stay inside the office; the "Compose email to customer" link below is
+  // the deliberate, one-click way to actually contact them.
   const officeMail = () => sendMail({
     from: "Anadyon Website <customerservice@anadyon.gr>",
     to: ["customerservice@anadyon.gr"],
-    replyTo: email,
     subject: `${manipulated ? "⚠️ [ALERT] " : ""}Quote Request — ${lastName}, ${ref}`,
     html: `
       ${manipulationWarning}
@@ -504,6 +575,15 @@ export async function POST(req: NextRequest) {
         ${comments ? `<tr><td><strong>Comments:</strong></td><td>${esc(comments)}</td></tr>` : ""}
       </table>
 
+      <p style="margin:16px 0;">
+        <a href="mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Anadyon Rentals — your reservation request ${ref}`)}"
+           style="display:inline-block;background:#c2410c;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;font-weight:600;">
+          Compose email to customer
+        </a>
+        <br/>
+        <span style="color:#888;font-size:12px;">Replying to this notification reaches the office only, not the customer. Use this button to write to them.</span>
+      </p>
+
       <hr/>
       <p style="color:#888;font-size:12px;">This is not a confirmed reservation. Anadyon Rentals will contact you shortly with availability and the final price.</p>
     `,
@@ -513,7 +593,11 @@ export async function POST(req: NextRequest) {
   // later quote confirmation and post-payment booking confirmation emails.
   // It always uses the correct server figures and follows the language used on
   // the public booking form.
-  const customerMail = () => sendMail({
+  //
+  // Routed through the delivery audit when the reservation id is known, so this
+  // stage shows on the reservation screen with its real delivery condition and
+  // cannot be sent twice for the same request.
+  const acknowledgmentMail: Mail = {
     from: "Anadyon Rentals <customerservice@anadyon.gr>",
     to: email,
     subject: locale === "el"
@@ -584,7 +668,17 @@ export async function POST(req: NextRequest) {
       <p>Please add <strong>customerservice@anadyon.gr</strong> to your safe senders list to avoid our reply going to spam.</p>
       <p>Thank you,<br/>Anadyon Rentals<br/>Tel: +30 6988 010188</p>
     `,
-  });
+  };
+
+  const reservationId = booking.data.reservation_id ?? null;
+  const customerMail = () => reservationId
+    ? sendAuditedWorkflowMail({
+        reservationId,
+        kind: "acknowledgment",
+        recipientEmail: email,
+        mail: acknowledgmentMail,
+      })
+    : sendMail(acknowledgmentMail);
 
   // The booking has already been committed atomically. Do not make a customer
   // wait for two external email round trips before seeing their reference:

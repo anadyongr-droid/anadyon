@@ -1,5 +1,5 @@
 import { bookingConfirmedMail, type BookingEmailDetails } from "@/lib/bookingEmails";
-import { sendMail } from "@/lib/mailer";
+import { sendAuditedWorkflowMail } from "@/lib/auditedMail";
 import { supabaseAdmin } from "@/lib/supabase";
 import { reservationRef } from "@/lib/wise";
 
@@ -47,7 +47,6 @@ function details(row: PaidReservationRow): BookingEmailDetails {
 }
 
 const COLUMNS = "id, customer_name, customer_email, pickup_date, pickup_time, pickup_location, return_date, return_time, total, deposit, balance_due, notes, status, deposit_paid_at, vehicles(name), quotes(ref)";
-const EMAIL_CLAIM = (reservationId: string) => `booking-confirmation:${reservationId}`;
 
 export type ConfirmPaidBookingResult =
   | { outcome: "confirmed"; reference: string; expectedDeposit: number; total: number; emailQueued: boolean }
@@ -62,9 +61,10 @@ export type ConfirmPaidBookingResult =
  *
  * `deposit_paid_at IS NULL` is the payment-write idempotency gate shared by
  * Stripe's webhook, Stripe's return URL and a manually reconciled bank
- * transfer. A second, deterministic alert_outbox claim protects the email:
- * payment can be recorded before delivery, and a retry can still send a mail
- * that was neither delivered nor queued without ever sending it twice.
+ * transfer. The email has its own guard: one `booking_email_deliveries` row per
+ * reservation per kind, enforced by a partial unique index, so payment can be
+ * recorded before delivery and a retry can still send a mail that was neither
+ * delivered nor queued without ever sending it twice.
  */
 export async function confirmPaidBooking(input: {
   reservationId: string;
@@ -125,27 +125,37 @@ export async function confirmPaidBooking(input: {
     else newlyConfirmed = false;
   }
 
+  // A verified payment turns the promo hold taken at quote confirmation into a
+  // redemption. Replay-safe in the database, so a repeated Stripe webhook does
+  // not consume a second use of the code.
+  if (newlyConfirmed) {
+    const { error: redeemError } = await supabaseAdmin.rpc("promo_redeem", {
+      p_reservation_id: input.reservationId,
+      p_amount: null,
+    });
+    // Not fatal: the customer has paid and the booking is confirmed. A promo
+    // that stays held is corrected by the expiry sweep, whereas refusing here
+    // would leave a paid booking looking failed.
+    if (redeemError) {
+      console.error(`[confirm] promo redeem failed for ${input.reservationId}:`, redeemError.message);
+    }
+  }
+
   const confirmedDetails = details(confirmedRow);
   let emailQueued = false;
   if (confirmedDetails.customerEmail) {
-    const claimKey = EMAIL_CLAIM(input.reservationId);
-    const { error: claimError } = await supabaseAdmin.from("alert_outbox").insert({
-      key: claimKey,
-      payload: `Formal booking confirmation for ${confirmedDetails.reference}`,
+    // The audit row's partial unique index is now the idempotency guard, so the
+    // formal confirmation is sent exactly once per reservation and appears on
+    // the reservation screen with its real delivery condition.
+    const sent = await sendAuditedWorkflowMail({
+      reservationId: input.reservationId,
+      kind: "booking_confirmation",
+      recipientEmail: confirmedDetails.customerEmail,
+      mail: bookingConfirmedMail(confirmedDetails),
     });
-    if (claimError && claimError.code !== "23505") {
-      return { outcome: "error", error: `Payment was recorded but the confirmation email could not be claimed: ${claimError.message}` };
-    }
-    if (!claimError) {
-      const sent = await sendMail(bookingConfirmedMail(confirmedDetails));
-      emailQueued = !sent.ok && sent.queued;
-      if (!sent.ok && !sent.queued) {
-        await supabaseAdmin.from("alert_outbox").delete().eq("key", claimKey);
-        return { outcome: "error", error: "Payment was recorded but the booking confirmation email could not be sent or queued." };
-      }
-      await supabaseAdmin.from("alert_outbox")
-        .update({ sent_at: new Date().toISOString(), error: sent.ok ? null : "queued by mailer" })
-        .eq("key", claimKey);
+    emailQueued = sent.queued;
+    if (!sent.ok) {
+      return { outcome: "error", error: "Payment was recorded but the booking confirmation email could not be sent or queued." };
     }
   }
 

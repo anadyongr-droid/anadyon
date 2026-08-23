@@ -9,6 +9,7 @@ import BookingForm from "../components/BookingForm";
 import { Card } from "@/components/ui/card";
 import { translator, type Locale } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
+import { pricingGroupsForType } from "@/lib/vehicleCatalogue";
 
 const models = [
   {
@@ -118,10 +119,7 @@ export default function MotorbikesClient({ locale = "en", initialRates, initialE
               vehicleType="Motorbikes"
               models={models.map((m) => m.name)}
               initialModel={selectedModel ?? models[0].name}
-              modelPricingGroups={{
-                "Kymco Agility 50cc": "motorbike_a",
-                "Kymco Agility 125cc": "motorbike_b",
-              }}
+              modelPricingGroups={pricingGroupsForType("Motorbikes")}
               modelTransmissions={Object.fromEntries(models.map(m => [m.name, m.transmissionKey]))}
             />
           </div>

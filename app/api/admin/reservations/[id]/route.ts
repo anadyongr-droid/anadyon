@@ -3,6 +3,10 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { sendMail } from "@/lib/mailer";
 import { validateQuoteVehicleAssignment } from "@/lib/quoteVehicleAssignment";
 import { confirmPaidBooking } from "@/lib/confirmPaidBooking";
+import { validateSeatTotals } from "@/lib/seatLimits";
+
+/** Statuses that mean the rental will not happen, so a promo hold is given back. */
+const RELEASES_PROMO = new Set(["cancelled", "voided", "no_show"]);
 
 /**
  * Postgres integrity errors are caused by the request, not by the server.
@@ -134,6 +138,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  // Baby and child seats share the same back seat. Checked against the merged
+  // result rather than the submitted fields alone, so raising one seat type
+  // without touching the other still cannot breach the combined limit.
+  const seatProblem = await validateSeatTotals(id, body);
+  if (seatProblem) return NextResponse.json({ error: seatProblem }, { status: 400 });
+
   // An untouched date input arrives as ""; Postgres rejects that for a date
   // column just as firmly as it rejects an unknown one.
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -148,6 +158,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (error) return NextResponse.json({ error: error.message }, { status: statusForPgError(error.code) });
 
   await touchCustomer(data.customer_id ?? body.customer_id);
+
+  // A booking that will never be paid gives its promo use back, so a limited
+  // code is not permanently consumed by a rental that did not happen. Redeemed
+  // uses are untouched — those were genuinely spent.
+  if (typeof body.status === "string" && RELEASES_PROMO.has(body.status) && body.status !== existing.status) {
+    const { error: releaseError } = await supabaseAdmin.rpc("promo_release", {
+      p_reservation_id: id,
+      p_reason: `reservation ${body.status}`,
+    });
+    if (releaseError) {
+      console.error(`[reservations] promo release failed for ${id}:`, releaseError.message);
+    }
+  }
 
   let responseData = data;
   if (manualPaymentConfirmation || retryPaidConfirmation) {
