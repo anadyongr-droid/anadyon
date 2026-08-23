@@ -265,7 +265,11 @@ describe("promo ledger, child-seat limit and email kinds migration", () => {
         )).resolves.toBeDefined();
       }
 
-      for (const [baby, child] of [[2, 2], [3, 1], [4, 0], [-1, 0], [0, -2]]) {
+      // Includes 3+3, the pair that reached production as quote 2R55WT.
+      for (const [baby, child] of [
+        [2, 2], [3, 1], [1, 3], [3, 2], [2, 3], [3, 3],
+        [4, 0], [0, 4], [-1, 0], [0, -2],
+      ]) {
         await expect(db.query(
           "insert into public.reservations (baby_seat, child_seat) values ($1,$2)", [baby, child],
         )).rejects.toThrow();

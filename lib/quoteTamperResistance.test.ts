@@ -208,7 +208,13 @@ describe("combined child-seat limit at the public API", () => {
     expect(res.status).toBe(200);
   });
 
-  it.each([[2, 2], [3, 1], [4, 0], [-1, 2]])("rejects %i baby and %i child seats", async (baby, child) => {
+  // Every over-limit pair the old form could actually produce, since each
+  // dropdown independently offered 0-3. 3+3 is the combination that reached
+  // production as quote 2R55WT.
+  it.each([
+    [2, 2], [3, 1], [1, 3], [3, 2], [2, 3], [3, 3],
+    [4, 0], [0, 4], [-1, 2], [1, -1],
+  ])("rejects %i baby and %i child seats", async (baby, child) => {
     const res = await post(requestBody({ babySeat: baby, childSeat: child }));
     expect(res.status).toBe(400);
     expect(mocks.rpc).not.toHaveBeenCalled();
