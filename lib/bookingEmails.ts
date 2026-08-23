@@ -129,10 +129,10 @@ export function quoteConfirmationMail(
         <h2 style="color:#1e3a5f">Quote Confirmation</h2>
         <p>${greeting(details)}</p>
         <p>Many thanks for choosing Anadyon for your rental.</p>
-        <p>We are pleased to confirm that the requested vehicle category is available and that the final rental price is €${euros(details.total)}. Your booking is not yet confirmed. To secure it, please pay the 30% deposit by ${esc(formattedDeadline)}.</p>
+        <p>We are pleased to confirm that the requested vehicle category is available and that the final rental price is €${euros(details.total)}. To secure it, please pay the 30% deposit by ${esc(formattedDeadline)}. Until then the booking isn't confirmed, and we can't hold the car past that date.</p>
         ${rentalDetails(details, "quote")}
-        <p>Please use the payment instructions provided by our team. Availability cannot be guaranteed in case of a late payment.</p>
-        <p>Thank you,<br/>Anadyon Rentals</p>
+        <p>Please use the payment instructions provided by our team.</p>
+        <p>Thank you,<br/>Anadyon Customer Service</p>
     `),
   };
 }
@@ -145,9 +145,11 @@ export function bookingConfirmedMail(details: BookingEmailDetails): Mail {
     html: shell(`
         <h2 style="color:#1e3a5f">Booking Confirmed</h2>
         <p>${greeting(details)}</p>
-        <p>We have received your payment, thank you! Your booking is now confirmed.</p>
+        <p>We've received your payment — you're all set, your booking is confirmed.</p>
         ${rentalDetails(details, "confirmed")}
-        <p>Thank you for choosing Anadyon Rentals!</p>
+        <p>When you arrive, please bring your driving licence, passport and the card you paid with. If your flight is delayed, call us on +30 6988 010188 and we'll wait for you.</p>
+        <p>See you in Zakynthos.</p>
+        <p>Anadyon Customer Service</p>
     `),
   };
 }

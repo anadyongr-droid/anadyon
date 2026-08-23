@@ -26,18 +26,35 @@ describe("booking lifecycle emails", () => {
     expect(mail.bcc).toEqual(["customerservice@anadyon.gr"]);
     expect(mail.html).toContain("Many thanks for choosing Anadyon for your rental.");
     expect(mail.html).toContain(
-      "We are pleased to confirm that the requested vehicle category is available and that the final rental price is €197.60. Your booking is not yet confirmed. To secure it, please pay the 30% deposit by",
+      "We are pleased to confirm that the requested vehicle category is available and that the final rental price is €197.60. To secure it, please pay the 30% deposit by",
     );
-    expect(mail.html).toContain("Availability cannot be guaranteed in case of a late payment.");
+    // The guardrail: this email must never read as a confirmed booking.
+    expect(mail.html).toContain("Until then the booking isn't confirmed, and we can't hold the car past that date.");
+    expect(mail.html).toContain("Anadyon Customer Service");
     expect(mail.html).toContain("ABC123");
   });
 
   it("confirms a booking only in the post-payment email", () => {
     const mail = bookingConfirmedMail(details);
     expect(mail.subject).toBe("Booking confirmed — ABC123");
-    expect(mail.html).toContain("We have received your payment, thank you! Your booking is now confirmed.");
+    expect(mail.html).toContain("We've received your payment — you're all set, your booking is confirmed.");
     expect(mail.html).toContain("Payment received:</td><td>€59.28");
     expect(mail.html).toContain("Balance at pick-up:</td><td>€138.32");
+  });
+
+  it("tells the customer what to bring and what to do if their flight is late", () => {
+    // The email used to stop at "confirmed", which is exactly when the reader
+    // starts wondering what happens when they land.
+    const mail = bookingConfirmedMail(details);
+    expect(mail.html).toContain("please bring your driving licence, passport and the card you paid with");
+    expect(mail.html).toContain("+30 6988 010188");
+    expect(mail.html).toContain("See you in Zakynthos.");
+  });
+
+  it("signs both emails as Anadyon Customer Service", () => {
+    for (const mail of [quoteConfirmationMail(details, "2026-08-24T17:00:00+03:00"), bookingConfirmedMail(details)]) {
+      expect(mail.html).toContain("Anadyon Customer Service");
+    }
   });
 
   it("greets the customer by first name, not their full name", () => {

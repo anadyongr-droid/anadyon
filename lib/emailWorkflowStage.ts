@@ -65,6 +65,24 @@ export interface DeliveryRow {
   created_at?: string | null;
 }
 
+/**
+ * Delivery conditions that mean somebody has to do something.
+ *
+ * `delayed` is included deliberately: a delayed quote confirmation is a
+ * customer sitting without the price they are waiting for, and it is worth
+ * seeing early even though some delays clear themselves. `accepted` and `sent`
+ * are not problems — the provider has the message — and `delivered` least of
+ * all, which is why "anything that is not delivered" would have been the wrong
+ * rule: it would flag every message during the seconds before confirmation.
+ */
+const NEEDS_ATTENTION: ReadonlySet<DeliveryStatus> = new Set<DeliveryStatus>([
+  "bounced", "complained", "failed", "suppressed", "delayed",
+]);
+
+export function deliveryNeedsAttention(status: string | null | undefined): boolean {
+  return NEEDS_ATTENTION.has(status as DeliveryStatus);
+}
+
 export interface WorkflowStage {
   /** Null until at least one workflow email has actually been dispatched. */
   stage: EmailKind | null;

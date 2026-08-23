@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import ReservationModal from "../components/ReservationModal";
-import { deriveWorkflowStage, type DeliveryRow } from "@/lib/emailWorkflowStage";
+import { deliveryNeedsAttention, deriveWorkflowStage, type DeliveryRow } from "@/lib/emailWorkflowStage";
+import { reservationRef } from "@/lib/wise";
 
 interface Reservation {
   id: string;
@@ -16,9 +17,53 @@ interface Reservation {
   source?: "website" | "admin";
   created_at?: string;
   dcl_status?: string;
+  vehicle_id?: string | null;
+  notes?: string | null;
+  quote_id?: string | null;
+  quotes?: { ref?: string | null } | { ref?: string | null }[] | null;
   vehicles?: { name: string; category: string };
   /** Audited workflow emails. The stage is derived from these, never stored. */
   booking_email_deliveries?: DeliveryRow[];
+}
+
+/** Statuses where a rental still needs a vehicle. Ended ones do not. */
+const NEEDS_VEHICLE = new Set(["pending", "confirmed", "active"]);
+
+function quoteRefOf(r: Reservation): string | undefined {
+  const q = Array.isArray(r.quotes) ? r.quotes[0] : r.quotes;
+  return q?.ref ?? undefined;
+}
+
+/**
+ * Why this row is flagged, or an empty list.
+ *
+ * Two distinct faults, reported separately rather than as one "problem" flag,
+ * because they call for different actions from whoever opens the row.
+ */
+function rowWarnings(r: Reservation, condition: string | null): string[] {
+  const warnings: string[] = [];
+
+  // A website booking carries a linked quote and passes through the
+  // auto-assignment trigger on insert. Still having no vehicle means the system
+  // looked and found nothing it could safely give — same category or an
+  // upgrade, matching transmission, free including turnaround — and left it
+  // unallocated rather than making an unsafe assignment. That needs a person.
+  //
+  // Office/walk-in rows are excluded: they never go through that trigger, so an
+  // empty vehicle there only means nobody has chosen one yet.
+  if (!r.vehicle_id && r.quote_id && r.source === "website" && NEEDS_VEHICLE.has(r.status)) {
+    warnings.push(
+      "No vehicle could be assigned automatically. Nothing was available in the requested category (or a valid upgrade) with the right transmission for these dates. Assign one manually, or talk to the customer about alternatives.",
+    );
+  }
+
+  if (deliveryNeedsAttention(condition)) {
+    warnings.push(
+      `The last customer email was not delivered — it is currently "${condition}". The customer may not have received it. Check the delivery history on the reservation, then resend or contact them directly.`,
+    );
+  }
+
+  return warnings;
 }
 
 interface Vehicle {
@@ -97,6 +142,7 @@ export default function ReservationsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-xs text-gray-500 bg-gray-50">
+                <th className="text-left px-4 py-3 font-medium">Ref</th>
                 <th className="text-left px-5 py-3 font-medium">Customer</th>
                 <th className="text-left px-4 py-3 font-medium">Vehicle</th>
                 <th className="text-left px-4 py-3 font-medium">Source</th>
@@ -111,11 +157,33 @@ export default function ReservationsPage() {
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={10} className="px-5 py-8 text-center text-gray-400 text-sm">No reservations found.</td></tr>
+                <tr><td colSpan={11} className="px-5 py-8 text-center text-gray-400 text-sm">No reservations found.</td></tr>
               )}
-              {filtered.map((r) => (
-                <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition cursor-pointer"
-                  onClick={() => window.location.href = `/admin/reservations/${r.id}`}>
+              {filtered.map((r) => {
+                const workflow = deriveWorkflowStage(r.booking_email_deliveries);
+                const warnings = rowWarnings(r, workflow.condition);
+                const flagged = warnings.length > 0;
+                return (
+                <tr key={r.id}
+                  className={`border-b transition cursor-pointer ${
+                    flagged
+                      ? "border-red-200 bg-red-50 hover:bg-red-100"
+                      : "border-gray-50 hover:bg-gray-50/50"
+                  }`}
+                  onClick={() => {
+                    // Warn before opening rather than after. Cancel leaves them
+                    // on the list; OK opens the reservation, which is where the
+                    // problem actually gets fixed.
+                    if (flagged && !window.confirm(
+                      `${warnings.length > 1 ? "This reservation needs attention:" : "This reservation needs attention:"}\n\n` +
+                      warnings.map((w, i) => `${warnings.length > 1 ? `${i + 1}. ` : ""}${w}`).join("\n\n") +
+                      `\n\nOpen the reservation?`,
+                    )) return;
+                    window.location.href = `/admin/reservations/${r.id}`;
+                  }}>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-700">
+                    {reservationRef(r.id, r.notes, quoteRefOf(r))}
+                  </td>
                   <td className="px-5 py-3">
                     <div className="font-medium text-gray-900">{r.customer_name}</div>
                     <div className="text-xs text-gray-400">{r.customer_phone}</div>
@@ -133,20 +201,17 @@ export default function ReservationsPage() {
                       {statusLabel(r.status)}
                     </span>
                   </td>
-                  {/* Read-only, and never advanced by an email that is merely
-                      pending or queued. The delivery condition sits beside the
-                      stage so a bounce is not hidden behind "Booking
-                      confirmed". */}
+                  {/* The stage only, without the delivery condition appended.
+                      "Quote Confirmation — Accepted by email provider" was
+                      mostly noise: on a healthy send the suffix says nothing a
+                      reader needs. When delivery *has* gone wrong the row turns
+                      red and the click warning names the condition, so the
+                      information is not lost — it is moved to where it matters.
+                      The full history stays on the reservation itself. */}
                   <td className="px-4 py-3 text-xs">
-                    {(() => {
-                      const workflow = deriveWorkflowStage(r.booking_email_deliveries);
-                      if (!workflow.display) return <span className="text-gray-400">—</span>;
-                      return (
-                        <span className={workflow.condition === "delivered" ? "text-gray-700" : "font-medium text-amber-700"}>
-                          {workflow.display}
-                        </span>
-                      );
-                    })()}
+                    {workflow.stageLabel
+                      ? <span className={flagged ? "font-medium text-red-700" : "text-gray-700"}>{workflow.stageLabel}</span>
+                      : <span className="text-gray-400">—</span>}
                   </td>
                   <td className="px-4 py-3 text-center">
                     {r.dcl_status && r.dcl_status !== "not_submitted" && (
@@ -160,7 +225,8 @@ export default function ReservationsPage() {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
