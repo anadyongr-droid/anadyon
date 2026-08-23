@@ -247,11 +247,14 @@ describe("the internal quote alert never replies to the customer", () => {
     expect(mail!.replyTo).toBeUndefined();
   });
 
-  it("offers a deliberate compose link instead", async () => {
+  it("adds nothing else to the internal alert", async () => {
+    // The request was to stop replies reaching the customer, and nothing more.
+    // A "Compose email to customer" button was added here unasked and removed
+    // again; this pins that the alert stays as it was apart from the Reply-To.
     await post(requestBody());
     const mail = officeMail() as unknown as { html: string };
-    expect(mail.html).toContain("Compose email to customer");
-    expect(mail.html).toContain("mailto:test%40example.com");
+    expect(mail.html).not.toContain("Compose email to customer");
+    expect(mail.html).not.toContain("mailto:");
   });
 
   it("sends the customer acknowledgment through the delivery audit", async () => {

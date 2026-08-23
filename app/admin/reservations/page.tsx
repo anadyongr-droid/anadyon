@@ -84,19 +84,46 @@ export default function ReservationsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
 
-  function load() {
-    setLoading(true);
+  /**
+   * @param showSpinner false for the background refresh, so the table does not
+   *   flash "Loading…" every half minute while somebody is reading it.
+   */
+  function load(showSpinner = true) {
+    if (showSpinner) setLoading(true);
     Promise.all([
       fetch("/api/admin/reservations").then((r) => r.json()),
       fetch("/api/admin/vehicles").then((r) => r.json()),
     ]).then(([r, v]) => {
       setReservations(r);
       setVehicles(v);
-      setLoading(false);
+      if (showSpinner) setLoading(false);
+    }).catch(() => {
+      // A failed background poll is not worth showing. The next one will
+      // either succeed or the operator will notice stale data; blanking the
+      // table over one dropped request would be worse than leaving it.
+      if (showSpinner) setLoading(false);
     });
   }
 
   useEffect(() => { load(); }, []);
+
+  // The email stage arrives from the provider seconds to minutes after a
+  // booking, so a screen loaded once shows a blank stage that never fills in.
+  // Polls quietly in the background, and only while the tab is actually being
+  // looked at — a backgrounded tab left open overnight should not keep asking.
+  useEffect(() => {
+    const REFRESH_MS = 30_000;
+    const tick = () => { if (!document.hidden) load(false); };
+    const timer = setInterval(tick, REFRESH_MS);
+    // Also refresh on returning to the tab, so it is current immediately
+    // rather than up to REFRESH_MS stale.
+    const onVisible = () => { if (!document.hidden) load(false); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
 
   const today = new Date().toISOString().slice(0, 10);
   const filtered = (() => {

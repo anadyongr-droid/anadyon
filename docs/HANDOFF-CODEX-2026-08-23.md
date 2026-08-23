@@ -467,7 +467,24 @@ calendar tests, email/payment idempotency tests, and English/Greek content tests
 
 ## 12. Non-negotiable engineering rules
 
+- **Do only what was asked. Do not assume, do not guess, when the instruction
+  is clear.** A change nobody requested is not a bonus — it is unreviewed work
+  in a reviewed release, and it costs the requester the trust that what they
+  asked for is what they got. If something else looks worth doing, say so and
+  wait. Treat "optionally", "maybe" and "perhaps" in a brief as an invitation
+  to discuss, never as authorisation: on 2026-08-23 a request to stop internal
+  alerts replying to the customer also shipped a "Compose email to customer"
+  button that had been mentioned as optional and was never approved. The
+  requested part was right; the rest had to be removed.
 - Work on a feature branch and reviewed PR. Never develop directly on `main`.
+- **A migration and its `paste/` copy must be re-synced after every edit, and
+  the pair compared before the PR is opened.** Migration 033 was copied and
+  then edited further; the copy was never refreshed, so the SQL run against
+  production was an earlier version than the repository showed — costing a
+  blank "Customer email" column on every website booking and an unretryable
+  email guard, while the PR claimed the two were byte-identical. The parity
+  test in `lib/migrationPasteParity.test.ts` now compares every pair; do not
+  weaken it to make a change pass.
 - Vercel deploys from GitHub `main`; do not leave a CLI-only production deploy
   that the next GitHub deployment can overwrite.
 - Never commit `.env.local`, credentials, exported production data or customer
