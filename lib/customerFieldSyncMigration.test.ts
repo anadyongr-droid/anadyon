@@ -1,7 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Spins up an in-process Postgres per case. Under full-suite load that reliably
+// exceeds the default 5s, and the file failed as a timeout rather than on
+// behaviour — it passed whenever run on its own.
+vi.setConfig({ testTimeout: 60_000 });
 
 async function migratedDatabase() {
   const db = new PGlite();

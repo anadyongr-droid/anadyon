@@ -61,11 +61,15 @@ const QuoteSchema = z.object({
   lastName: z.string().min(1).max(100),
   email: z.string().email().max(200),
 
-  // Required numerically — these are stored and emailed as the price
-  rentalDays: z.coerce.number().int().positive(),
-  total: money,
-  deposit: money,
-  balanceDue: money,
+  // Accepted for backwards compatibility and then discarded. They were once
+  // required, because they were what got stored; the price is now recalculated
+  // here, so a caller that omits them is not missing anything the server needs.
+  // `total` survives only to compare against the server's figure and raise the
+  // price-manipulation alert.
+  rentalDays: z.coerce.number().int().positive().optional(),
+  total: money.optional(),
+  deposit: money.optional(),
+  balanceDue: money.optional(),
 
   // Present but not critical to reject on
   selectedModel: z.string().max(120).optional(),
@@ -472,7 +476,11 @@ export async function POST(req: NextRequest) {
   const total = Number(booking.data.total);
   const deposit = Number(booking.data.deposit);
   const balanceDue = Number(booking.data.balance_due);
-  const manipulated = total > 0 && Math.abs(Number(clientTotal) - total) > TOLERANCE;
+  // Only a total that was actually submitted can disagree with the server's.
+  // A caller that sends none is not suspicious — it is simply not asserting a
+  // price, which is the direction this route is moving in anyway.
+  const manipulated = total > 0 && clientTotal !== undefined
+    && Math.abs(Number(clientTotal) - total) > TOLERANCE;
   const showPrice = total > 0;
 
   // Rebuild extras rows using server rates (ignoring client extrasLines amounts)
