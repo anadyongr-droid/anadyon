@@ -82,6 +82,61 @@ minutes later. That is slow for the query involved, and it is getting slower.
 This is **not** proof of anything, but it is the most concrete anomaly found so
 far and should be the first thing re-measured.
 
+## 2b. The failing requests, and what they rule out
+
+Two Vercel runtime logs for the failing request, both `MIDDLEWARE_INVOCATION_TIMEOUT`:
+
+| | Chrome | Safari |
+|---|---|---|
+| Request ID | `8tbl7-1787503717104-8d82ea640f73` | `wwp7b-1787503969432-8a2c5b2e3102` |
+| Started | 18:48:37 (+02) | 18:52:49 (+02) |
+| Duration | **300.0s** | **300.3s** |
+| External APIs | **POST**, then **GET** | **GET**, then **GET** |
+| Referer | — | `/admin/login` |
+
+Both ran to **300 seconds** — the Fluid compute ceiling, not the usual 25s
+middleware cap — and both issued **only two** outgoing calls before dying.
+
+### Supabase is NOT the thing hanging
+
+The project host is `idfavwwfiuncoudkcfsp.supabase.co` (public — it ships in
+the client bundle). Measured directly, 2026-08-23 ~17:10 UTC, using the public
+anon key:
+
+| Call | Result |
+|---|---|
+| `GET /auth/v1/settings` | **200 in 0.123s** |
+| `GET /auth/v1/user` (bogus bearer) | 403 in 0.212s |
+| `POST /auth/v1/token?grant_type=refresh_token` (invalid token) | **400 in 0.116s** |
+| `GET /rest/v1/` | 401 in 0.053s |
+
+The `POST …/token` endpoint — the exact call in the Chrome log — answers in
+**116ms**. The project's Auth service is healthy and fast.
+
+**Therefore:** the middleware's outbound calls are hanging even though the
+service they target is responsive. The problem is on the Vercel side of that
+connection, or in the middleware code path itself — not in Supabase.
+
+### The remaining candidate, not yet proven
+
+Only **two** external calls were issued. A request with a valid session should
+produce more: `getUser()` (`proxy.ts:83`), then the parallel pair
+`getAuthenticatorAssuranceLevel()` + `listFactors()` (`proxy.ts:185-186`). The
+MFA pair does not appear in either log.
+
+So execution stopped **between `getUser()` returning and the MFA calls being
+issued** — which is the role-resolution block, `proxy.ts:96-178`. That block
+contains, at `proxy.ts:137`:
+
+```ts
+const { supabaseAdmin } = await import("@/lib/supabase");
+```
+
+A **dynamic import inside middleware**, of a module that constructs two
+Supabase clients at module scope. It runs **only when the token carries no role
+claim**. This is a candidate, not a conclusion — it needs the `[proxy]` console
+lines to confirm which branch was taken.
+
 ## 3. The structural weakness this exposed
 
 Independent of the cause, `proxy.ts` makes the admin area fragile:
@@ -186,11 +241,20 @@ If **none** appear before the timeout, the stall is at `proxy.ts:83`
 
 Not yet attempted — listed so whoever picks this up does not improvise.
 
-1. **Read the log first.** Do not change code before knowing which call stalls.
-2. **Check `app_metadata.role` on the account.** Supabase dashboard →
-   Authentication → Users → the account. If `role` is missing, the middleware
-   is behaving exactly as written and the fix is to restore the claim, not to
-   change code. This alone would remove the 3× retry loop from every request.
+1. **Check `app_metadata.role` on the account — do this first.** Supabase
+   dashboard → Authentication → Users → the account → `app_metadata` must
+   contain `role: "admin"`.
+
+   This is now the **highest-value action**, because §2b shows execution
+   stopping inside the role-resolution block. If the claim is missing, every
+   request enters that block, hits the dynamic import at `proxy.ts:137` and the
+   3× retry loop — and restoring the claim makes the middleware skip the whole
+   thing. **It requires no deploy and would restore access immediately.**
+
+   If the claim *is* present, that branch was never entered, the candidate in
+   §2b is wrong, and the stall is at `getUser()` itself.
+2. **Read the `[proxy]` console output** for the failing request (the log lines,
+   not just the request summary) to confirm which branch ran.
 3. **Check Supabase → Authentication → Logs** for throttling or errors against
    this project specifically. The platform status page is project-agnostic and
    was already misleading once (§5.2).
