@@ -81,6 +81,8 @@ export function quoteConfirmationMail(
   return {
     from: "Anadyon Rentals <no-reply@anadyon.gr>",
     to: [details.customerEmail],
+    bcc: ["customerservice@anadyon.gr"],
+    replyTo: "customerservice@anadyon.gr",
     subject: "Quote confirmation",
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto">

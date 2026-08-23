@@ -1079,17 +1079,72 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
 
 // ─── Sub-components ───────────────────────────────────────────
 
+interface QuoteDelivery {
+  id: string;
+  intended_recipient_email: string;
+  subject: string;
+  payment_deadline: string | null;
+  status: "pending" | "queued" | "accepted" | "sent" | "delivered" | "delayed" | "bounced" | "complained" | "failed" | "suppressed";
+  redirected: boolean;
+  accepted_at: string | null;
+  delivered_at: string | null;
+  last_event_at: string | null;
+  last_error: string | null;
+  created_at: string;
+}
+
+const DELIVERY_LABELS: Record<QuoteDelivery["status"], string> = {
+  pending: "Preparing",
+  queued: "Queued for retry",
+  accepted: "Accepted by email provider",
+  sent: "Sent by email provider",
+  delivered: "Delivered to recipient's mail server",
+  delayed: "Delivery delayed",
+  bounced: "Bounced",
+  complained: "Marked as spam",
+  failed: "Failed",
+  suppressed: "Suppressed by email provider",
+};
+
+function deliveryTone(status: QuoteDelivery["status"]): string {
+  if (status === "delivered") return "border-green-200 bg-green-50 text-green-800";
+  if (["bounced", "complained", "failed", "suppressed"].includes(status)) return "border-red-200 bg-red-50 text-red-800";
+  if (["queued", "delayed"].includes(status)) return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-blue-200 bg-white text-blue-800";
+}
+
+function zakynthosDateTime(value: string | null): string {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Athens",
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
 function QuoteConfirmationButton({ reservationId, disabled }: { reservationId: string; disabled: boolean }) {
   const [deadline, setDeadline] = useState("");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deliveries, setDeliveries] = useState<QuoteDelivery[]>([]);
+
+  const loadDeliveries = useCallback(async () => {
+    const response = await fetch(`/api/admin/reservations/${reservationId}/quote-confirmation`);
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) setDeliveries(Array.isArray(data.deliveries) ? data.deliveries : []);
+  }, [reservationId]);
+
+  useEffect(() => { void loadDeliveries(); }, [loadDeliveries]);
 
   const send = useCallback(async () => {
     if (!deadline) {
       setError("Choose the deposit payment deadline first.");
       return;
     }
+    if (deliveries.length > 0 && !window.confirm(
+      "A quote confirmation has already been sent for this reservation. Send another confirmation?",
+    )) return;
     setSending(true);
     setError(null);
     setResult(null);
@@ -1104,14 +1159,18 @@ function QuoteConfirmationButton({ reservationId, disabled }: { reservationId: s
       setError(data.error ?? "The quote confirmation could not be sent.");
       return;
     }
-    setResult(data.queued ? "Quote confirmation queued for delivery." : "Quote confirmation sent.");
-  }, [deadline, reservationId]);
+    setResult(data.queued ? "Quote confirmation queued for delivery." : "Quote confirmation accepted by the email provider.");
+    await loadDeliveries();
+  }, [deadline, deliveries.length, loadDeliveries, reservationId]);
 
   return (
     <div className="mb-4 rounded-xl border-2 border-blue-200 bg-blue-50 p-3">
       <p className="text-sm font-bold text-blue-900">Quote confirmation</p>
-      <p className="mb-3 text-xs text-blue-700">
+      <p className="text-xs text-blue-700">
         Confirms category availability and final price. It does not confirm the booking.
+      </p>
+      <p className="mb-3 mt-1 text-xs text-blue-700">
+        Sent to the customer with a private office copy; replies go to customerservice@anadyon.gr.
       </p>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <label className="flex-1 text-xs font-medium text-blue-900">
@@ -1130,12 +1189,34 @@ function QuoteConfirmationButton({ reservationId, disabled }: { reservationId: s
           disabled={disabled || sending || !deadline}
           className="flex items-center justify-center gap-1.5 rounded-lg bg-blue-800 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-900 disabled:opacity-50"
         >
-          <Send size={12} /> {sending ? "Sending…" : "Send quote confirmation"}
+          <Send size={12} /> {sending ? "Sending…" : deliveries.length ? "Send another confirmation" : "Send quote confirmation"}
         </button>
       </div>
       {disabled && <p className="mt-2 text-xs text-blue-700">Payment is already recorded; this booking is confirmed.</p>}
       {result && <p className="mt-2 text-xs font-medium text-green-700">✓ {result}</p>}
       {error && <p className="mt-2 text-xs font-medium text-red-600">{error}</p>}
+      {deliveries.length > 0 && (
+        <div className="mt-3 space-y-2 border-t border-blue-200 pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-bold text-blue-900">Delivery history</p>
+            <button type="button" onClick={() => void loadDeliveries()} className="text-xs font-semibold text-blue-700 underline">
+              Refresh
+            </button>
+          </div>
+          {deliveries.map((delivery) => (
+            <div key={delivery.id} className={`rounded-lg border px-3 py-2 text-xs ${deliveryTone(delivery.status)}`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-bold">{DELIVERY_LABELS[delivery.status]}</span>
+                <span>{zakynthosDateTime(delivery.created_at)}</span>
+              </div>
+              <p className="mt-1">To: {delivery.redirected ? `Test inbox (intended for ${delivery.intended_recipient_email})` : delivery.intended_recipient_email}</p>
+              <p>Payment deadline: {zakynthosDateTime(delivery.payment_deadline)}</p>
+              {delivery.delivered_at && <p>Delivered: {zakynthosDateTime(delivery.delivered_at)}</p>}
+              {delivery.last_error && <p className="mt-1 font-medium">Provider response: {delivery.last_error}</p>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

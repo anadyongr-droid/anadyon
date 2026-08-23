@@ -12,13 +12,25 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const queued: Array<Record<string, unknown>> = [];
 const telegrams: string[] = [];
 let sendImpl: () => Promise<unknown> = async () => ({ data: { id: "1" }, error: null });
+const providerCalls: unknown[][] = [];
 
 vi.mock("resend", () => ({
-  Resend: class { emails = { send: () => sendImpl() }; },
+  Resend: class { emails = { send: (...args: unknown[]) => { providerCalls.push(args); return sendImpl(); } }; },
 }));
 
 vi.mock("@/lib/supabase", () => ({
-  supabaseAdmin: { from: () => ({ insert: async (r: Record<string, unknown>) => { queued.push(r); return { error: null }; } }) },
+  supabaseAdmin: {
+    from: (name: string) => name === "alert_outbox"
+      ? { insert: async (r: Record<string, unknown>) => { queued.push(r); return { error: null }; } }
+      : { update: () => {
+        const chain = {
+          eq: () => chain,
+          in: () => chain,
+          then: (resolve: (value: { error: null }) => unknown) => Promise.resolve({ error: null }).then(resolve),
+        };
+        return chain;
+      } },
+  },
 }));
 
 vi.mock("@/lib/telegram", () => ({ sendTelegram: async (m: string) => { telegrams.push(m); } }));
@@ -27,14 +39,14 @@ const mail = { from: "a@anadyon.gr", to: "guest@example.com", subject: "Quote AN
 
 describe("sendMail", () => {
   beforeEach(() => {
-    queued.length = 0; telegrams.length = 0; vi.resetModules();
+    queued.length = 0; telegrams.length = 0; providerCalls.length = 0; vi.resetModules();
     sendImpl = async () => ({ data: { id: "1" }, error: null });
   });
 
   it("reports delivery only when Resend actually accepted it", async () => {
     const { sendMail } = await import("./mailer");
     const r = await sendMail(mail);
-    expect(r).toEqual({ ok: true, queued: false });
+    expect(r).toEqual({ ok: true, queued: false, providerMessageId: "1" });
     expect(queued).toHaveLength(0);
   });
 
@@ -66,8 +78,25 @@ describe("sendMail", () => {
     await sendMail(mail);
 
     const stored = JSON.parse(String(queued[0].payload));
-    expect(stored).toMatchObject(mail);
+    expect(stored).toMatchObject({ version: 2, mail });
     expect(String(queued[0].key)).toMatch(/^email:/);
+  });
+
+  it("passes a stable idempotency key and the office-copy fields to Resend", async () => {
+    const { sendMail } = await import("./mailer");
+    await sendMail({
+      ...mail,
+      replyTo: "customerservice@anadyon.gr",
+      bcc: ["customerservice@anadyon.gr"],
+      tags: [{ name: "delivery_id", value: "11111111-1111-1111-1111-111111111111" }],
+    }, { idempotencyKey: "quote-confirmation-attempt" });
+
+    expect(providerCalls[0][0]).toMatchObject({
+      replyTo: "customerservice@anadyon.gr",
+      bcc: ["customerservice@anadyon.gr"],
+      tags: [{ name: "delivery_id", value: "11111111-1111-1111-1111-111111111111" }],
+    });
+    expect(providerCalls[0][1]).toEqual({ idempotencyKey: "quote-confirmation-attempt" });
   });
 
   it("never throws, so a mail fault cannot fail a stored booking", async () => {
