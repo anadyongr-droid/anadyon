@@ -342,3 +342,27 @@ test("terms dialog locks the underlying page and closes on Escape", async ({ pag
     overflow: document.body.style.overflow,
   }))).toEqual({ position: "", overflow: "" });
 });
+
+test.describe("My Rental acknowledgment wording", () => {
+  test("English distinguishes the request acknowledgment from confirmation", async ({ page }) => {
+    await page.goto("/quote");
+    await expect(page.getByText(
+      "Enter the reference number from your reservation acknowledgment email and the last name you used when submitting the request.",
+      { exact: true },
+    )).toBeVisible();
+    await expect(page.getByText(/Check your reservation acknowledgment email from/)).toBeVisible();
+    await page.getByRole("button", { name: "View My Rental" }).click();
+    await expect(page.getByText("Please enter your reference number.", { exact: true })).toBeVisible();
+  });
+
+  test("Greek uses consistent acknowledgment and validation wording", async ({ page }) => {
+    await page.goto("/el/quote");
+    await expect(page.getByText(
+      "Εισαγάγετε τον αριθμό αναφοράς από το email επιβεβαίωσης παραλαβής του αιτήματος κράτησης και το επώνυμο που χρησιμοποιήσατε κατά την υποβολή του αιτήματος.",
+      { exact: true },
+    )).toBeVisible();
+    await expect(page.getByText(/Ελέγξτε το email επιβεβαίωσης παραλαβής του αιτήματος κράτησης από/)).toBeVisible();
+    await page.getByRole("button", { name: "Δείτε την Κράτησή μου" }).click();
+    await expect(page.getByText("Εισαγάγετε τον αριθμό αναφοράς σας.", { exact: true })).toBeVisible();
+  });
+});

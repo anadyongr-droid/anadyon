@@ -23,8 +23,8 @@ export default function QuoteLookupLanding() {
     const cleanRef = ref.trim().toUpperCase();
     const cleanSurname = surname.trim();
 
-    if (!cleanRef) { setError("Please enter your reference number."); return; }
-    if (!cleanSurname) { setError("Please enter your last name."); return; }
+    if (!cleanRef) { setError(tr("quote.enterReference")); return; }
+    if (!cleanSurname) { setError(tr("quote.enterLastName")); return; }
 
     setLoading(true);
     const res = await fetch(`/api/quote/${encodeURIComponent(cleanRef)}?surname=${encodeURIComponent(cleanSurname)}`);
@@ -35,9 +35,9 @@ export default function QuoteLookupLanding() {
       // them to the English quote page mid-journey.
       router.push(`${localePath(`/quote/${cleanRef}`, locale)}?surname=${encodeURIComponent(cleanSurname)}`);
     } else if (res.status === 410) {
-      setError("This quote is no longer available online. Please contact us directly.");
+      setError(tr("quote.expired"));
     } else {
-      setError("No quote found with that reference and surname. Please check and try again.");
+      setError(tr("quote.notFoundHelp"));
     }
   }
 

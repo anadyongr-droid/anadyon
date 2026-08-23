@@ -17,6 +17,21 @@ describe("translation coverage", () => {
     );
   });
 
+  it("distinguishes the initial acknowledgment from the later reservation confirmation", () => {
+    expect(t("en", "quote.landingIntro")).toBe(
+      "Enter the reference number from your reservation acknowledgment email and the last name you used when submitting the request.",
+    );
+    expect(t("en", "quote.cantFind")).toBe(
+      "Can't find your reference? Check your reservation acknowledgment email from",
+    );
+    expect(t("el", "quote.landingIntro")).toContain("email επιβεβαίωσης παραλαβής του αιτήματος κράτησης");
+    expect(t("el", "quote.cantFind")).toContain("email επιβεβαίωσης παραλαβής του αιτήματος κράτησης");
+    expect(t("en", "form.willContactYou")).toContain("reservation acknowledgment email");
+    expect(t("el", "form.willContactYou")).toContain("επιβεβαίωσης παραλαβής");
+    expect(t("en", "form.codeApplied")).toBe("Code “{code}” applied");
+    expect(t("el", "form.codeApplied")).toBe("Ο κωδικός «{code}» εφαρμόστηκε");
+  });
+
   it("falls back to English rather than showing the key", () => {
     // A raw key in the middle of a sentence looks like a fault; English does not.
     expect(t("el", "definitely.not.a.key")).toBe("definitely.not.a.key");
