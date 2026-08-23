@@ -32,7 +32,13 @@ describe("admin access control", () => {
   });
 
   it("denies rather than downgrades when the role lookup throws", () => {
-    const cat = proxy.match(/catch \(err\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
+    // Anchored on the role lookup's own catch, identified by the message it
+    // logs, rather than on "the first catch block in the file". Bounding the
+    // auth calls with timeouts introduced an earlier catch, and a positional
+    // match then started asserting against the wrong block — passing or
+    // failing for reasons that had nothing to do with this rule.
+    const cat = proxy.match(/catch \(err\) \{[\s\S]*?role lookup failed[\s\S]*?\n  \}/)?.[0] ?? "";
+    expect(cat, "could not find the role lookup's catch block").not.toBe("");
     expect(cat).toContain('role = ""');
     expect(cat).not.toContain('role = "staff"');
   });
