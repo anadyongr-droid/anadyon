@@ -35,13 +35,13 @@ export interface BikeOffer {
   tiers: Map<number, number>;
 }
 
-function stripTags(s: string): string {
+export function stripTags(s: string): string {
   return s
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
     .replace(/&#8217;|&#039;|&rsquo;/g, "'")
     .replace(/&quot;|&#8221;|&#8220;/g, '"')
+    .replace(/&amp;/g, "&")
     .replace(/\s+/g, " ")
     .trim();
 }
