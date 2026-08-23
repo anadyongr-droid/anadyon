@@ -1,10 +1,32 @@
-# OPEN INCIDENT — admin area unreachable, middleware times out
+# INCIDENT — admin area unreachable, middleware times out
 
-**Status: UNRESOLVED. Cause not established.**
-Opened: 2026-08-23, ~16:45 UTC
-Written: 2026-08-23 17:03 UTC
-Production commit at time of writing: `fe8eb3a`
-Impact: **Tasos cannot reach `/admin` at all.** The public website is unaffected.
+**Status: SELF-RESOLVED. Cause never established. Expect recurrence.**
+Opened: 2026-08-23 ~16:45 UTC · Access returned: ~19:50 UTC · Duration ≈ 3 hours
+Production commit throughout the outage: `fe8eb3a`
+Impact: `/admin` completely unreachable. The public website was unaffected.
+
+## 0. Read this first
+
+**Access came back on its own.** It returned *before* the timeout hardening in
+PR #30 was deployed, so **that change did not fix it** and must not be recorded
+as the remedy. Nothing was deployed, reverted or reconfigured in the window
+where behaviour changed. It simply started working again.
+
+That matters more than a tidy closure would:
+
+- A fault that heals without intervention has not been removed. It will very
+  likely return.
+- Every hypothesis in §5 was tested and disproved. There is **no** established
+  cause — not Supabase, not the role claim, not a cookie race, not a wedged
+  deployment.
+- Because it self-resolved, the failure was **transient and external to the
+  code** — which narrows it, but only to "something between the Vercel
+  invocation and Supabase Auth, intermittently".
+
+**If it recurs, capture the evidence in §6 before doing anything else.** With
+PR #30 now deployed, a recurrence fails in ~8s with a log line naming the
+stalling call, instead of hanging for five minutes and naming nothing. That log
+line is the missing fact this whole document is short of.
 
 This document separates what is **verified** from what is **inference**. Two
 plausible-sounding causes were already proposed and disproved during the first
@@ -307,11 +329,42 @@ Not yet attempted — listed so whoever picks this up does not improvise.
   calls, which cannot help and may compound throttling if throttling is
   involved.
 
-## 8. Open questions for Tasos
+## 8. Questions — answered and still open
 
-1. What does the Vercel runtime log show for that request ID?
-2. Does `app_metadata.role` still read `admin` on the account?
-3. Does the same failure occur from a different browser, device or network?
-4. Can any other admin account reach `/admin`, or is it everyone?
-5. Roughly when did it last work? (Known good: after 14:07 UTC today, when the
-   PR #26 deployment was verified against live admin endpoints.)
+Answered during the incident:
+
+| Question | Answer |
+|---|---|
+| Does `app_metadata.role` read `admin`? | **Yes** — `{"role":"admin",…}`. Disproved the role-claim theory (§2b). |
+| Was Supabase down? | **No.** Auth `operational`; the project's own endpoints answered in 116–212ms (§2b). |
+| Did a deploy cause it? | **No.** Nothing deployed on 23 Aug touched `proxy.ts`, the login page or the auth path. Two of the four deploys were documentation only. |
+| Was it a wedged deployment? | **Unknown, and untested** — access returned before the redeploy/PR #30 landed. |
+
+Still open, and the ones that matter on recurrence:
+
+1. **Which call stalls?** With PR #30 deployed, the log now says:
+   `[proxy] auth call "<label>" did not answer within <n>ms; giving up`.
+   The label is one of `getUser`, `getUserById#1`, `mfa`.
+2. Does it affect other admin accounts, or only one session?
+3. Does it reproduce from a different network or device?
+4. Is it correlated with a session needing token renewal? The Chrome log's
+   `POST` (renewal) then `GET` pattern hints at this, but two samples is not
+   evidence.
+
+## 9. What changed as a result
+
+- **PR #30** (merged, `f3d100c`): every middleware auth call is bounded at 8s,
+  the role lookup no longer retries into three consecutive hangs, and the login
+  page always clears its spinner. **This did not fix the outage** — it makes the
+  next one fail in seconds, legibly, and name the culprit.
+- **Not fixed:** the underlying fault. Nothing was found to fix.
+
+## 10. If it happens again
+
+1. **Do not retry repeatedly.** One attempt, then collect.
+2. Vercel → Logs → Runtime → find the failing request. Capture:
+   - the `[proxy] auth call "…" did not answer` line — **the label is the answer**
+   - the **External APIs** rows, expanded to show URLs
+3. Note whether the login page showed `?unavailable=1` and the amber banner —
+   that confirms the middleware gave up deliberately rather than hung.
+4. Only then consider a redeploy, so the evidence is not lost with the instance.
