@@ -35,6 +35,92 @@ function matchesAny(pathname: string, allowed: string[]) {
   return allowed.some(p => pathname === p || pathname.startsWith(p + "/"));
 }
 
+/**
+ * How long any single Supabase Auth call may take before this middleware gives
+ * up on it.
+ *
+ * On 2026-08-23 the admin area became completely unreachable: outbound Auth
+ * calls from the middleware stopped completing, and because nothing here had a
+ * deadline the invocation ran to the platform's 300-second ceiling and returned
+ * MIDDLEWARE_INVOCATION_TIMEOUT. Every admin page and API call behaved the same
+ * way, so a slow dependency did not degrade the admin area — it removed it.
+ *
+ * Eight seconds is far beyond a healthy call (measured at 116–212ms against
+ * this project) and far inside any sane request budget.
+ *
+ * See docs/INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md.
+ */
+const AUTH_TIMEOUT_MS = 8_000;
+
+/**
+ * Bounds one Auth call and reports which way it ended.
+ *
+ * Returns an outcome rather than throwing or resolving to a null-shaped value,
+ * because a timeout must never be mistaken for "Supabase answered, and the
+ * answer was no". That distinction is the security question here: an unanswered
+ * role lookup has to deny, and it has to deny knowingly rather than by looking
+ * like an empty result.
+ *
+ * The pending call is abandoned rather than cancelled — it cannot be aborted
+ * through the Supabase client, and letting it settle later is harmless because
+ * the result is discarded.
+ */
+async function withAuthTimeout<T>(
+  label: string,
+  work: Promise<T>,
+): Promise<{ ok: true; value: T } | { ok: false; ms: number }> {
+  const started = Date.now();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = Symbol("timed-out");
+
+  try {
+    const result = await Promise.race([
+      work,
+      new Promise<typeof timedOut>((resolve) => {
+        timer = setTimeout(() => resolve(timedOut), AUTH_TIMEOUT_MS);
+      }),
+    ]);
+
+    if (result === timedOut) {
+      const ms = Date.now() - started;
+      // Timings and labels only — never a token, session or request body.
+      console.error(`[proxy] auth call "${label}" did not answer within ${ms}ms; giving up`);
+      return { ok: false, ms };
+    }
+    return { ok: true, value: result as T };
+  } catch (err) {
+    const ms = Date.now() - started;
+    console.error(
+      `[proxy] auth call "${label}" failed after ${ms}ms:`,
+      err instanceof Error ? err.message : err,
+    );
+    return { ok: false, ms };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
+ * "We could not verify you" — distinct from "you may not come in".
+ *
+ * A denial tells the person something about their account; this tells them the
+ * check itself did not complete. Keeping them apart matters when the admin area
+ * is unreachable: the previous behaviour was a five-minute hang, which told
+ * nobody anything.
+ */
+function authUnavailable(req: NextRequest, pathname: string) {
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json(
+      { error: "Sign-in is temporarily unavailable. Please try again in a moment." },
+      { status: 503 },
+    );
+  }
+  const url = req.nextUrl.clone();
+  url.pathname = "/admin/login";
+  url.searchParams.set("unavailable", "1");
+  return NextResponse.redirect(url);
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -80,7 +166,14 @@ export async function proxy(req: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const identified = await withAuthTimeout("getUser", supabase.auth.getUser());
+  if (!identified.ok) {
+    // Unanswered, so nothing is known about this caller — including whether
+    // they are signed in. Never treat that as "signed out" and never as
+    // "signed in": say the check failed.
+    return authUnavailable(req, pathname);
+  }
+  const user = identified.value.data.user;
 
   if (!user) {
     if (pathname.startsWith("/api/")) {
@@ -133,9 +226,23 @@ export async function proxy(req: NextRequest) {
       // subsequent request happened to succeed. Denying instead of
       // downgrading fixed the security half and made that same blip a
       // lockout, so the lookup itself has to stop being a coin toss.
+      //
+      // Each attempt is now bounded. Three unbounded retries were three ways to
+      // hang rather than three chances to succeed: on 2026-08-23 this block was
+      // where the invocation stopped, and the whole admin area went with it.
       let lastErr: unknown = null;
       for (let attempt = 0; attempt < 3; attempt++) {
-        const { data: adminUser, error } = await supabaseAdmin.auth.admin.getUserById(user.id);
+        const lookup = await withAuthTimeout(
+          `getUserById#${attempt + 1}`,
+          supabaseAdmin.auth.admin.getUserById(user.id),
+        );
+        if (!lookup.ok) {
+          lastErr = new Error(`role lookup did not answer within ${AUTH_TIMEOUT_MS}ms`);
+          // A timeout has already cost the full budget; spending it twice more
+          // is how one slow dependency becomes a dead admin area.
+          break;
+        }
+        const { data: adminUser, error } = lookup.value;
         if (!error) {
           role = (adminUser?.user?.app_metadata?.role as string | undefined) ?? "";
           lastErr = null;
@@ -181,10 +288,20 @@ export async function proxy(req: NextRequest) {
   // These are independent Supabase Auth reads. Keeping both checks on every
   // protected request preserves the security boundary; issuing them together
   // removes one round trip from every admin page and API call.
-  const [{ data: aal }, { data: factors }] = await Promise.all([
+  //
+  // Kept parallel and now bounded as a pair: one deadline covers both, so the
+  // MFA gate costs at most AUTH_TIMEOUT_MS rather than twice that. Running them
+  // sequentially would double the cost of the exact path that failed.
+  const verified = await withAuthTimeout("mfa", Promise.all([
     supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
     supabase.auth.mfa.listFactors(),
-  ]);
+  ]));
+  if (!verified.ok) {
+    // The MFA state is unknown. Letting the request through would be waving
+    // someone past the second factor because the check was slow.
+    return authUnavailable(req, pathname);
+  }
+  const [{ data: aal }, { data: factors }] = verified.value;
   const hasFactor = (factors?.totp?.length ?? 0) > 0;
 
   if (!hasFactor) {
