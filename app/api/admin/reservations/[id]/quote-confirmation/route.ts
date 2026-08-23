@@ -50,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: reservation, error } = await supabaseAdmin
     .from("reservations")
-    .select("id, customer_name, customer_email, pickup_date, pickup_time, pickup_location, return_date, return_time, total, deposit, balance_due, notes, status, deposit_paid_at, promo_code_id, discount_amount, quote_id, vehicles(name), quotes(ref)")
+    .select("id, customer_name, customer_first_name, customer_email, pickup_date, pickup_time, pickup_location, return_date, return_time, dropoff_location, total, deposit, balance_due, notes, status, deposit_paid_at, promo_code_id, discount_amount, quote_id, vehicles(name), quotes(ref)")
     .eq("id", id)
     .maybeSingle();
 
@@ -112,6 +112,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const reference = reservationRef(reservation.id, reservation.notes, linkedQuote?.ref);
   const mail = quoteConfirmationMail({
     customerName: reservation.customer_name,
+    customerFirstName: reservation.customer_first_name,
     customerEmail: reservation.customer_email,
     reference,
     vehicle: vehicle.name,
@@ -120,6 +121,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     pickupLocation: reservation.pickup_location,
     returnDate: reservation.return_date,
     returnTime: reservation.return_time,
+    returnLocation: reservation.dropoff_location,
     total: Number(reservation.total),
     deposit: Number(reservation.deposit),
     balanceDue: Number(reservation.balance_due),

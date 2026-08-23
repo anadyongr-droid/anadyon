@@ -108,7 +108,10 @@ async function resetFailures(ip: string): Promise<void> {
 // One unbroken literal on purpose: supabase-js derives the row type from the
 // literal text of the select, so concatenating or joining the parts widens it
 // to `string` and the result comes back untyped.
-const QUOTE_COLUMNS = "ref, title, first_name, last_name, email, vehicle_type, selected_model, transmission, pickup_location, dropoff_location, pickup_date, pickup_time, dropoff_date, dropoff_time, rental_days, daily_rate, vehicle_subtotal, extras_subtotal, total, deposit, balance_due, driver_age, baby_seat, child_seat, fdw, additional_drivers, comments, created_at, expires_at";
+// discount_amount and promo_code were missing, so a customer who had applied a
+// promo code saw a total lower than the line items above it with nothing
+// accounting for the difference: the deduction was applied but invisible.
+const QUOTE_COLUMNS = "ref, title, first_name, last_name, email, vehicle_type, selected_model, transmission, pickup_location, dropoff_location, pickup_date, pickup_time, dropoff_date, dropoff_time, rental_days, daily_rate, vehicle_subtotal, extras_subtotal, discount_amount, promo_code, total, deposit, balance_due, driver_age, baby_seat, child_seat, fdw, additional_drivers, comments, created_at, expires_at";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ ref: string }> }) {
   const { ref } = await params;
