@@ -326,11 +326,11 @@ take a backup before any future cleanup.
 
 ## 10. Open work and known risks
 
-### 10.1 Immediate: triage five open CodeQL alerts — addressed in PR #25, not yet merged
+### 10.1 Immediate: triage five open CodeQL alerts — resolved and merged
 
-**Update (addendum, section 16): fixed in [PR #25](https://github.com/anadyongr-droid/anadyon/pull/25),
-CodeQL check green, PR open and unmerged as of this writing.** The original
-finding stands as the historical record below.
+**Update (addendum, section 16): fixed and merged in [PR #25](https://github.com/anadyongr-droid/anadyon/pull/25)
+(`0bdbfb6`), deployed to production and confirmed live.** The original finding
+stands as the historical record below.
 
 GitHub reported five open alerts, all labelled High by CodeQL:
 
@@ -491,12 +491,31 @@ calendar tests, email/payment idempotency tests, and English/Greek content tests
 - Probe database RPCs with their real required arguments. Calling a required-
   argument function with `{}` can misleadingly look as if the function does not
   exist.
+- Before reporting a security-tooling fix (CodeQL, Dependabot, secret
+  scanning, or similar) as done, check that tool's actual result on the pushed
+  commit — its dashboard or `gh api repos/<repo>/code-scanning/alerts` /
+  `gh pr checks` — not just that the local build, lint and test suite pass.
+  None of those exercise CodeQL's semantic analysis; it only runs as a GitHub
+  Actions check on push, so a locally-plausible fix can still leave the
+  original alert open. This happened on [PR #25](https://github.com/anadyongr-droid/anadyon/pull/25):
+  a first-pass fix to the `js/bad-tag-filter` alerts (adding `\s*` whitespace
+  tolerance to a closing-tag regex) passed every local check, was pushed and
+  reported as resolved, and CodeQL's own re-analysis still failed it — the
+  regex didn't cover non-whitespace filler like `</script\t\n bar>`, which
+  CodeQL's counter-example used. A second, independent coding-agent session
+  reviewing the same PR caught it by checking the actual CodeQL check result;
+  the first session had not. See section 16.2 for the full account.
 
 ## 13. Recommended next sequence
 
-1. Create a fresh branch from `origin/main` at or after `fb24b58`.
-2. Triage and resolve the five open CodeQL alerts in one focused PR; rerun the
-   full build and browser suite.
+**Steps 1–2 below are complete; kept for the historical record. See section 16
+for current state.**
+
+1. ~~Create a fresh branch from `origin/main` at or after `fb24b58`.~~ Done —
+   see [PR #25](https://github.com/anadyongr-droid/anadyon/pull/25), merged.
+2. ~~Triage and resolve the five open CodeQL alerts in one focused PR; rerun
+   the full build and browser suite.~~ Done — all five resolved and merged;
+   see section 16.2 for how the fix was actually verified.
 3. Perform the isolated database restore drill and document actual results and
    timing. Do not restore over production.
 4. Add a secure backup plan for reservation-document Storage objects and record
@@ -609,31 +628,40 @@ then corrected both regexes to consume any characters up to `>`
 string CodeQL had used, and repushed. CodeQL now reports "No new alerts in
 code changed by this pull request" and every check on the PR is green.
 
-**PR #25 is open and unmerged as of this addendum.** It is mergeable and
-currently one merge-commit behind `main` (`c3e5fc5`, i.e. it does not yet
-include PR #26); GitHub reports no conflicts. It was never merged into or
-based on PR #26's branch — the two releases stayed fully separate throughout,
-so neither could accidentally deploy the other's unreviewed work.
+**Update: PR #25 was merged the same day**, after Tasos confirmed all checks
+were green and asked for it to be deployed. Before merging, `main` was merged
+into the PR branch (bringing in PR #26 and the first version of this
+addendum, then in PR #27) and the full suite was rerun against that combined
+state — 271 unit tests passed, `tsc` clean — before pushing and confirming
+CodeQL was still green on the updated branch. Merge commit `0bdbfb6`; the
+subsequent production deployment succeeded and `anadyon.gr` was confirmed
+returning 200 on that commit. It was never merged into or based on PR #26's
+branch before that final combine step — the two releases stayed fully
+separate through review, so neither could accidentally deploy the other's
+unreviewed work.
 
-Full unit/build verification for PR #25 (run against the pre-PR-#26 baseline,
-before rebasing): 263 unit tests pass (one Postgres-migration test timed out
-under full-suite load, reproduced as isolated-run flakiness unrelated to this
-change — passes alone), `tsc` clean, lint 0 errors / 21 pre-existing warnings,
-build 90 routes, translation 14/14, a11y 28/28, SEO 60/60, Playwright 48
-passed / 4 skipped (rate-dependent, no live DB in the local environment).
+Earlier full unit/build verification for PR #25 (run against the pre-PR-#26
+baseline, before the final merge): 263 unit tests pass (one Postgres-migration
+test timed out under full-suite load, reproduced as isolated-run flakiness
+unrelated to this change — passes alone), `tsc` clean, lint 0 errors / 21
+pre-existing warnings, build 90 routes, translation 14/14, a11y 28/28, SEO
+60/60, Playwright 48 passed / 4 skipped (rate-dependent, no live DB in the
+local environment).
 
-### 16.3 Open pull requests as of this addendum
+The whitespace-only-fix gap described above is now a standing rule — see the
+new bullet in section 12 about checking a security tool's actual remote
+result, not just local checks, before reporting a fix as done.
+
+### 16.3 Pull request state as of this addendum
 
 | PR | State | Notes |
 |---|---|---|
 | [#16](https://github.com/anadyongr-droid/anadyon/pull/16) | Draft, unmerged | NBG hosted checkout — unchanged, still gated per section 10.2 |
-| [#25](https://github.com/anadyongr-droid/anadyon/pull/25) | Open, mergeable, CI/CodeQL green | CodeQL alert triage — ready to merge; not yet merged |
+| [#25](https://github.com/anadyongr-droid/anadyon/pull/25) | **Merged** (`0bdbfb6`) | CodeQL alert triage — deployed to production, confirmed live |
+| [#27](https://github.com/anadyongr-droid/anadyon/pull/27) | **Merged** (`330e814`) | This document's original tracking + addendum |
 
 ### 16.4 What's actually left after this addendum
 
-- Merge PR #25 (rebase onto current `main` first — trivial, no conflicts
-  reported, but confirm CI stays green after the rebase since it hasn't been
-  re-run against PR #26's changes specifically).
 - Complete the PR #26 post-merge operational checklist: confirm the production
   Resend webhook subscribes to all seven event types, then send one controlled
   quote confirmation to a monitored inbox and confirm both the customer and
