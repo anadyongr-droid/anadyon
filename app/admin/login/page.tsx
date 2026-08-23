@@ -12,10 +12,41 @@ function createClient() {
 
 type Step = "credentials" | "totp";
 
+/** Raised when an auth call does not answer inside the budget below. */
+class TimeoutError extends Error {
+  constructor() {
+    super("timed out");
+    this.name = "TimeoutError";
+  }
+}
+
+/**
+ * The browser's own deadline on an auth call.
+ *
+ * Longer than the middleware's, because this includes the round trip to
+ * Supabase from wherever the person actually is. The point is not to be strict;
+ * it is that there is a limit at all, so a stalled call becomes a message
+ * rather than an button that spins forever.
+ */
+const CLIENT_AUTH_TIMEOUT_MS = 15_000;
+
+function withClientTimeout<T>(work: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new TimeoutError()), CLIENT_AUTH_TIMEOUT_MS);
+    work.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
+
 function AdminLogin() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mfaRequired = !!searchParams.get("mfa");
+  // Set by the middleware when a check could not be completed — as distinct
+  // from a refusal, which is what ?denied=1 means.
+  const authUnavailable = !!searchParams.get("unavailable");
 
   const [step, setStep] = useState<Step>(mfaRequired ? "totp" : "credentials");
   const [email, setEmail] = useState("");
@@ -42,30 +73,44 @@ function AdminLogin() {
     setLoading(true);
     setError("");
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    // Every exit clears `loading` in the finally block. The clears used to be
+    // written out one at a time, so a call that threw — or simply never
+    // answered — left the button spinning with no message. That is exactly what
+    // an unreachable Auth service looked like from the outside: nothing at all.
+    try {
+      const { error: signInError } = await withClientTimeout(
+        supabase.auth.signInWithPassword({ email, password }),
+      );
 
-    if (signInError) {
+      if (signInError) {
+        setError("Incorrect email or password.");
+        return;
+      }
+
+      // Check MFA status. Requested together rather than one after the other:
+      // they are independent, and serialising them doubled the wait.
+      const [{ data: aal }, { data: factors }] = await withClientTimeout(Promise.all([
+        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+        supabase.auth.mfa.listFactors(),
+      ]));
+      const totp = factors?.totp?.[0];
+
+      if (aal?.nextLevel === "aal2" && totp) {
+        // MFA enrolled — ask for the code
+        setFactorId(totp.id);
+        setStep("totp");
+      } else if (!totp) {
+        // First login — send to MFA setup
+        router.push("/admin/setup-mfa");
+      } else {
+        router.push("/admin");
+      }
+    } catch (err) {
+      setError(err instanceof TimeoutError
+        ? "Sign-in is taking longer than expected. Please try again in a moment."
+        : "Could not sign in. Please try again.");
+    } finally {
       setLoading(false);
-      setError("Incorrect email or password.");
-      return;
-    }
-
-    // Check MFA status
-    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    const { data: factors } = await supabase.auth.mfa.listFactors();
-    const totp = factors?.totp?.[0];
-
-    setLoading(false);
-
-    if (aal?.nextLevel === "aal2" && totp) {
-      // MFA enrolled — ask for the code
-      setFactorId(totp.id);
-      setStep("totp");
-    } else if (!totp) {
-      // First login — send to MFA setup
-      router.push("/admin/setup-mfa");
-    } else {
-      router.push("/admin");
     }
   }
 
@@ -75,28 +120,38 @@ function AdminLogin() {
     setLoading(true);
     setError("");
 
-    const { data: challenge, error: ce } = await supabase.auth.mfa.challenge({ factorId });
-    if (ce || !challenge) {
-      setError("Could not start verification. Please try again.");
+    try {
+      const { data: challenge, error: ce } = await withClientTimeout(
+        supabase.auth.mfa.challenge({ factorId }),
+      );
+      if (ce || !challenge) {
+        setError("Could not start verification. Please try again.");
+        return;
+      }
+
+      const { error: ve } = await withClientTimeout(supabase.auth.mfa.verify({
+        factorId,
+        challengeId: challenge.id,
+        code: totpCode.replace(/\s/g, ""),
+      }));
+
+      if (ve) {
+        setError("Incorrect code. Please try again.");
+        setTotpCode("");
+        return;
+      }
+
+      // A full navigation rather than a soft one. The session was just upgraded
+      // to aal2; a hard load guarantees the browser sends the refreshed cookies
+      // with the request the middleware will read.
+      window.location.assign("/admin");
+    } catch (err) {
+      setError(err instanceof TimeoutError
+        ? "Verification is taking longer than expected. Please try again in a moment."
+        : "Could not verify that code. Please try again.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const { error: ve } = await supabase.auth.mfa.verify({
-      factorId,
-      challengeId: challenge.id,
-      code: totpCode.replace(/\s/g, ""),
-    });
-
-    setLoading(false);
-
-    if (ve) {
-      setError("Incorrect code. Please try again.");
-      setTotpCode("");
-      return;
-    }
-
-    router.push("/admin");
   }
 
   return (
@@ -106,6 +161,15 @@ function AdminLogin() {
           <div className="text-2xl font-bold text-gray-900">Anadyon</div>
           <div className="text-sm text-gray-500 mt-1">Admin Panel</div>
         </div>
+
+        {/* Says the check could not be completed, which is not the same as
+            being refused. Without this the middleware's give-up path looked
+            identical to an ordinary sign-out. */}
+        {authUnavailable && (
+          <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            We could not confirm your sign-in just now. Please try again in a moment.
+          </p>
+        )}
 
         {step === "credentials" && (
           <form onSubmit={handleCredentials} className="space-y-4">
