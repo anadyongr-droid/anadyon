@@ -120,7 +120,7 @@ export function quoteConfirmationMail(
 ): Mail {
   const formattedDeadline = formatPaymentDeadline(deadline);
   return {
-    from: "Anadyon Rentals <no-reply@anadyon.gr>",
+    from: "Anadyon Rentals <customerservice@anadyon.gr>",
     to: [details.customerEmail],
     bcc: ["customerservice@anadyon.gr"],
     replyTo: "customerservice@anadyon.gr",
@@ -139,8 +139,13 @@ export function quoteConfirmationMail(
 
 export function bookingConfirmedMail(details: BookingEmailDetails): Mail {
   return {
-    from: "Anadyon Rentals <no-reply@anadyon.gr>",
+    from: "Anadyon Rentals <customerservice@anadyon.gr>",
     to: [details.customerEmail],
+    // Stated explicitly rather than inherited from the From address, so the
+    // reply path is identical across every customer email. This was previously
+    // sent from no-reply@ with no Reply-To, which meant a customer replying to
+    // their own booking confirmation reached nobody at all.
+    replyTo: "customerservice@anadyon.gr",
     subject: `Booking confirmed — ${details.reference}`,
     html: shell(`
         <h2 style="color:#1e3a5f">Booking Confirmed</h2>

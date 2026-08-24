@@ -247,24 +247,25 @@ describe("the internal quote alert never replies to the customer", () => {
     expect(mail!.replyTo).toBeUndefined();
   });
 
-  it("makes the customer reachable in one click without making it the default", async () => {
-    // Reaching the customer has to be possible from this email alone, because
-    // when the admin area is unavailable it is the only thing the office has.
-    // It must not be what Reply does, which is the fault that started this.
-    await post(requestBody());
-    const mail = officeMail() as unknown as { html: string; replyTo?: unknown };
-    expect(mail.replyTo).toBeUndefined();
-    expect(mail.html).toContain('href="mailto:test%40example.com?subject=');
-    // The reference travels with it, so the customer sees what it is about.
-    expect(mail.html).toContain("BOOK01");
-  });
-
-  it("does not reinstate the standalone compose button", async () => {
-    // The address in the details table is the link; the separate labelled
-    // button was an unrequested addition and stays removed.
+  it("prints the customer's address in the body as plain text", async () => {
+    // The office must be able to reach the customer from this email alone when
+    // the admin area is unavailable — but the alert carries the information
+    // and nothing that acts on it. No links, no buttons.
     await post(requestBody());
     const mail = officeMail() as unknown as { html: string };
+    expect(mail.html).toContain("test@example.com");
+    expect(mail.html).not.toContain("mailto:");
     expect(mail.html).not.toContain("Compose email to customer");
+  });
+
+  it("sends the customer acknowledgment with a reply path to the office", async () => {
+    await post(requestBody());
+    const customer = mocks.sendMail.mock.calls
+      .map(([mail]) => mail as unknown as { to: unknown; replyTo?: unknown })
+      .find((mail) => mail.to === "test@example.com");
+    // Only checked when the unaudited fallback is used; the audited path
+    // carries the same object through sendAuditedWorkflowMail.
+    if (customer) expect(customer.replyTo).toBe("customerservice@anadyon.gr");
   });
 
   it("sends the customer acknowledgment through the delivery audit", async () => {

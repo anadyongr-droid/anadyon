@@ -521,10 +521,10 @@ export async function POST(req: NextRequest) {
   // colleague about availability, say — wrote to the customer instead. Replies
   // now stay inside the office.
   //
-  // The customer's address in the details below is a mailto link, so when the
-  // admin area is unavailable this email is enough on its own to reach them:
-  // one click, subject pre-filled with the reference. Deliberately not a
-  // Reply-To — reaching the customer stays a decision, not the default.
+  // The customer's address is printed in the details below as plain text, so
+  // the office can still reach them from this email alone when the admin area
+  // is unavailable. Plain text, not a link or a button: the alert carries the
+  // information and nothing that acts on it.
   const officeMail = (noVehicle: boolean) => sendMail({
     from: "Anadyon Website <customerservice@anadyon.gr>",
     to: ["customerservice@anadyon.gr"],
@@ -578,7 +578,7 @@ export async function POST(req: NextRequest) {
       <h3>Customer Details</h3>
       <table cellpadding="6" style="border-collapse:collapse;">
         <tr><td><strong>Name:</strong></td><td>${esc(title)} ${esc(firstName)} ${esc(lastName)}</td></tr>
-        <tr><td><strong>Email:</strong></td><td><a href="mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Anadyon Rentals — your reservation request ${ref}`)}">${esc(email)}</a></td></tr>
+        <tr><td><strong>Email:</strong></td><td>${esc(email)}</td></tr>
         <tr><td><strong>Date of Birth:</strong></td><td>${esc(dob)}</td></tr>
         <tr><td><strong>Address:</strong></td><td>${esc(address)}, ${esc(postalCode)}, ${esc(city)}, ${esc(country)}</td></tr>
         <tr><td><strong>Mobile:</strong></td><td>${esc(mobileTel)}</td></tr>
@@ -602,6 +602,9 @@ export async function POST(req: NextRequest) {
   const acknowledgmentMail: Mail = {
     from: "Anadyon Rentals <customerservice@anadyon.gr>",
     to: email,
+    // Stated rather than left to the From address, so the reply path is the
+    // same on every customer email regardless of who each one is sent from.
+    replyTo: "customerservice@anadyon.gr",
     subject: locale === "el"
       ? `Επιβεβαίωση παραλαβής αιτήματος κράτησης — ${ref}`
       : `Reservation request acknowledgment — ${ref}`,
