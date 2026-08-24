@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { RoleProvider } from "./RoleContext";
 import { usePathname, useRouter } from "next/navigation";
 import { LayoutGrid, CalendarDays, Car, Settings, LogOut, BarChart3, FileText, Users, Tag, Percent, Mail, TrendingUp, Sun, UserCog } from "lucide-react";
 import { createBrowserClient } from "@supabase/ssr";
@@ -12,10 +13,10 @@ const allNav = [
   { href: "/admin/quotes",        label: "Quotes",       icon: FileText,     adminOnly: false },
   { href: "/admin/customers",     label: "Customers",    icon: Users,        adminOnly: false },
   { href: "/admin/fleet",         label: "Fleet",        icon: Car,          adminOnly: true  },
-  { href: "/admin/rates",         label: "Rates",        icon: Settings,     adminOnly: true  },
+  { href: "/admin/rates",         label: "Rates",        icon: Settings,     adminOnly: false },
   { href: "/admin/promo-codes",   label: "Promo Codes",  icon: Tag,          adminOnly: true  },
   { href: "/admin/discount-rules",label: "Discounts",    icon: Percent,      adminOnly: true  },
-  { href: "/admin/market",        label: "Market",       icon: TrendingUp,   adminOnly: true  },
+  { href: "/admin/market",        label: "Market",       icon: TrendingUp,   adminOnly: false },
   { href: "/admin/inbox",         label: "Inbox",        icon: Mail,         adminOnly: false },
   { href: "/admin/users",         label: "Users",        icon: UserCog,      adminOnly: true  },
   { href: "/admin/settings",      label: "Settings",     icon: Settings,     adminOnly: true  },
@@ -32,7 +33,7 @@ export default function AdminLayoutClient({
   const router = useRouter();
 
   if (pathname === "/admin/login" || pathname === "/admin/setup-mfa" || pathname === "/admin/set-password") {
-    return <>{children}</>;
+    return <RoleProvider role={role}>{children}</RoleProvider>;
   }
 
   const isAdmin = role === "admin";
@@ -85,7 +86,7 @@ export default function AdminLayoutClient({
           </button>
         </div>
       </aside>
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 overflow-auto"><RoleProvider role={role}>{children}</RoleProvider></main>
     </div>
   );
 }

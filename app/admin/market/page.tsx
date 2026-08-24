@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { BarChart3, PencilLine, Save, X } from "lucide-react";
 import type { Rate } from "@/lib/pricing";
+import { useIsAdmin } from "../RoleContext";
 
 type RateField = "rate_1_2" | "rate_3_6" | "rate_7plus";
 
@@ -56,6 +57,9 @@ const GROUP_LABEL: Record<string, string> = {
 };
 
 export default function MarketPage() {
+  // Presentation only — proxy.ts refuses the underlying PATCHes from staff
+  // regardless. Here so they are not offered edits that cannot save.
+  const isAdmin = useIsAdmin();
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [rows, setRows] = useState<CompareRow[]>([]);
   const [competitors, setCompetitors] = useState<{ slug: string; label: string }[]>([]);
@@ -176,7 +180,14 @@ export default function MarketPage() {
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           {rateNote && <span className="max-w-72 text-right text-xs text-gray-500">{rateNote}</span>}
-          {editingRates ? (
+          {/* Editing Anadyon's own rates from here writes to /api/admin/rates,
+              which staff may only read. The competitor columns and the import
+              buttons stay available to everyone. */}
+          {!isAdmin ? (
+            <span className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-500">
+              View only — rates are set by an administrator
+            </span>
+          ) : editingRates ? (
             <>
               <button
                 type="button"
@@ -318,13 +329,13 @@ export default function MarketPage() {
           </div>
           <div className="flex items-center gap-3">
             {note && <span className="text-xs text-gray-500">{note}</span>}
-            <button
+            {isAdmin && <button
               onClick={save}
               disabled={saving}
               className="flex items-center gap-1.5 text-sm font-medium text-white bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition"
             >
               <Save size={14} /> {saving ? "Saving…" : "Save mapping"}
-            </button>
+            </button>}
           </div>
         </div>
 
