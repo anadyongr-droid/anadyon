@@ -49,7 +49,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // assignment rules below.
   const { data: existing, error: existingError } = await supabaseAdmin
     .from("reservations")
-    .select("quote_id, vehicle_id, status, deposit_paid_at, total, deposit, balance_due")
+    .select("quote_id, vehicle_id, status, deposit_paid_at, total, deposit, balance_due, notes")
     .eq("id", id)
     .maybeSingle();
   if (existingError || !existing) {
@@ -111,9 +111,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   if (manualPaymentConfirmation) delete body.status;
 
+  // A one-request staff attestation, like `_payment_verified`: the customer
+  // asked for this change. Underscore-prefixed, so it is stripped from the
+  // update and never reaches a column — its durable record is the note
+  // appended below.
+  const customerRequested = raw._customer_requested_change === true;
+  // Only a genuine change of vehicle is worth attesting to; re-saving a
+  // reservation without touching the car is not.
+  const vehicleChanged = typeof body.vehicle_id === "string"
+    && body.vehicle_id !== existing.vehicle_id;
+
   const assignmentProblem = await validateQuoteVehicleAssignment(
     existing.quote_id,
     typeof body.vehicle_id === "string" ? body.vehicle_id : existing.vehicle_id,
+    customerRequested,
   );
   if (assignmentProblem) {
     return NextResponse.json({ error: assignmentProblem.error }, { status: assignmentProblem.status });
@@ -148,6 +159,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // column just as firmly as it rejects an unknown one.
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
   for (const [key, value] of Object.entries(body)) update[key] = value === "" ? null : value;
+
+  // The attestation only matters when it actually permitted something. Recorded
+  // on the reservation because "the customer asked for this" is exactly the
+  // thing somebody will want evidence of later — a refund dispute, or a driver
+  // who says they never agreed to the automatic.
+  if (customerRequested && vehicleChanged) {
+    const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
+    const existingNotes = typeof update.notes === "string" ? update.notes : (existing.notes ?? "");
+    update.notes = `${existingNotes}${existingNotes ? "\n" : ""}[${stamp} UTC] Vehicle change recorded as requested by the customer.`.trim();
+  }
 
   const { data, error } = await supabaseAdmin
     .from("reservations")
