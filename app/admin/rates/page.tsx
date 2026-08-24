@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { Rate, ExtrasConfig } from "@/lib/pricing";
+import { useIsAdmin } from "../RoleContext";
 
 const GROUP_LABELS: Record<string, string> = {
   car_a:       "Car — Category A (Nissan Micra)",
@@ -14,6 +15,9 @@ const GROUP_LABELS: Record<string, string> = {
 const GROUP_ORDER = ["car_a", "car_b", "car_c", "motorbike_a", "motorbike_b", "bike"];
 
 export default function RatesPage() {
+  // Presentation only — proxy.ts refuses a PATCH from staff regardless of what
+  // this page renders. Here so they are not offered an edit that cannot save.
+  const isAdmin = useIsAdmin();
   const [rates, setRates] = useState<Rate[]>([]);
   const [extras, setExtras] = useState<ExtrasConfig[]>([]);
   const [saving, setSaving] = useState(false);
@@ -69,13 +73,21 @@ export default function RatesPage() {
           <h1 className="text-xl font-bold text-gray-900">Rate Management</h1>
           <p className="text-sm text-gray-400 mt-0.5">All prices are in € per day</p>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-5 py-2 bg-blue-700 text-white text-sm font-semibold rounded-lg hover:bg-blue-800 transition disabled:opacity-50"
-        >
-          {saving ? "Saving…" : saved ? "Saved ✓" : "Save all changes"}
-        </button>
+        {/* Staff read the card; they do not change it. Showing the button and
+            letting the save come back 403 would read as a fault, not a rule. */}
+        {isAdmin ? (
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-5 py-2 bg-blue-700 text-white text-sm font-semibold rounded-lg hover:bg-blue-800 transition disabled:opacity-50"
+          >
+            {saving ? "Saving…" : saved ? "Saved ✓" : "Save all changes"}
+          </button>
+        ) : (
+          <span className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-500">
+            View only — rates are set by an administrator
+          </span>
+        )}
       </div>
 
       <div className="space-y-6">
@@ -107,7 +119,8 @@ export default function RatesPage() {
                             min="0"
                             value={rate[field]}
                             onChange={(e) => updateRate(rate.id, field, e.target.value)}
-                            className="w-20 border border-gray-200 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                            readOnly={!isAdmin}
+                            className={`w-20 border rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 ${isAdmin ? "border-gray-200" : "border-transparent bg-gray-50 text-gray-600"}`}
                           />
                         </div>
                       </td>
@@ -145,14 +158,16 @@ export default function RatesPage() {
                         min="0"
                         value={e.daily_rate}
                         onChange={(ev) => updateExtra(e.id, "daily_rate", parseFloat(ev.target.value) || 0)}
-                        className="w-20 border border-gray-200 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        readOnly={!isAdmin}
+                        className={`w-20 border rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 ${isAdmin ? "border-gray-200" : "border-transparent bg-gray-50 text-gray-600"}`}
                       />
                     </div>
                   </td>
                   <td className="px-4 py-2 text-center">
                     <input type="checkbox" checked={e.enabled}
                       onChange={(ev) => updateExtra(e.id, "enabled", ev.target.checked)}
-                      className="rounded border-gray-300" />
+                      disabled={!isAdmin}
+                      className="rounded border-gray-300 disabled:opacity-60" />
                   </td>
                 </tr>
               ))}

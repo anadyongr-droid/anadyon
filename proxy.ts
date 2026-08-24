@@ -12,19 +12,78 @@ const STAFF_PAGES = [
   "/admin/quotes",
   "/admin/customers",
   "/admin/inbox",
+  // Reference. Both render read-only for staff — see the `readOnly` prop each
+  // page takes. The API enforces it regardless of what the page shows.
+  "/admin/rates",
+  "/admin/market",
 ];
 
-// API routes staff can call — the data those pages need to function.
-// Deliberately excludes /api/admin/aade, /invoices, /sms, /stripe and /stats.
-const STAFF_API = [
-  "/api/admin/operations",
-  "/api/admin/reservations",
-  "/api/admin/vehicles",
-  "/api/admin/quotes",
-  "/api/admin/customers",
-  "/api/admin/emails",
-  "/api/admin/documents",
+/** Methods that only read. Anything not listed here writes. */
+const READ_ONLY = ["GET", "HEAD"] as const;
+
+interface StaffRoute {
+  /** Matched exactly, or as a prefix followed by "/". */
+  path: string;
+  /** Omit to allow every method. */
+  methods?: readonly string[];
+}
+
+/**
+ * What staff may call, and with which methods.
+ *
+ * Method-aware because a path is not a permission: `/api/admin/rates` serves
+ * both the rate card and the edit that changes it, so "staff may see prices"
+ * and "staff may set prices" were the same URL. Listing the path granted both,
+ * which is why viewing rates could not be allowed at all.
+ *
+ * The principle: staff can do everything a rental needs from enquiry to
+ * return, and nothing that decides what things cost.
+ */
+const STAFF_API: StaffRoute[] = [
+  // ─── Servicing a rental, start to finish ───
+  { path: "/api/admin/operations" },
+  { path: "/api/admin/reservations" },
+  { path: "/api/admin/vehicles" },
+  { path: "/api/admin/quotes" },
+  { path: "/api/admin/customers" },
+  { path: "/api/admin/emails" },
+  { path: "/api/admin/documents" },
+
+  // ─── Taking payment, and telling the customer about it ───
+  // Both create a link for a booking that already has its price; neither can
+  // change what is owed.
+  { path: "/api/admin/stripe/create-payment-link" },
+  { path: "/api/admin/wise/deposit-link" },
+  { path: "/api/admin/sms" },
+
+  // ─── Statutory filings for a rental staff handled ───
+  // Declaring a rental to AADE and issuing its invoice complete the rental;
+  // they are not commercial decisions.
+  { path: "/api/admin/aade/submit" },
+  { path: "/api/admin/invoices/submit" },
+
+  // ─── Reference only ───
+  // The rate card and the competitor comparison are readable. PATCH on either
+  // is how prices and competitor mappings change, and stays with an admin.
+  { path: "/api/admin/rates", methods: READ_ONLY },
+  { path: "/api/admin/competitors/comparison", methods: READ_ONLY },
+  { path: "/api/admin/competitors/mapping", methods: READ_ONLY },
+
+  // The three import buttons on Market. These fetch competitors' published
+  // prices; none of them touches Anadyon's own.
+  { path: "/api/admin/competitors/carrentals" },
+  { path: "/api/admin/competitors/faros" },
+  { path: "/api/admin/competitors/scrape" },
 ];
+
+// Deliberately still admin-only: /stats, /users, /settings, /gmail,
+// /promo-codes and /discount-rules — the last two decide what a rental costs.
+//
+// Note that the broad "/api/admin/vehicles" entry above already allows staff
+// to PATCH a vehicle and write its ledger. That predates this change and is
+// left as it was; narrowing it would remove access nobody asked to remove.
+// If fleet editing should be admin-only, restrict that entry to READ_ONLY and
+// add explicit entries for the availability and ledger reads staff do need.
 
 // Header used to hand the resolved role to server components. Stripped from the
 // incoming request first so a client cannot spoof it.
@@ -33,6 +92,21 @@ const ROLE_HEADER = "x-anadyon-role";
 // Exact segment match: "/x" matches "/x" and "/x/…" but never "/xyz".
 function matchesAny(pathname: string, allowed: string[]) {
   return allowed.some(p => pathname === p || pathname.startsWith(p + "/"));
+}
+
+/**
+ * Whether a staff member may make this request.
+ *
+ * Both the path and the method have to be allowed. A route listed without
+ * `methods` permits all of them; one listed with `READ_ONLY` permits reading
+ * and refuses every write to the same URL.
+ */
+function staffMayCall(pathname: string, method: string): boolean {
+  const verb = method.toUpperCase();
+  return STAFF_API.some((route) =>
+    (pathname === route.path || pathname.startsWith(route.path + "/")) &&
+    (!route.methods || route.methods.includes(verb))
+  );
 }
 
 /**
@@ -327,8 +401,14 @@ export async function proxy(req: NextRequest) {
 
   if (role !== "admin") {
     if (pathname.startsWith("/api/admin/")) {
-      if (!matchesAny(pathname, STAFF_API)) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      if (!staffMayCall(pathname, req.method)) {
+        // Named, because "Forbidden" on a page a staff member can plainly see
+        // reads as a bug rather than a rule. The rate card is the case that
+        // matters: they are meant to look at it and not to change it.
+        return NextResponse.json(
+          { error: "Forbidden: this action requires an administrator." },
+          { status: 403 },
+        );
       }
     } else if (!matchesAny(pathname, STAFF_PAGES)) {
       const url = req.nextUrl.clone();

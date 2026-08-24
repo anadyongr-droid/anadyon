@@ -56,10 +56,15 @@ describe("admin access control", () => {
   it("refuses before the staff allowlist is consulted", () => {
     // If the roleless check ran after the staff-path check, an unknown user
     // would already have been handed the staff pages by the time it fired.
+    //
+    // Anchored on the staff API check wherever it now lives. It was
+    // `matchesAny(pathname, STAFF_API)` until that list became method-aware
+    // and the call became `staffMayCall`; the rule being guarded is unchanged,
+    // and the assertion failing on the rename is the check working.
     const denial = proxy.indexOf('refusing admin access');
-    const staffPathCheck = proxy.indexOf('matchesAny(pathname, STAFF_API)');
-    expect(denial).toBeGreaterThan(-1);
-    expect(staffPathCheck).toBeGreaterThan(-1);
+    const staffPathCheck = proxy.indexOf('staffMayCall(pathname, req.method)');
+    expect(denial, "roleless denial not found").toBeGreaterThan(-1);
+    expect(staffPathCheck, "staff API check not found").toBeGreaterThan(-1);
     expect(denial).toBeLessThan(staffPathCheck);
   });
 
