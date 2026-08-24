@@ -1,4 +1,38 @@
 import type { NextConfig } from "next";
+import { RECAPTCHA_TEST_SITE_KEY, isLiveSite } from "./lib/recaptchaKeys";
+
+/**
+ * Refuses to build a production bundle carrying Google's reCAPTCHA test key.
+ *
+ * `verifyRecaptcha` already refuses the test *secret* on the live site. On
+ * 2026-08-24 the mirror image happened instead: the test *site key* reached
+ * production while the secret stayed real. The runtime guard could not see it,
+ * because a `NEXT_PUBLIC_` value is inlined into the browser bundle at build
+ * time and never passes through the verifier at all.
+ *
+ * The result was worse than a loud failure. Tokens were issued against one key
+ * pair and checked against another, so Google rejected every one and the
+ * booking and contact forms quietly refused all submissions — indistinguishable
+ * from customers failing the CAPTCHA.
+ *
+ * Build time is the only place this is catchable, so it is caught here. A
+ * failed deployment is recoverable in minutes; a live form that silently
+ * declines every booking is not.
+ */
+function assertRecaptchaKeyIsNotTheTestOne(): void {
+  const configured = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY?.trim();
+  if (!isLiveSite() || configured !== RECAPTCHA_TEST_SITE_KEY) return;
+
+  throw new Error(
+    "Refusing to build: NEXT_PUBLIC_RECAPTCHA_SITE_KEY is Google's test site key " +
+    "and this is a production build. Tokens would be issued against the test key " +
+    "and verified against the real secret, so every booking and contact " +
+    "submission would be rejected. Scope that variable to Preview only, then " +
+    "redeploy.",
+  );
+}
+
+assertRecaptchaKeyIsNotTheTestOne();
 
 // Script origins the site genuinely loads, confirmed by watching the network on
 // a rendered page rather than by reading the source: reCAPTCHA pulls from
