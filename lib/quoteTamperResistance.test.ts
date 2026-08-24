@@ -240,13 +240,21 @@ describe("the quote-request alert replies to the customer", () => {
     expect(mail!.replyTo).toBe("test@example.com");
   });
 
-  it("does the same on the [ALERT] variant", async () => {
-    // A mismatched client total is what raises the alert — and its own body
-    // tells staff to "verify with the customer", which is a reply.
+  it("keeps replies internal on the price-manipulation [ALERT]", async () => {
+    // Same email with a warning bolted on. A Reply-To here would point at
+    // whoever just tampered with the price, and one careless Reply would tell
+    // them it had been noticed.
     await post(requestBody({ total: 1 }));
     const mail = officeMail();
     expect(mail!.subject).toMatch(/\[ALERT\]/);
-    expect(mail!.replyTo).toBe("test@example.com");
+    expect(mail!.replyTo).toBeUndefined();
+  });
+
+  it("still replies to the customer when only the vehicle flag is raised", async () => {
+    // [NO VEHICLE] is an operational flag, not a security one — talking to the
+    // customer about alternatives is exactly what it calls for.
+    await post(requestBody());
+    expect(officeMail()!.replyTo).toBe("test@example.com");
   });
 
   it("still goes to the office, not to the customer", async () => {

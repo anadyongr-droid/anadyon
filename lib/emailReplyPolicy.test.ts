@@ -74,7 +74,10 @@ describe("alerts to the office never reply to the customer", () => {
     // alert — that assertion lives in quoteTamperResistance.
     const block = quoteRoute.match(/const officeMail = \([\s\S]*?subject:/)?.[0] ?? "";
     expect(block, "officeMail block not found").not.toBe("");
-    expect(block).toContain("replyTo: email");
+    // Conditional: suppressed on the price-manipulation alert, which is the
+    // same email. Behaviour for both branches is asserted in
+    // quoteTamperResistance against the real route.
+    expect(block).toContain("manipulated ? {} : { replyTo: email }");
   });
 
   it("carries no clickable contact anywhere in its body", () => {

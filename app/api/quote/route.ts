@@ -528,16 +528,17 @@ export async function POST(req: NextRequest) {
   const officeMail = (noVehicle: boolean) => sendMail({
     from: "Anadyon Website <customerservice@anadyon.gr>",
     to: ["customerservice@anadyon.gr"],
-    // Replies to the customer who submitted the request. This announces a
-    // booking somebody is about to act on, and answering the customer is the
-    // next step — the same treatment the New Reservation alert gets.
+    // Replies to the customer who submitted the request, so the office can
+    // answer straight from this email instead of copying the address out of
+    // the body. Reverses the earlier "keep replies internal" rule: answering
+    // the customer turned out to be the common case by far.
     //
-    // This reverses the earlier decision to keep replies internal. That was
-    // made to stop a staff member asking a colleague a question and reaching
-    // the client by accident; the cost was that answering the customer meant
-    // copying their address out by hand, which is the slower and more common
-    // case. The address remains printed in the body either way.
-    replyTo: email,
+    // Except on the price-manipulation alert. That is the same email with a
+    // warning bolted on, so a blanket Reply-To would point it at whoever just
+    // tampered with the price — and one careless Reply would tell them the
+    // tampering was noticed. There, replies stay internal; the customer's
+    // address is still printed in the body for anyone who decides to write.
+    ...(manipulated ? {} : { replyTo: email }),
     subject: `${manipulated ? "⚠️ [ALERT] " : ""}${noVehicle ? "🚗 [NO VEHICLE] " : ""}Quote Request — ${lastName}, ${ref}`,
     html: `
       ${manipulationWarning}
