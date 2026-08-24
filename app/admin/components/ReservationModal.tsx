@@ -100,6 +100,15 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
   const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [downgradeAcknowledged, setDowngradeAcknowledged] = useState(false);
+  // The linked quote as loaded with the reservation. The `quoted` prop is
+  // only supplied when the modal is opened from the Quotes screen; every
+  // other entry point relied on it being undefined, which silently disabled
+  // the eligibility filter and every substitution warning.
+  const [loadedQuote, setLoadedQuote] = useState<(Quoted & {
+    ref?: string | null; driver_age?: string | null; baby_seat?: number | null;
+    child_seat?: number | null; fdw?: boolean | null;
+    additional_drivers?: number | null; comments?: string | null;
+  }) | null>(null);
   // The customer rang and asked for this — a different transmission, or a
   // smaller car they have accepted. Recorded on the reservation when it is
   // what permitted the change.
@@ -173,6 +182,8 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
             discount_reason: data.discount_reason ?? "",
             dcl_status: data.dcl_status ?? "not_submitted",
           });
+          const q = Array.isArray(data.quotes) ? data.quotes[0] : data.quotes;
+          setLoadedQuote(q ? { ...q, model: q.selected_model } : null);
           setOriginalStatus(data.status);
           setInvoiceStatus(data.invoice_status ?? "not_issued");
           setInvoiceMark(data.invoice_mark ?? null);
@@ -339,8 +350,14 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
   // accidental car → bicycle or manual → automatic choice out of the ordinary
   // staff workflow altogether. A walk-in has no quoted promise, so it retains
   // the full active fleet selector.
-  const selectableVehicles = quoted
-    ? vehicles.filter((v) => v.status === "available" && isEligibleAssignment(quoted, {
+  // The prop wins when present (the Quotes screen passes it while converting,
+  // before any reservation exists); otherwise the quote loaded with the
+  // reservation. Everything below keys off this rather than the prop, so the
+  // rules apply identically from every entry point.
+  const request = quoted ?? loadedQuote ?? undefined;
+
+  const selectableVehicles = request
+    ? vehicles.filter((v) => v.status === "available" && isEligibleAssignment(request, {
         pricing_group: v.pricing_group,
         category: v.category,
         transmission: v.transmission,
@@ -407,7 +424,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
   // Compared against the quote, if there was one: same category, a free
   // upgrade, or a downgrade needing the customer's agreement.
   const assignedVehicle = vehicles.find(v => v.id === form.vehicle_id);
-  const substitution = checkSubstitution(quoted ?? {}, {
+  const substitution = checkSubstitution(request ?? {}, {
     pricing_group: assignedVehicle?.pricing_group,
     category: assignedVehicle?.category,
     transmission: assignedVehicle?.transmission,
@@ -1053,6 +1070,32 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
         {!saveError && licence?.severity === "tight" && (
           <div className="mx-6 mb-2 text-xs text-amber-800 bg-amber-50 border border-amber-300 rounded-lg px-4 py-2">
             {licence.message}.
+          </div>
+        )}
+        {/* What the customer actually asked for.
+            Allocating a vehicle means matching a request, and that request was
+            not on this screen at all — staff had to open the Quotes page in
+            another tab to see which category or transmission had been booked.
+            Shown for website bookings only; a walk-in has no quote and nothing
+            to compare against. */}
+        {request && (
+          <div className="mx-6 mb-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+            <p className="mb-1.5 text-xs font-bold text-gray-700">
+              Customer&rsquo;s original request
+              {loadedQuote?.ref ? <span className="ml-1.5 font-mono font-normal text-gray-500">{loadedQuote.ref}</span> : null}
+            </p>
+            <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-600">
+              {request.model && <span><span className="text-gray-400">Vehicle:</span> <strong className="text-gray-800">{request.model}</strong></span>}
+              {request.transmission && <span><span className="text-gray-400">Transmission:</span> <strong className="text-gray-800">{request.transmission}</strong></span>}
+              {loadedQuote?.driver_age && <span><span className="text-gray-400">Driver age:</span> {loadedQuote.driver_age}</span>}
+              {(loadedQuote?.baby_seat ?? 0) > 0 && <span><span className="text-gray-400">Baby seats:</span> {loadedQuote?.baby_seat}</span>}
+              {(loadedQuote?.child_seat ?? 0) > 0 && <span><span className="text-gray-400">Child seats:</span> {loadedQuote?.child_seat}</span>}
+              {(loadedQuote?.additional_drivers ?? 0) > 0 && <span><span className="text-gray-400">Extra drivers:</span> {loadedQuote?.additional_drivers}</span>}
+              {loadedQuote?.fdw && <span className="text-gray-800">FDW</span>}
+            </div>
+            {loadedQuote?.comments && (
+              <p className="mt-1.5 text-xs italic text-gray-500">&ldquo;{loadedQuote.comments}&rdquo;</p>
+            )}
           </div>
         )}
         {/* Substitution against the quote, shown before saving rather than

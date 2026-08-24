@@ -33,7 +33,14 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
   const { id } = await params;
   const { data, error } = await supabaseAdmin
     .from("reservations")
-    .select("*, vehicles(name, plate, category)")
+    // The linked quote travels with the reservation, so the edit screen can
+    // show what the customer actually asked for. Without it, staff allocating a
+    // vehicle from the Reservations list saw neither the requested category nor
+    // the transmission, the dropdown was not filtered to eligible vehicles, and
+    // none of the substitution warnings could fire — all of that only worked
+    // when the modal was opened from the Quotes screen, which passed the quote
+    // in as a prop.
+    .select("*, vehicles(name, plate, category), quotes(ref, selected_model, vehicle_type, pricing_group, transmission, driver_age, baby_seat, child_seat, fdw, additional_drivers, comments, created_at)")
     .eq("id", id)
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 404 });
