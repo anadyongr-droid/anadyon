@@ -1,7 +1,8 @@
 # Anadyon handoff — Codex work after the Claude H1 handover
 
-Status date: **2026-08-23** (original), addendum added same day by Claude Code
-after PR #25 and PR #26  
+Status date: **2026-08-23** (original), with addenda in sections 16 and 17 —
+the latter covering 24 August: roles, email reply policy and reservation
+changes  
 Prepared for: the next engineer or coding agent, including Claude Code  
 Repository: `anadyongr-droid/anadyon`  
 Production: `https://anadyon.gr`
@@ -12,8 +13,8 @@ This document records the work completed after Claude handed the project to
 Codex in `docs/HANDOFF-H1.md` on 20 August 2026. It covers the implementation
 and release sequence from PR #2 through PR #26, the database changes applied
 manually during that period, production verification, important business rules,
-and the work that remains open. Section 2 and the addendum in section 16 record
-what changed after the original 23 August write-up.
+and the work that remains open. Section 2 is superseded; sections 16 and 17
+record what changed after the original 23 August write-up.
 
 It is a consolidation document. The specialised handoffs remain authoritative
 for their individual areas:
@@ -500,8 +501,22 @@ calendar tests, email/payment idempotency tests, and English/Greek content tests
   provider references and permitted reconciliation metadata.
 - Never infer missing passport/licence dates or replace blanks with today's
   date.
-- Do not downgrade a requested vehicle category without explicit customer
-  consent, and never substitute transmission type.
+- Never hand a customer a vehicle differing from what they booked without their
+  agreement. A free upgrade needs no permission. A **downgrade** or a
+  **different transmission** needs the customer to have asked for it, recorded
+  through the "the customer requested this change" attestation, which writes a
+  dated note onto the reservation.
+
+  Two things no agreement can permit, refused however that box is set: a
+  booking crossing fleet families (a car becoming a bicycle — raise a new quote
+  instead), and a vehicle whose transmission the fleet record does not hold,
+  since consent cannot supply a fact.
+
+  The distinction is **substitution** — us giving them something else — against
+  a change **they requested**. This rule was always about the first; until
+  2026-08-24 the code could not tell them apart, so a customer ringing up to
+  ask for an automatic was refused. See `consentCanPermit` in
+  `lib/substitution.ts`.
 - Do not overwrite completed-rental snapshots through customer-master edits.
 - An email failure after a committed booking must be queued/alerted, not turned
   into an apparent booking failure that invites duplicate submission.
@@ -687,3 +702,84 @@ result, not just local checks, before reporting a fix as done.
   provider" to "Delivered to recipient's mail server" after refresh.
 - Everything else in section 10 (recovery/backup drill, governance, Gmail-token
   encryption, CSP, NBG) is unchanged and still open.
+
+## 17. Addendum — 24 August 2026: roles, emails and reservation changes
+
+### 17.1 Staff permissions are now method-aware
+
+`STAFF_API` in `proxy.ts` was a list of paths, so a path was either open to
+staff or not. `/api/admin/rates` serves both the rate card and the edit that
+changes it, which made "staff may see prices" and "staff may set prices" the
+same URL — and is why read-only access to rates could not be granted at all.
+
+Entries now carry optional `methods`, and `staffMayCall` checks both. The
+principle: **staff can do everything a rental needs from enquiry to return, and
+nothing that decides what things cost.**
+
+| Staff may | Routes |
+|---|---|
+| Use fully | operations, reservations, vehicles, quotes, customers, emails, documents |
+| Take payment, notify | `stripe/create-payment-link`, `wise/deposit-link`, `sms` |
+| File statutory returns | `aade/submit`, `invoices/submit` |
+| **Read only** | `rates`, `competitors/comparison`, `competitors/mapping` |
+| Run imports | `competitors/carrentals`, `/faros`, `/scrape` — these fetch competitors' published prices and touch none of Anadyon's |
+
+Still admin-only: `promo-codes` and `discount-rules` (they decide what a rental
+costs), plus `users`, `settings`, `stats`, `gmail`.
+
+The Rates and Market **pages** are visible to staff and render read-only — the
+role reaches them through `app/admin/RoleContext.tsx`, fed by the same
+`x-anadyon-role` header the layout already receives. **That is presentation
+only.** `proxy.ts` is the boundary; a page ignoring the context would show
+fields whose saves return 403.
+
+**Left as it was:** the broad `/api/admin/vehicles` entry already permitted
+staff to PATCH a vehicle and write its ledger, and predates this change. If
+fleet editing should be admin-only, restrict that entry to `READ_ONLY` and add
+explicit entries for the availability and ledger reads staff genuinely need.
+
+### 17.2 Email reply policy across all eight emails
+
+Emails **to customers** come from `customerservice@anadyon.gr` and reply back to
+it. Booking-confirmed and "vehicle ready for pick-up" were previously sent from
+`no-reply@` with no Reply-To, so a customer answering either reached nobody at
+all — silently, with no bounce.
+
+Emails **to the office** carry no Reply-To, with the customer's address printed
+in the body as plain text — no links, no buttons. Two deliberate exceptions,
+both because they announce a booking somebody is about to act on:
+
+- **Quote Request** (`Anadyon Website`) replies to the customer — **except** its
+  `⚠️ [ALERT]` price-manipulation variant, which is the same email with a
+  warning attached. A Reply-To there would point at whoever tampered with the
+  price, and one careless Reply would tell them it had been noticed.
+- **New Reservation** (`Anadyon Alerts`) replies to the customer, and goes to
+  `customerservice@` alone. It also named `anadyon.gr@gmail.com`, which
+  `customerservice@` already forwards to, so every one arrived twice.
+
+The **contact form** is untouched: an enquiry forwarded to the office, where
+replying to the sender is the entire point.
+
+Pinned by `lib/emailReplyPolicy.test.ts`.
+
+### 17.3 Testing the booking form without a human
+
+reCAPTCHA guards the only two unauthenticated write paths on the site, which is
+also what makes the booking flow impossible to exercise automatically. Google's
+published test key pair can be set on **Preview only**; `verifyRecaptcha`
+refuses every submission if it finds that secret while running as the live site,
+returning before it even contacts Google. Setup and the leaked-variable symptom
+are in `docs/PREVIEW-RECAPTCHA-TEST-KEYS.md`. **No Vercel variables are set** —
+production is unchanged until somebody deliberately adds the Preview pair.
+
+### 17.4 Things confirmed as already working
+
+Recorded because each was reported as missing and turned out not to be:
+
+- **Staff email access** — `/admin/inbox` and full `/api/admin/emails`,
+  including sync, reclassify and edit.
+- **Staff reservation edits** — extending, shortening, adding extras and
+  upgrading the model all worked already. Transmission was the only real gap.
+- **Repricing on a vehicle change** — the reservation modal derives the card
+  rate from the selected vehicle's pricing group, so changing the car reprices
+  automatically. `_daily_rate_override` still lets staff pin a negotiated rate.

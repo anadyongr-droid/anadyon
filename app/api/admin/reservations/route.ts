@@ -103,9 +103,13 @@ export async function POST(req: NextRequest) {
   // the actual integrity boundary. It prevents a stale tab or crafted request
   // assigning a bicycle to a car quote, a lower class without consent, or the
   // wrong transmission.
+  // Same attestation as the edit route: converting a quote to a reservation
+  // with a different transmission or a lower category is a change the customer
+  // has to have asked for.
   const assignmentProblem = await validateQuoteVehicleAssignment(
     typeof body.quote_id === "string" ? body.quote_id : null,
     typeof body.vehicle_id === "string" ? body.vehicle_id : null,
+    raw._customer_requested_change === true,
   );
   if (assignmentProblem) {
     return NextResponse.json({ error: assignmentProblem.error }, { status: assignmentProblem.status });

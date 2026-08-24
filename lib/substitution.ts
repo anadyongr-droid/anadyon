@@ -77,10 +77,45 @@ export function expectedTransmission(quoted: Quoted): string | null {
 
 export type Verdict = "ok" | "upgrade" | "downgrade" | "blocked";
 
+/**
+ * Why an assignment was refused, in a form code can branch on.
+ *
+ * The three blocked cases are not the same kind of problem, and only one is
+ * something a customer can agree to. Telling them apart by matching the
+ * message text would break the first time a word changed.
+ */
+export type BlockedReason =
+  /** A car booking becoming a bicycle. A different product, not a substitution. */
+  | "family"
+  /** The vehicle's transmission is not recorded. Missing data, not a decision. */
+  | "transmission_unknown"
+  /** Manual against automatic. Something the customer can ask for. */
+  | "transmission_mismatch"
+  /** A lower category than booked. Something the customer can agree to. */
+  | "downgrade";
+
 export interface SubstitutionCheck {
   verdict: Verdict;
   /** Shown to staff. Empty when the assignment matches what was quoted. */
   message: string;
+  /** Set whenever the verdict is "blocked" or "downgrade". */
+  reason?: BlockedReason;
+}
+
+/**
+ * Whether a recorded customer request can permit this assignment.
+ *
+ * Only the two a customer is actually able to consent to. A car booking cannot
+ * become a bicycle because somebody ticked a box, and no amount of agreement
+ * supplies a transmission the fleet record does not hold.
+ */
+const CONSENT_CAN_PERMIT: ReadonlySet<BlockedReason> = new Set<BlockedReason>([
+  "transmission_mismatch",
+  "downgrade",
+]);
+
+export function consentCanPermit(check: SubstitutionCheck): boolean {
+  return check.reason !== undefined && CONSENT_CAN_PERMIT.has(check.reason);
 }
 
 export interface Quoted {
@@ -138,6 +173,7 @@ export function checkSubstitution(quoted: Quoted, assigned: Assigned): Substitut
     return {
       verdict: "blocked",
       message: `The quote was for a ${FAMILY_LABEL[requestedFamily]}, but this is a ${FAMILY_LABEL[assignedFamily]}. That is not a substitution — raise a new quote instead.`,
+      reason: "family",
     };
   }
 
@@ -151,6 +187,7 @@ export function checkSubstitution(quoted: Quoted, assigned: Assigned): Substitut
     return {
       verdict: "blocked",
       message: "This vehicle has no recorded transmission. Assign a vehicle whose manual or automatic transmission is recorded.",
+      reason: "transmission_unknown",
     };
   }
 
@@ -160,6 +197,7 @@ export function checkSubstitution(quoted: Quoted, assigned: Assigned): Substitut
       message: wanted.toLowerCase() === "automatic"
         ? `The customer's booking is for an automatic and this vehicle is manual. They may not be able to drive it — assign an automatic, or agree the change with them first.`
         : `The customer's booking is for a manual and this vehicle is automatic. Not every driver is comfortable in an automatic, and it carries a premium they have not paid — assign a manual, or agree the change with them first.`,
+      reason: "transmission_mismatch",
     };
   }
 
@@ -178,6 +216,7 @@ export function checkSubstitution(quoted: Quoted, assigned: Assigned): Substitut
     return {
       verdict: "downgrade",
       message: `Downgrade from ${quoted.model || "the quoted category"} to ${assigned.name || "a lower category"}. Only proceed with the customer's agreement, and reduce the price to the lower category's rate.`,
+      reason: "downgrade",
     };
   }
 

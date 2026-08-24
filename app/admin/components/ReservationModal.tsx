@@ -11,7 +11,7 @@ import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "@/app/components/DateRangePicker";
 import { TIME_OPTIONS, validateReservation, missingDeferrable, normaliseForStorage } from "@/lib/bookingFields";
 import { BOOKING_LOCATION_VALUES, DEFAULT_ADMIN_BOOKING_LOCATION } from "@/lib/bookingLocations";
-import { checkSubstitution, isEligibleAssignment, type Quoted } from "@/lib/substitution";
+import { checkSubstitution, consentCanPermit, isEligibleAssignment, type Quoted } from "@/lib/substitution";
 import { MAX_CHILD_SEATS_TOTAL, SEATS_LIMIT_MESSAGE } from "@/lib/rentalPolicy";
 import { deriveWorkflowStage, type DeliveryRow } from "@/lib/emailWorkflowStage";
 import { licenceStatus, instant } from "@/lib/operations";
@@ -100,6 +100,10 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
   const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [downgradeAcknowledged, setDowngradeAcknowledged] = useState(false);
+  // The customer rang and asked for this — a different transmission, or a
+  // smaller car they have accepted. Recorded on the reservation when it is
+  // what permitted the change.
+  const [customerRequestedChange, setCustomerRequestedChange] = useState(false);
   const [statutoryBar, setStatutoryBar] = useState("");
   const [conflictWarning, setConflictWarning] = useState("");
   const [originalStatus, setOriginalStatus] = useState("");
@@ -447,11 +451,15 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
     // Transmission and cross-family swaps are refused outright. A downgrade is
     // allowed but must be deliberate, so it asks once rather than blocking —
     // the customer's agreement happens on the phone, not in this form.
-    if (substitution.verdict === "blocked") {
+    // A blocked change the customer asked for is allowed once that is ticked.
+    // The rest — a car booking becoming a bicycle, or a vehicle with no
+    // recorded transmission — stays refused whatever the box says.
+    if (substitution.verdict === "blocked"
+        && !(customerRequestedChange && consentCanPermit(substitution))) {
       setSaveError(substitution.message);
       return;
     }
-    if (substitution.verdict === "downgrade" && !downgradeAcknowledged) {
+    if (substitution.verdict === "downgrade" && !customerRequestedChange && !downgradeAcknowledged) {
       setSaveError(`${substitution.message} Press Save again to confirm you have done both.`);
       setDowngradeAcknowledged(true);
       return;
@@ -490,6 +498,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
       deposit,
       balance_due: balanceDue,
       ...(paymentConfirmation ? { _payment_verified: true, _payment_amount: paymentAmount } : {}),
+      ...(customerRequestedChange ? { _customer_requested_change: true } : {}),
       ...(linkedCustomerId ? { customer_id: linkedCustomerId } : {}),
       ...(quoteId ? { quote_id: quoteId } : {}),
     });
@@ -1057,6 +1066,26 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
           <div className="mx-6 mb-2 text-xs text-amber-800 bg-amber-50 border border-amber-300 rounded-lg px-4 py-2">
             {substitution.message}
           </div>
+        )}
+        {/* Offered only where the customer's agreement is the actual missing
+            ingredient — a different transmission, or a lower category. Never
+            for a car booking becoming a bicycle, or a vehicle whose
+            transmission the fleet record does not hold: no amount of agreement
+            fixes either, so a tick box there would only mislead. */}
+        {consentCanPermit(substitution) && (
+          <label className="mx-6 mb-2 flex items-start gap-2.5 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2.5 text-xs text-blue-900">
+            <input
+              type="checkbox"
+              checked={customerRequestedChange}
+              onChange={(e) => setCustomerRequestedChange(e.target.checked)}
+              className="mt-0.5 rounded border-blue-400"
+            />
+            <span>
+              <strong>The customer requested this change.</strong> Tick only if they
+              have actually asked for it. This is recorded on the reservation with the
+              date, and is what would be relied on if they later say they did not agree.
+            </span>
+          </label>
         )}
         {/* Deferred fields are named rather than merely absent, so a booking
             taken in a hurry can still be saved without the gap being forgotten. */}

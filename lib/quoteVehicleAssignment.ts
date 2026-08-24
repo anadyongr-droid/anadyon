@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase";
-import { checkSubstitution, isEligibleAssignment, type Assigned, type Quoted } from "@/lib/substitution";
+import { checkSubstitution, consentCanPermit, isEligibleAssignment, type Assigned, type Quoted } from "@/lib/substitution";
 
 type Result = { error: string; status: number } | null;
 
@@ -9,10 +9,18 @@ type Result = { error: string; status: number } | null;
  * The select box is only a convenience. This function is the boundary that
  * prevents a crafted request, a stale browser tab, or a future admin screen
  * from turning a car request into a bike or crossing Manual/Automatic.
+ *
+ * `customerRequested` is the one thing that changes the answer: a customer
+ * ringing up to ask for an automatic, or to accept a smaller car, is not a
+ * substitution being done to them. The messages here already told staff to
+ * "agree the change with them first" while giving them no way to say they had.
+ * It permits only what a customer can actually agree to — never a car booking
+ * becoming a bicycle, and never a transmission the fleet record does not hold.
  */
 export async function validateQuoteVehicleAssignment(
   quoteId: string | null | undefined,
   vehicleId: string | null | undefined,
+  customerRequested = false,
 ): Promise<Result> {
   if (!quoteId || !vehicleId) return null;
 
@@ -55,10 +63,19 @@ export async function validateQuoteVehicleAssignment(
   if (isEligibleAssignment(quoted, assigned)) return null;
 
   const substitution = checkSubstitution(quoted, assigned);
+
+  // The customer asked for this. Permitted only where consent is the actual
+  // missing ingredient — a different transmission, or a lower category they
+  // have accepted. A bicycle against a car booking, or a vehicle with no
+  // recorded transmission, stays refused however the box is ticked.
+  if (customerRequested && consentCanPermit(substitution)) return null;
+
   return {
     status: 400,
     error: substitution.verdict === "downgrade"
-      ? `${substitution.message} This screen only offers same-category vehicles and free upgrades; record customer consent before arranging a downgrade.`
-      : substitution.message || "This vehicle is not eligible for the customer's quoted category.",
+      ? `${substitution.message} Tick "the customer requested this change" to record their agreement.`
+      : consentCanPermit(substitution)
+        ? `${substitution.message} If they asked for it, tick "the customer requested this change" to record their agreement.`
+        : substitution.message || "This vehicle is not eligible for the customer's quoted category.",
   };
 }
