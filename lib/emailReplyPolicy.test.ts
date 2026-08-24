@@ -67,10 +67,17 @@ describe("alerts to the office never reply to the customer", () => {
   const quoteRoute = readFileSync(new URL("../app/api/quote/route.ts", import.meta.url), "utf8");
   const webhook = readFileSync(new URL("../app/api/resend-webhook/route.ts", import.meta.url), "utf8");
 
-  it("the quote-request notification sets no reply address at all", () => {
+  it("the quote-request notification replies to the customer who submitted it", () => {
+    // The exception, alongside the New Reservation alert below: both announce a
+    // booking somebody is about to act on, and answering the customer is the
+    // next step. Reply-To changes where an answer goes, never who is sent the
+    // alert — that assertion lives in quoteTamperResistance.
     const block = quoteRoute.match(/const officeMail = \([\s\S]*?subject:/)?.[0] ?? "";
     expect(block, "officeMail block not found").not.toBe("");
-    expect(block).not.toContain("replyTo");
+    // Conditional: suppressed on the price-manipulation alert, which is the
+    // same email. Behaviour for both branches is asserted in
+    // quoteTamperResistance against the real route.
+    expect(block).toContain("manipulated ? {} : { replyTo: email }");
   });
 
   it("carries no clickable contact anywhere in its body", () => {

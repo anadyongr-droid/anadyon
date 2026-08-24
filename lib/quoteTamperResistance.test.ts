@@ -226,25 +226,45 @@ describe("combined child-seat limit at the public API", () => {
   });
 });
 
-describe("the internal quote alert never replies to the customer", () => {
+describe("the quote-request alert replies to the customer", () => {
   const officeMail = () => mocks.sendMail.mock.calls
     .map(([mail]) => mail as unknown as { to: string[]; replyTo?: unknown; subject: string })
     .find((mail) => Array.isArray(mail.to) && mail.to.includes("customerservice@anadyon.gr"));
 
-  it("omits Reply-To on an ordinary quote request", async () => {
+  it("replies to the customer who submitted the request", async () => {
+    // Reverses the earlier "keep replies internal" rule: answering the customer
+    // turned out to be the common case, and it meant copying the address out.
     await post(requestBody());
     const mail = officeMail();
     expect(mail).toBeDefined();
-    expect(mail!.replyTo).toBeUndefined();
-    expect(JSON.stringify(mail)).not.toMatch(/"replyTo"\s*:\s*"test@example\.com"/);
+    expect(mail!.replyTo).toBe("test@example.com");
   });
 
-  it("omits Reply-To on the [ALERT] variant too", async () => {
-    // A mismatched client total is what raises the alert.
+  it("keeps replies internal on the price-manipulation [ALERT]", async () => {
+    // Same email with a warning bolted on. A Reply-To here would point at
+    // whoever just tampered with the price, and one careless Reply would tell
+    // them it had been noticed.
     await post(requestBody({ total: 1 }));
     const mail = officeMail();
     expect(mail!.subject).toMatch(/\[ALERT\]/);
     expect(mail!.replyTo).toBeUndefined();
+  });
+
+  it("still replies to the customer when only the vehicle flag is raised", async () => {
+    // [NO VEHICLE] is an operational flag, not a security one — talking to the
+    // customer about alternatives is exactly what it calls for.
+    await post(requestBody());
+    expect(officeMail()!.replyTo).toBe("test@example.com");
+  });
+
+  it("still goes to the office, not to the customer", async () => {
+    // Reply-To changes where an answer lands; it must not change who receives
+    // the alert. Sending this to the customer would show them the internal
+    // price-manipulation warning.
+    await post(requestBody({ total: 1 }));
+    const mail = officeMail();
+    expect(mail!.to).toEqual(["customerservice@anadyon.gr"]);
+    expect(mail!.to).not.toContain("test@example.com");
   });
 
   it("prints the customer's address in the body as plain text", async () => {
