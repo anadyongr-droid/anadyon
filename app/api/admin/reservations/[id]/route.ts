@@ -206,8 +206,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     try {
       if (newStatus === "active") {
         await sendMail({
-          from: "Anadyon Rentals <no-reply@anadyon.gr>",
+          from: "Anadyon Rentals <customerservice@anadyon.gr>",
           to: [data.customer_email],
+          // A customer answering "my flight is late" or "where do I collect
+          // it" needs somewhere for that reply to land. Previously sent from
+          // no-reply@ with no Reply-To, so those answers went nowhere.
+          replyTo: "customerservice@anadyon.gr",
           subject: "Your vehicle is ready for pick-up — Anadyon Rentals",
           html: buildActiveEmail(data),
         });

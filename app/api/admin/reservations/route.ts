@@ -176,7 +176,18 @@ export async function POST(req: NextRequest) {
       // verified send.anadyon.gr setup, and avoids customerservice@ mailing
       // itself, which is what a from/to on the same box would do.
       from: "Anadyon Alerts <no-reply@anadyon.gr>",
-      to: ["customerservice@anadyon.gr", "anadyon.gr@gmail.com"],
+      // customerservice@ alone: it already forwards to anadyon.gr@gmail.com, so
+      // naming both delivered every one of these twice to the same person.
+      to: ["customerservice@anadyon.gr"],
+      // Deliberately replies to the customer, unlike the other office alerts.
+      // This one announces a booking somebody is about to act on, and answering
+      // the customer is the usual next step. Omitted entirely when the
+      // reservation carries no email, rather than set to an empty string: a
+      // blank Reply-To bounces the staff member's reply instead of quietly
+      // falling back to the sender.
+      ...(String(responseData.customer_email ?? "").trim()
+        ? { replyTo: String(responseData.customer_email).trim() }
+        : {}),
       subject: `New Reservation — ${vehicleLabel(responseData.vehicles)} — ${responseData.customer_name}`,
       html: buildEmailHtml(responseData),
     });
