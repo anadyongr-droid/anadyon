@@ -519,8 +519,12 @@ export async function POST(req: NextRequest) {
   // No replyTo. This is an internal notification, and setting the customer as
   // the reply address meant a member of staff hitting Reply — to ask a
   // colleague about availability, say — wrote to the customer instead. Replies
-  // now stay inside the office. The customer's address is in the details below
-  // for anyone who does need to write to them.
+  // now stay inside the office.
+  //
+  // The customer's address in the details below is a mailto link, so when the
+  // admin area is unavailable this email is enough on its own to reach them:
+  // one click, subject pre-filled with the reference. Deliberately not a
+  // Reply-To — reaching the customer stays a decision, not the default.
   const officeMail = (noVehicle: boolean) => sendMail({
     from: "Anadyon Website <customerservice@anadyon.gr>",
     to: ["customerservice@anadyon.gr"],
@@ -574,7 +578,7 @@ export async function POST(req: NextRequest) {
       <h3>Customer Details</h3>
       <table cellpadding="6" style="border-collapse:collapse;">
         <tr><td><strong>Name:</strong></td><td>${esc(title)} ${esc(firstName)} ${esc(lastName)}</td></tr>
-        <tr><td><strong>Email:</strong></td><td>${esc(email)}</td></tr>
+        <tr><td><strong>Email:</strong></td><td><a href="mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Anadyon Rentals — your reservation request ${ref}`)}">${esc(email)}</a></td></tr>
         <tr><td><strong>Date of Birth:</strong></td><td>${esc(dob)}</td></tr>
         <tr><td><strong>Address:</strong></td><td>${esc(address)}, ${esc(postalCode)}, ${esc(city)}, ${esc(country)}</td></tr>
         <tr><td><strong>Mobile:</strong></td><td>${esc(mobileTel)}</td></tr>

@@ -247,14 +247,24 @@ describe("the internal quote alert never replies to the customer", () => {
     expect(mail!.replyTo).toBeUndefined();
   });
 
-  it("adds nothing else to the internal alert", async () => {
-    // The request was to stop replies reaching the customer, and nothing more.
-    // A "Compose email to customer" button was added here unasked and removed
-    // again; this pins that the alert stays as it was apart from the Reply-To.
+  it("makes the customer reachable in one click without making it the default", async () => {
+    // Reaching the customer has to be possible from this email alone, because
+    // when the admin area is unavailable it is the only thing the office has.
+    // It must not be what Reply does, which is the fault that started this.
+    await post(requestBody());
+    const mail = officeMail() as unknown as { html: string; replyTo?: unknown };
+    expect(mail.replyTo).toBeUndefined();
+    expect(mail.html).toContain('href="mailto:test%40example.com?subject=');
+    // The reference travels with it, so the customer sees what it is about.
+    expect(mail.html).toContain("BOOK01");
+  });
+
+  it("does not reinstate the standalone compose button", async () => {
+    // The address in the details table is the link; the separate labelled
+    // button was an unrequested addition and stays removed.
     await post(requestBody());
     const mail = officeMail() as unknown as { html: string };
     expect(mail.html).not.toContain("Compose email to customer");
-    expect(mail.html).not.toContain("mailto:");
   });
 
   it("sends the customer acknowledgment through the delivery audit", async () => {
