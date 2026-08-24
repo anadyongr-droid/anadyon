@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
+import { recaptchaSiteKey } from "@/lib/recaptchaKeys";
 import { Phone, Mail, Clock, MapPin } from "lucide-react";
 import { t, type Locale } from "@/lib/i18n";
 
@@ -139,7 +140,7 @@ export default function ContactClient({ locale = "en" }: { locale?: Locale }) {
                 <div className="w-full overflow-hidden flex flex-col justify-start gap-1">
                   <ReCAPTCHA
                     ref={recaptchaRef}
-                    sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
+                    sitekey={recaptchaSiteKey()}
                     hl={locale}
                     onChange={(token: string | null) => setCaptchaToken(token)}
                     onExpired={() => setCaptchaToken(null)}

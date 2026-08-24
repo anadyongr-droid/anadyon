@@ -17,6 +17,8 @@
  */
 
 /** Long enough for a slow answer, short enough not to hold a booking open. */
+import { RECAPTCHA_TEST_HOSTNAME, isLiveSite, usingTestSecret } from "@/lib/recaptchaKeys";
+
 const TIMEOUT_MS = 5000;
 
 /**
@@ -45,6 +47,24 @@ interface SiteVerifyResponse {
 
 export async function verifyRecaptcha(token: string): Promise<boolean> {
   if (!token) return false;
+
+  const secret = process.env.RECAPTCHA_SECRET_KEY ?? "";
+
+  // Google's test secret verifies every token, which is the point of it — and
+  // the reason it must never reach the live site, where it would leave the
+  // booking and contact forms open to anything that can POST.
+  //
+  // Refused here rather than trusted to configuration: a Preview-scoped
+  // variable copied to Production by accident is a plausible mistake, and its
+  // failure mode is silent. This one is loud and stops bookings, which is
+  // recoverable in the minute it takes to correct the variable.
+  if (usingTestSecret(secret) && isLiveSite()) {
+    console.error(
+      "[recaptcha] REFUSING ALL SUBMISSIONS: Google's test secret is configured on the live site. " +
+      "Every submission would pass verification. Set the real RECAPTCHA_SECRET_KEY in Production.",
+    );
+    return false;
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -75,7 +95,13 @@ export async function verifyRecaptcha(token: string): Promise<boolean> {
       return false;
     }
 
-    if (!hostnameAllowed(data.hostname)) {
+    // A token from the test key reports Google's own host rather than the site
+    // it was solved on, so the real hostname check cannot apply to it. Accepted
+    // only because reaching this line already proves we are not the live site —
+    // the guard above returns before the request is even made.
+    const testKeyHost = usingTestSecret(secret) && data.hostname === RECAPTCHA_TEST_HOSTNAME;
+
+    if (!testKeyHost && !hostnameAllowed(data.hostname)) {
       console.warn(`[recaptcha] token was solved on an unexpected host: ${data.hostname}`);
       return false;
     }

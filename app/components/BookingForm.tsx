@@ -4,6 +4,7 @@ import { DRIVER_AGE_POLICY, DRIVER_AGE_POLICY_EL, DRIVER_AGE_BANDS, MAX_CHILD_SE
 import { termsCopy } from "@/lib/i18n/content/legal";
 import LegalSections from "./LegalSections";
 import ReCAPTCHA from "react-google-recaptcha";
+import { recaptchaSiteKey } from "@/lib/recaptchaKeys";
 import { calcPromoDiscount, calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup, PromoType, RateSegment } from "@/lib/pricing";
 import DateRangePicker from "./DateRangePicker";
@@ -979,7 +980,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
               <div className="origin-top-left scale-[0.82] min-[360px]:scale-[0.95] min-[375px]:scale-100">
                 <ReCAPTCHA
                   ref={recaptchaRef}
-                  sitekey="6Lc_mjwtAAAAAKDT-iW8Lu9rql51ldO87Y9NQCvL"
+                  sitekey={recaptchaSiteKey()}
                   onChange={(token: string | null) => { setCaptchaToken(token); clearFieldError("captcha"); }}
                   onExpired={() => setCaptchaToken(null)}
                 />
