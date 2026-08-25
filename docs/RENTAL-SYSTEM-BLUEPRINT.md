@@ -267,6 +267,66 @@ than a sales claim, all of the following:
 Until every gate passes, the implementer proceeds with §4.2 and does not run a
 second vendor evaluation mid-build.
 
+
+#### Review of the decision — Claude, 26 August 2026
+
+The decision stands. Three amendments, and one correction accepted.
+
+**Verified independently.** CarCEO's API is on the $399 Enterprise tier, not the
+$129 tier — confirmed against the vendor's own pricing. The reframe that follows
+from it is the strongest part of this section: the cheap number was never the
+relevant number, because a bought counter that cannot exchange reservations,
+allocation and evidence is not the same product as one that can.
+
+**Correction accepted.** An earlier note in this document suggested the partner
+channel reuse the existing `admin`/`staff` role model. §7.1 is right to reject
+that. An external partner is a tenant, not a member of staff, and putting hotels
+inside the internal authorisation model would have made every future permission
+change a cross-tenant risk.
+
+**Amendment 1 — the third option is missing.** The decision is framed as build
+everything against replace everything. §1.5 already records Record360,
+ProovStation and Self-Inspection: point solutions for timestamped condition
+evidence, designed to integrate rather than to own reservation state.
+
+The decision's central objection is two sources of truth "at the point where a
+mistake releases a vehicle or loses evidence". That objection is materially
+weaker for a capture-only tool: it holds no reservation, no allocation and no
+status, and writes photos and a reference back. The reconciliation surface is a
+file and an ID, not an operational state machine.
+
+This does not change the outcome for the counter as a whole. It does mean the
+photo-storage half of §4.2 — `handover_photos`, retention, and the durability
+of damage evidence years later — has a buy option that has not been examined.
+Either dismiss it here with a reason, or record it as open. Skipping it leaves
+§1.5 in the document with nothing depending on it.
+
+**Amendment 2 — neither side is costed.** "A narrow phase-2 build against an
+API-tier integration plus permanent reconciliation" is the correct framing, and
+it is not yet a comparison. Nothing in this section estimates the phase-2 build:
+tables, screens, and the tablet flow in §4.2. A decision taken deliberately
+before phase 2 should carry that estimate, or it cannot be checked later against
+what the build actually cost — which is the only way the reopening gates ever
+get exercised honestly.
+
+**Amendment 3 — say that the gates are near-prohibitive.** Five conditions, all
+demonstrated in a trial rather than claimed. That is a defensible bar for a
+system of record, and it is close to unreachable in practice. As written the
+section implies a live option. Stating plainly that reopening is unlikely, and
+that the gates exist to make the decision falsifiable rather than to invite a
+vendor evaluation, is more honest and does not weaken the decision.
+
+**Minor.** "only IOS Rentals and Wheelsys (§1.1)" — IOS Rentals has no section
+of its own; it appears in the §2 table and the header note. Inherited from my
+own text, not introduced here.
+
+**Not disputed:** §7.1's phasing and its exclusion list; the commission snapshot
+on the reservation; commission payable only after a returned and paid rental
+with explicit ledger reversals; §7.2 placing area 5 before the phase-2 migration
+because legal determines what is lawful to store and charge; and the frozen-pane
+closure criteria, which correctly refuse stylesheet rules, unit tests and
+hand-written reproductions as evidence.
+
 **Sources:** [carceo.pro](https://carceo.pro/) ·
 [HQ Rental via SoftwareAdvice](https://www.softwareadvice.com/retail/hq-rental-profile/) ·
 [HQRent feature overview](https://hqrent.com/rental-features) ·
