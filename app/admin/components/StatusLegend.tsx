@@ -42,7 +42,7 @@ export default function StatusLegend() {
       */}
       <span className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pl-4 border-l border-gray-200 dark:border-gray-700">
         {VEHICLE_STATUSES.map(led)}
-        <span className="text-gray-400 dark:text-gray-500">vehicle, not booking</span>
+        <span className="text-gray-600 dark:text-gray-500">vehicle, not booking</span>
       </span>
     </div>
   );

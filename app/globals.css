@@ -22,3 +22,84 @@
 body {
   color: var(--foreground);
 }
+
+/*
+ * Admin data tables — frozen header row and first column.
+ *
+ * On a tablet these tables are wider than the screen and must scroll
+ * sideways. Without a frozen header you lose which column you are reading;
+ * without a frozen first column you lose which row. Both are needed for the
+ * table to stay navigable once it scrolls in two directions.
+ *
+ * Sticky positions against the nearest scrolling ancestor, so the wrapper has
+ * to be a scroll container in BOTH axes and have a bounded height — a wrapper
+ * that is only `overflow-x-auto` gives the header nothing vertical to stick to.
+ * That is why `.admin-table-wrap` sets `overflow: auto` and a max-height rather
+ * than relying on page scroll.
+ *
+ * Backgrounds are explicit on every sticky cell: a transparent sticky cell
+ * lets the scrolling rows show through underneath it.
+ */
+.admin-table-wrap {
+  overflow: auto;
+  max-height: calc(100vh - 13rem);
+  overscroll-behavior: contain;
+}
+
+.admin-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #f9fafb; /* gray-50, matching the existing header row */
+}
+
+.admin-table tbody td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background: #ffffff;
+}
+
+/* The corner cell overlaps both, so it needs to sit above both. */
+.admin-table thead th:first-child {
+  left: 0;
+  z-index: 30;
+}
+
+/* A hairline that reads as an edge once the body scrolls under the frozen column. */
+.admin-table tbody td:first-child::after,
+.admin-table thead th:first-child::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background: #e5e7eb; /* gray-200 */
+}
+
+/* Row shading has to be repeated on the frozen column, which paints its own
+   background and would otherwise stay white while its row is highlighted.
+   The alert rows are marked with Tailwind's own bg-red-50 / bg-red-100, so
+   those are what the selectors match — ordered after :hover so a problem row
+   stays red when hovered rather than reverting to grey. */
+.admin-table tbody tr:hover td:first-child        { background: #f9fafb; }  /* gray-50 */
+.admin-table tbody tr.bg-red-50 td:first-child    { background: #fef2f2; }  /* red-50 */
+.admin-table tbody tr.bg-red-50:hover td:first-child,
+.admin-table tbody tr.hover\:bg-red-100:hover td:first-child { background: #fee2e2; }  /* red-100 */
+
+@media (prefers-color-scheme: dark) {
+  .admin-table thead th            { background: #1f2937; }
+  .admin-table tbody td:first-child { background: #111827; }
+  .admin-table tbody td:first-child::after,
+  .admin-table thead th:first-child::after { background: #374151; }
+  .admin-table tbody tr:hover td:first-child { background: #1f2937; }
+}
+
+/* A phone is too narrow for a frozen column to leave useful room. */
+@media (max-width: 480px) {
+  .admin-table tbody td:first-child,
+  .admin-table thead th:first-child { position: static; }
+  .admin-table tbody td:first-child::after,
+  .admin-table thead th:first-child::after { display: none; }
+}

@@ -71,7 +71,7 @@ export default function RatesPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Rate Management</h1>
-          <p className="text-sm text-gray-400 mt-0.5">All prices are in € per day</p>
+          <p className="text-sm text-gray-600 mt-0.5">All prices are in € per day</p>
         </div>
         {/* Staff read the card; they do not change it. Showing the button and
             letting the save come back 403 would read as a fault, not a rule. */}
@@ -92,11 +92,11 @@ export default function RatesPage() {
 
       <div className="space-y-6">
         {grouped.map(({ group, label, seasons }) => (
-          <div key={group} className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+          <div key={group} className="bg-white rounded-xl border border-gray-200 admin-table-wrap">
             <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
               <h2 className="font-semibold text-gray-900 text-sm">{label}</h2>
             </div>
-            <table className="w-full text-sm">
+            <table className="admin-table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-xs text-gray-500">
                   <th className="text-left px-5 py-2 font-medium">Season</th>
@@ -112,7 +112,7 @@ export default function RatesPage() {
                     {(["rate_1_2", "rate_3_6", "rate_7plus"] as const).map((field) => (
                       <td key={field} className="px-4 py-2 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <span className="text-gray-400 text-xs">€</span>
+                          <span className="text-gray-600 text-xs">€</span>
                           <input
                             type="number"
                             step="0.01"
@@ -133,11 +133,11 @@ export default function RatesPage() {
         ))}
 
         {/* Extras */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+        <div className="bg-white rounded-xl border border-gray-200 admin-table-wrap">
           <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
             <h2 className="font-semibold text-gray-900 text-sm">Extras</h2>
           </div>
-          <table className="w-full text-sm">
+          <table className="admin-table w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-xs text-gray-500">
                 <th className="text-left px-5 py-2 font-medium">Extra</th>
@@ -151,7 +151,7 @@ export default function RatesPage() {
                   <td className="px-5 py-2.5 font-medium text-gray-700">{e.label}</td>
                   <td className="px-4 py-2 text-center">
                     <div className="flex items-center justify-center gap-1">
-                      <span className="text-gray-400 text-xs">€</span>
+                      <span className="text-gray-600 text-xs">€</span>
                       <input
                         type="number"
                         step="0.01"

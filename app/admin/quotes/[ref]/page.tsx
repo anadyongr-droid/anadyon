@@ -63,7 +63,7 @@ function Row({ label, value }: { label: string; value?: string | number | boolea
   if (value === null || value === undefined || value === "" || value === false) return null;
   return (
     <div className="flex gap-4 py-2 border-b border-gray-50 last:border-0">
-      <span className="text-xs text-gray-400 w-40 shrink-0 pt-0.5">{label}</span>
+      <span className="text-xs text-gray-600 w-40 shrink-0 pt-0.5">{label}</span>
       <span className="text-sm text-gray-900">{String(value)}</span>
     </div>
   );
@@ -107,7 +107,7 @@ export default function QuoteDetailPage() {
     });
   }, [ref]);
 
-  if (loading) return <div className="p-6 text-sm text-gray-400">Loading…</div>;
+  if (loading) return <div className="p-6 text-sm text-gray-600">Loading…</div>;
   if (!quote || (quote as { error?: string }).error) return <div className="p-6 text-sm text-red-500">Quote not found.</div>;
 
   // Pre-fill values for the ReservationModal.
@@ -154,18 +154,18 @@ export default function QuoteDetailPage() {
   return (
     <div className="p-6 max-w-3xl">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-600 transition">
+        <button onClick={() => router.back()} className="text-gray-600 hover:text-gray-900 transition">
           <ArrowLeft size={18} />
         </button>
         <div>
           <h1 className="text-xl font-bold text-gray-900">Quote — {ref}</h1>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs text-gray-600 mt-0.5">
             Received {new Date(quote.created_at).toLocaleDateString("el-GR", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
           </p>
         </div>
         <div className="ml-auto">
           {isConverted ? (
-            <span className="flex items-center gap-2 bg-gray-100 text-gray-400 text-sm font-semibold px-4 py-2 rounded-lg cursor-not-allowed">
+            <span className="flex items-center gap-2 bg-gray-100 text-gray-600 text-sm font-semibold px-4 py-2 rounded-lg cursor-not-allowed">
               Already converted
             </span>
           ) : pendingReservationId ? (
@@ -218,7 +218,7 @@ export default function QuoteDetailPage() {
           <Row label="Child seat" value={quote.child_seat > 0 ? quote.child_seat : null} />
           <Row label="Additional drivers" value={quote.additional_drivers > 0 ? quote.additional_drivers : null} />
           {!quote.fdw && !quote.baby_seat && !quote.child_seat && !quote.additional_drivers && (
-            <p className="text-sm text-gray-400">None selected</p>
+            <p className="text-sm text-gray-600">None selected</p>
           )}
         </div>
 
@@ -241,17 +241,17 @@ export default function QuoteDetailPage() {
                 <span>Total</span>
                 <span>€{quote.total?.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-xs text-gray-400">
+              <div className="flex justify-between text-xs text-gray-600">
                 <span>Deposit (30%)</span>
                 <span>€{quote.deposit?.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-xs text-gray-400">
+              <div className="flex justify-between text-xs text-gray-600">
                 <span>Balance at pick-up</span>
                 <span>€{quote.balance_due?.toFixed(2)}</span>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-400">No pricing available (no model match)</p>
+            <p className="text-sm text-gray-600">No pricing available (no model match)</p>
           )}
         </div>
 

@@ -70,7 +70,7 @@ export default function AdminDashboard() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
-        <div className="text-sm text-gray-400">{new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
+        <div className="text-sm text-gray-600">{new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
       </div>
 
       {/* Stat cards */}
@@ -89,7 +89,7 @@ export default function AdminDashboard() {
       </div>
 
       {loading ? (
-        <div className="text-gray-400 text-sm">Loading…</div>
+        <div className="text-gray-600 text-sm">Loading…</div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -107,7 +107,7 @@ export default function AdminDashboard() {
                   )}
                 </div>
               </div>
-              <TrendingUp size={18} className="text-gray-300 mt-1" />
+              <TrendingUp size={18} className="text-gray-500 mt-1" />
             </div>
             {/* Bar chart */}
             <div className="flex items-end gap-2 h-32">
@@ -116,7 +116,7 @@ export default function AdminDashboard() {
                 const isLast = i === monthly.length - 1;
                 return (
                   <div key={m.label} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-xs text-gray-400 font-medium">
+                    <span className="text-xs text-gray-600 font-medium">
                       {m.revenue > 0 ? `€${Math.round(m.revenue / 1000)}k` : ""}
                     </span>
                     <div className="w-full flex flex-col justify-end" style={{ height: "80px" }}>
@@ -126,7 +126,7 @@ export default function AdminDashboard() {
                         title={`€${m.revenue.toFixed(2)} — ${m.count} reservation${m.count !== 1 ? "s" : ""}`}
                       />
                     </div>
-                    <span className="text-xs text-gray-400">{m.label}</span>
+                    <span className="text-xs text-gray-600">{m.label}</span>
                   </div>
                 );
               })}
@@ -137,7 +137,7 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-gray-900">Fleet</h2>
-              <Car size={16} className="text-gray-300" />
+              <Car size={16} className="text-gray-500" />
             </div>
             <div className="flex items-center justify-center mb-4">
               {/* Donut */}
@@ -153,7 +153,7 @@ export default function AdminDashboard() {
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-xl font-bold text-gray-900">{totalVehicles > 0 ? Math.round((activeVehicles / totalVehicles) * 100) : 0}%</span>
-                  <span className="text-xs text-gray-400">in use</span>
+                  <span className="text-xs text-gray-600">in use</span>
                 </div>
               </div>
             </div>
@@ -178,7 +178,7 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 className="font-semibold text-gray-900 mb-4">Today</h2>
             {todayPickups.length === 0 && todayReturns.length === 0 ? (
-              <p className="text-sm text-gray-400">No activity today.</p>
+              <p className="text-sm text-gray-600">No activity today.</p>
             ) : (
               <div className="space-y-2">
                 {todayPickups.map((r) => (
@@ -212,7 +212,7 @@ export default function AdminDashboard() {
               <Link href="/admin/calendar" className="text-xs text-blue-600 hover:underline">View calendar →</Link>
             </div>
             {upcoming.length === 0 ? (
-              <p className="text-sm text-gray-400">No upcoming reservations.</p>
+              <p className="text-sm text-gray-600">No upcoming reservations.</p>
             ) : (
               <div className="space-y-2">
                 {upcoming.slice(0, 6).map((r) => (
@@ -220,7 +220,7 @@ export default function AdminDashboard() {
                     className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition text-sm border border-gray-100">
                     <div>
                       <div className="font-medium text-gray-900">{r.customer_name}</div>
-                      <div className="text-xs text-gray-400">{r.pickup_date} → {r.return_date} · {vehicleLabel(r.vehicles)}</div>
+                      <div className="text-xs text-gray-600">{r.pickup_date} → {r.return_date} · {vehicleLabel(r.vehicles)}</div>
                     </div>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusClass(r.status)}`}>{statusLabel(r.status)}</span>
                   </Link>

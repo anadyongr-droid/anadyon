@@ -105,7 +105,7 @@ export default function PromoCodesPage() {
         <div className="bg-white border border-gray-200 rounded-xl p-5 mb-5 max-w-lg">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-900 text-sm">{editId ? "Edit Code" : "New Code"}</h2>
-            <button onClick={() => setShowForm(false)}><X size={16} className="text-gray-400" /></button>
+            <button onClick={() => setShowForm(false)}><X size={16} className="text-gray-600" /></button>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -161,10 +161,10 @@ export default function PromoCodesPage() {
       )}
 
       {loading ? (
-        <div className="text-sm text-gray-400">Loading…</div>
+        <div className="text-sm text-gray-600">Loading…</div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="bg-white rounded-xl border border-gray-200 admin-table-wrap">
+          <table className="admin-table w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-xs text-gray-500 bg-gray-50">
                 <th className="text-left px-5 py-3 font-medium">Code</th>
@@ -178,7 +178,7 @@ export default function PromoCodesPage() {
             </thead>
             <tbody>
               {codes.length === 0 && (
-                <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400 text-sm">No promo codes yet.</td></tr>
+                <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-600 text-sm">No promo codes yet.</td></tr>
               )}
               {codes.map((c) => (
                 <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
@@ -200,8 +200,8 @@ export default function PromoCodesPage() {
                     </button>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => startEdit(c)} className="text-gray-400 hover:text-gray-700 mr-2"><Pencil size={13} /></button>
-                    <button onClick={() => handleDelete(c.id)} className="text-gray-400 hover:text-red-500"><X size={13} /></button>
+                    <button onClick={() => startEdit(c)} className="text-gray-600 hover:text-gray-900 mr-2"><Pencil size={13} /></button>
+                    <button onClick={() => handleDelete(c.id)} className="text-gray-600 hover:text-red-500"><X size={13} /></button>
                   </td>
                 </tr>
               ))}

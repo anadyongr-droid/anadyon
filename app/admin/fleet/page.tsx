@@ -96,12 +96,12 @@ export default function FleetPage() {
 
       <div className="space-y-5">
         {grouped.map(({ group, vehicles: vs }) => (
-          <div key={group} className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+          <div key={group} className="bg-white rounded-xl border border-gray-200 admin-table-wrap">
             <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
               <h2 className="font-semibold text-gray-900 text-sm">{GROUP_LABELS[group] ?? group}</h2>
               <span className="text-xs text-gray-500">{vs.length}</span>
             </div>
-            <table className="w-full text-sm">
+            <table className="admin-table w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-xs text-gray-500">
                   <th className="text-left px-5 py-2 font-medium">Vehicle</th>
@@ -152,7 +152,7 @@ export default function FleetPage() {
       </div>
 
       {unrecorded.length > 0 && (
-        <p className="text-xs text-gray-400 mt-5">
+        <p className="text-xs text-gray-600 mt-5">
           {unrecorded.length} {unrecorded.length === 1 ? "vehicle has" : "vehicles have"} no statutory dates recorded.
           Nothing is assumed from an empty field — a missing KTEO date is not treated as expired.
         </p>

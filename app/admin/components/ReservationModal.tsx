@@ -541,7 +541,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
 
   if (loading) return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Loading reservation" tabIndex={-1} className="bg-white rounded-xl p-8 text-gray-400 text-sm">Loading…</div>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Loading reservation" tabIndex={-1} className="bg-white rounded-xl p-8 text-gray-600 text-sm">Loading…</div>
     </div>
   );
 
@@ -551,7 +551,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <h2 id="reservation-dialog-title" className="font-bold text-gray-900">{isEdit ? "Edit Reservation" : "New Reservation"}</h2>
-          <button type="button" aria-label="Close reservation dialog" onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+          <button type="button" aria-label="Close reservation dialog" onClick={onClose} className="text-gray-600 hover:text-gray-900"><X size={20} /></button>
         </div>
 
         <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
@@ -726,7 +726,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
                 {/* Not enforced — a phone booking rarely yields a birth date on
                     the spot — but the agreement cannot be produced without it,
                     so the reservation is flagged incomplete until it arrives. */}
-                <p className="text-[11px] text-gray-400 mt-1">Needed before the rental agreement.</p>
+                <p className="text-[11px] text-gray-600 mt-1">Needed before the rental agreement.</p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Nationality</label>
@@ -740,7 +740,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
                 {/* Optional, as at the majors: it exists so a delayed arrival can
                     be tracked and the vehicle held, not as a booking gate. */}
-                <p className="text-[11px] text-gray-400 mt-1">Optional — lets us hold the vehicle if the flight is delayed.</p>
+                <p className="text-[11px] text-gray-600 mt-1">Optional — lets us hold the vehicle if the flight is delayed.</p>
               </div>
             </div>
           </div>
@@ -754,7 +754,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
                   <input type="checkbox" checked={!!form[e.key as keyof typeof form]}
                     onChange={(ev) => set(e.key, ev.target.checked)}
                     className="rounded border-gray-300" />
-                  {e.label} <span className="text-gray-400 text-xs">€{e.daily_rate}/day</span>
+                  {e.label} <span className="text-gray-600 text-xs">€{e.daily_rate}/day</span>
                 </label>
               ))}
               {/* Baby and child seats share the same back seat, so each list
@@ -766,7 +766,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
                 const other = Number(form[e.key === "baby_seat" ? "child_seat" : "baby_seat"]) || 0;
                 return (
                   <div key={e.key} className="flex items-center gap-2 text-sm text-gray-700">
-                    <label>{e.label} <span className="text-gray-400 text-xs">€{e.daily_rate}/day</span></label>
+                    <label>{e.label} <span className="text-gray-600 text-xs">€{e.daily_rate}/day</span></label>
                     <Select value={own}
                       onChange={(ev) => set(e.key, Number(ev.target.value))}
                       className="border border-gray-300 rounded px-2 py-1 text-sm ml-auto">
@@ -782,7 +782,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
               )}
               {extras.filter((e) => e.enabled && e.key === "additional_drivers").map((e) => (
                 <div key={e.key} className="flex items-center gap-2 text-sm text-gray-700">
-                  <label>{e.label} <span className="text-gray-400 text-xs">€{e.daily_rate}/day</span></label>
+                  <label>{e.label} <span className="text-gray-600 text-xs">€{e.daily_rate}/day</span></label>
                   <Select value={form.additional_drivers}
                     onChange={(ev) => set("additional_drivers", Number(ev.target.value))}
                     className="border border-gray-300 rounded px-2 py-1 text-sm ml-auto">
@@ -1012,7 +1012,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
                       <button key={c.id} onClick={() => linkCustomer(c)}
                         className="w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0">
                         <div className="text-sm font-medium text-gray-900">{c.full_name}</div>
-                        <div className="text-xs text-gray-400">{c.email} · {c.phone}</div>
+                        <div className="text-xs text-gray-600">{c.email} · {c.phone}</div>
                       </button>
                     ))}
                   </div>
@@ -1035,7 +1035,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
                   onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} />
               </div>
               {documents.length === 0 ? (
-                <p className="text-xs text-gray-400">No documents uploaded yet.</p>
+                <p className="text-xs text-gray-600">No documents uploaded yet.</p>
               ) : (
                 <div className="space-y-1">
                   {documents.map((doc) => (
@@ -1045,7 +1045,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
                         <FileText size={11} /> {doc.name}
                       </button>
                       <button onClick={() => handleDocumentDelete(doc.path)}
-                        className="text-gray-300 hover:text-red-500 ml-2"><X size={11} /></button>
+                        className="text-gray-500 hover:text-red-600 ml-2"><X size={11} /></button>
                     </div>
                   ))}
                 </div>
@@ -1085,12 +1085,12 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
               {loadedQuote?.ref ? <span className="ml-1.5 font-mono font-normal text-gray-500">{loadedQuote.ref}</span> : null}
             </p>
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-600">
-              {request.model && <span><span className="text-gray-400">Vehicle:</span> <strong className="text-gray-800">{request.model}</strong></span>}
-              {request.transmission && <span><span className="text-gray-400">Transmission:</span> <strong className="text-gray-800">{request.transmission}</strong></span>}
-              {loadedQuote?.driver_age && <span><span className="text-gray-400">Driver age:</span> {loadedQuote.driver_age}</span>}
-              {(loadedQuote?.baby_seat ?? 0) > 0 && <span><span className="text-gray-400">Baby seats:</span> {loadedQuote?.baby_seat}</span>}
-              {(loadedQuote?.child_seat ?? 0) > 0 && <span><span className="text-gray-400">Child seats:</span> {loadedQuote?.child_seat}</span>}
-              {(loadedQuote?.additional_drivers ?? 0) > 0 && <span><span className="text-gray-400">Extra drivers:</span> {loadedQuote?.additional_drivers}</span>}
+              {request.model && <span><span className="text-gray-600">Vehicle:</span> <strong className="text-gray-800">{request.model}</strong></span>}
+              {request.transmission && <span><span className="text-gray-600">Transmission:</span> <strong className="text-gray-800">{request.transmission}</strong></span>}
+              {loadedQuote?.driver_age && <span><span className="text-gray-600">Driver age:</span> {loadedQuote.driver_age}</span>}
+              {(loadedQuote?.baby_seat ?? 0) > 0 && <span><span className="text-gray-600">Baby seats:</span> {loadedQuote?.baby_seat}</span>}
+              {(loadedQuote?.child_seat ?? 0) > 0 && <span><span className="text-gray-600">Child seats:</span> {loadedQuote?.child_seat}</span>}
+              {(loadedQuote?.additional_drivers ?? 0) > 0 && <span><span className="text-gray-600">Extra drivers:</span> {loadedQuote?.additional_drivers}</span>}
               {loadedQuote?.fdw && <span className="text-gray-800">FDW</span>}
             </div>
             {loadedQuote?.comments && (

@@ -84,7 +84,7 @@ export default function AdminLayoutClient({
           <Menu size={20} />
         </button>
         <span className="font-bold text-gray-900 text-sm">Anadyon Rentals</span>
-        <span className="text-xs text-gray-400">{isAdmin ? "Admin" : "Staff"}</span>
+        <span className="text-xs text-gray-600">{isAdmin ? "Admin" : "Staff"}</span>
       </div>
 
       <aside
@@ -96,7 +96,7 @@ export default function AdminLayoutClient({
         <div className="px-5 py-5 border-b border-gray-100 flex items-start justify-between gap-2">
           <div>
             <div className="font-bold text-gray-900 text-sm">Anadyon Rentals</div>
-            <div className="text-xs text-gray-400 mt-0.5">
+            <div className="text-xs text-gray-600 mt-0.5">
               {isAdmin ? "Admin" : "Staff"}
             </div>
           </div>

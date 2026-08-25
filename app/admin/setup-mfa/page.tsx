@@ -85,7 +85,7 @@ export default function SetupMFA() {
         </div>
 
         {enrolling && (
-          <p className="text-center text-gray-400 text-sm py-6">Preparing setup…</p>
+          <p className="text-center text-gray-600 text-sm py-6">Preparing setup…</p>
         )}
 
         {!enrolling && error && !qrCode && (
@@ -108,7 +108,7 @@ export default function SetupMFA() {
               <img src={qrCode} alt="MFA QR Code" width={180} height={180} />
             </div>
 
-            <details className="text-xs text-gray-400">
+            <details className="text-xs text-gray-600">
               <summary className="cursor-pointer select-none hover:text-gray-600">
                 Can&apos;t scan? Enter the key manually instead
               </summary>
@@ -140,7 +140,7 @@ export default function SetupMFA() {
               </button>
             </form>
 
-            <p className="text-xs text-gray-400 text-center">
+            <p className="text-xs text-gray-600 text-center">
               Keep your authenticator app installed — you&apos;ll need it every time you sign in.
             </p>
           </div>

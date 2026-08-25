@@ -237,7 +237,7 @@ function AdminLogin() {
               <button
                 type="button"
                 onClick={() => { setStep("credentials"); setError(""); setTotpCode(""); }}
-                className="w-full text-sm text-gray-400 hover:text-gray-600 text-center"
+                className="w-full text-sm text-gray-600 hover:text-gray-900 text-center"
               >
                 ← Back to sign in
               </button>

@@ -58,7 +58,7 @@ function SettingsContent() {
             </div>
             <div className="ml-4">
               {loading ? (
-                <span className="text-xs text-gray-400">Loading…</span>
+                <span className="text-xs text-gray-600">Loading…</span>
               ) : gmailConnected ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 px-3 py-1.5 rounded-full">
                   <CheckCircle size={12} /> Connected
@@ -84,7 +84,7 @@ function SettingsContent() {
               <div className="text-xs text-gray-500 mt-0.5">
                 Operational alerts sent to channel <code className="bg-gray-100 px-1 rounded">-1003920236402</code>
               </div>
-              <div className="text-xs text-gray-400 mt-1">
+              <div className="text-xs text-gray-600 mt-1">
                 Set <code className="bg-gray-100 px-1 rounded">TELEGRAM_BOT_TOKEN</code> in Vercel environment variables to enable.
               </div>
             </div>
@@ -100,7 +100,7 @@ function SettingsContent() {
               <div className="text-xs text-gray-500 mt-0.5">
                 Create payment links for reservation deposits from the reservation detail page.
               </div>
-              <div className="text-xs text-gray-400 mt-1">
+              <div className="text-xs text-gray-600 mt-1">
                 Requires <code className="bg-gray-100 px-1 rounded">STRIPE_SECRET_KEY</code> and <code className="bg-gray-100 px-1 rounded">STRIPE_WEBHOOK_SECRET</code> in Vercel.
               </div>
             </div>
@@ -116,7 +116,7 @@ function SettingsContent() {
               <div className="text-xs text-gray-500 mt-0.5">
                 Send booking reminders and confirmations via SMS from the reservation detail page.
               </div>
-              <div className="text-xs text-gray-400 mt-1">
+              <div className="text-xs text-gray-600 mt-1">
                 Requires <code className="bg-gray-100 px-1 rounded">TWILIO_ACCOUNT_SID</code>, <code className="bg-gray-100 px-1 rounded">TWILIO_AUTH_TOKEN</code>, and <code className="bg-gray-100 px-1 rounded">TWILIO_FROM_NUMBER</code> in Vercel.
               </div>
             </div>
@@ -132,7 +132,7 @@ function SettingsContent() {
               <div className="text-xs text-gray-500 mt-0.5">
                 DCL (Digital Client List) and e-Invoicing. Submit from the reservation detail page.
               </div>
-              <div className="text-xs text-gray-400 mt-1">
+              <div className="text-xs text-gray-600 mt-1">
                 Requires <code className="bg-gray-100 px-1 rounded">AADE_USER_ID</code>, <code className="bg-gray-100 px-1 rounded">AADE_SUBSCRIPTION_KEY</code>, and <code className="bg-gray-100 px-1 rounded">COMPANY_VAT_NUMBER</code> in Vercel.
               </div>
             </div>

@@ -176,7 +176,7 @@ export default function CalendarPage() {
       </div>
 
       {loading ? (
-        <div className="text-gray-400 text-sm">Loading…</div>
+        <div className="text-gray-600 text-sm">Loading…</div>
       ) : (
         <>
           {unallocated.length > 0 && (
@@ -217,8 +217,8 @@ export default function CalendarPage() {
             </section>
           )}
 
-          <div className="overflow-x-auto overflow-y-auto rounded-xl border border-gray-200 bg-white" style={{ maxHeight: "calc(100vh - 260px)" }}>
-            <table className="border-collapse text-xs" style={{ minWidth: `${180 + days * 52}px` }}>
+          <div className="overflow-auto rounded-xl border border-gray-200 bg-white" style={{ maxHeight: "calc(100vh - 260px)" }}>
+            <table className="admin-table border-collapse text-xs" style={{ minWidth: `${180 + days * 52}px` }}>
             <thead className="sticky top-0 z-20">
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="w-44 px-3 py-2.5 text-left text-gray-500 font-medium sticky left-0 bg-gray-50 z-30 border-r border-gray-200">
@@ -230,7 +230,7 @@ export default function CalendarPage() {
                     <th
                       key={d.toISOString()}
                       className={`w-13 px-1 py-2.5 text-center font-medium whitespace-nowrap ${
-                        isToday ? "bg-blue-50 text-blue-700" : isWeekend(d) ? "text-gray-400" : "text-gray-600"
+                        isToday ? "bg-blue-50 text-blue-700" : isWeekend(d) ? "text-gray-600" : "text-gray-600"
                       }`}
                     >
                       {formatDay(d)}
@@ -360,7 +360,7 @@ export default function CalendarPage() {
                           >
                             {!isMaint && (
                               <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 cursor-pointer transition-opacity">
-                                <Plus size={12} className="text-gray-400" />
+                                <Plus size={12} className="text-gray-600" />
                               </div>
                             )}
                           </td>

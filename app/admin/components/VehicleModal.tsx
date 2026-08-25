@@ -136,7 +136,7 @@ export default function VehicleModal({
               {form.plate || "no plate recorded"} · {form.transmission ?? "n/a"} · {form.pricing_group}
             </p>
           </div>
-          <button type="button" aria-label="Close vehicle dialog" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 -mr-2"><X size={20} /></button>
+          <button type="button" aria-label="Close vehicle dialog" onClick={onClose} className="text-gray-600 hover:text-gray-900 p-2 -mr-2"><X size={20} /></button>
         </div>
 
         {/* The single most important thing about a vehicle: may it go out? */}
@@ -223,7 +223,7 @@ export default function VehicleModal({
                     <div className="text-xs text-gray-500">Contribution</div>
                     <div className={`font-semibold tabular-nums ${ledger.margin.margin < 0 ? "text-red-600" : "text-gray-900"}`}>
                       {euro(ledger.margin.margin)}
-                      {ledger.margin.marginPct !== null && <span className="text-xs font-normal text-gray-400 ml-1">{ledger.margin.marginPct}%</span>}
+                      {ledger.margin.marginPct !== null && <span className="text-xs font-normal text-gray-600 ml-1">{ledger.margin.marginPct}%</span>}
                     </div>
                   </div>
                   <div>
@@ -231,14 +231,14 @@ export default function VehicleModal({
                     <div className="font-semibold tabular-nums">{ledger.rentals.revenuePerDay !== null ? euro(ledger.rentals.revenuePerDay) : "—"}</div>
                   </div>
                 </div>
-                <p className="text-[11px] text-gray-400 mt-2">
+                <p className="text-[11px] text-gray-600 mt-2">
                   {ledger.rentals.count} rentals over {ledger.rentals.days} days. Cancelled and no-show bookings are excluded;
                   damage recharged to the customer does not count as a cost.
                 </p>
               </div>
             )}
             {restricted && (
-              <p className="text-xs text-gray-400 border-t border-gray-100 pt-4">
+              <p className="text-xs text-gray-600 border-t border-gray-100 pt-4">
                 Costs, damages and contribution are visible to administrators only.
               </p>
             )}
@@ -267,8 +267,8 @@ function CostsTab({ ledger, restricted, onAdd, onRemove }: {
   onAdd: (r: Record<string, unknown>) => Promise<boolean>; onRemove: (id: string) => void;
 }) {
   const [row, setRow] = useState({ cost_type: "service", amount: "", incurred_on: new Date().toISOString().slice(0,10), supplier: "", notes: "" });
-  if (restricted) return <div className="p-6 text-sm text-gray-400">Visible to administrators only.</div>;
-  if (!ledger) return <div className="p-6 text-sm text-gray-400">Loading…</div>;
+  if (restricted) return <div className="p-6 text-sm text-gray-600">Visible to administrators only.</div>;
+  if (!ledger) return <div className="p-6 text-sm text-gray-600">Loading…</div>;
 
   return (
     <div className="p-6 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
@@ -300,10 +300,10 @@ function CostsTab({ ledger, restricted, onAdd, onRemove }: {
       </div>
 
       {ledger.costs.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-6">Nothing recorded against this vehicle yet.</p>
+        <p className="text-sm text-gray-600 text-center py-6">Nothing recorded against this vehicle yet.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="admin-table w-full text-sm">
             <thead><tr className="text-xs text-gray-500 border-b border-gray-100">
               <th className="text-left py-2 font-medium">Date</th><th className="text-left py-2 font-medium">Type</th>
               <th className="text-left py-2 font-medium">Supplier</th><th className="text-right py-2 font-medium">Amount</th><th />
@@ -316,7 +316,7 @@ function CostsTab({ ledger, restricted, onAdd, onRemove }: {
                   <td className="py-2 text-gray-500 text-xs">{c.supplier ?? "—"}</td>
                   <td className="py-2 text-right tabular-nums">{euro(Number(c.amount))}</td>
                   <td className="py-2 text-right">
-                    <button onClick={() => onRemove(c.id)} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={13} /></button>
+                    <button onClick={() => onRemove(c.id)} className="text-gray-500 hover:text-red-600 p-1"><Trash2 size={13} /></button>
                   </td>
                 </tr>
               ))}
@@ -333,8 +333,8 @@ function DamagesTab({ ledger, restricted, onAdd, onRemove }: {
   onAdd: (r: Record<string, unknown>) => Promise<boolean>; onRemove: (id: string) => void;
 }) {
   const [row, setRow] = useState({ description: "", severity: "minor", reported_on: new Date().toISOString().slice(0,10), repair_cost: "", charged_to_customer: false });
-  if (restricted) return <div className="p-6 text-sm text-gray-400">Visible to administrators only.</div>;
-  if (!ledger) return <div className="p-6 text-sm text-gray-400">Loading…</div>;
+  if (restricted) return <div className="p-6 text-sm text-gray-600">Visible to administrators only.</div>;
+  if (!ledger) return <div className="p-6 text-sm text-gray-600">Loading…</div>;
 
   return (
     <div className="p-6 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
@@ -367,7 +367,7 @@ function DamagesTab({ ledger, restricted, onAdd, onRemove }: {
       </div>
 
       {ledger.damages.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-6">No damage recorded against this vehicle.</p>
+        <p className="text-sm text-gray-600 text-center py-6">No damage recorded against this vehicle.</p>
       ) : (
         <div className="space-y-2">
           {ledger.damages.map(d => (
@@ -381,7 +381,7 @@ function DamagesTab({ ledger, restricted, onAdd, onRemove }: {
                   {!d.repaired_on && <span className="text-amber-700"> · open</span>}
                 </div>
               </div>
-              <button onClick={() => onRemove(d.id)} className="text-gray-300 hover:text-red-500 p-1 shrink-0"><Trash2 size={13} /></button>
+              <button onClick={() => onRemove(d.id)} className="text-gray-500 hover:text-red-600 p-1 shrink-0"><Trash2 size={13} /></button>
             </div>
           ))}
         </div>
