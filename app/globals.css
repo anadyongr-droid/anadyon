@@ -204,10 +204,15 @@ body {
  * unless the admin as a whole gains a dark theme.
  */
 
-/* A phone is too narrow for a frozen column to leave useful room. */
-@media (max-width: 480px) {
-  .admin-table tbody td:first-child,
-  .admin-table thead th:first-child { position: static; }
-  .admin-table tbody td:first-child::after,
-  .admin-table thead th:first-child::after { display: none; }
-}
+/*
+ * No phone override here, deliberately.
+ *
+ * There was one: below 480px the first column was set back to `position:
+ * static`, on the reasoning that a frozen column leaves too little room on a
+ * phone. That was my call, not a requirement, and it was wrong — the frozen
+ * column was asked for ON mobile, and the rule silently cancelled it on every
+ * Android phone (360-412px) while looking correct in every desktop test.
+ *
+ * If a frozen column genuinely crowds a small screen, narrow the column; do
+ * not switch the behaviour off.
+ */
