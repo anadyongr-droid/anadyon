@@ -126,7 +126,22 @@ describe("modal fields stack on a narrow screen", () => {
 
   it.each(modals)("%s is height-capped and scrolls its own body", (name) => {
     const src = read(`app/admin/components/${name}.tsx`);
-    expect(src).toContain("max-h-[calc(100vh-2rem)]");
+    expect(src).toContain("max-h-[calc(100dvh-2rem)]");
     expect(src).toMatch(/overflow-y-auto/);
+  });
+
+  it.each(modals)("%s caps against the VISIBLE viewport, not vh", (name) => {
+    // iOS Safari's 100vh is the address-bar-collapsed height, so a vh cap made
+    // the dialog taller than the screen and pushed its pinned footer — Save and
+    // Delete — below the fold with no way to reach it.
+    const src = read(`app/admin/components/${name}.tsx`);
+    expect(src, "100vh leaves the footer unreachable on an iPad").not.toContain("100vh");
+  });
+
+  it.each(modals)("%s keeps its action bar pinned outside the scrolling body", (name) => {
+    const src = read(`app/admin/components/${name}.tsx`);
+    // shrink-0 on the footer is what stops it being pushed out of the flex
+    // column; without it the buttons scroll away with the fields.
+    expect(src).toMatch(/border-t border-gray-100 shrink-0/);
   });
 });
