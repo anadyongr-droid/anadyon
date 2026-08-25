@@ -22,13 +22,44 @@ export default function RatesPage() {
   const [extras, setExtras] = useState<ExtrasConfig[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // There was no loading state at all, so the page rendered its headings and
+  // empty tables until the fetch resolved and looked half-loaded.
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  // Rates are read far more often than they are changed, and a stray tap on a
+  // phone should not be able to alter a price. The fields stay read-only until
+  // Edit is pressed.
+  const [editing, setEditing] = useState(false);
+  // What was last loaded or saved, so Cancel can put it back.
+  const [pristine, setPristine] = useState<{ rates: Rate[]; extras: ExtrasConfig[] }>({ rates: [], extras: [] });
 
   useEffect(() => {
-    fetch("/api/admin/rates").then((r) => r.json()).then(({ rates: r, extras: e }) => {
-      setRates(r ?? []);
-      setExtras(e ?? []);
-    });
+    let cancelled = false;
+    fetch("/api/admin/rates")
+      .then((r) => {
+        if (!r.ok) throw new Error(`Rates request failed (${r.status})`);
+        return r.json();
+      })
+      .then(({ rates: r, extras: e }) => {
+        if (cancelled) return;
+        setRates(r ?? []);
+        setExtras(e ?? []);
+        setPristine({ rates: r ?? [], extras: e ?? [] });
+      })
+      .catch((err) => { if (!cancelled) setLoadError(err instanceof Error ? err.message : "Could not load rates"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
+
+  const canEdit = isAdmin && editing;
+
+  function startEdit() { setEditing(true); setSaved(false); }
+
+  function cancelEdit() {
+    setRates(pristine.rates);
+    setExtras(pristine.extras);
+    setEditing(false);
+  }
 
   function updateRate(id: string, field: "rate_1_2" | "rate_3_6" | "rate_7plus", value: string) {
     setRates((prev) => prev.map((r) => r.id === id ? { ...r, [field]: parseFloat(value) || 0 } : r));
@@ -47,6 +78,10 @@ export default function RatesPage() {
     });
     setSaving(false);
     setSaved(true);
+    // A successful save becomes the new baseline, and closes the edit session
+    // so the fields are not left live behind the user.
+    setPristine({ rates, extras });
+    setEditing(false);
     setTimeout(() => setSaved(false), 2500);
   }
 
@@ -76,13 +111,31 @@ export default function RatesPage() {
         {/* Staff read the card; they do not change it. Showing the button and
             letting the save come back 403 would read as a fault, not a rule. */}
         {isAdmin ? (
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-5 py-2 bg-blue-700 text-white text-sm font-semibold rounded-lg hover:bg-blue-800 transition disabled:opacity-50"
-          >
-            {saving ? "Saving…" : saved ? "Saved ✓" : "Save all changes"}
-          </button>
+          editing ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={cancelEdit}
+                disabled={saving}
+                className="min-h-11 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="min-h-11 px-5 py-2 bg-blue-700 text-white text-sm font-semibold rounded-lg hover:bg-blue-800 transition disabled:opacity-50"
+              >
+                {saving ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={startEdit}
+              className="min-h-11 px-5 py-2 bg-blue-700 text-white text-sm font-semibold rounded-lg hover:bg-blue-800 transition"
+            >
+              {saved ? "Saved ✓" : "Edit rates"}
+            </button>
+          )
         ) : (
           <span className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-500">
             View only — rates are set by an administrator
@@ -90,6 +143,19 @@ export default function RatesPage() {
         )}
       </div>
 
+      {loading && (
+        <div className="rounded-xl border border-gray-200 bg-white px-5 py-8 text-center text-sm text-gray-600">
+          Loading rates…
+        </div>
+      )}
+
+      {loadError && !loading && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800">
+          {loadError}. Reload the page to try again.
+        </div>
+      )}
+
+      {!loading && !loadError && (
       <div className="space-y-6">
         {grouped.map(({ group, label, seasons }) => (
           <div key={group} className="bg-white rounded-xl border border-gray-200 admin-table-wrap">
@@ -119,8 +185,8 @@ export default function RatesPage() {
                             min="0"
                             value={rate[field]}
                             onChange={(e) => updateRate(rate.id, field, e.target.value)}
-                            readOnly={!isAdmin}
-                            className={`w-20 border rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 ${isAdmin ? "border-gray-200" : "border-transparent bg-gray-50 text-gray-600"}`}
+                            readOnly={!canEdit}
+                            className={`w-20 border rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 ${canEdit ? "border-gray-300 bg-white" : "border-transparent bg-gray-50 text-gray-700"}`}
                           />
                         </div>
                       </td>
@@ -158,15 +224,15 @@ export default function RatesPage() {
                         min="0"
                         value={e.daily_rate}
                         onChange={(ev) => updateExtra(e.id, "daily_rate", parseFloat(ev.target.value) || 0)}
-                        readOnly={!isAdmin}
-                        className={`w-20 border rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 ${isAdmin ? "border-gray-200" : "border-transparent bg-gray-50 text-gray-600"}`}
+                        readOnly={!canEdit}
+                        className={`w-20 border rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 ${canEdit ? "border-gray-300 bg-white" : "border-transparent bg-gray-50 text-gray-700"}`}
                       />
                     </div>
                   </td>
                   <td className="px-4 py-2 text-center">
                     <input type="checkbox" checked={e.enabled}
                       onChange={(ev) => updateExtra(e.id, "enabled", ev.target.checked)}
-                      disabled={!isAdmin}
+                      disabled={!canEdit}
                       className="rounded border-gray-300 disabled:opacity-60" />
                   </td>
                 </tr>
@@ -175,6 +241,7 @@ export default function RatesPage() {
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 }

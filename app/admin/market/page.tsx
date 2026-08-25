@@ -82,9 +82,16 @@ export default function MarketPage() {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch("/api/admin/competitors/mapping");
-      if (res.ok) setGroups((await res.json()).groups ?? []);
-      await loadComparison();
+      // These two do not depend on each other. Awaiting the mapping before
+      // starting the comparison made the screen wait for two round trips in
+      // series, which is most of why it looked half-loaded.
+      await Promise.all([
+        (async () => {
+          const res = await fetch("/api/admin/competitors/mapping");
+          if (res.ok) setGroups((await res.json()).groups ?? []);
+        })(),
+        loadComparison(),
+      ]);
       setLoading(false);
     })();
   }, [loadComparison]);
