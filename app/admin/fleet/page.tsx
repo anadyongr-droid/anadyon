@@ -96,7 +96,7 @@ export default function FleetPage() {
 
       <div className="space-y-5">
         {grouped.map(({ group, vehicles: vs }) => (
-          <div key={group} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div key={group} className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
             <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
               <h2 className="font-semibold text-gray-900 text-sm">{GROUP_LABELS[group] ?? group}</h2>
               <span className="text-xs text-gray-500">{vs.length}</span>

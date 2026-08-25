@@ -169,7 +169,7 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
           <button type="button" aria-label="Close customer dialog" onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
-        <div className="p-6 grid grid-cols-2 gap-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
 
           {/* Personal */}
           <Section title="Personal Information" />
