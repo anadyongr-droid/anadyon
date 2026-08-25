@@ -17,7 +17,7 @@ are attributed; judgement calls say so.
 
 ## 1. The field
 
-Eleven systems examined. They divide into four distinct positions, and knowing
+Fifteen systems examined. They divide into four distinct positions, and knowing
 which position a feature comes from matters more than the feature list.
 
 ### 1.1 The direct comparison — **Wheelsys**
@@ -151,6 +151,90 @@ direct. Worth building; see the deferred list in §7.
 
 **Source:** [ezcar.gr software page](https://www.ezcar.gr/en-software.php) ·
 [ezcar.eu](https://www.ezcar.eu/) · tenant paths in `lib/competitorRates.ts`.
+
+---
+
+### 1.7 The 2026 entrants — **CarCEO Pro**, **HQ Rental**, **Rentware**
+
+*Added 25 August 2026.* Three systems absent from the original survey. Two of
+them matter, and one of those changes a question this document has never asked.
+
+**CarCEO Pro** — the one to watch. Its own site claims e-signature with
+auto-generated PDF contracts delivered over WhatsApp, damage inspection reports
+with customer damage history, fuel and mileage monitoring, service-due
+notifications, profit and loss per vehicle, 12 languages with RTL, and 34
+currencies. Pricing is public: free for 2 vehicles, **$29/month to 10 vehicles,
+$129/month unlimited**, $399 for multi-branch and API.
+
+Read that against §7. Phases 1, 2, 4, 5 and 6 — fleet register, condition
+capture, digital agreement, per-vehicle margin, service alerts — are what it
+sells for $129 a month.
+
+*Verification note:* a third-party comparison credited CarCEO with AI inspection
+diagrams, ID fraud detection and 44 contract templates in 19 languages. The
+vendor's own site claims none of the AI features and says 12 languages. The
+vendor's figures are the ones recorded here; the discrepancy is why §8 of
+`DEFINING-STATEMENTS.md` exists.
+
+**HQ Rental Software** — mainstream mid-market. Custom rental agreements with
+digital signature captured on phone or tablet, digital inspections with photos,
+GPS tracking, payment collection and real-time inventory through a mobile app.
+Published pricing starts around $50-120/month depending on source. It occupies
+the same ground as Wheelsys (§1.1) but at small-operator prices.
+
+**Rentware** — a German provider focused on the DACH market: bookings,
+availability, check-in/check-out, contract and licence management, invoicing,
+multi-location, and integrations with Stripe, PayPal, WooCommerce, WordPress and
+Channex. Custom pricing. Included because the rest of §1 skews US/UK apart from
+the two Greek systems, and an EU vendor carries GDPR alignment as a default
+rather than an afterthought.
+
+**Not added, and why.** Booqable and EasyRentPro are general-purpose or thin.
+Fleetwire is built around Turo, and §8 declines peer-to-peer. Turo and Getaround
+are marketplaces, not software this operator would buy. Fleetio is fleet
+maintenance rather than rental — worth revisiting only at §7 phase 6. Adding
+them would lengthen this section without changing a single decision in it.
+
+### 1.8 The question §8 has never asked: build or buy the counter?
+
+§8 records what is deliberately **not built**. It has never recorded why the
+counter workflow is being **built rather than bought**, because when this
+document was written the systems that offered it were enterprise products
+carrying enterprise prices and assumptions.
+
+That is no longer true. CarCEO sells phases 1-6 for $129/month, and HQ Rental
+sells the same ground from around $50.
+
+Arguments for continuing to build, none of them decisive on their own:
+
+- **AADE.** The Digital Client List and myDATA are Greek statutory obligations.
+  Of the fifteen systems now surveyed, only IOS Rentals and Wheelsys
+  (§1.1) claim them. Neither CarCEO nor HQ Rental mentions Greek fiscalisation.
+- **The competitor rate engine.** Five live feeds into a comparison view appears
+  in **none** of the fifteen. It is the one place this system leads, and it
+  would not survive a migration.
+- **Server-side price verification.** §8b. Not advertised by any of them.
+- **The mixed fleet.** Cars, scooters and bicycles in one system — only Rent
+  Centric and IOS Rentals do this.
+- **Switching cost.** 33 migrations, 17 tables and a live booking flow.
+
+Arguments for buying, equally undecided:
+
+- The counter workflow is the largest remaining build, and it is the part of the
+  category that is most commoditised.
+- A $129/month subscription against the engineering time in §7 phases 1-4 is not
+  a close call on cost alone.
+- Every hour spent on condition capture is an hour not spent on the rate
+  intelligence that actually differentiates.
+
+**This is an architect decision and it is deliberately left open here.** What
+should not happen is phases 1-4 being built without the question being asked at
+all, which is the state this document was in until today.
+
+**Sources:** [carceo.pro](https://carceo.pro/) ·
+[HQ Rental via SoftwareAdvice](https://www.softwareadvice.com/retail/hq-rental-profile/) ·
+[HQRent feature overview](https://hqrent.com/rental-features) ·
+[Rentware via Capterra](https://www.capterra.com/p/182136/Rentware/)
 
 ---
 
@@ -476,6 +560,11 @@ that we do not is the **affiliate channel**, now in §7 deferred.
 **Audits committed.** The three full-system audits moved into `docs/audits/`
 with the ten review areas they are scored against. They had lived outside
 version control. See `docs/audits/README.md`.
+
+**Added §1.7 and §1.8.** Three systems the original survey missed — CarCEO Pro,
+HQ Rental and Rentware. CarCEO publishes $129/month for unlimited vehicles
+covering most of §7, which raises a build-or-buy question §8 had never asked.
+Recorded, deliberately undecided.
 
 ### Shipped since 17 August — verified against the code, not the PR titles
 
