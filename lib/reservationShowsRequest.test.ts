@@ -32,6 +32,14 @@ describe("the reservation carries its quote", () => {
     }
   });
 
+  it("includes the dates the customer asked for", () => {
+    // Allocating a vehicle without the requested window is guesswork, and when
+    // staff have already moved the booking the difference is the whole point.
+    for (const field of ["pickup_date", "pickup_time", "return_date", "return_time", "rental_days"]) {
+      expect(route, field).toContain(field);
+    }
+  });
+
   it("and what staff need to read", () => {
     for (const field of ["driver_age", "baby_seat", "child_seat", "additional_drivers", "comments"]) {
       expect(route, field).toContain(field);
@@ -54,6 +62,13 @@ describe("the modal uses it wherever it was opened from", () => {
   it("checks substitution against the resolved request, not the prop", () => {
     expect(modal).toContain("checkSubstitution(request ?? {}");
     expect(modal).not.toContain("checkSubstitution(quoted ?? {}");
+  });
+
+  it("shows the requested dates, and flags when the reservation has moved", () => {
+    expect(modal).toContain("Requested:");
+    expect(modal).toContain("the reservation now differs");
+    // The comparison must be against the live form values, not the stored ones.
+    expect(modal).toMatch(/loadedQuote\.pickup_date !== form\.pickup_date/);
   });
 
   it("shows the request on screen rather than only using it for logic", () => {
