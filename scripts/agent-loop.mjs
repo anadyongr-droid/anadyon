@@ -43,12 +43,21 @@
  */
 
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, appendFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, appendFileSync, rmSync, mkdirSync, chmodSync } from "node:fs";
 import { createInterface } from "node:readline";
+import { resolve } from "node:path";
 
 // ---------------------------------------------------------------- config ----
 
-const MAX_TURNS = Number(argOf("--turns") ?? 1);   // one, deliberately
+const MAX_TURNS = (() => {
+  const raw = argOf("--turns") ?? "1";           // one, deliberately
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 10) {
+    process.stdout.write(`\n  STOP: --turns must be a whole number from 1 to 10 (got "${raw}").\n\n`);
+    process.exit(1);
+  }
+  return n;
+})();
 const BASE = argOf("--base") ?? "origin/main";
 const DRY_RUN = process.argv.includes("--dry-run");
 const CONTINUE = process.argv.includes("--continue");
@@ -58,6 +67,7 @@ const MAX_SPEC_BYTES = 50 * 1024;
 
 const BLUEPRINT = "docs/RENTAL-SYSTEM-BLUEPRINT.md";
 const TURN_SPEC = ".agent-turn-spec.md";
+const HOOK_DIR = ".agent-loop-hooks";   // loop-owned; never the shared hooks dir
 
 /**
  * Command and arguments per agent, as ARRAYS. Never build a shell string.
@@ -73,11 +83,21 @@ export const AGENTS = {
   codex:  { bin: "codex",  args: (prompt) => ["exec", prompt] },
 };
 
+/**
+ * The same checks CI runs. `tsc + lint + test + build` alone let a change
+ * through that breaks translation coverage, accessibility, SEO or the browser
+ * suite — all of which are gates on a real PR, so a turn that passes here and
+ * fails there has not been verified, it has been sampled.
+ */
 const VERIFY = [
   ["npx", ["tsc", "--noEmit"]],
   ["npm", ["run", "lint"]],
   ["npm", ["test"]],
   ["npm", ["run", "build"]],
+  ["npm", ["run", "check:translation"]],
+  ["npm", ["run", "check:a11y"]],
+  ["npm", ["run", "test:seo"]],
+  ["npm", ["run", "test:browser"]],
 ];
 
 /** Substring matching alone marks an agent dead when a test prints "quota". */
@@ -95,6 +115,29 @@ export const LIMIT_PATTERNS = [
 ];
 
 const limited = { claude: false, codex: false };
+
+/**
+ * What the agents are allowed to see.
+ *
+ * This is NOT a sandbox. It removes deployment and database credentials from
+ * the child's environment so an agent cannot trivially reach production, but a
+ * determined process can still read files, use the operator's CLI config and
+ * reach the network. Real isolation needs an OS-level profile per CLI and is
+ * not built. Treat this as reducing accidents, not as preventing misuse.
+ */
+const ENV_DENY = /^(VERCEL|SUPABASE|NEXT_PUBLIC_SUPABASE|RESEND|STRIPE|WISE|AADE|TELEGRAM|AWS|GCP|AZURE|NPM_TOKEN|GITHUB_TOKEN|GH_TOKEN)/i;
+function childEnv() {
+  const out = {};
+  for (const [k, v] of Object.entries(process.env)) if (!ENV_DENY.test(k)) out[k] = v;
+  out.ANADYON_AGENT_LOOP = "1";
+  // Applies the loop's own hooks directory to this child only. A worktree
+  // shares .git/hooks with the main repo, so writing there would change the
+  // operator's environment rather than the agent's.
+  out.GIT_CONFIG_COUNT = "1";
+  out.GIT_CONFIG_KEY_0 = "core.hooksPath";
+  out.GIT_CONFIG_VALUE_0 = resolve(HOOK_DIR);
+  return out;
+}
 
 // ----------------------------------------------------------------- utils ----
 
@@ -121,6 +164,19 @@ function ask(q) {
  */
 function excludePath() {
   return git(["rev-parse", "--git-path", "info/exclude"]);
+}
+
+/**
+ * Who may implement, given who actually architected this turn.
+ *
+ * Returns null when the only available agent is the one that just architected.
+ * Failover previously handed both chairs to whichever agent was still
+ * answering, which silently collapses the separation the design exists for —
+ * so this returns null and the caller stops the turn rather than proceeding.
+ */
+export function implementerFor(architectAgent, limitedState) {
+  const other = architectAgent === "claude" ? "codex" : "claude";
+  return limitedState[other] ? null : other;
 }
 
 /** Which agent should hold which chair, given who held it last. */
@@ -159,6 +215,7 @@ function preflight() {
   if (!DRY_RUN) {
     const current = existsSync(ex) ? readFileSync(ex, "utf8") : "";
     if (!current.includes(TURN_SPEC)) appendFileSync(ex, `\n${TURN_SPEC}\n`);
+    if (!readFileSync(ex, "utf8").includes(HOOK_DIR)) appendFileSync(ex, `${HOOK_DIR}/\n`);
     if (!readFileSync(ex, "utf8").includes(TURN_SPEC)) {
       fail(`Could not exclude ${TURN_SPEC} via ${ex}. --continue would refuse on a dirty tree.`);
     }
@@ -179,6 +236,28 @@ function preflight() {
            `         ${String(err.message).split("\n")[0]}\n` +
            `         Fix the argument array in AGENTS.`);
     }
+  }
+
+  // Refuse pushes from the AGENT processes only.
+  //
+  // A linked worktree SHARES its hooks directory with the main repo, so writing
+  // a pre-push hook there would modify the operator's own checkout and every
+  // other worktree. Instead the hook lives in a loop-owned directory and is
+  // applied by pointing core.hooksPath at it through GIT_CONFIG_* in the child
+  // environment — scoped to the agents, gone when they exit, nothing shared
+  // mutated.
+  //
+  // Still not a sandbox: an agent with a shell can unset those variables.
+  if (!DRY_RUN) {
+    mkdirSync(HOOK_DIR, { recursive: true });
+    const hook = `${HOOK_DIR}/pre-push`;
+    writeFileSync(hook,
+      "#!/bin/sh\n" +
+      "# installed by scripts/agent-loop.mjs for the duration of one run\n" +
+      'echo "pre-push refused: an agent loop is running. Review the branch, then push from your own shell." >&2\n' +
+      "exit 1\n");
+    chmodSync(hook, 0o755);
+    say(`  agent pushes blocked via ${hook}`);
   }
 
   if (!existsSync(BLUEPRINT)) fail(`${BLUEPRINT} is missing — the architect has nowhere to write.`);
@@ -204,26 +283,30 @@ function runAgent(name, prompt) {
   }
 
   return new Promise((resolve) => {
-    const child = spawn(spec.bin, spec.args(prompt), { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(spec.bin, spec.args(prompt), { stdio: ["ignore", "pipe", "pipe"], env: childEnv() });
     let out = "";
     const tee = (chunk) => { out += chunk; process.stdout.write(chunk); };
     child.stdout.on("data", tee);
     child.stderr.on("data", tee);
 
+    // SIGTERM can be ignored, which would let a process outlive the advertised
+    // timeout and hold the loop open indefinitely. Escalate.
+    let killTimer;
     const timer = setTimeout(() => {
-      child.kill("SIGTERM");
       say(`\n  ${name} timed out after ${AGENT_TIMEOUT_MS / 60000} minutes`);
+      child.kill("SIGTERM");
+      killTimer = setTimeout(() => child.kill("SIGKILL"), 10_000);
     }, AGENT_TIMEOUT_MS);
 
     child.on("close", (code) => {
-      clearTimeout(timer);
+      clearTimeout(timer); clearTimeout(killTimer);
       if (code === 0) return resolve({ ok: true, limit: false, out, agent: name });
       const isLimit = LIMIT_PATTERNS.some((re) => re.test(out));
       if (isLimit) { limited[name] = true; say(`\n  ${name} hit its limit`); }
       resolve({ ok: false, limit: isLimit, out, agent: null });
     });
     child.on("error", (err) => {
-      clearTimeout(timer);
+      clearTimeout(timer); clearTimeout(killTimer);
       resolve({ ok: false, limit: false, out: String(err.message), agent: null });
     });
   });
@@ -257,6 +340,28 @@ function verify() {
     }
   }
   return true;
+}
+
+/**
+ * What must still be true after an agent phase.
+ *
+ * The wrapper is solely responsible for committing and for moving between
+ * branches. An agent that commits, switches branch, or edits a file outside its
+ * remit has stepped outside the role the whole design rests on — and the
+ * per-turn architect was previously unrestricted, so it could have written
+ * application code and committed it before the implementer ever started.
+ */
+function assertPhaseInvariants({ branch, head, allowed, phase }) {
+  const nowBranch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
+  if (nowBranch !== branch) return `${phase} changed branch: ${branch} -> ${nowBranch}`;
+  const nowHead = git(["rev-parse", "HEAD"]);
+  if (nowHead !== head) return `${phase} created or moved commits (HEAD ${head.slice(0,7)} -> ${nowHead.slice(0,7)})`;
+  if (allowed) {   // null means any file may change; branch and HEAD still may not
+    const touched = git(["status", "--porcelain"]).split("\n").filter(Boolean).map((l) => l.slice(3).trim());
+    const stray = touched.filter((f) => !allowed.includes(f));
+    if (stray.length) return `${phase} changed files outside its remit: ${stray.join(", ")}`;
+  }
+  return null;
 }
 
 /** Everything the agents touched, back to a known commit — including untracked
@@ -357,10 +462,6 @@ async function main() {
   for (let turn = startTurn; turn <= endTurn; turn++) {
     say(`\n── turn ${turn} ──────────────────────────────────────────`);
     if (limited.claude && limited.codex) { say("Both agents limited. Stopping."); break; }
-    if (existsSync(TURN_SPEC) && Buffer.byteLength(readFileSync(TURN_SPEC)) > MAX_SPEC_BYTES) {
-      say(`${TURN_SPEC} exceeds ${MAX_SPEC_BYTES} bytes. Stopping.`); break;
-    }
-
     const { architect, doer } = rolesForTurn(turn, startTurn, lastArchitect);
     say(`architect: ${architect}   implementer: ${doer}`);
 
@@ -370,16 +471,47 @@ async function main() {
     const archStep = await runWithFailover(architect, [
       `You are the ARCHITECT for turn ${turn}. Read ${BLUEPRINT} and any failing output from the last turn.`,
       `Write the next concrete step into ${TURN_SPEC}. One step, small enough to verify.`,
+      `Edit ONLY ${TURN_SPEC}. Do not commit, do not change branch, do not touch application code.`,
       `If the blueprint is wrong or silent, say so there and stop — do not redesign mid-branch.`,
     ].join("\n"));
     if (!archStep.agent) { say("No architect available. Stopping."); break; }
 
-    const buildStep = await runWithFailover(doer, [
+    if (!DRY_RUN) {
+      const bad = assertPhaseInvariants({ branch, head: turnStart, allowed: [TURN_SPEC], phase: "architect" });
+      if (bad) { say(`\n  ${bad}`); rollback(turnStart); fail("Architect stepped outside its remit. Rolled back."); }
+      if (existsSync(TURN_SPEC) && Buffer.byteLength(readFileSync(TURN_SPEC)) > MAX_SPEC_BYTES) {
+        // Checked AFTER the architect writes — checking before only ever saw
+        // the previous turn's file.
+        rollback(turnStart);
+        fail(`${TURN_SPEC} exceeds ${MAX_SPEC_BYTES} bytes. Rolled back rather than spending on an oversized prompt.`);
+      }
+    }
+
+    // The two chairs must be held by different agents. Failover previously
+    // handed both to whichever one was still answering, which quietly collapses
+    // the separation the whole design exists for.
+    const available = implementerFor(archStep.agent, limited);
+    if (!available) {
+      say(`\n  ${archStep.agent} architected this turn and the other agent is unavailable.`);
+      say(`  Stopping rather than letting one agent architect and implement the same turn.`);
+      break;
+    }
+    const buildStep = await runWithFailover(available, [
       `You are the IMPLEMENTER for turn ${turn}. Read ${TURN_SPEC} and build exactly that.`,
+      `Do not commit and do not change branch — the wrapper commits.`,
       `A new regression test must be run against the unfixed code and seen to FAIL before you trust it.`,
       `Never apply a Supabase migration. Write the numbered migration and its byte-identical paste copy.`,
     ].join("\n"));
-    if (!buildStep.agent) { say("No implementer available. Stopping."); break; }
+    if (!buildStep.agent) { say("No independent implementer available. Stopping."); break; }
+    if (buildStep.agent === archStep.agent) {
+      rollback(turnStart);
+      fail(`${buildStep.agent} would hold both roles this turn. Rolled back.`);
+    }
+
+    if (!DRY_RUN) {
+      const bad = assertPhaseInvariants({ branch, head: turnStart, allowed: null, phase: "implementer" });
+      if (bad) { say(`\n  ${bad}`); rollback(turnStart); fail("Implementer stepped outside its remit. Rolled back."); }
+    }
 
     if (DRY_RUN) { say("[dry-run] verification and commit skipped"); continue; }
 
@@ -399,6 +531,7 @@ async function main() {
   }
 
   if (!DRY_RUN && existsSync(TURN_SPEC)) rmSync(TURN_SPEC, { force: true });
+  if (!DRY_RUN && existsSync(HOOK_DIR)) rmSync(HOOK_DIR, { recursive: true, force: true });
 
   say(`\n── done ──────────────────────────────────────────────`);
   if (DRY_RUN) { say("dry run — nothing was created, branched or committed."); return; }

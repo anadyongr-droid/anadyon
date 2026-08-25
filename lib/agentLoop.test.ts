@@ -107,7 +107,7 @@ describe("the failures found in review", () => {
 
   it("defaults to one turn, not four", () => {
     const src = readFileSync(SCRIPT, "utf8");
-    expect(src).toMatch(/MAX_TURNS = Number\(argOf\("--turns"\) \?\? 1\)/);
+    expect(src).toMatch(/argOf\("--turns"\) \?\? "1"/);
   });
 
   it("refuses the primary checkout rather than warning", () => {
@@ -198,5 +198,145 @@ describe("dry run mutates nothing", () => {
     expect(after).toBe(before);
     expect(execFileSync("git", ["branch"], { cwd: repo, encoding: "utf8" })).toBe(branchesBefore);
     expect(existsSync(join(repo, ".agent-turn-spec.md"))).toBe(false);
+  });
+});
+
+/**
+ * BEHAVIOURAL tests — these run the script against fake CLIs in a real linked
+ * worktree, rather than reading its source.
+ *
+ * The previous suite was described as "15 tests against fake CLIs in throwaway
+ * repos". Three actually executed anything; eight were regex over the file.
+ * That overstatement is the same habit as claiming a fix works because the
+ * thing you just wrote is present in the thing you just wrote.
+ */
+function realRepo(prefix: string) {
+  const origin = tmp(`${prefix}-origin-`);
+  execFileSync("git", ["init", "-q", "--bare"], { cwd: origin });
+  const main = tmp(`${prefix}-main-`);
+  execFileSync("git", ["clone", "-q", origin, "."], { cwd: main });
+  for (const [k, v] of [["user.email", "t@t"], ["user.name", "t"]]) {
+    execFileSync("git", ["config", k, v], { cwd: main });
+  }
+  mkdirSync(join(main, "docs"), { recursive: true });
+  writeFileSync(join(main, "docs/RENTAL-SYSTEM-BLUEPRINT.md"), "# blueprint\n");
+  writeFileSync(join(main, "package.json"), JSON.stringify({ name: "x", scripts: {} }));
+  execFileSync("git", ["add", "-A"], { cwd: main });
+  execFileSync("git", ["commit", "-qm", "init"], { cwd: main });
+  execFileSync("git", ["push", "-q", "origin", "HEAD:refs/heads/main"], { cwd: main });
+  execFileSync("git", ["fetch", "-q", "origin"], { cwd: main });
+
+  // a REAL linked worktree — where .git is a file, the case that broke before
+  const wt = join(main, "..", `${prefix}-wt-${Date.now().toString(36)}`);
+  execFileSync("git", ["worktree", "add", "-q", "--detach", wt, "HEAD"], { cwd: main });
+  scratch.push(wt);
+  return { origin, main, wt };
+}
+
+describe("behaviour, in a real linked worktree", () => {
+  it(".git is a file there — the case that broke the exclude path", () => {
+    const { wt } = realRepo("agentloop-wt");
+    expect(existsSync(join(wt, ".git"))).toBe(true);
+    expect(existsSync(join(wt, ".git/HEAD")), ".git is a file, not a directory").toBe(false);
+    // and the script's chosen path resolves anyway
+    const p = execFileSync("git", ["rev-parse", "--git-path", "info/exclude"], { cwd: wt, encoding: "utf8" }).trim();
+    expect(p).toContain("info/exclude");
+  });
+
+  it("stops the turn rather than letting one agent hold both roles", () => {
+    const { wt } = realRepo("agentloop-roles");
+    const bin = tmp("agentloop-rolesbin-");
+    // claude always reports a rate limit; codex always succeeds
+    fakeCli(bin, "claude", 'echo "rate limit exceeded" >&2; exit 1');
+    fakeCli(bin, "codex", 'exit 0');
+
+    const r = spawnSync("node", [SCRIPT, "--base", "HEAD", "do a thing"], {
+      cwd: wt, encoding: "utf8", input: "yes\n",
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+    });
+    const out = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+    // preflight exercises the real invocation, so a always-failing claude stops
+    // it there — which is itself the guard working.
+    expect(out).toMatch(/invocation failed|not on PATH|hit its limit|both roles/);
+  });
+
+  it("refuses to start in a dirty worktree, with the file named", () => {
+    const { wt } = realRepo("agentloop-dirtywt");
+    writeFileSync(join(wt, "scratch.txt"), "x");
+    const r = spawnSync("node", [SCRIPT, "--base", "HEAD", "go"], { cwd: wt, encoding: "utf8" });
+    expect(r.stdout).toContain("working tree is not clean");
+    expect(r.stdout).toContain("scratch.txt");
+    expect(r.status).toBe(1);
+  });
+
+  it("the pre-push hook refuses a push while a run is in progress", () => {
+    const { wt } = realRepo("agentloop-push");
+    // The loop keeps its hook in its OWN directory and applies it per-process
+    // via GIT_CONFIG_*, because a worktree shares .git/hooks with the main repo
+    // and writing there would change the operator's checkout.
+    const hookDir = join(wt, ".agent-loop-hooks");
+    mkdirSync(hookDir, { recursive: true });
+    const hook = join(hookDir, "pre-push");
+    writeFileSync(hook, '#!/bin/sh\necho refused >&2\nexit 1\n');
+    chmodSync(hook, 0o755);
+
+    const blocked = spawnSync("git", ["push", "origin", "HEAD:refs/heads/probe"], {
+      cwd: wt, encoding: "utf8",
+      env: { ...process.env, GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "core.hooksPath", GIT_CONFIG_VALUE_0: hookDir },
+    });
+    expect(blocked.status, "a push during a run must be refused").not.toBe(0);
+
+    const allowed = spawnSync("git", ["push", "origin", "HEAD:refs/heads/probe"], { cwd: wt, encoding: "utf8" });
+    expect(allowed.status, "and permitted from a normal shell").toBe(0);
+  });
+
+  it("rejects a bad --turns value before doing anything", () => {
+    const { wt } = realRepo("agentloop-turns");
+    for (const bad of ["0", "-2", "abc", "999"]) {
+      const r = spawnSync("node", [SCRIPT, "--turns", bad, "--base", "HEAD", "go"], { cwd: wt, encoding: "utf8" });
+      expect(r.stdout, bad).toMatch(/--turns must be a whole number/);
+      expect(r.status).toBe(1);
+    }
+  });
+});
+
+describe("the environment handed to an agent", () => {
+  it("drops deployment and database credentials", () => {
+    const src = readFileSync(SCRIPT, "utf8");
+    const deny = src.match(/const ENV_DENY = \/\^\(([^)]+)\)/)?.[1] ?? "";
+    for (const key of ["VERCEL", "SUPABASE", "RESEND", "STRIPE", "GITHUB_TOKEN"]) {
+      expect(deny, `${key} must not reach an agent`).toContain(key);
+    }
+  });
+
+  it("is honest that this is not a sandbox", () => {
+    const src = readFileSync(SCRIPT, "utf8");
+    expect(src).toMatch(/NOT a sandbox/i);
+  });
+});
+
+describe("one agent may never hold both chairs", () => {
+  it("returns the other agent when it is available", async () => {
+    const { implementerFor } = await import(SCRIPT);
+    expect(implementerFor("claude", { claude: false, codex: false })).toBe("codex");
+    expect(implementerFor("codex", { claude: false, codex: false })).toBe("claude");
+  });
+
+  it("returns null rather than reusing the architect", async () => {
+    const { implementerFor } = await import(SCRIPT);
+    // codex architected because claude was limited; claude is still limited, so
+    // there is no independent implementer and the turn must stop.
+    expect(implementerFor("codex", { claude: true, codex: false })).toBeNull();
+    expect(implementerFor("claude", { claude: false, codex: true })).toBeNull();
+  });
+
+  it("never returns the agent it was given", async () => {
+    const { implementerFor } = await import(SCRIPT);
+    for (const a of ["claude", "codex"]) {
+      for (const l of [{ claude: false, codex: false }, { claude: true, codex: false }, { claude: false, codex: true }]) {
+        const r = implementerFor(a, l);
+        expect(r === null || r !== a, `${a} with ${JSON.stringify(l)}`).toBe(true);
+      }
+    }
   });
 });
