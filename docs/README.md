@@ -21,6 +21,7 @@ built sound?* Keep them apart; they go stale at different rates.
 | [`NBG-PAYMENTS-INTEGRATION.md`](NBG-PAYMENTS-INTEGRATION.md) | National Bank of Greece hosted checkout, currently gated |
 | [`PREVIEW-RECAPTCHA-TEST-KEYS.md`](PREVIEW-RECAPTCHA-TEST-KEYS.md) | Why Preview uses Google's reCAPTCHA test pair, and the build-time guard that keeps it out of production |
 | [`INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md`](INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md) | The admin lockout that self-resolved with no cause established |
+| [`HANDOVER-ADMIN-FROZEN-PANES.md`](HANDOVER-ADMIN-FROZEN-PANES.md) | **Open defect** — table headers and first column will not freeze on iPad; three attempts and what disproved each |
 | [`RESTORE.md`](RESTORE.md) | Recovery procedure |
 
 ## Handovers
