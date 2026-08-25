@@ -52,9 +52,11 @@ const TURN_SPEC = ".agent-turn-spec.md";   // scratch, and gitignored — see pr
  * Command and arguments per agent, as ARRAYS. Never build a shell string: a
  * prompt containing a backtick or $(…) is otherwise executed by the shell.
  *
- * The flags here are the ones that were verified to exist during preflight. If
- * a CLI changes, preflight fails loudly rather than the loop silently doing
- * nothing.
+ * If a token ceiling or model pin is wanted, add it here — e.g.
+ * ["exec", "--max-tokens", "4000", prompt] — and preflight will exercise that
+ * exact array before the loop starts. Do not add a flag without checking it
+ * exists: the first draft of this script carried --max-tokens and
+ * -c model=gpt-5.6-terra, neither of which was verified.
  */
 const AGENTS = {
   claude: { bin: "claude", args: (prompt) => ["-p", prompt] },
@@ -118,19 +120,38 @@ function preflight() {
   const isWorktree = gitDir.includes(".git/worktrees/") || existsSync(".git") === false;
   say(`  checkout: ${isWorktree ? "worktree" : "primary"}${isWorktree ? "" : "  ← prefer a worktree"}`);
 
-  // Verify each CLI actually answers. An unknown flag exits non-zero, which
-  // reads as an ordinary failure, and the loop then no-ops for every turn.
+  // Verify each CLI answers, and — the part that matters — verify the ACTUAL
+  // argument array the loop will use.
+  //
+  // `--version` succeeding proves nothing about the args in AGENTS: add a flag
+  // that does not exist and every turn exits non-zero, which reads as an
+  // ordinary failure, so the loop no-ops for its whole run while appearing to
+  // work. That is precisely the failure preflight exists to prevent, and it is
+  // made more likely by the natural instinct to add token ceilings here.
+  //
+  // So this sends one trivial prompt through the real invocation. It costs a
+  // few tokens once per run, against a whole run wasted.
   for (const [name, spec] of Object.entries(AGENTS)) {
     try {
       execFileSync("which", [spec.bin], { stdio: "ignore" });
     } catch {
       fail(`${name}: \`${spec.bin}\` is not on PATH. Install it, or drop it from AGENTS and run single-agent.`);
     }
+    if (DRY_RUN) { say(`  ${name}: on PATH (dry-run, invocation not exercised)`); continue; }
     try {
-      execFileSync(spec.bin, ["--version"], { stdio: "ignore", timeout: 30_000 });
-      say(`  ${name}: responds`);
-    } catch {
-      fail(`${name}: \`${spec.bin} --version\` failed. Fix the invocation before looping.`);
+      execFileSync(spec.bin, spec.args("Reply with the single word OK. Change nothing."), {
+        stdio: "ignore",
+        timeout: 120_000,
+      });
+      say(`  ${name}: invocation works — ${spec.bin} ${spec.args("…").join(" ")}`);
+    } catch (err) {
+      const out = `${err.stdout ?? ""}${err.stderr ?? ""}${err.message ?? ""}`;
+      fail(
+        `${name}: the real invocation failed before any work started.\n` +
+        `         tried: ${spec.bin} ${spec.args("…").join(" ")}\n` +
+        `         ${out.split("\n").slice(0, 3).join("\n         ")}\n` +
+        `         Fix the argument array in AGENTS. A bad flag here would fail every turn silently.`
+      );
     }
   }
 
@@ -199,6 +220,9 @@ function verify() {
   for (const [bin, args] of VERIFY) {
     say(`  ${bin} ${args.join(" ")}`);
     try {
+      // Measured on this repo: tsc 14s, lint 9s, tests 21s, build 34s — 78s in
+      // total. Fifteen minutes per step is ~10x headroom, which leaves room for
+      // the suite to grow without the gate becoming the thing that fails.
       execFileSync(bin, args, { stdio: "inherit", timeout: 15 * 60 * 1000 });
     } catch {
       say(`  FAILED: ${bin} ${args.join(" ")}`);
