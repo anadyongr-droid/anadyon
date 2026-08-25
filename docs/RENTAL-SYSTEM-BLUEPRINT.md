@@ -327,6 +327,51 @@ because legal determines what is lawful to store and charge; and the frozen-pane
 closure criteria, which correctly refuse stylesheet rules, unit tests and
 hand-written reproductions as evidence.
 
+
+#### Architect adjudication — 26 August 2026
+
+The review above was right to raise capture sourcing and wrong to leave it open.
+`AGENTS.md` asks the architect for a section that can be built from without
+asking questions; "either dismiss it here or record it as open" is the opposite
+of that. This resolves it.
+
+**Anadyon remains the system of record** for handovers, damage observations and
+evidence metadata. A capture provider may later act as an *input adapter*, but
+Anadyon always ingests and retains its own durable copy of the original
+evidence. It never depends on an expiring vendor URL, and no vendor holds the
+only copy of a photograph that has to defend a charge years later.
+
+**One bounded evaluation, inside Gate 0**, before the native capture UI is
+built: two business days, Record360 only. It must produce, in writing:
+
+- pricing for 29 mixed assets;
+- DPA, data location and retention terms;
+- complete media export terms;
+- API and webhook access terms; and
+- proof that cars, scooters and bicycles can carry *different* inspection
+  templates.
+
+If any of those is unavailable, or a real iPad and Android trial does not
+succeed, the implementer proceeds with native capture under §4.2. The
+evaluation does not reopen the decision to build the counter here, and must not
+delay the rest of phase 1.
+
+**Two corrections to the review's own reasoning, accepted.** "A file and an ID"
+understated the work: an adapter still needs vehicle mapping, task creation,
+outbound reservation context, webhook authentication and replay handling,
+lifecycle and status mapping, media retrieval and retention, template version
+mapping, and GDPR export and deletion. And the three vendors in §1.5 are not
+interchangeable for this purpose — ProovStation and Self-Inspection sell
+AI-assisted damage analysis, which §8 declines, so only Record360 fits the
+adapter shape. Naming all three as one option was imprecise.
+
+**Costing.** No speculative figure is inserted here. Gate 0 produces a work
+breakdown covering database and functions, storage and evidence handling, the
+tablet capture UI, damage and adjustment workflows, automated and
+physical-device testing, and rollout with ongoing support — then a three-year
+native-build against capture-vendor total. A decision recorded before phase 2
+can only be checked afterwards if the estimate exists.
+
 **Sources:** [carceo.pro](https://carceo.pro/) ·
 [HQ Rental via SoftwareAdvice](https://www.softwareadvice.com/retail/hq-rental-profile/) ·
 [HQRent feature overview](https://hqrent.com/rental-features) ·
@@ -449,6 +494,7 @@ rental_handovers
   created_by, completed_by uuid FK auth.users ON DELETE SET NULL
   staff_name_snapshot text
   occurred_at, completed_at, created_at, updated_at timestamptz
+  UNIQUE (id, inspection_template_id)        -- referenced by handover_photos
   odometer_km integer NULL CHECK >= 0
   fuel_eighths smallint NULL CHECK 0-8
   cleanliness ('clean' | 'acceptable' | 'poor') NULL
@@ -456,9 +502,13 @@ rental_handovers
 
 handover_photos
   id uuid PK, handover_id uuid NOT NULL FK rental_handovers
+  inspection_template_id uuid NOT NULL      -- carried so the pair below can be enforced
   template_view_id uuid NOT NULL, sequence smallint NOT NULL
+  FK (handover_id, inspection_template_id) -> rental_handovers (id, inspection_template_id)
+  FK (inspection_template_id, template_view_id) -> inspection_template_views (template_id, id)
   object_path text UNIQUE NOT NULL, mime_type, byte_size, width_px, height_px
   sha256, captured_at, uploaded_at, captured_by
+  UNIQUE (handover_id, id)                   -- referenced by handover_damage_photos
 
 inspection_templates
   id, vehicle_category, version, active, created_at
@@ -466,15 +516,20 @@ inspection_templates
 inspection_template_views
   id, template_id, view_code, label, sort_order, required
   UNIQUE (template_id, view_code)
+  UNIQUE (template_id, id)                   -- referenced by handover_photos
 
 handover_damage_observations
   id, handover_id, damage_id FK vehicle_damages,
   observation ('pre_existing'|'unchanged'|'worsened'|'new'), notes
   UNIQUE (handover_id, damage_id)
+  UNIQUE (handover_id, id)                   -- referenced by handover_damage_photos
 
 handover_damage_photos
+  handover_id uuid NOT NULL                 -- carried so both sides can be pinned
   observation_id, photo_id
   PRIMARY KEY (observation_id, photo_id)
+  FK (handover_id, observation_id) -> handover_damage_observations (handover_id, id)
+  FK (handover_id, photo_id)       -> handover_photos (handover_id, id)
 
 reservation_adjustments
   id, reservation_id, handover_id, damage_id NULL,
@@ -585,8 +640,27 @@ reason are written to the event log; device time alone is not legal evidence.
    adjustments. The expected queries are written before adding more indexes.
 6. Every new public-schema table has RLS enabled and all privileges revoked
    from `PUBLIC`, `anon` and `authenticated`. The browser never receives the
-   service-role key. Privileged finalisation functions revoke EXECUTE from
-   `PUBLIC` and are callable only by the server route after admin/staff auth.
+   service-role key. Privileged finalisation functions live in a **private,
+   non-exposed schema**, are defined with a **controlled `search_path`**, and
+   revoke EXECUTE from `PUBLIC`, `anon` and `authenticated` — callable only by
+   the server route after admin/staff auth. A `SECURITY DEFINER` function with
+   a mutable search_path is a privilege-escalation path, not a convenience.
+7. **A photo cannot reference a view from a different template.**
+   `handover_photos` carries `inspection_template_id`, with a composite foreign
+   key to `rental_handovers (id, inspection_template_id)` and another to
+   `inspection_template_views (template_id, id)`. Without both, a scooter photo
+   can be filed against a car's template view and the out/in comparison silently
+   compares different things.
+   Postgres refuses a composite foreign key unless the referenced columns carry
+   a unique constraint, even where one of them is already the primary key — so
+   `rental_handovers (id, inspection_template_id)` and
+   `inspection_template_views (template_id, id)` each need one adding. They are
+   in the schema above.
+8. **A damage photo belongs to the same handover as its observation.**
+   `handover_damage_photos` carries `handover_id`, with composite foreign keys
+   to `handover_damage_observations (handover_id, id)` and
+   `handover_photos (handover_id, id)`. Evidence attached across handovers is
+   worse than no evidence: it looks defensible and is not.
 
 Photo upload is a short saga, not a cross-service transaction: create/reuse the
 draft, upload each object, persist verified metadata, then finalise only when
@@ -752,7 +826,13 @@ The phase-4 MVP is deliberately narrower than an OTA:
 
 Reuse Supabase Auth, not the internal `admin`/`staff` authorisation role. An
 external partner is a tenant: `partner_accounts` owns `partner_users`, bookings
-and statements, and a partner can read only rows belonging to its account. The
+and statements, and a partner can read only rows belonging to its account.
+
+**Authorisation derives from database membership** — `partner_users.user_id =
+auth.uid()` — and never from a JWT claim in `user_metadata`, which the user can
+edit. This project has already leaked customer PII once through a policy that
+trusted the wrong thing; a partner who can rewrite their own tenant id is the
+same failure with a different table. The
 server remains the normal write path; tenant-scoped RLS is defence in depth.
 No partner receives admin navigation, fleet cost data, competitor rates,
 customer marketing lists or another partner's customer data.
