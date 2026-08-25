@@ -24,8 +24,13 @@
  * 5. It never pushes. A branch is left for a human to read.
  *
  * Usage:
- *   node scripts/agent-loop.mjs "one sentence saying what to build"
- *   node scripts/agent-loop.mjs --turns 3 --dry-run "..."
+ *   node scripts/agent-loop.mjs --turns 1 "one sentence saying what to build"
+ *   node scripts/agent-loop.mjs --continue --turns 1
+ *
+ * Run it a turn at a time, read the branch, then --continue. That keeps a human
+ * between every pair of turns, and --continue resumes on the SAME branch with
+ * the roles swapped from the last turn, so the alternation holds across rounds
+ * rather than restarting the architecture each time.
  */
 
 import { execFileSync, execSync } from "node:child_process";
@@ -36,6 +41,7 @@ import { createInterface } from "node:readline";
 
 const MAX_TURNS = Number(argOf("--turns") ?? 4);
 const DRY_RUN = process.argv.includes("--dry-run");
+const CONTINUE = process.argv.includes("--continue");
 const AGENT_TIMEOUT_MS = 20 * 60 * 1000;   // a hung agent must not block forever
 const MAX_SPEC_BYTES = 50 * 1024;
 
@@ -205,16 +211,44 @@ function verify() {
 // ----------------------------------------------------------------- main -----
 
 async function main() {
-  const goal = process.argv.slice(2).filter((a) => !a.startsWith("--") && a !== String(MAX_TURNS)).join(" ");
-  if (!goal) fail('Say what to build:  node scripts/agent-loop.mjs "add stop-sells to the fleet screen"');
+  let goal = process.argv.slice(2).filter((a) => !a.startsWith("--") && a !== String(MAX_TURNS)).join(" ");
+  if (!goal && !CONTINUE) fail('Say what to build:  node scripts/agent-loop.mjs --turns 1 "add stop-sells to the fleet screen"');
 
   preflight();
 
-  const branch = `codex/agent-loop-${new Date().toISOString().slice(0, 10)}-${Date.now().toString(36).slice(-4)}`;
-  git(["checkout", "-b", branch]);
-  say(`branch: ${branch}\ngoal:   ${goal}\n`);
+  let branch;
+  let startTurn = 1;
+  let lastArchitect = null;
+
+  if (CONTINUE) {
+    branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
+    if (!branch.startsWith("codex/agent-loop-")) {
+      fail(`--continue resumes an existing run, but HEAD is "${branch}". Check out the agent-loop branch first.`);
+    }
+    // Recover where the last run stopped from the commits it left, so the turn
+    // numbering and the role alternation carry across rounds rather than
+    // resetting — which would hand the same agent the same role every round.
+    const log = git(["log", "--format=%s%n%b", `origin/main..HEAD`]);
+    const turns = [...log.matchAll(/^Turn (\d+):/gm)].map((m) => Number(m[1]));
+    startTurn = turns.length ? Math.max(...turns) + 1 : 1;
+    lastArchitect = (log.match(/architect: (claude|codex)/) ?? [])[1] ?? null;
+    if (!goal) {
+      goal = (log.match(/^Architecture for: (.+)$/m) ?? [])[1]
+          ?? (log.match(/^Turn \d+: (.+)$/m) ?? [])[1]
+          ?? "";
+    }
+    if (!goal) fail("Could not recover the goal from this branch. Pass it again as an argument.");
+    say(`resuming ${branch}\ngoal:   ${goal}\nnext turn: ${startTurn}${lastArchitect ? `  (last architect: ${lastArchitect})` : ""}\n`);
+  } else {
+    branch = `codex/agent-loop-${new Date().toISOString().slice(0, 10)}-${Date.now().toString(36).slice(-4)}`;
+    git(["checkout", "-b", branch]);
+    say(`branch: ${branch}\ngoal:   ${goal}\n`);
+  }
 
   // ---- phase 1: architecture, written where it survives ----
+  // Skipped on --continue: the design was approved in the first round, and
+  // re-opening it every round is how an agreed decision gets quietly reversed.
+  if (!CONTINUE) {
   say("── phase 1: architecture ─────────────────────────────");
   const architectBrief = [
     `You are the ARCHITECT. Read AGENTS.md for what that means, then docs/README.md.`,
@@ -252,10 +286,12 @@ async function main() {
   git(["add", BLUEPRINT]);
   git(["commit", "-m", `Architecture for: ${goal}`]);
   say("\nApproved and committed.\n");
+  }
 
   // ---- phase 2: alternating build turns ----
-  for (let turn = 1; turn <= MAX_TURNS; turn++) {
-    say(`\n── turn ${turn}/${MAX_TURNS} ──────────────────────────────────`);
+  const endTurn = startTurn + MAX_TURNS - 1;
+  for (let turn = startTurn; turn <= endTurn; turn++) {
+    say(`\n── turn ${turn} ──────────────────────────────────────────`);
 
     if (limited.claude && limited.codex) {
       say("Both agents are limited. Stopping; the branch holds the work so far.");
@@ -268,8 +304,12 @@ async function main() {
 
     // Alternate. If the preferred architect is limited the roles are NOT both
     // given to one agent silently — the swap is announced.
-    const architect = turn % 2 ? "claude" : "codex";
-    const doer = turn % 2 ? "codex" : "claude";
+    // On a resumed run the first turn must not repeat the previous architect,
+    // or one agent keeps the same chair every round.
+    const architect = (turn === startTurn && lastArchitect)
+      ? (lastArchitect === "claude" ? "codex" : "claude")
+      : (turn % 2 ? "claude" : "codex");
+    const doer = architect === "claude" ? "codex" : "claude";
     say(`architect: ${architect}   implementer: ${doer}`);
 
     const turnStart = git(["rev-parse", "HEAD"]);
@@ -310,7 +350,10 @@ async function main() {
   }
 
   say(`\n── done ──────────────────────────────────────────────`);
-  say(`branch ${branch} — nothing was pushed. Review it, then open a PR yourself.`);
+  say(`branch ${branch} — nothing was pushed.`);
+  say(`Read the diff, then either:`);
+  say(`  node scripts/agent-loop.mjs --continue --turns 1     (next round, roles swap)`);
+  say(`  gh pr create                                          (when it is done)`);
   say(git(["log", "--oneline", `origin/main..HEAD`]));
 }
 

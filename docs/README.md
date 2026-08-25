@@ -37,8 +37,20 @@ instruction. When a handover's content becomes a standing rule, move it into
 implementer roles defined in `../AGENTS.md`.
 
 ```
-node scripts/agent-loop.mjs "add stop-sells to the fleet screen"
+node scripts/agent-loop.mjs --turns 1 "add stop-sells to the fleet screen"
 ```
+
+Read the branch it leaves, then run the next round on the same branch with the
+roles swapped:
+
+```
+node scripts/agent-loop.mjs --continue --turns 1
+```
+
+One turn at a time keeps a person between every pair of turns. `--continue`
+recovers the turn number, the goal and the previous architect from the branch's
+own commits, so the alternation carries across rounds instead of handing the
+same agent the same chair every time.
 
 It refuses to start on a dirty tree, verifies both CLIs answer before looping,
 puts the architect's decision into `RENTAL-SYSTEM-BLUEPRINT.md` rather than a
