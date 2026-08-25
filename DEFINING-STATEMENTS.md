@@ -104,3 +104,39 @@ Schema questions are answered against the live database, DNS against live
 resolvers, vendor behaviour against vendor documentation, performance against
 measurement. Anything that cannot be checked is labelled unverified rather than
 filled in.
+
+## 9. Read what is already written before researching it again
+
+The project's own documents are the starting point for any question they
+already answer. Before benchmarking a competitor, proposing an architecture,
+scoring a review area or planning a build order, read `docs/README.md` and
+follow it to the document that covers the subject. Then **extend that document**
+rather than producing a parallel one.
+
+This is not a filing preference. On 25 August 2026 a full competitor benchmark
+and build order were researched and written from scratch while
+`docs/RENTAL-SYSTEM-BLUEPRINT.md` — eleven systems, a phased build order, and a
+list of deliberate exclusions with their reasoning — sat committed in the repo,
+unread. The new work was thinner than the document it duplicated: it missed
+stop-sells, licence verification, utilisation reporting and the task-manager
+view, and it proposed a build order that contradicted the one already agreed.
+The search that missed it looked for `*audit*` and `*principle*` and never for a
+blueprint.
+
+Three consequences follow:
+
+- **Search for the subject, not the filename.** Grep the docs directory for the
+  vendor, the capability, the table name. A document that answers your question
+  will rarely be named after it.
+- **A decision already recorded stays recorded until it is argued down.** The
+  deliberate exclusions in the blueprint — OTA distribution, telematics, AI
+  damage detection, stored card numbers — are settled positions with stated
+  reasoning. Reopening one requires engaging with that reasoning, not
+  rediscovering the topic.
+- **New findings are merged in, with the date and what changed.** One document
+  per subject that stays current beats a series of dated snapshots that each
+  restate the last. Where a genuinely new finding arrives, say what it adds and
+  where it sits relative to what was already there.
+
+The test: if the same question is asked in six months, the answer should be
+found by reading, not by researching again.
