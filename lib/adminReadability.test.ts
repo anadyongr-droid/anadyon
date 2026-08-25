@@ -148,3 +148,49 @@ describe("tables keep their bearings while scrolling", () => {
     expect(classed).toBe(tables);
   });
 });
+
+describe("the admin renders light on a device set to dark", () => {
+  const css = read("app/globals.css");
+  const layout = read("app/admin/AdminLayoutClient.tsx");
+
+  it("the shell carries the light scope", () => {
+    // Both the main shell and the early return for login / MFA / set-password.
+    expect((layout.match(/admin-root/g) ?? []).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("form controls are pinned light, not left to inherit", () => {
+    // body { color: var(--foreground) } flips to #ededed on a dark device.
+    // All 88 admin inputs set no colour of their own, so they inherited it and
+    // rendered near-white on white — 1.17:1.
+    expect(css).toMatch(/\.admin-root input[\s\S]{0,80}color:\s*#171717/);
+    expect(css).toMatch(/\.admin-root\s*\{[^}]*color-scheme:\s*light/);
+  });
+
+  it("placeholders stay lighter than values, but readable", () => {
+    expect(css).toMatch(/\.admin-root ::placeholder[\s\S]{0,60}color:\s*#6b7280/);
+  });
+
+  it("disabled fields remain readable on iOS", () => {
+    // iOS ignores `color` on a disabled input; -webkit-text-fill-color is what
+    // it honours.
+    expect(css).toMatch(/-webkit-text-fill-color/);
+  });
+});
+
+describe("every table freezes, on every screen", () => {
+  it("no admin table sits outside a bounded scroll container", () => {
+    const loose: string[] = [];
+    for (const f of adminFiles) {
+      const src = read(f);
+      for (const m of src.matchAll(/<table className="admin-table/g)) {
+        const tail = src.slice(0, m.index).slice(-600);
+        const bounded = tail.includes("admin-table-wrap") ||
+          (tail.includes("overflow-auto") && tail.includes("maxHeight"));
+        if (!bounded) loose.push(f);
+      }
+    }
+    // Sticky resolves against the nearest scrolling ancestor. A table without
+    // one keeps neither its header nor its first column.
+    expect(loose, `these tables cannot freeze:\n${loose.join("\n")}`).toEqual([]);
+  });
+});

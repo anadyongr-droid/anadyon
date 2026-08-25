@@ -47,7 +47,14 @@ export default function AdminLayoutClient({
   }, [navOpen]);
 
   if (pathname === "/admin/login" || pathname === "/admin/setup-mfa" || pathname === "/admin/set-password") {
-    return <RoleProvider role={role}>{children}</RoleProvider>;
+    // These three return before the main shell, so the light scope has to be
+    // applied here too. Login is where credentials are typed, and its fields
+    // inherited the same near-white colour as everything else.
+    return (
+      <div className="admin-root min-h-screen">
+        <RoleProvider role={role}>{children}</RoleProvider>
+      </div>
+    );
   }
 
   const isAdmin = role === "admin";
@@ -63,7 +70,7 @@ export default function AdminLayoutClient({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="admin-root min-h-screen bg-gray-50 flex">
       {/* Tap-anywhere-to-close scrim, drawer only. */}
       {navOpen && (
         <div

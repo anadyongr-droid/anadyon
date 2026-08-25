@@ -232,11 +232,11 @@ export default function MarketPage() {
         </div>
       ) : (
         Object.entries(byGroup).map(([group, groupRows]) => (
-          <div key={group} className="bg-white rounded-xl border border-gray-200 admin-table-wrap mb-5">
+          <div key={group} className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-5">
             <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
               <h3 className="font-semibold text-gray-900 text-sm">{GROUP_LABEL[group] ?? group}</h3>
             </div>
-            <div className="overflow-x-auto">
+            <div className="admin-table-wrap">
               <table className="admin-table w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 text-xs text-gray-500">
@@ -339,6 +339,7 @@ export default function MarketPage() {
           </div>
         </div>
 
+        <div className="admin-table-wrap">
         <table className="admin-table w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-xs text-gray-500">
@@ -393,6 +394,7 @@ export default function MarketPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
