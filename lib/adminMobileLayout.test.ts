@@ -46,6 +46,27 @@ describe("the admin shell adapts to a tablet", () => {
     expect(layout).toMatch(/<main className="flex-1 min-w-0/);
   });
 
+  it("the shell is bounded to the viewport, so the rail cannot scroll away", () => {
+    // With `min-h-screen` the shell grew to its content and the PAGE scrolled,
+    // taking the static rail with it — measured at 1024px, the rail ended up
+    // 400px above the top of the viewport. Bounding the shell makes <main> the
+    // scroller instead, which is what pins both the rail and the mobile bar.
+    expect(layout).toMatch(/admin-root h-dvh overflow-hidden/);
+    expect(layout, "min-h-screen would let the shell grow again")
+      .not.toMatch(/admin-root min-h-screen bg-gray-50 flex/);
+  });
+
+  it("h-dvh rather than h-screen, for iOS", () => {
+    // iOS Safari's 100vh ignores the collapsing address bar, so h-screen
+    // leaves the last rows unreachable on an iPad.
+    expect(layout).toContain("h-dvh");
+    expect(layout).not.toContain("h-screen overflow-hidden");
+  });
+
+  it("the rail fills the bounded shell", () => {
+    expect(layout).toMatch(/w-52 h-full/);
+  });
+
   it("content clears the fixed mobile bar", () => {
     expect(layout).toMatch(/pt-14 lg:pt-0/);
   });

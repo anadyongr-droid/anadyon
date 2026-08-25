@@ -69,8 +69,15 @@ export default function AdminLayoutClient({
     router.push("/admin/login");
   }
 
+  // The shell is bounded to the viewport so that MAIN is the scroller and the
+  // rail cannot move. With `min-h-screen` the shell simply grew to its content,
+  // the page scrolled, and the static rail scrolled away with it — measured at
+  // 1024px, the rail ended up 400px above the top of the viewport.
+  //
+  // h-dvh rather than h-screen: iOS Safari's 100vh ignores the collapsing
+  // address bar, so h-screen leaves the last rows unreachable on an iPad.
   return (
-    <div className="admin-root min-h-screen bg-gray-50 flex">
+    <div className="admin-root h-dvh overflow-hidden bg-gray-50 flex">
       {/* Tap-anywhere-to-close scrim, drawer only. */}
       {navOpen && (
         <div
@@ -95,7 +102,7 @@ export default function AdminLayoutClient({
       </div>
 
       <aside
-        className={`w-52 bg-white border-r border-gray-200 flex flex-col shrink-0
+        className={`w-52 h-full bg-white border-r border-gray-200 flex flex-col shrink-0
           fixed inset-y-0 left-0 z-40 transition-transform duration-200 overflow-y-auto
           ${navOpen ? "translate-x-0" : "-translate-x-full"}
           lg:static lg:translate-x-0 lg:z-auto`}
