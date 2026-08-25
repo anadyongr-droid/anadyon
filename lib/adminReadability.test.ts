@@ -143,8 +143,14 @@ describe("tables keep their bearings while scrolling", () => {
     }
   });
 
-  it("the frozen column is dropped on a phone, where it would not fit", () => {
-    expect(css).toMatch(/@media \(max-width: 480px\)[\s\S]{0,260}position:\s*static/);
+  it("the frozen column is NOT switched off on phones", () => {
+    // It was, below 480px, on my own judgement that a frozen column crowds a
+    // small screen. That cancelled the behaviour on every Android phone
+    // (360-412px) while every desktop test still passed. The frozen column was
+    // asked for ON mobile; narrowing the column is the answer, not disabling it.
+    const rules = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(rules, "a width-based override re-disables the frozen column")
+      .not.toMatch(/@media[^{]*max-width[^{]*\{[\s\S]{0,300}?first-child[^}]*position:\s*static/);
   });
 
   it("alert rows keep their colour on the frozen column", () => {
