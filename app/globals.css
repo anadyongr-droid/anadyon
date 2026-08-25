@@ -115,7 +115,9 @@ body {
  */
 .admin-table-wrap {
   overflow: auto;
-  max-height: calc(100vh - 13rem);
+  /* dvh, not vh: iOS Safari's 100vh is the address-bar-collapsed height, so
+     a vh-based cap makes the container taller than what is on screen. */
+  max-height: calc(100dvh - 13rem);
   overscroll-behavior: contain;
 }
 
