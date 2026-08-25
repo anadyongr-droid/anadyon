@@ -1,9 +1,9 @@
 # Anadyon Rental System — Architecture Blueprint
 
-**Written:** 17 August 2026 · **Revised twice the same day** — second pass added
-Wheelsys, IOS Rentals, RentingPilot; third pass added Coastr, RentSyst, Rent
-Centric, TSD, RENTALL. · **25 August 2026** — added §1.6, the local field: the
-two competitors we track both run on EzCar.
+**Written:** 17 August 2026 · **Current as of:** 25 August 2026
+
+This is the living document for *what to build and why*. It is revised in place,
+never restated — see `DEFINING-STATEMENTS.md` §9. Revision history is in §10.
 
 **Purpose:** benchmark the build against the platforms a Greek rental operator
 would otherwise buy, state honestly where it falls short, and set the
@@ -305,9 +305,10 @@ the ones working.
 
 ### 4.5 Schema debt found while writing this
 
-`customers` carries **both `licence_number` and `driving_licence_number`**. One
-is redundant; which one the code writes needs establishing before either is
-trusted for licence verification.
+~~`customers` carries both `licence_number` and `driving_licence_number`.~~
+**Resolved.** Only `driving_licence_number` survives in the migrations, and it is
+the column the code reads and writes throughout. Safe to build licence
+verification against.
 
 ---
 
@@ -439,15 +440,75 @@ it will make every quote trip the manipulation alert. Keep them in step.
 
 ## 9. Standing principles
 
-See `DEFINING-STATEMENTS.md`. The two bearing most here:
+See `DEFINING-STATEMENTS.md`. The three bearing most here:
 
 - **The public site and the rental system collect the same data.** A field
   collected on a quote the reservation cannot store is a dead end.
 - **Claims are verified, not assumed.** Schema against the live database, DNS
   against live resolvers, vendor behaviour against vendor documentation.
+- **Read what is already written before researching it again** (§9, added 25
+  August 2026). This document is the one that principle exists to protect: it
+  was duplicated from scratch by a search that looked for `*audit*` and never
+  for a blueprint, and the duplicate was thinner. Extend this file; do not write
+  a parallel one.
 
 TSD's own phrasing is the third, and worth adopting: an agreement that can be
 produced with required fields missing is a **liability**, not a convenience.
+
+---
+
+## 10. Revision history and what has shipped
+
+This document is revised in place. Each entry says what changed and why, so a
+reader six months out can follow the reasoning without re-deriving it.
+
+### 25 August 2026
+
+**Added §1.6, the local field.** The eleven systems in §1 are what a Greek
+operator would *buy*. None of them is what our two tracked competitors *run*:
+`ionianrentals` and `motorclubzante` both resolve to `ezcar.eu` tenants — one
+product with two skins. Their ceiling is published rather than guessed, they
+have none of the counter workflow in §3, and the single capability they hold
+that we do not is the **affiliate channel**, now in §7 deferred.
+
+**§4.5 schema debt resolved.** Only `driving_licence_number` survives.
+
+**Audits committed.** The three full-system audits moved into `docs/audits/`
+with the ten review areas they are scored against. They had lived outside
+version control. See `docs/audits/README.md`.
+
+### Shipped since 17 August — verified against the code, not the PR titles
+
+The build order in §7 is unchanged: none of this is counter work. What shipped
+was the integrity layer underneath it, most of it in response to something
+found rather than something planned.
+
+| Area | What changed | Where |
+|---|---|---|
+| **Pricing integrity** | Vehicle type, pricing group and transmission are derived server-side from a canonical catalogue; an unknown model is refused rather than guessed. The client total no longer takes part in the idempotency key | `lib/vehicleCatalogue.ts` |
+| **Promo integrity** | Promo uses became a ledger — hold, redeem, release, with expiry — so an abandoned quote can no longer exhaust a code | migration `20260823170000` |
+| **Seat limits** | Baby plus child seats capped at 3 combined, as a database check constraint with a pre-flight guard, not a form rule | `lib/seatLimits.ts` |
+| **Email truth** | Workflow stage is derived from `booking_email_deliveries`; `pending`, `queued` and `failed` are never read as sent. All workflow mail routes through an audited path | `lib/emailWorkflowStage.ts`, `lib/auditedMail.ts` |
+| **Substitution consent** | A blocked substitution now carries a typed reason, and the subset a customer may consent to is explicit rather than implied | `lib/substitution.ts` |
+| **Vehicle allocation** | Eligibility and substitution warnings reach every entry point, not only the Quotes screen; the customer's original request is shown beside the selector | `app/admin/components/ReservationModal.tsx` |
+| **Admin availability** | Auth calls time out at 8 s and fail closed with a diagnostic log line, after a lockout whose cause was never established | `proxy.ts`, `docs/INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md` |
+| **Staff permissions** | Staff routing is method-aware — read-only where it should be, write where the role earns it | `proxy.ts` |
+| **CAPTCHA** | Preview uses Google's test pair; a build-time guard refuses to produce a production bundle carrying the test site key, after that combination silently rejected every live booking | `next.config.ts`, `lib/recaptchaKeys.ts` |
+| **Migration safety** | The numbered migration and its SQL Editor paste copy are enforced identical by test, after a stale copy reached production | `lib/migrationPasteParity.test.ts` |
+
+**What this pattern says.** Nine of the ten rows are integrity work, and most
+began as a defect found in production. That is the cost of a system whose
+correctness lives in the database rather than in a vendor's warranty — and the
+argument for §7 phase 2 being counter work rather than more of this: the counter
+is where the *next* class of dispute comes from, and there is currently no
+record to settle it with.
+
+### Still pending, unchanged
+
+- **AADE Digital Client List** — columns present, Vercel environment variables
+  and Supabase columns still to be set. `⚠️` in §2 remains accurate.
+- **NBG hosted checkout** — built, gated behind an open PR.
+- **Damage log** — schema only, still no UI. Phase 1 in §7.
 
 ---
 
