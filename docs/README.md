@@ -1,0 +1,48 @@
+# Documentation
+
+Start here. Everything below is committed, so it survives a lost folder, a new
+machine or a six-month gap.
+
+## Read first
+
+| Document | Answers |
+|---|---|
+| [`../DEFINING-STATEMENTS.md`](../DEFINING-STATEMENTS.md) | What the product is for, and which trade-offs are already settled |
+| [`RENTAL-SYSTEM-BLUEPRINT.md`](RENTAL-SYSTEM-BLUEPRINT.md) | How we compare to the systems a Greek operator would buy, what to build next, and what we deliberately will not build |
+| [`audits/`](audits/) | Whether what we built is sound — full reviews scored against ten fixed areas |
+
+The blueprint asks *are we building the right thing?* An audit asks *is what we
+built sound?* Keep them apart; they go stale at different rates.
+
+## Reference
+
+| Document | Covers |
+|---|---|
+| [`NBG-PAYMENTS-INTEGRATION.md`](NBG-PAYMENTS-INTEGRATION.md) | National Bank of Greece hosted checkout, currently gated |
+| [`PREVIEW-RECAPTCHA-TEST-KEYS.md`](PREVIEW-RECAPTCHA-TEST-KEYS.md) | Why Preview uses Google's reCAPTCHA test pair, and the build-time guard that keeps it out of production |
+| [`INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md`](INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md) | The admin lockout that self-resolved with no cause established |
+| [`RESTORE.md`](RESTORE.md) | Recovery procedure |
+
+## Handovers
+
+`HANDOFF-*.md` are point-in-time records of a specific piece of work — pricing,
+email delivery, customer fields, promo and seats. They are history, not current
+instruction. When a handover's content becomes a standing rule, move it into
+`DEFINING-STATEMENTS.md` or the blueprint; do not leave it to be rediscovered.
+
+## Conventions that bite
+
+**Migrations.** Every migration is numbered and has a byte-identical copy under
+`supabase/migrations/paste/` for the Supabase SQL Editor. Edit the migration and
+the paste copy drifts — this reached production once. `lib/migrationPasteParity.test.ts`
+now enforces the pair. Migrations are never applied automatically; they are
+handed over to be run.
+
+**Verification.** A new regression test is only trusted once it has been run
+against the *unfixed* code and seen to fail. Security tooling that runs only in
+CI — CodeQL especially — is read from the pushed commit's check result, never
+inferred from a green local suite.
+
+**Measurement.** Methods that have produced confident false readings on this
+project are listed in [`audits/README.md`](audits/README.md). Read them before
+running a sweep; two of them have each cost a wrong finding more than once.

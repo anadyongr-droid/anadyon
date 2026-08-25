@@ -2,7 +2,8 @@
 
 **Written:** 17 August 2026 · **Revised twice the same day** — second pass added
 Wheelsys, IOS Rentals, RentingPilot; third pass added Coastr, RentSyst, Rent
-Centric, TSD, RENTALL.
+Centric, TSD, RENTALL. · **25 August 2026** — added §1.6, the local field: the
+two competitors we track both run on EzCar.
 
 **Purpose:** benchmark the build against the platforms a Greek rental operator
 would otherwise buy, state honestly where it falls short, and set the
@@ -105,6 +106,51 @@ the same decision and already exists.
 Standalone condition-capture products the majors bolt on. Their existence as
 viable businesses is the strongest evidence that check-in/check-out is where
 money is won and lost.
+
+---
+
+### 1.6 The local field — **EzCar**
+
+*Added 25 August 2026.* The eleven systems above are what a Greek operator would
+*buy*. This is what the two competitors we actually track *run*.
+
+`lib/competitorRates.ts` scrapes `ionianrentals` and `motorclubzante`. Both
+resolve to the same host: `ezcar.eu/<tenant>/vehicle.results.php`. **Ionian
+Rentals and Motor Club Zante are not two systems — they are two tenants of one
+platform.** So are EasyRent Zante, Zakynthos Car Rentals, EuroAlfa, Acteon and
+Syros 4 Seasons. EzCar describes itself as built for Greek rental companies, on
+PHP and MySQL.
+
+Practically: scraping those two samples *one* product with two skins, and their
+capability ceiling is published rather than guessed.
+
+| EzCar offers | Notes |
+|---|---|
+| Unlimited vehicles — cars, mopeds, ATVs | Dynamic availability calendar, fleet "top view" |
+| Multiple pickup / delivery locations | Parity with ours |
+| Rates adjustable at any time; duration and date discounts | Parity |
+| Accessories — GPS, baby seat — with or without charge | Parity |
+| PayPal, credit card, bank deposit | We have Stripe + Wise |
+| Automated daily pick-up / delivery list | We have `/admin/today` |
+| **Affiliate system for hotels and travel agencies** | **We have nothing equivalent** |
+| Sales statistics | We have per-vehicle margin they do not |
+
+No mobile app, e-signature, damage workflow, telematics or insurance module is
+documented — so the counter gap in §3 is a gap against the *vendors*, not against
+the local competition, which has none of it either.
+
+**The one thing they have that we do not is the affiliate channel**, and on
+Zakynthos that is distribution, not a feature: hotel receptions and travel
+agencies book cars for arriving guests. A platform handing partners live
+availability and a commission statement competes for supply we never see.
+
+That makes it a different question from OTA distribution, which §8 declines
+deliberately. A hotel desk is not a broker: the commission is local and
+negotiable, the guest is already on the island, and the relationship stays
+direct. Worth building; see the deferred list in §7.
+
+**Source:** [ezcar.gr software page](https://www.ezcar.gr/en-software.php) ·
+[ezcar.eu](https://www.ezcar.eu/) · tenant paths in `lib/competitorRates.ts`.
 
 ---
 
@@ -330,6 +376,11 @@ Why a Greek product wins locally, and where Anadyon already competes:
 
 ### Deferred, worth revisiting
 
+- **Partner / affiliate channel** (EzCar, §1.6) — hotel and agency accounts with
+  live availability, booking on the guest's behalf, commission tracking and a
+  monthly statement. The one capability the *local* competition has and we do
+  not, and distribution rather than a feature on this island. Reuse the
+  existing role model rather than inventing a second one.
 - **Review-triggered coupons** (IOS Rentals) — retention loop, no equivalent here
 - **WhatsApp / out-of-hours capture** (RentingPilot) — suits island customers mid-journey
 - **Nexi XPay / myPOS** (IOS Rentals) — Greek payment rails
