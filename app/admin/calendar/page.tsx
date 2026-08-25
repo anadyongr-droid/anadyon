@@ -217,7 +217,7 @@ export default function CalendarPage() {
             </section>
           )}
 
-          <div className="overflow-auto rounded-xl border border-gray-200 bg-white" style={{ maxHeight: "calc(100vh - 260px)" }}>
+          <div className="overflow-auto rounded-xl border border-gray-200 bg-white" style={{ maxHeight: "calc(100dvh - 260px)" }}>
             <table className="admin-table border-collapse text-xs" style={{ minWidth: `${180 + days * 52}px` }}>
             <thead className="sticky top-0 z-20">
               <tr className="bg-gray-50 border-b border-gray-200">

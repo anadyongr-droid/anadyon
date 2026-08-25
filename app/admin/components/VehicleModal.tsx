@@ -127,7 +127,7 @@ export default function VehicleModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start sm:items-center justify-center p-4">
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="vehicle-dialog-title" tabIndex={-1} className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[calc(100vh-2rem)] flex flex-col">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="vehicle-dialog-title" tabIndex={-1} className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[calc(100dvh-2rem)] flex flex-col">
 
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <div>
