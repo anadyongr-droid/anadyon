@@ -257,11 +257,19 @@ export default function CalendarPage() {
                     little contrast to register as a heading.
                   */}
                   <tr className="bg-gray-100 border-t-2 border-t-gray-400 border-b border-b-gray-200">
+                    {/* The cell spans the whole table, so `sticky left-0` on it can
+                        never offset: a sticky box cannot move outside its own
+                        containing block, and here the two are the same width.
+                        Measured on the live page — this band slid the full 300px
+                        of scroll while the vehicle-name cells beside it held at 0.
+                        Pinning an inner element keeps the label in view instead. */}
                     <td
                       colSpan={days + 1}
-                      className="px-3 py-1.5 text-xs font-bold text-gray-700 uppercase tracking-wider sticky left-0 bg-gray-100"
+                      className="px-3 py-1.5 text-xs font-bold text-gray-700 uppercase tracking-wider bg-gray-100"
                     >
-                      {CATEGORY_LABELS[category]}
+                      <span className="sticky left-3 inline-block">
+                        {CATEGORY_LABELS[category]}
+                      </span>
                     </td>
                   </tr>
                   {cvehicles.map((vehicle, i) => {

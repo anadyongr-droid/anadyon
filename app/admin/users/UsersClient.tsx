@@ -207,7 +207,10 @@ export default function UsersClient() {
 
       {/* ── Existing users ─────────────────────────────────────────────── */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 admin-table-wrap">
-        <div className="overflow-x-auto">
+        {/* No inner overflow container. It becomes the nearest scrollport, so a
+              sticky header resolves against it rather than <main> and can never
+              pin. Measured on the live page: the scrollport was this div. */}
+          <div>
           <table className="admin-table w-full text-sm">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-900/60 text-left">
