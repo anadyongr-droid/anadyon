@@ -32,7 +32,7 @@ export default function StatusLegend() {
   );
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3 text-xs text-gray-600 dark:text-gray-400">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3 text-xs text-gray-600">
       {BOOKING_STATUSES.map(led)}
       {/*
         A single hairline, not a box. Active and Available are both green
@@ -40,9 +40,9 @@ export default function StatusLegend() {
         and the other a vehicle, and side by side with nothing between them the
         repeated colour reads as a mistake.
       */}
-      <span className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pl-4 border-l border-gray-200 dark:border-gray-700">
+      <span className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pl-4 border-l border-gray-200">
         {VEHICLE_STATUSES.map(led)}
-        <span className="text-gray-600 dark:text-gray-500">vehicle, not booking</span>
+        <span className="text-gray-600">vehicle, not booking</span>
       </span>
     </div>
   );

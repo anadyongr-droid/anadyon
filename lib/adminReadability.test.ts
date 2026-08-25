@@ -67,6 +67,22 @@ describe("no unreadable text survives in the admin", () => {
     expect(offenders, `light-mode use of ${cls}:\n${offenders.join("\n")}`).toEqual([]);
   });
 
+  it("no element sets dark: text without a dark: surface to sit on", () => {
+    // Tailwind v4's `dark:` follows prefers-color-scheme by default, so on a
+    // dark-OS device these fire even though the admin has no dark theme. Where
+    // a file lightens its text without also darkening its background, the text
+    // simply goes faint on white — which is how the status legend on the
+    // Reservations, Quotes and Calendar screens became unreadable on an iPad.
+    const offenders: string[] = [];
+    for (const f of adminFiles) {
+      const src = read(f);
+      const text = (src.match(/dark:text-/g) ?? []).length;
+      const bg = (src.match(/dark:bg-/g) ?? []).length;
+      if (text > 0 && bg === 0) offenders.push(`${f} (${text} dark:text, no dark:bg)`);
+    }
+    expect(offenders, offenders.join("\n")).toEqual([]);
+  });
+
   it("the dark: variants were left alone", () => {
     const dark = adminFiles.reduce(
       (n, f) => n + (read(f).match(/dark:text-gray-[34]00/g) ?? []).length, 0);
@@ -99,6 +115,16 @@ describe("tables keep their bearings while scrolling", () => {
     // only scrolls horizontally gives the header nothing to stick to.
     expect(css).toMatch(/\.admin-table-wrap\s*\{[^}]*overflow:\s*auto/);
     expect(css).toMatch(/\.admin-table-wrap\s*\{[^}]*max-height:/);
+  });
+
+  it("the frozen panes stay light, whatever the device theme is set to", () => {
+    // The admin is a light-only UI. A prefers-color-scheme block here once
+    // painted the frozen header and column dark on an iPad whose OS was in
+    // dark mode, while every other cell stayed white — two unreadable panels.
+    const darkBlocks = css.match(/@media \(prefers-color-scheme: dark\)\s*\{(?:[^{}]|\{[^}]*\})*\}/g) ?? [];
+    for (const b of darkBlocks) {
+      expect(b, "no admin-table rule may sit in a dark block").not.toContain("admin-table");
+    }
   });
 
   it("the frozen column is dropped on a phone, where it would not fit", () => {

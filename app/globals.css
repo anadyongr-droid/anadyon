@@ -88,13 +88,21 @@ body {
 .admin-table tbody tr.bg-red-50:hover td:first-child,
 .admin-table tbody tr.hover\:bg-red-100:hover td:first-child { background: #fee2e2; }  /* red-100 */
 
-@media (prefers-color-scheme: dark) {
-  .admin-table thead th            { background: #1f2937; }
-  .admin-table tbody td:first-child { background: #111827; }
-  .admin-table tbody td:first-child::after,
-  .admin-table thead th:first-child::after { background: #374151; }
-  .admin-table tbody tr:hover td:first-child { background: #1f2937; }
-}
+/*
+ * No dark-theme block here, deliberately.
+ *
+ * The admin is a light-only interface: 108 light surfaces against 18 dark
+ * variants, and only 3 of its 29 files contain a `dark:` class at all.
+ *
+ * A prefers-color-scheme block was added here at first and shipped a real bug.
+ * On an iPad whose OS is set to dark, the block fired and painted the frozen
+ * header and first column dark while every other cell stayed white — so those
+ * two panels went dark, with dark text on them, and could not be read.
+ *
+ * The frozen cells float over the table and must match the surface beneath,
+ * and that surface is always light. Do not reintroduce a dark block here
+ * unless the admin as a whole gains a dark theme.
+ */
 
 /* A phone is too narrow for a frozen column to leave useful room. */
 @media (max-width: 480px) {
