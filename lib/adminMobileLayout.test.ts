@@ -101,8 +101,8 @@ describe("data tables scroll rather than clip", () => {
         // A clipping card is fine when the table has its own scroll container
         // inside it — that is the normal pattern for a card with a header
         // above the table, and the rounded corners still need the clip.
-        const between = window.slice(0, window.indexOf("<table"));
-        if (/admin-table-wrap|overflow-auto|overflow-x-auto/.test(between)) return;
+        // Any clip between a sticky cell and <main> breaks the freeze, so a
+        // card holding a table must not clip at all now.
         offenders.push(`${f}:${i + 1}`);
       });
     }

@@ -105,16 +105,32 @@ describe("tables keep their bearings while scrolling", () => {
 
   it("every sticky cell paints a background", () => {
     // A transparent sticky cell lets the scrolling rows show through it.
-    const blocks = css.match(/\.admin-table[^{]*\{[^}]*position:\s*sticky[^}]*\}/g) ?? [];
+    // Strip comments first — otherwise prose that mentions `position: sticky`
+    // is matched as though it were a rule.
+    const rules = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    const blocks = rules.match(/\.admin-table[^{]*\{[^}]*position:\s*sticky[^}]*\}/g) ?? [];
     expect(blocks.length).toBeGreaterThan(0);
     for (const b of blocks) expect(b, b).toMatch(/background:/);
   });
 
-  it("the wrapper scrolls in both axes and is height-bounded", () => {
-    // Sticky resolves against the nearest scrolling ancestor: a wrapper that
-    // only scrolls horizontally gives the header nothing to stick to.
-    expect(css).toMatch(/\.admin-table-wrap\s*\{[^}]*overflow:\s*auto/);
-    expect(css).toMatch(/\.admin-table-wrap\s*\{[^}]*max-height:/);
+  it("the wrapper is NOT a scroll container", () => {
+    // This is the correction. Making each table its own bounded scroller only
+    // works while the table is taller than the box. On the real screens most
+    // boxes are short — a Rates category is four rows — so the box never
+    // scrolled, the header had nothing to stick to, and it rode away with the
+    // page: measured 438px above the fold on a six-box Rates page.
+    //
+    // With no overflow here, sticky resolves against <main>, which is what
+    // actually scrolls.
+    expect(css).toMatch(/\.admin-table-wrap\s*\{[^}]*overflow:\s*visible/);
+    expect(css, "a bounded wrapper re-introduces the bug")
+      .not.toMatch(/\.admin-table-wrap\s*\{[^}]*max-height:/);
+  });
+
+  it("wide tables keep their natural width so there is something to freeze against", () => {
+    // w-full alone is width:100%, so a many-columned table compresses to fit
+    // and the frozen first column has nothing to pin against.
+    expect(css).toMatch(/\.admin-table\s*\{[^}]*min-width:\s*max-content/);
   });
 
   it("the frozen panes stay light, whatever the device theme is set to", () => {

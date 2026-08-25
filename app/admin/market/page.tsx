@@ -239,7 +239,7 @@ export default function MarketPage() {
         </div>
       ) : (
         Object.entries(byGroup).map(([group, groupRows]) => (
-          <div key={group} className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-5">
+          <div key={group} className="bg-white rounded-xl border border-gray-200 mb-5">
             <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
               <h3 className="font-semibold text-gray-900 text-sm">{GROUP_LABEL[group] ?? group}</h3>
             </div>
@@ -326,7 +326,7 @@ export default function MarketPage() {
       )}
 
       {/* Mapping */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-8">
+      <div className="bg-white rounded-xl border border-gray-200 mb-8">
         <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
           <div>
             <h2 className="font-semibold text-gray-900 text-sm">Category mapping</h2>

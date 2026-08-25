@@ -104,21 +104,46 @@ body {
  * without a frozen first column you lose which row. Both are needed for the
  * table to stay navigable once it scrolls in two directions.
  *
- * Sticky positions against the nearest scrolling ancestor, so the wrapper has
- * to be a scroll container in BOTH axes and have a bounded height — a wrapper
- * that is only `overflow-x-auto` gives the header nothing vertical to stick to.
- * That is why `.admin-table-wrap` sets `overflow: auto` and a max-height rather
- * than relying on page scroll.
+ * Sticky resolves against the nearest SCROLLING ancestor. Here that is
+ * deliberately <main>, not the table's own box — see .admin-table-wrap below
+ * for why bounding each box was the wrong answer.
  *
  * Backgrounds are explicit on every sticky cell: a transparent sticky cell
  * lets the scrolling rows show through underneath it.
  */
 .admin-table-wrap {
-  overflow: auto;
-  /* dvh, not vh: iOS Safari's 100vh is the address-bar-collapsed height, so
-     a vh-based cap makes the container taller than what is on screen. */
-  max-height: calc(100dvh - 13rem);
-  overscroll-behavior: contain;
+  /*
+   * Deliberately NOT a scroll container.
+   *
+   * The first version of this made each table its own bounded scroller so the
+   * header could stick to it. That works only while the table is TALLER than
+   * the box. On the real screens most boxes are short — a Rates category is
+   * four rows — so the box never scrolled, the header had nothing to stick to,
+   * and it rode away with the page. Measured: the header ended 438px above the
+   * fold on a six-box Rates page.
+   *
+   * `position: sticky` resolves against the nearest SCROLLING ancestor. With no
+   * overflow here, that is <main> — the thing that actually scrolls — so the
+   * header pins to the top of the content area and the first column pins to its
+   * left edge, which is what "frozen panes" means. It also behaves correctly
+   * across several boxes: each header takes over as its own table comes into
+   * view, and releases when it leaves.
+   *
+   * Every ancestor between a sticky cell and <main> must therefore stay
+   * `overflow: visible`. A card that clips for rounded corners breaks it.
+   */
+  overflow: visible;
+}
+
+.admin-table {
+  /*
+   * `w-full` alone is width:100%, so a table with many columns compresses to
+   * fit rather than overflowing — cells wrap into unreadable slivers and there
+   * is nothing to scroll, which also means the frozen first column has nothing
+   * to pin against. max-content sets the floor at the width the content
+   * actually needs, so the table stays legible and <main> scrolls sideways.
+   */
+  min-width: max-content;
 }
 
 .admin-table thead th {

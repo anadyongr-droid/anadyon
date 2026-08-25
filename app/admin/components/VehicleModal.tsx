@@ -302,7 +302,7 @@ function CostsTab({ ledger, restricted, onAdd, onRemove }: {
       {ledger.costs.length === 0 ? (
         <p className="text-sm text-gray-600 text-center py-6">Nothing recorded against this vehicle yet.</p>
       ) : (
-        <div className="admin-table-wrap max-h-72">
+        <div className="admin-table-wrap">
           <table className="admin-table w-full text-sm">
             <thead><tr className="text-xs text-gray-500 border-b border-gray-100">
               <th className="text-left py-2 font-medium">Date</th><th className="text-left py-2 font-medium">Type</th>
