@@ -145,3 +145,47 @@ describe("modal fields stack on a narrow screen", () => {
     expect(src).toMatch(/border-t border-gray-100 shrink-0/);
   });
 });
+
+describe("nothing between a sticky cell and <main> forms a scrollport", () => {
+  // A nested overflow container becomes the nearest scrollport, so a sticky
+  // header resolves against IT rather than <main> and can never pin. Measured
+  // on the live Users screen: the scrollport was an inner overflow-x-auto div.
+  const adminFiles: string[] = [];
+  (function walk(dir: string) {
+    for (const e of readdirSync(join(root, dir), { withFileTypes: true })) {
+      const p = `${dir}/${e.name}`;
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith(".tsx")) adminFiles.push(p);
+    }
+  })("app/admin");
+
+  it.each(adminFiles)("%s has no inner overflow wrapper around a table", (f) => {
+    const lines = read(f).split("\n");
+    const bad: string[] = [];
+    lines.forEach((ln, i) => {
+      // A SINGLE-AXIS wrapper is the broken case: it becomes the scrollport but
+      // only scrolls one way, so sticky on the other axis has no anchor. That
+      // was the Users bug — overflow-x-auto with no bounded height, so the
+      // header could never pin.
+      //
+      // A both-axes wrapper WITH a height cap is legitimate and is what Calendar
+      // uses: sticky resolves against it and genuinely freezes, measured on the
+      // live page.
+      if (!/overflow-(x|y)-(auto|scroll)/.test(ln)) return;
+      if (ln.includes("admin-table-wrap")) return;          // that one is overflow:visible
+      if (!lines.slice(i + 1, i + 6).join("\n").includes("<table")) return;
+      bad.push(`${f}:${i + 1}`);
+    });
+    expect(bad, `inner scrollport above a table:\n${bad.join("\n")}`).toEqual([]);
+  });
+});
+
+describe("a full-width banner row cannot be frozen by sticking the cell", () => {
+  it("the calendar category band pins an inner element, not the spanning cell", () => {
+    const cal = read("app/admin/calendar/page.tsx");
+    // A sticky box cannot move outside its containing block. A colSpan cell that
+    // spans the whole table has nowhere to go, so the label must pin instead.
+    expect(cal).not.toMatch(/colSpan=\{days \+ 1\}[\s\S]{0,200}?sticky left-0/);
+    expect(cal).toMatch(/<span className="sticky left-3 inline-block">/);
+  });
+});
