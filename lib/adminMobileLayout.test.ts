@@ -75,10 +75,14 @@ describe("data tables scroll rather than clip", () => {
       const lines = read(f).split("\n");
       lines.forEach((ln, i) => {
         if (!ln.includes("overflow-hidden")) return;
-        // A table within the next few lines means this wrapper clips it.
-        if (lines.slice(i + 1, i + 9).join("\n").includes("<table")) {
-          offenders.push(`${f}:${i + 1}`);
-        }
+        const window = lines.slice(i + 1, i + 9).join("\n");
+        if (!window.includes("<table")) return;
+        // A clipping card is fine when the table has its own scroll container
+        // inside it — that is the normal pattern for a card with a header
+        // above the table, and the rounded corners still need the clip.
+        const between = window.slice(0, window.indexOf("<table"));
+        if (/admin-table-wrap|overflow-auto|overflow-x-auto/.test(between)) return;
+        offenders.push(`${f}:${i + 1}`);
       });
     }
     expect(offenders, `these clip their table instead of scrolling it:\n${offenders.join("\n")}`).toEqual([]);

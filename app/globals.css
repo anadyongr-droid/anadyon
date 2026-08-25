@@ -24,6 +24,50 @@ body {
 }
 
 /*
+ * The admin is a light-only interface, pinned to a light rendering.
+ *
+ * `body { color: var(--foreground) }` above flips to #ededed when the DEVICE
+ * is set to dark. The public site wants that — it has a real dark theme and
+ * 548 dark: classes behind it. The admin does not: its cards stay white, so
+ * every element that inherits its colour rather than setting one turned
+ * near-white on white. Measured on an iPad in dark mode: 1.17:1.
+ *
+ * All 88 admin inputs, selects and textareas set no text colour at all, so
+ * field values were the worst affected — exactly the "very light font inside
+ * the fields" that was reported.
+ *
+ * `color-scheme: light` is the other half. Without it iOS renders native form
+ * controls, autofill and scrollbars in dark treatment inside a light page.
+ */
+.admin-root {
+  color-scheme: light;
+  color: #171717;
+}
+
+.admin-root input,
+.admin-root select,
+.admin-root textarea {
+  color: #171717;
+  background-color: #ffffff;
+}
+
+/* A hint, not content — lighter than the value it sits behind, but still
+   legible at 4.83:1 rather than the 2.54:1 of gray-400. */
+.admin-root ::placeholder {
+  color: #6b7280;
+  opacity: 1; /* Firefox dims placeholders by default */
+}
+
+/* Disabled fields must still be readable — they carry real values. */
+.admin-root input:disabled,
+.admin-root select:disabled,
+.admin-root textarea:disabled {
+  color: #4b5563;
+  background-color: #f9fafb;
+  -webkit-text-fill-color: #4b5563; /* iOS ignores `color` on disabled inputs */
+}
+
+/*
  * Admin data tables — frozen header row and first column.
  *
  * On a tablet these tables are wider than the screen and must scroll
