@@ -554,7 +554,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
           <button type="button" aria-label="Close reservation dialog" onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
-        <div className="p-6 grid grid-cols-2 gap-x-6 gap-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
           {/* Vehicle */}
           <div className="col-span-2">
             <label className="block text-xs font-medium text-gray-600 mb-1">Vehicle</label>
@@ -684,7 +684,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
           {/* Customer */}
           <div className="col-span-2 border-t border-gray-100 pt-4">
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer</div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   First name <span className="text-red-500">*</span>
@@ -748,7 +748,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
           {/* Extras */}
           <div className="col-span-2 border-t border-gray-100 pt-4">
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Extras</div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {extras.filter((e) => e.enabled && ["gps", "fdw"].includes(e.key)).map((e) => (
                 <label key={e.key} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                   <input type="checkbox" checked={!!form[e.key as keyof typeof form]}

@@ -161,7 +161,7 @@ export default function VehicleModal({
 
         {tab === "details" && (
           <div className="p-6 space-y-5 overflow-y-auto overscroll-contain flex-1 min-h-0">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {statuses.map(s => (
                 <div key={s.key} className={`text-xs px-3 py-2 rounded-lg border ${SEV_STYLE[s.severity]}`}>
                   <div className="font-medium">{s.label}</div>
@@ -170,7 +170,7 @@ export default function VehicleModal({
               ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Registration plate">
                 <input className={input} value={form.plate ?? ""} onChange={e => set("plate", e.target.value.toUpperCase())} />
               </Field>

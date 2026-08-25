@@ -92,7 +92,7 @@ export default function RatesPage() {
 
       <div className="space-y-6">
         {grouped.map(({ group, label, seasons }) => (
-          <div key={group} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div key={group} className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
             <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
               <h2 className="font-semibold text-gray-900 text-sm">{label}</h2>
             </div>
@@ -133,7 +133,7 @@ export default function RatesPage() {
         ))}
 
         {/* Extras */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
           <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
             <h2 className="font-semibold text-gray-900 text-sm">Extras</h2>
           </div>
