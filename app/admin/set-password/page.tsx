@@ -97,7 +97,7 @@ export default function SetPasswordPage() {
   if (status === "checking") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <Loader2 className="animate-spin text-gray-400" size={28} />
+        <Loader2 className="animate-spin text-gray-600" size={28} />
       </div>
     );
   }

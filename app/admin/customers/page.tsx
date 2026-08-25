@@ -72,7 +72,7 @@ export default function CustomersPage() {
 
       {/* Search */}
       <div className="relative mb-4 max-w-sm">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
         <input
           type="text"
           placeholder="Search name, email, phone…"
@@ -83,10 +83,10 @@ export default function CustomersPage() {
       </div>
 
       {loading ? (
-        <div className="text-sm text-gray-400">Loading…</div>
+        <div className="text-sm text-gray-600">Loading…</div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="bg-white rounded-xl border border-gray-200 admin-table-wrap">
+          <table className="admin-table w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-xs text-gray-500 bg-gray-50">
                 <th className="text-left px-5 py-3 font-medium">Name</th>
@@ -102,7 +102,7 @@ export default function CustomersPage() {
             </thead>
             <tbody>
               {customers.length === 0 && (
-                <tr><td colSpan={9} className="px-5 py-8 text-center text-gray-400 text-sm">No customers found.</td></tr>
+                <tr><td colSpan={9} className="px-5 py-8 text-center text-gray-600 text-sm">No customers found.</td></tr>
               )}
               {customers.map((c) => (
                 <tr
@@ -127,10 +127,10 @@ export default function CustomersPage() {
                   <td className="px-4 py-3 text-gray-500 text-xs">
                     {c.last_interaction_at
                       ? new Date(c.last_interaction_at).toLocaleDateString("el-GR")
-                      : <span className="text-gray-300">—</span>}
+                      : <span className="text-gray-500">—</span>}
                   </td>
                   <td className="px-4 py-3"><ConversionStatus status={c.conversion_status} /></td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">
+                  <td className="px-4 py-3 text-gray-600 text-xs">
                     {new Date(c.created_at).toLocaleDateString("el-GR")}
                   </td>
                   <td className="px-4 py-3 text-center">

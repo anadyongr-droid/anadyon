@@ -169,7 +169,7 @@ export default function MarketPage() {
     return acc;
   }, {});
 
-  if (loading) return <div className="p-6 text-sm text-gray-400">Loading…</div>;
+  if (loading) return <div className="p-6 text-sm text-gray-600">Loading…</div>;
 
   return (
     <div className="p-6 max-w-5xl">
@@ -226,18 +226,18 @@ export default function MarketPage() {
       {/* Comparison */}
       <h2 className="font-semibold text-gray-900 text-sm mb-3">Comparison</h2>
       {rows.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 text-sm text-gray-400 text-center">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 text-sm text-gray-600 text-center">
           Nothing to compare yet — map at least one of their categories to one of yours in
           the mapping table below, then save.
         </div>
       ) : (
         Object.entries(byGroup).map(([group, groupRows]) => (
-          <div key={group} className="bg-white rounded-xl border border-gray-200 overflow-x-auto mb-5">
+          <div key={group} className="bg-white rounded-xl border border-gray-200 admin-table-wrap mb-5">
             <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
               <h3 className="font-semibold text-gray-900 text-sm">{GROUP_LABEL[group] ?? group}</h3>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="admin-table w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 text-xs text-gray-500">
                     <th className="text-left px-5 py-2 font-medium">Month</th>
@@ -261,7 +261,7 @@ export default function MarketPage() {
                       <td className="px-3 py-2 text-right font-medium text-gray-900 tabular-nums">
                         {editingRates ? (
                           <label className="inline-flex items-center justify-end gap-1">
-                            <span className="text-xs font-normal text-gray-400">€</span>
+                            <span className="text-xs font-normal text-gray-600">€</span>
                             <span className="sr-only">Our rate for {r.month_name}, {r.band_label}</span>
                             <input
                               type="number"
@@ -281,7 +281,7 @@ export default function MarketPage() {
                         return (
                         <td key={c.competitor} className="px-4 py-2 text-right tabular-nums">
                           {c.price === null ? (
-                            <span className="text-gray-300">—</span>
+                            <span className="text-gray-500">—</span>
                           ) : (
                             <>
                               <span className="text-gray-700">€{c.price}</span>
@@ -292,7 +292,7 @@ export default function MarketPage() {
                                       ? "text-amber-600"
                                       : diffPct > 10
                                       ? "text-blue-600"
-                                      : "text-gray-400"
+                                      : "text-gray-600"
                                   }`}
                                 >
                                   {diffPct > 0 ? "+" : ""}
@@ -312,7 +312,7 @@ export default function MarketPage() {
         ))
       )}
       {rows.length > 0 && (
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-600">
           Percentages show your price against theirs. Amber means you are more than 10% below;
           blue means more than 10% above.
         </p>
@@ -339,7 +339,7 @@ export default function MarketPage() {
           </div>
         </div>
 
-        <table className="w-full text-sm">
+        <table className="admin-table w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-xs text-gray-500">
               <th className="text-left px-5 py-2 font-medium">Competitor</th>
@@ -368,7 +368,7 @@ export default function MarketPage() {
                       {g.transmission}
                     </span>
                   ) : (
-                    <span className="text-xs text-gray-300">—</span>
+                    <span className="text-xs text-gray-500">—</span>
                   )}
                 </td>
                 <td className="px-3 py-2 text-right text-gray-500 text-xs tabular-nums">

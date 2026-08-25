@@ -94,7 +94,7 @@ const EMPTY: Customer = {
 function Section({ title }: { title: string }) {
   return (
     <div className="col-span-2 border-t border-gray-100 pt-4 mt-1">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">{title}</p>
+      <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3">{title}</p>
     </div>
   );
 }
@@ -166,7 +166,7 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="customer-dialog-title" tabIndex={-1} className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[calc(100vh-2rem)] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <h2 id="customer-dialog-title" className="font-bold text-gray-900">{isEdit ? "Edit Customer" : "New Customer"}</h2>
-          <button type="button" aria-label="Close customer dialog" onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+          <button type="button" aria-label="Close customer dialog" onClick={onClose} className="text-gray-600 hover:text-gray-900"><X size={20} /></button>
         </div>
 
         <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
@@ -286,14 +286,14 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
                 <div className="text-sm text-gray-800">
                   {form.card_brand ?? "Card"} ···· {form.card_last4}
                   {form.card_exp_month && form.card_exp_year &&
-                    <span className="text-gray-400 text-xs ml-2">
+                    <span className="text-gray-600 text-xs ml-2">
                       expires {String(form.card_exp_month).padStart(2, "0")}/{form.card_exp_year}
                     </span>}
                 </div>
               ) : (
-                <div className="text-sm text-gray-400">No card saved</div>
+                <div className="text-sm text-gray-600">No card saved</div>
               )}
-              <p className="text-[11px] text-gray-400 mt-1.5">
+              <p className="text-[11px] text-gray-600 mt-1.5">
                 Cards are held by Stripe, never in this system. Only the brand and last four digits are stored,
                 so staff can identify the card in conversation.
               </p>

@@ -177,7 +177,7 @@ export default function CompetitorRatesCard() {
       )}
 
       {running && (
-        <div className="text-xs text-gray-400 mt-2">
+        <div className="text-xs text-gray-600 mt-2">
           Pausing 10 seconds between searches, as ezcar.eu requests. A full pass takes about four minutes.
         </div>
       )}

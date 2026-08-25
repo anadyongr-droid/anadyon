@@ -149,9 +149,9 @@ export default function InboxPage() {
       </div>
 
       {loading ? (
-        <div className="text-sm text-gray-400 py-8 text-center">Loading…</div>
+        <div className="text-sm text-gray-600 py-8 text-center">Loading…</div>
       ) : emails.length === 0 ? (
-        <div className="text-sm text-gray-400 py-12 text-center">No emails in this view.</div>
+        <div className="text-sm text-gray-600 py-12 text-center">No emails in this view.</div>
       ) : (
         <div className="space-y-3">
           {emails.map((e) => {
@@ -181,7 +181,7 @@ export default function InboxPage() {
                           Ημ. Κράτησης: {e.reservation_date}
                         </span>
                       )}
-                      <span className="text-xs text-gray-400 ml-auto">
+                      <span className="text-xs text-gray-600 ml-auto">
                         {new Date(e.received_at).toLocaleString("el-GR")}
                       </span>
                     </div>
@@ -250,7 +250,7 @@ export default function InboxPage() {
                         Reopen
                       </button>
                     )}
-                    <span className="text-[10px] text-gray-400 text-center capitalize">{e.status}</span>
+                    <span className="text-[10px] text-gray-600 text-center capitalize">{e.status}</span>
                   </div>
                 </div>
               </div>

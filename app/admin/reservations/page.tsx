@@ -163,10 +163,10 @@ export default function ReservationsPage() {
       <StatusLegend />
 
       {loading ? (
-        <div className="text-sm text-gray-400">Loading…</div>
+        <div className="text-sm text-gray-600">Loading…</div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="bg-white rounded-xl border border-gray-200 admin-table-wrap">
+          <table className="admin-table w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-xs text-gray-500 bg-gray-50">
                 <th className="text-left px-4 py-3 font-medium">Ref</th>
@@ -184,7 +184,7 @@ export default function ReservationsPage() {
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={11} className="px-5 py-8 text-center text-gray-400 text-sm">No reservations found.</td></tr>
+                <tr><td colSpan={11} className="px-5 py-8 text-center text-gray-600 text-sm">No reservations found.</td></tr>
               )}
               {filtered.map((r) => {
                 const workflow = deriveWorkflowStage(r.booking_email_deliveries);
@@ -213,7 +213,7 @@ export default function ReservationsPage() {
                   </td>
                   <td className="px-5 py-3">
                     <div className="font-medium text-gray-900">{r.customer_name}</div>
-                    <div className="text-xs text-gray-400">{r.customer_phone}</div>
+                    <div className="text-xs text-gray-600">{r.customer_phone}</div>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{r.vehicles?.name ?? "—"}</td>
                   <td className="px-4 py-3 text-xs text-gray-600">
@@ -238,7 +238,7 @@ export default function ReservationsPage() {
                   <td className="px-4 py-3 text-xs">
                     {workflow.stageLabel
                       ? <span className={flagged ? "font-medium text-red-700" : "text-gray-700"}>{workflow.stageLabel}</span>
-                      : <span className="text-gray-400">—</span>}
+                      : <span className="text-gray-600">—</span>}
                   </td>
                   <td className="px-4 py-3 text-center">
                     {r.dcl_status && r.dcl_status !== "not_submitted" && (

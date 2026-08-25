@@ -42,7 +42,7 @@ export default function TodayPage() {
   }, [load]);
 
   if (error) return <div className="p-6 text-sm text-red-600">{error}</div>;
-  if (!day) return <div className="p-6 text-sm text-gray-400">Loading…</div>;
+  if (!day) return <div className="p-6 text-sm text-gray-600">Loading…</div>;
 
   const nothing =
     day.events.length === 0 && day.overdue.length === 0 && day.fleet.length === 0;
@@ -83,7 +83,7 @@ export default function TodayPage() {
       )}
 
       {nothing && (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-sm text-gray-400">
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-sm text-gray-600">
           Nothing scheduled today, nothing overdue, and no vehicle needs attention.
         </div>
       )}
@@ -107,9 +107,9 @@ export default function TodayPage() {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-gray-900">
                       <span className="font-medium">{e.reservation.customer_name || "—"}</span>
-                      <span className="text-gray-400"> · </span>
+                      <span className="text-gray-600"> · </span>
                       <span className="text-gray-600">{e.vehicle?.name ?? "no vehicle assigned"}</span>
-                      {e.vehicle?.plate && <span className="text-gray-400 font-mono text-xs ml-1.5">{e.vehicle.plate}</span>}
+                      {e.vehicle?.plate && <span className="text-gray-600 font-mono text-xs ml-1.5">{e.vehicle.plate}</span>}
                     </div>
                     <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap items-center gap-x-3">
                       <span>{e.kind === "pickup" ? "Collect" : "Return"} · {e.reservation.location ?? "—"}</span>
@@ -159,7 +159,7 @@ export default function TodayPage() {
                 <div>
                   <div className="text-sm text-gray-900">
                     {vehicleLabel(v)}
-                    {v.plate && <span className="text-gray-400 font-mono text-xs ml-2">{v.plate}</span>}
+                    {v.plate && <span className="text-gray-600 font-mono text-xs ml-2">{v.plate}</span>}
                   </div>
                   <div className="text-xs mt-0.5 space-y-0.5">
                     {v.barred && <div className="text-red-700">Cannot be rented — {v.barred}</div>}
