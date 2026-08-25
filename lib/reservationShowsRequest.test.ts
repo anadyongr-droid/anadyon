@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -14,6 +15,7 @@ import { describe, expect, it } from "vitest";
  * against the database on write — but every piece of guidance was missing from
  * the one workflow that needs it.
  */
+const root = new URL("../", import.meta.url).pathname;
 const modal = readFileSync(new URL("../app/admin/components/ReservationModal.tsx", import.meta.url), "utf8");
 const route = readFileSync(new URL("../app/api/admin/reservations/[id]/route.ts", import.meta.url), "utf8");
 
@@ -32,10 +34,36 @@ describe("the reservation carries its quote", () => {
     }
   });
 
+  it("every column it embeds actually exists on quotes", () => {
+    // This is the assertion that was missing. The first version of this test
+    // only checked the STRING appeared in the select, so it passed while the
+    // embed named return_date / return_time — columns the quotes table does
+    // not have. PostgREST rejects the whole embed in that case, so the panel,
+    // the dropdown filtering and the substitution warnings all silently
+    // disappeared. The quote uses dropoff_*; the reservation uses return_*.
+    const baseline = readFileSync(join(root, "supabase/migrations/001_baseline.sql"), "utf8");
+    const quotesDdl = baseline.slice(
+      baseline.indexOf("CREATE TABLE IF NOT EXISTS quotes"),
+    );
+    const quotesBody = quotesDdl.slice(0, quotesDdl.indexOf("\n);"));
+    const quoteColumns = new Set(
+      [...quotesBody.matchAll(/^\s+([a-z_]+)\s+(?:text|uuid|numeric|integer|int|boolean|date|timestamptz)/gm)]
+        .map(m => m[1]),
+    );
+    // plus anything a later migration added
+    for (const m of [...baseline.matchAll(/add column (?:if not exists )?([a-z_]+)/gi)]) quoteColumns.add(m[1]);
+
+    const embed = route.match(/quotes\(([^)]*)\)/)?.[1] ?? "";
+    expect(embed, "quotes embed not found").not.toBe("");
+    const embedded = embed.split(",").map(c => c.trim()).filter(Boolean);
+    expect(embedded.length).toBeGreaterThan(5);
+
+    const missing = embedded.filter(c => !quoteColumns.has(c));
+    expect(missing, `embedded but not on the quotes table: ${missing.join(", ")}`).toEqual([]);
+  });
+
   it("includes the dates the customer asked for", () => {
-    // Allocating a vehicle without the requested window is guesswork, and when
-    // staff have already moved the booking the difference is the whole point.
-    for (const field of ["pickup_date", "pickup_time", "return_date", "return_time", "rental_days"]) {
+    for (const field of ["pickup_date", "pickup_time", "dropoff_date", "dropoff_time", "rental_days"]) {
       expect(route, field).toContain(field);
     }
   });

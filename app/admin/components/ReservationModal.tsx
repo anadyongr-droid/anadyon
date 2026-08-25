@@ -109,7 +109,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
     child_seat?: number | null; fdw?: boolean | null;
     additional_drivers?: number | null; comments?: string | null;
     pickup_date?: string | null; pickup_time?: string | null;
-    return_date?: string | null; return_time?: string | null;
+    dropoff_date?: string | null; dropoff_time?: string | null;
     rental_days?: number | null;
   }) | null>(null);
   // The customer rang and asked for this — a different transmission, or a
@@ -1091,18 +1091,18 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
                 rather than a chip because when staff have already moved the
                 booking, the gap between what was requested and what the
                 reservation now says is the thing they need to notice. */}
-            {loadedQuote?.pickup_date && loadedQuote?.return_date && (() => {
+            {loadedQuote?.pickup_date && loadedQuote?.dropoff_date && (() => {
               const changed =
                 loadedQuote.pickup_date !== form.pickup_date ||
-                loadedQuote.return_date !== form.return_date;
+                loadedQuote.dropoff_date !== form.return_date;
               return (
                 <p className={`mb-1.5 text-xs ${changed ? "font-semibold text-amber-800" : "text-gray-700"}`}>
                   <span className="font-normal text-gray-600">Requested:</span>{" "}
                   {loadedQuote.pickup_date}
                   {loadedQuote.pickup_time ? ` ${loadedQuote.pickup_time}` : ""}
                   {" → "}
-                  {loadedQuote.return_date}
-                  {loadedQuote.return_time ? ` ${loadedQuote.return_time}` : ""}
+                  {loadedQuote.dropoff_date}
+                  {loadedQuote.dropoff_time ? ` ${loadedQuote.dropoff_time}` : ""}
                   {loadedQuote.rental_days
                     ? ` · ${loadedQuote.rental_days} day${loadedQuote.rental_days === 1 ? "" : "s"}`
                     : ""}
