@@ -52,6 +52,11 @@ recovers the turn number, the goal and the previous architect from the branch's
 own commits, so the alternation carries across rounds instead of handing the
 same agent the same chair every time.
 
+**It does not sandbox the agents.** They inherit your environment and
+credentials, so nothing technically stops one pushing or reaching production —
+that is a prompt instruction, not a control. Run it in a disposable linked
+worktree, which it now requires, and read the branch before pushing.
+
 It refuses to start on a dirty tree, verifies both CLIs answer before looping,
 puts the architect's decision into `RENTAL-SYSTEM-BLUEPRINT.md` rather than a
 scratch file, gates every commit on the full suite — `tsc`, lint, tests, build —
