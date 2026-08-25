@@ -68,6 +68,35 @@ body {
 }
 
 /*
+ * The date-range picker inside the admin.
+ *
+ * app/components/DateRangePicker.tsx is shared between the PUBLIC booking form,
+ * which has a real dark theme, and the ADMIN reservation modal, which is
+ * light-only. Its popover is `bg-white dark:bg-gray-800`, so on a device set to
+ * dark the calendar rendered as a dark panel inside a light admin — the dates
+ * became unreadable.
+ *
+ * Deleting the dark: classes would break the public form, so they are
+ * neutralised here for the admin subtree only. These selectors name the exact
+ * utilities that component uses; if it gains another dark: utility, add it
+ * here too. `lib/adminReadability.test.ts` fails when the component uses a
+ * dark: utility that this block does not cover.
+ */
+@media (prefers-color-scheme: dark) {
+  .admin-root .dark\:bg-gray-700    { background-color: #ffffff; }
+  .admin-root .dark\:bg-gray-800    { background-color: #ffffff; }
+  .admin-root .dark\:border-gray-600 { border-color: #d1d5db; }
+  .admin-root .dark\:border-gray-700 { border-color: #e5e7eb; }
+  .admin-root .dark\:text-gray-200  { color: #1f2937; }
+  .admin-root .dark\:text-gray-400  { color: #4b5563; }
+  .admin-root .dark\:text-blue-300  { color: #1d4ed8; }
+
+  /* react-day-picker draws the grid itself and inherits its colour. */
+  .admin-root .rdp-root { color: #171717; }
+}
+
+
+/*
  * Admin data tables — frozen header row and first column.
  *
  * On a tablet these tables are wider than the screen and must scroll

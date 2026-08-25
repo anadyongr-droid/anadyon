@@ -108,6 +108,9 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
     ref?: string | null; driver_age?: string | null; baby_seat?: number | null;
     child_seat?: number | null; fdw?: boolean | null;
     additional_drivers?: number | null; comments?: string | null;
+    pickup_date?: string | null; pickup_time?: string | null;
+    return_date?: string | null; return_time?: string | null;
+    rental_days?: number | null;
   }) | null>(null);
   // The customer rang and asked for this — a different transmission, or a
   // smaller car they have accepted. Recorded on the reservation when it is
@@ -1084,6 +1087,29 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
               Customer&rsquo;s original request
               {loadedQuote?.ref ? <span className="ml-1.5 font-mono font-normal text-gray-500">{loadedQuote.ref}</span> : null}
             </p>
+            {/* The dates the customer actually asked for. Given its own line
+                rather than a chip because when staff have already moved the
+                booking, the gap between what was requested and what the
+                reservation now says is the thing they need to notice. */}
+            {loadedQuote?.pickup_date && loadedQuote?.return_date && (() => {
+              const changed =
+                loadedQuote.pickup_date !== form.pickup_date ||
+                loadedQuote.return_date !== form.return_date;
+              return (
+                <p className={`mb-1.5 text-xs ${changed ? "font-semibold text-amber-800" : "text-gray-700"}`}>
+                  <span className="font-normal text-gray-600">Requested:</span>{" "}
+                  {loadedQuote.pickup_date}
+                  {loadedQuote.pickup_time ? ` ${loadedQuote.pickup_time}` : ""}
+                  {" → "}
+                  {loadedQuote.return_date}
+                  {loadedQuote.return_time ? ` ${loadedQuote.return_time}` : ""}
+                  {loadedQuote.rental_days
+                    ? ` · ${loadedQuote.rental_days} day${loadedQuote.rental_days === 1 ? "" : "s"}`
+                    : ""}
+                  {changed && <span className="ml-1.5 font-normal">— the reservation now differs</span>}
+                </p>
+              );
+            })()}
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-600">
               {request.model && <span><span className="text-gray-600">Vehicle:</span> <strong className="text-gray-800">{request.model}</strong></span>}
               {request.transmission && <span><span className="text-gray-600">Transmission:</span> <strong className="text-gray-800">{request.transmission}</strong></span>}

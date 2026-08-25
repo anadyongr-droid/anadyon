@@ -194,3 +194,25 @@ describe("every table freezes, on every screen", () => {
     expect(loose, `these tables cannot freeze:\n${loose.join("\n")}`).toEqual([]);
   });
 });
+
+describe("the shared date picker stays light inside the admin", () => {
+  const css = read("app/globals.css");
+  const picker = read("app/components/DateRangePicker.tsx");
+
+  it("every dark: utility the picker uses is neutralised for the admin", () => {
+    // The component is shared with the public booking form, which has a real
+    // dark theme — so the classes cannot be removed, only overridden in the
+    // admin subtree. If the picker gains a new dark: utility, this fails.
+    const used = [...new Set(picker.match(/dark:[a-z-]+-[a-z0-9-]+/g) ?? [])];
+    expect(used.length).toBeGreaterThan(0);
+    const missing = used.filter(u => !css.includes(`.admin-root .${u.replace(":", "\\:")}`));
+    expect(missing, `not overridden for .admin-root:\n${missing.join("\n")}`).toEqual([]);
+  });
+
+  it("the overrides sit inside a dark media query, not unconditionally", () => {
+    // Applying them always would be harmless but misleading; they exist only
+    // to cancel a dark-device rendering.
+    const dark = css.match(/@media \(prefers-color-scheme: dark\)\s*\{(?:[^{}]|\{[^}]*\})*\}/g) ?? [];
+    expect(dark.some(b => b.includes(".admin-root .dark"))).toBe(true);
+  });
+});

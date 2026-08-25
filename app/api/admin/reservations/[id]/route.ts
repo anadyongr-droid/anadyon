@@ -40,7 +40,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     // none of the substitution warnings could fire — all of that only worked
     // when the modal was opened from the Quotes screen, which passed the quote
     // in as a prop.
-    .select("*, vehicles(name, plate, category), quotes(ref, selected_model, vehicle_type, pricing_group, transmission, driver_age, baby_seat, child_seat, fdw, additional_drivers, comments, created_at)")
+    .select("*, vehicles(name, plate, category), quotes(ref, selected_model, vehicle_type, pricing_group, transmission, driver_age, baby_seat, child_seat, fdw, additional_drivers, comments, created_at, pickup_date, pickup_time, return_date, return_time, rental_days)")
     .eq("id", id)
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 404 });
