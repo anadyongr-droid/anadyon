@@ -795,6 +795,85 @@ longer hashes to its record has restored something, but not evidence.
 
 ---
 
+
+### 4.2b Retention and destruction
+
+*Added 27 August 2026.* **The published privacy policy already promises what the
+system cannot do.** It offers erasure under Article 17 and states retention
+limits. The codebase has no retention field, no purge job and no erasure path —
+`grep` finds the promise in `lib/i18n/content/legal.ts` and nothing that
+performs it. Phase 2 makes this materially worse by adding identity documents
+and photographs of vehicles taken with customers present.
+
+The tables already hold `dob`, `driving_licence_number`, `driving_licence_expiry`,
+`passport_number`, `passport_expiry` and `vat_number`.
+
+**The periods are area 5's to determine, not this document's.** Greek accounting
+and myDATA obligations, the rental agreement itself, and identity documents
+almost certainly carry different lifetimes, and one of them being longest does
+not license keeping everything that long. What this section fixes is that the
+*mechanism* is missing regardless of what the periods turn out to be.
+
+Required before phase 2 ships:
+
+- **A retention class on every table holding personal data** — not a global
+  policy. Accounting records, agreements, identity documents and marketing
+  consent expire on different clocks.
+- **A scheduled purge that runs and leaves a record that it ran.** A purge
+  nobody can prove executed is indistinguishable from one that never did.
+- **An erasure path** that satisfies a real Article 17 request: it deletes what
+  it may, retains what it must, and returns to the requester which of the two
+  applied to each category. "We deleted everything" is a lie whenever tax law
+  says otherwise.
+- **Destruction covers Storage as well as rows.** A purged `handover_photos`
+  row leaves the JPEG in the bucket. The object must go, and the deletion must
+  be verifiable.
+- **Anonymisation where deletion is not permitted** — a rental that must survive
+  for tax purposes does not need the driver's passport number attached to it.
+- **The privacy policy is re-read against what the system actually does**, in
+  area 5. Whichever of the two is wrong gets corrected; today they disagree.
+
+---
+
+### 4.2c The tablet: capture, and whether it can take money
+
+*Added 27 August 2026, answering two operational questions directly.*
+
+**Onboarding and delivery on one tablet: yes, and that is already the design.**
+§4.2 is tablet-first. One device at the car handles identity capture, the
+condition photographs, odometer and fuel, the damage acknowledgement and the
+signature, then finalises. The §4.2 acceptance gate requires a real iPad and a
+real Android device to complete that flow before it ships — viewport emulation
+does not count.
+
+**The same tablet taking payment is a different question, and the answer is
+probably no on an iPad.**
+
+- **Apple's Tap to Pay is iPhone-only.** An iPad cannot accept a contactless
+  card by itself. *Verify with the acquirer before committing hardware* — this
+  is stated from general platform knowledge, not from a quote.
+- **Android soft-POS can.** A suitable Android tablet or phone can accept
+  contactless without extra hardware, which makes the "one device at the
+  airport" model achievable on Android and not on iPad.
+- **A paired reader works on either.** SumUp, Viva Wallet or Stripe Terminal
+  over Bluetooth — a second object to carry, charge and not lose, but it works
+  with the tablet already being used for capture.
+- **A payment link needs no hardware at all.** The customer pays on their own
+  phone; Stripe links already exist in this system. It fails when the customer
+  has no data at the airport, which on an island is not rare.
+
+**What this means for delivery away from the office:** the decision is hardware,
+not software, and it is a Gate 0 decision because it determines what the counter
+UI must support. The system should treat "payment taken" as a fact recorded
+against the reservation, whatever instrument produced it — a reader, a soft-POS
+tap, or a link the customer paid an hour earlier. Coupling the counter flow to
+one payment method would make a hardware choice expensive to reverse.
+
+Viva Wallet is worth evaluating first: it is Greek, already appears in the
+market survey, and covers both soft-POS and readers.
+
+---
+
 ### 4.3 Stop-sells
 
 ```
@@ -871,6 +950,46 @@ half of what Coastr and Rent Centric sell as live verification.
 **Daily plan.** RentSyst's Task Manager and timeline views answer "what is
 happening today" — collections, returns, vehicles due back. Anadyon has a
 calendar but no operational day view.
+
+---
+
+
+### 5.3 When a dependency is down
+
+*Added 27 August 2026. Nothing in this document previously said what should
+happen when something external fails, despite one outage having already
+happened.*
+
+On 23 August the admin became unreachable because middleware auth calls stalled.
+The cause was never established. The fix — an 8-second timeout that denies
+rather than hangs — is in `proxy.ts`, and the incident is written up in
+`INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md`. What was missing is the rule that fix
+was an instance of.
+
+**The rule: security fails closed, convenience degrades, money never silently
+succeeds.**
+
+| Dependency | On failure |
+|---|---|
+| **Supabase auth** | Deny. An unresolved role is not a staff role. Already implemented: 8s timeout, `?unavailable=1`, 503. |
+| **Supabase data** | Read paths show a stated error, never an empty list — "no reservations today" and "we cannot reach the database" must never look alike. Write paths refuse and say so. |
+| **Storage** | A handover cannot finalise without its photographs. Hold the draft, let staff retry; do not complete a handover whose evidence did not upload. |
+| **Resend** | Queue and retry. Delivery state is already derived from `booking_email_deliveries`, so a failure is visible rather than assumed — `pending` is never read as sent. |
+| **Stripe / Wise** | Never mark paid on a timeout. An unconfirmed payment stays unconfirmed; the webhook is the source of truth, and it is idempotent. |
+| **SMS** | Degrade silently. A confirmation SMS that fails must not block a booking. |
+| **AADE** | Queue for resubmission and surface the backlog. A statutory submission that failed is an operational task, not a lost message. |
+| **Competitor feeds** | Show the data's age. Stale rates presented as current are worse than no rates. |
+
+**Two rules that apply everywhere.** Every external call carries a timeout —
+an unbounded call is an outage waiting for a slow day. And degraded state is
+shown, not hidden: the operator needs to know the difference between quiet and
+broken, which is precisely the distinction the August incident destroyed.
+
+**Not covered here:** there is no failover *target*. Supabase Free has no
+replica and the project has no second region. This section is about behaving
+correctly during an outage, not surviving one transparently. Anything stronger
+is a hosting decision with a cost attached, and it belongs in Gate 0 alongside
+the backup requirements in §4.2a.
 
 ---
 
@@ -1010,6 +1129,15 @@ model is operated, so it can proceed in parallel but gates deployment.
 
 - **Review-triggered coupons** (IOS Rentals) — retention loop, no equivalent here
 - **WhatsApp / out-of-hours capture** (RentingPilot) — suits island customers mid-journey
+- **SMS provider** — Twilio charges **$0.0657 per message to Greece** (≈€0.061),
+  plus $1.15/month for a number; alphanumeric sender IDs are free. Greek and EU
+  providers quote materially less: **Yuboto €0.035–0.050**, **Apifon from
+  €0.008** at volume. At this volume the absolute saving is small, but both keep
+  the data in the EU, which removes a transfer question the privacy policy would
+  otherwise have to answer. `app/api/admin/sms/route.ts` isolates the provider
+  behind one module, so swapping is a contained change. Get written per-message
+  quotes at real volume before switching — published "from" rates are not what a
+  29-vehicle operator pays.
 - **Nexi XPay / myPOS** (IOS Rentals) — Greek payment rails
 - **Customer portal** (Coastr, Rent Centric) — self-service booking management
 - **Scheduled email reports** (Wheelsys) — once reporting exists
