@@ -1408,9 +1408,18 @@ third-party integration.
 lockfile; a build-time guard refuses a production bundle carrying the reCAPTCHA
 test key.
 
-*Thin:* a plaintext Anthropic key sat inside a Make.com scenario and is still
-pending rotation. Integrations outside this repo are outside every control this
-document describes, and that is where the last real leak was.
+*Thin:* on 16 August a plaintext Anthropic key was found inside a Make.com
+scenario. The Make scenarios have since been retired — **which is not the same
+as the key having been rotated.** Disabling a scenario revokes nothing, and Make
+retains blueprints for disabled scenarios, so exports and collaborators' copies
+may still carry it. Whether that key was rotated at the provider is unconfirmed
+here and should be, once.
+
+The general point outlives the specific key: **integrations outside this repo
+sit outside every control this document describes.** No CodeQL run, no
+Dependabot alert and no migration guard reaches a credential pasted into a
+third-party automation tool, and that is where this project's last real leak
+was.
 
 **6. The state, lawfully.** A tax inspection, or a subject-access request.
 
@@ -1431,8 +1440,8 @@ usefully defend.
 
 1. **Log privileged reads and exports** — the insider case is the least
    defended, and §4.2d increases the blast radius of one click.
-2. **Rotate the leaked Make.com key** — a known, live exposure outside this
-   repo.
+2. **Confirm the Make.com Anthropic key was rotated**, not merely that the
+   scenario was retired. Retiring revokes nothing.
 3. **State the quote-reference entropy** and confirm it is sufficient, or add a
    second factor to that path.
 
