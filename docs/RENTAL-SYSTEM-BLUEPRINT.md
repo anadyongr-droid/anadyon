@@ -208,14 +208,18 @@ sells the same ground from around $50.
 Arguments for continuing to build, none of them decisive on their own:
 
 - **AADE.** The Digital Client List and myDATA are Greek statutory obligations.
-  Of the sixteen systems now surveyed, only IOS Rentals and Wheelsys
-  (§1.1) claim them. Neither CarCEO nor HQ Rental mentions Greek fiscalisation.
+  Of the sixteen systems surveyed, IOS Rentals and Wheelsys (§1.1) claim them —
+  **and GoCars claims them too (§1.10), unverified.** Neither CarCEO nor HQ
+  Rental mentions Greek fiscalisation. Treat this as a weaker differentiator
+  than it was, pending the §7.1a gate.
 - **The competitor rate engine.** Five live feeds into a comparison view appears
   in **none** of the sixteen. It is the one place this system leads, and it
   would not survive a migration.
 - **Server-side price verification.** §8b. Not advertised by any of them.
-- **The mixed fleet.** Cars, scooters and bicycles in one system — only Rent
-  Centric and IOS Rentals do this.
+- **The mixed fleet.** Cars, scooters and bicycles in one system — Rent Centric
+  and IOS Rentals do this. **GoCars may also (§1.10); bicycle support is
+  specifically unverified** and "bikes" in Greek marketing usually means
+  motorcycles.
 - **Switching cost.** 33 migrations, 17 tables and a live booking flow.
 
 Arguments for buying that the decision below had to answer:
@@ -392,64 +396,51 @@ it creates maintenance rather than knowledge.
 
 ### 1.10 The Greek specialist — **GoCars.online**
 
-*Added 26 August 2026.* This one qualifies under §1.9 on four of its five named
-triggers, so it is recorded rather than merely noted.
+*Added 26 August 2026, and immediately downgraded — read the epistemic note
+before using anything here.*
 
-From the vendor's own feature page:
+A Greek vendor selling rental software into this exact market. It qualifies for
+inclusion under §1.9 because it bears on Greek fiscalisation, mixed-fleet
+support and the local partner channel — three of the five named triggers.
 
-| | |
-|---|---|
-| **Greek compliance** | Digital Client Registry, **real-time myAADE submission**, myDATA invoicing, automated invoices |
-| **Rental agreements** | Electronic contracts with auto-filled customer data, **e-signature**, digital storage |
-| **Partner channel** | Agent portal, per-agent sales tracking, **automated commission reporting** |
-| **Vehicle types** | Cars, motorbikes **and bicycles** |
-| **Greek payment rails** | Piraeus, Alpha, Eurobank, National, plus Viva Wallet, Stripe, PayPal |
-| **Booking** | Drag-and-drop calendar, regional price catalogues, seasonal discounts, Excel bulk price import |
-| **Customer portal** | Self-service modification, cancellation, extra services |
-| **Reporting** | Sales by range, abandoned-booking analytics, demand by vehicle type, visitor geography |
-| Pricing | Not published — quote and demo only |
+**Vendor claims, none independently verified:** a Digital Client Registry with
+real-time myAADE and myDATA submission; electronic contracts with e-signature;
+an agent portal with per-agent sales tracking and commission reporting; Greek
+bank rails (Piraeus, Alpha, Eurobank, National) alongside Viva Wallet, Stripe
+and PayPal; a customer self-service portal; and booking, pricing and reporting
+tooling. Pricing is not published.
 
-**What this does to §1.8.** Three of the five arguments for continuing to build
-are weakened, and one is removed outright:
+#### Epistemic note — why none of that is treated as established
 
-- **AADE is no longer a differentiator.** §1.8 said only IOS Rentals and
-  Wheelsys claim it. GoCars claims the Digital Client Registry *and* real-time
-  myAADE *and* myDATA, and is built for exactly this market.
-- **Mixed fleet is no longer rare.** §1.8 said only Rent Centric and IOS
-  Rentals carry cars, scooters and bicycles together. GoCars names all three.
-- **The partner channel is not a gap they have and we lack — it is a product
-  they already ship.** §7.1 plans to build agent accounts, commission tracking
-  and monthly statements. GoCars sells that today.
-- Untouched: the **competitor rate engine** and **server-side price
-  verification**, which still appear in none of the sixteen.
+The first pass over the vendor's feature page produced a confident table
+including bicycle support, and the absence of any damage or condition-capture
+feature. **A second read of the same page reproduced neither.** It found no
+mention of bicycles, motorcycles, an API, damage records or photo check-in at
+all.
 
-**What this does NOT do.** The vendor's feature page describes no condition
-capture, no check-out/check-in, no damage recording and no evidence retention.
-GoCars is a booking, compliance and distribution product — it is not a counter
-product. §3's gap is untouched by it, and the decision in §1.8 to build the
-counter here therefore stands on its own terms.
+One of those reads is wrong and there is no way to tell which from here. What
+can be said is that the section was written as though a summary were evidence,
+which is the failure `DEFINING-STATEMENTS.md` §8 exists to prevent, and it was
+then used to weaken three arguments in §1.8.
 
-That distinction is the whole point. The weakened arguments were about the
-*booking and compliance layer*, which Anadyon already has working and is not
-proposing to rebuild. The decision being made is about the counter, and nothing
-here bears on it.
+Specifically flagged as **unverified**, not as absent:
 
-**What it does change.** §7.1's justification. "The one capability the local
-competition has and we do not" was written about EzCar's affiliate system, and
-it is now the second Greek product to ship a partner channel. If the reason to
-build it was competitive parity, that reason is stronger, not weaker — but the
-build-versus-buy question that §1.8 asked about the counter has never been
-asked about the *partner channel*, and on the evidence here it should be.
+- **Bicycles.** "Bikes" in Greek marketing commonly means motorcycles. Cars are
+  clearly supported; motorcycles probably; bicycles unknown.
+- **An API.** Reported elsewhere as available "upon agreement" — scope,
+  availability and contractual access all unknown.
+- **Damage records and photo/video check-in.** Reported elsewhere as existing
+  and as *upcoming* respectively. The earlier claim here that GoCars has no
+  condition capture was not supportable; a feature page that does not mention
+  something is not a vendor that does not have it.
 
-**Unverified, and needed before that question can be answered:** pricing for 29
-mixed assets; whether an API or export exists at all; whether the Digital Client
-Registry submission is genuinely automatic or an assisted export; and whether a
-partner channel can be used without moving the booking engine, pricing and AADE
-paths onto their platform as well. The last is decisive — a partner portal that
-requires their booking engine is not an addition to Anadyon, it is a
-replacement of it.
+**Consequence for §1.8.** The arguments there are annotated rather than
+rewritten: an unverified vendor claim is not grounds to withdraw a decision, and
+it is not grounds to leave a superseded statement standing either. See the
+annotations in §1.8 and the gate in §7.1a.
 
 **Source:** [gocars.online/charaktiristika](https://gocars.online/charaktiristika/)
+— one page, read twice, with different results.
 
 ---
 
@@ -703,11 +694,31 @@ reason are written to the event log; device time alone is not legal evidence.
    adjustments. The expected queries are written before adding more indexes.
 6. Every new public-schema table has RLS enabled and all privileges revoked
    from `PUBLIC`, `anon` and `authenticated`. The browser never receives the
-   service-role key. Privileged finalisation functions live in a **private,
-   non-exposed schema**, are defined with a **controlled `search_path`**, and
-   revoke EXECUTE from `PUBLIC`, `anon` and `authenticated` — callable only by
-   the server route after admin/staff auth. A `SECURITY DEFINER` function with
-   a mutable search_path is a privilege-escalation path, not a convenience.
+   service-role key.
+
+   **Finalisation runs through a two-layer pattern, because a private schema is
+   not reachable the way this codebase calls the database.** All nine existing
+   call sites use `supabaseAdmin.rpc(...)`, which goes through the Supabase Data
+   API, and that API only exposes configured schemas. There is no Postgres
+   driver in `package.json`. A function in a genuinely non-exposed schema would
+   therefore be uncallable — the earlier wording here specified something that
+   could not be built.
+
+   - a **thin gateway function in `public`**, which is what the server route
+     calls;
+   - it verifies `auth.uid()` against database-held staff membership — never a
+     JWT claim — then calls the real implementation in a private schema;
+   - `SECURITY DEFINER` only where it is actually required, always with
+     `SET search_path = ''` and every object fully qualified. A `SECURITY
+     DEFINER` function with a mutable search_path is a privilege-escalation
+     path, not a convenience;
+   - EXECUTE revoked from `PUBLIC` and `anon`, granted only to the role that
+     needs it.
+
+   Grants are stated explicitly in the migration. Supabase no longer guarantees
+   that a newly created public table is reachable through the Data API — grants
+   and RLS are separate controls, and assuming either implies the other is how
+   a table ends up either unreadable or over-exposed.
 7. **A photo cannot reference a view from a different template.**
    `handover_photos` carries `inspection_template_id`, with a composite foreign
    key to `rental_handovers (id, inspection_template_id)` and another to
@@ -719,7 +730,16 @@ reason are written to the event log; device time alone is not legal evidence.
    `rental_handovers (id, inspection_template_id)` and
    `inspection_template_views (template_id, id)` each need one adding. They are
    in the schema above.
-8. **A damage photo belongs to the same handover as its observation.**
+8. **The inbound handover uses the outbound handover's exact template.** The
+   rule is stated elsewhere in this section and nothing enforced it: the schema
+   lets each handover pick its own `inspection_template_id`, so an out/in
+   comparison could silently compare a car template against a scooter one. The
+   finalisation function, holding the reservation lock, requires that where a
+   completed `direction = 'out'` handover exists for the reservation, the
+   inbound handover's `inspection_template_id` equals it — and refuses
+   otherwise. A regression test covers the concurrent case, where two
+   finalisations race, not only the accidental one.
+9. **A damage photo belongs to the same handover as its observation.**
    `handover_damage_photos` carries `handover_id`, with composite foreign keys
    to `handover_damage_observations (handover_id, id)` and
    `handover_photos (handover_id, id)`. Evidence attached across handovers is
@@ -749,6 +769,31 @@ approval/waiver and both reservation status transitions. Each regression test
 is first run against unfixed code and seen to fail. At least one physical iPad
 and one Android Chrome device complete the flow; viewport emulation alone is
 not evidence of touch behaviour.
+
+
+### 4.2a Evidence survives a restore, or it is not evidence
+
+*Added 26 August 2026.* **Supabase database backups do not include Storage
+objects — only their metadata.** A restore would therefore bring back every
+handover row, every damage observation and every photo reference, and none of
+the photographs. The system would look intact and be unable to defend a single
+charge.
+
+Before phase 2 ships:
+
+- original photographs are backed up **off-platform**, encrypted;
+- the bucket has versioning or overwrite protection, so a re-upload cannot
+  quietly replace the image a dispute depends on;
+- metadata and the recorded SHA-256 hashes are backed up alongside, in step;
+- retention and deletion rules are written down, and match what area 5 says is
+  lawful to keep;
+- the restore procedure is **tested, not documented** — and the test asserts
+  that a restored file still matches its recorded hash.
+
+That last check is the one that matters. A backup that restores a file which no
+longer hashes to its record has restored something, but not evidence.
+
+---
 
 ### 4.3 Stop-sells
 
@@ -903,6 +948,34 @@ customer marketing lists or another partner's customer data.
 Explicitly excluded from the MVP: partner-owned vehicles, special partner rate
 cards, OTA/broker feeds, multi-level commissions and automated payouts. Those
 are different business models, not hidden phase-4 requirements.
+
+### 7.1a Gate — buy or build the partner channel
+
+*Added 26 August 2026.* §1.10 raised build-versus-buy for the partner channel
+and §7.1 tells the implementer to build it. Two instructions, one of them
+wrong, which is exactly the ambiguity the counter decision was criticised for.
+This resolves it the same way.
+
+**One bounded evaluation, two business days, GoCars only, before phase 4
+begins.** It must produce:
+
+- pricing for 29 mixed assets;
+- whether cars, scooters **and bicycles** are genuinely supported, not inferred
+  from the word "bikes";
+- actual API or export documentation, not "integration upon agreement";
+- **whether the partner portal can operate without moving the booking engine,
+  pricing and AADE paths onto their platform** — the decisive question;
+- commission export format, and proof that one partner cannot see another's
+  customers; and
+- whether the Digital Client Registry submission is automatic or an assisted
+  export.
+
+**If any of these is unavailable, phase 4 proceeds natively under §7.1, without
+further delay or a second vendor evaluation.** A partner portal that requires
+their booking engine is not an addition to Anadyon; it is a replacement, and
+§1.8 already decided against replacement.
+
+This gate concerns the partner channel only. It does not reopen the counter.
 
 ### 7.2 Audit debt is a release gate, not another feature phase
 
