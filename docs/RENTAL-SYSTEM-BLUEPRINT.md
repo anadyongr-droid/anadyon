@@ -17,7 +17,7 @@ are attributed; judgement calls say so.
 
 ## 1. The field
 
-Fifteen systems examined. They divide into four distinct positions, and knowing
+Sixteen systems examined. They divide into four distinct positions, and knowing
 which position a feature comes from matters more than the feature list.
 
 ### 1.1 The direct comparison — **Wheelsys**
@@ -208,10 +208,10 @@ sells the same ground from around $50.
 Arguments for continuing to build, none of them decisive on their own:
 
 - **AADE.** The Digital Client List and myDATA are Greek statutory obligations.
-  Of the fifteen systems now surveyed, only IOS Rentals and Wheelsys
+  Of the sixteen systems now surveyed, only IOS Rentals and Wheelsys
   (§1.1) claim them. Neither CarCEO nor HQ Rental mentions Greek fiscalisation.
 - **The competitor rate engine.** Five live feeds into a comparison view appears
-  in **none** of the fifteen. It is the one place this system leads, and it
+  in **none** of the sixteen. It is the one place this system leads, and it
   would not survive a migration.
 - **Server-side price verification.** §8b. Not advertised by any of them.
 - **The mixed fleet.** Cars, scooters and bicycles in one system — only Rent
@@ -381,12 +381,75 @@ can only be checked afterwards if the estimate exists.
 
 ### 1.9 Benchmark stop rule
 
-The benchmark stops at fifteen systems. No product is added merely because it
+The benchmark stops at sixteen systems. No product is added merely because it
 exists or repeats a capability already represented here. Add one only when
 primary vendor evidence would change one of these decisions: build versus buy
 the counter; Greek fiscalisation; mixed-fleet support; the local partner
 channel; or a deliberate exclusion in §8. If it changes no decision, recording
 it creates maintenance rather than knowledge.
+
+---
+
+### 1.10 The Greek specialist — **GoCars.online**
+
+*Added 26 August 2026.* This one qualifies under §1.9 on four of its five named
+triggers, so it is recorded rather than merely noted.
+
+From the vendor's own feature page:
+
+| | |
+|---|---|
+| **Greek compliance** | Digital Client Registry, **real-time myAADE submission**, myDATA invoicing, automated invoices |
+| **Rental agreements** | Electronic contracts with auto-filled customer data, **e-signature**, digital storage |
+| **Partner channel** | Agent portal, per-agent sales tracking, **automated commission reporting** |
+| **Vehicle types** | Cars, motorbikes **and bicycles** |
+| **Greek payment rails** | Piraeus, Alpha, Eurobank, National, plus Viva Wallet, Stripe, PayPal |
+| **Booking** | Drag-and-drop calendar, regional price catalogues, seasonal discounts, Excel bulk price import |
+| **Customer portal** | Self-service modification, cancellation, extra services |
+| **Reporting** | Sales by range, abandoned-booking analytics, demand by vehicle type, visitor geography |
+| Pricing | Not published — quote and demo only |
+
+**What this does to §1.8.** Three of the five arguments for continuing to build
+are weakened, and one is removed outright:
+
+- **AADE is no longer a differentiator.** §1.8 said only IOS Rentals and
+  Wheelsys claim it. GoCars claims the Digital Client Registry *and* real-time
+  myAADE *and* myDATA, and is built for exactly this market.
+- **Mixed fleet is no longer rare.** §1.8 said only Rent Centric and IOS
+  Rentals carry cars, scooters and bicycles together. GoCars names all three.
+- **The partner channel is not a gap they have and we lack — it is a product
+  they already ship.** §7.1 plans to build agent accounts, commission tracking
+  and monthly statements. GoCars sells that today.
+- Untouched: the **competitor rate engine** and **server-side price
+  verification**, which still appear in none of the sixteen.
+
+**What this does NOT do.** The vendor's feature page describes no condition
+capture, no check-out/check-in, no damage recording and no evidence retention.
+GoCars is a booking, compliance and distribution product — it is not a counter
+product. §3's gap is untouched by it, and the decision in §1.8 to build the
+counter here therefore stands on its own terms.
+
+That distinction is the whole point. The weakened arguments were about the
+*booking and compliance layer*, which Anadyon already has working and is not
+proposing to rebuild. The decision being made is about the counter, and nothing
+here bears on it.
+
+**What it does change.** §7.1's justification. "The one capability the local
+competition has and we do not" was written about EzCar's affiliate system, and
+it is now the second Greek product to ship a partner channel. If the reason to
+build it was competitive parity, that reason is stronger, not weaker — but the
+build-versus-buy question that §1.8 asked about the counter has never been
+asked about the *partner channel*, and on the evidence here it should be.
+
+**Unverified, and needed before that question can be answered:** pricing for 29
+mixed assets; whether an API or export exists at all; whether the Digital Client
+Registry submission is genuinely automatic or an assisted export; and whether a
+partner channel can be used without moving the booking engine, pricing and AADE
+paths onto their platform as well. The last is decisive — a partner portal that
+requires their booking engine is not an addition to Anadyon, it is a
+replacement of it.
+
+**Source:** [gocars.online/charaktiristika](https://gocars.online/charaktiristika/)
 
 ---
 
@@ -974,7 +1037,7 @@ agreement controls.
 `customers.licence_number` beside canonical `driving_licence_number`; §4.5 no
 longer calls that debt resolved.
 
-**Benchmark frozen at fifteen.** A new vendor is added only when it changes a
+**Benchmark frozen at sixteen.** A new vendor is added only when it changes a
 recorded decision, not because it repeats an existing feature list.
 
 **Added §1.6, the local field.** The eleven systems in §1 are what a Greek
