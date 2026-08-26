@@ -773,28 +773,42 @@ not evidence of touch behaviour.
 
 ### 4.2a Evidence survives a restore, or it is not evidence
 
-*Added 26 August 2026.* **Supabase database backups do not include Storage
-objects — only their metadata.** A restore would therefore bring back every
-handover row, every damage observation and every photo reference, and none of
-the photographs. The system would look intact and be unable to defend a single
-charge.
+*Added 26 August 2026, corrected 27 August after reading what already exists.*
+
+**What is already in place, and is better than this section first implied.**
+`.github/workflows/backup.yml` runs nightly: a full dump including roles and
+schema — not a data-only export, which is what turns a restore into a
+reconstruction — refused if empty or truncated, compressed and encrypted with
+`openssl aes-256-cbc` at 600k iterations, **verified to decrypt and list before
+it is trusted**, uploaded to Cloudflare R2 with a monthly copy retained, pruned,
+and alerting to Telegram *only on failure*, because a nightly success message
+trains people to ignore it.
+
+That is a real backup with a real recovery check. The gap is narrower and
+sharper than "backups are missing".
+
+**The gap: Supabase Storage objects are not backed up.** Nothing in
+`backup.yml` or `scripts/backup.mjs` touches `/storage/v1` or a Supabase
+bucket — the "storage" in that workflow is R2, the destination. Today that costs
+nothing, because no bucket holds anything that matters. **Phase 2 changes that
+completely.** A restore would return every handover row, every damage
+observation and every photo *reference*, and not one photograph: a system that
+looks intact and cannot defend a single charge.
 
 Before phase 2 ships:
 
-- original photographs are backed up **off-platform**, encrypted;
+- the photo bucket is included in the nightly job, encrypted, to the same R2
+  destination;
 - the bucket has versioning or overwrite protection, so a re-upload cannot
   quietly replace the image a dispute depends on;
-- metadata and the recorded SHA-256 hashes are backed up alongside, in step;
-- retention and deletion rules are written down, and match what area 5 says is
-  lawful to keep;
-- the restore procedure is **tested, not documented** — and the test asserts
-  that a restored file still matches its recorded hash.
+- metadata and the recorded SHA-256 hashes are backed up in step with the
+  objects, so a half-restored pair is detectable;
+- retention and deletion follow §4.2b rather than living only in the backup;
+- the restore is **tested, not documented**, and the test asserts a restored
+  file still hashes to its record.
 
 That last check is the one that matters. A backup that restores a file which no
-longer hashes to its record has restored something, but not evidence.
-
----
-
+longer matches its hash has restored something, but not evidence.
 
 ### 4.2b Retention and destruction
 
@@ -871,6 +885,87 @@ one payment method would make a hardware choice expensive to reverse.
 
 Viva Wallet is worth evaluating first: it is Greek, already appears in the
 market survey, and covers both soft-POS and readers.
+
+---
+
+
+### 4.2d Producing a rental's full file, on demand
+
+*Added 27 August 2026, in answer to: what happens when a tax inspection asks for
+everything about one rental?*
+
+Today the answer is a person opening several admin screens and a storage bucket
+and hoping they found all of it. That is a bad answer during an inspection and a
+worse one during a dispute, and it gets harder the moment phase 2 adds
+photographs.
+
+**One export, keyed by reservation, producing everything that rental touched:**
+
+- the reservation, its quote, and the customer record as it stood;
+- the signed agreement, with its template version;
+- both handovers — odometer, fuel, cleanliness, staff, timestamps;
+- every photograph, as files, with their SHA-256 hashes and capture times;
+- damage observations and any adjustments, with their reasons;
+- payments, refunds and deposit movements;
+- the AADE submission and the invoice, with their identifiers;
+- every email and SMS sent, with delivery state from
+  `booking_email_deliveries`;
+- an index file listing all of the above with hashes, so the package can be
+  shown to be complete and unaltered.
+
+**Design constraints that matter more than the format.** It is generated from
+the database, never assembled by hand — a hand-built package is unreproducible
+and unverifiable. It is idempotent: the same reservation exported twice
+produces the same content, so two exports can be compared. Producing one is an
+admin action that is itself logged, because exporting a customer's complete
+file is a privileged act. And it respects §4.2b: an export run after a purge
+shows what was destroyed and under which rule, rather than silently omitting it.
+
+This also answers an Article 15 subject-access request, which asks for
+materially the same package with a different recipient. Building it once serves
+both.
+
+---
+
+### 4.2e How long identity documents may be kept — and the distinction that matters
+
+*Added 27 August 2026. Researched, not settled — area 5 decides.*
+
+The instinct is that a rental business must keep licence and passport images for
+years. The research does not support that as stated, and the distinction is the
+whole point:
+
+- **The transaction record** — the agreement, the invoice, the accounting
+  entries — is what tax and commercial law reach. Greek rental operators'
+  published policies commonly state **five years from completion of the rental**
+  for booking and contract data, citing Greek tax and commercial obligations.
+- **A photograph of a passport is not the transaction record.** The obligation
+  is to have verified identity and to hold the contract; it does not
+  automatically license storing the image of the document for the same period.
+  Under GDPR retention is purpose-driven, not time-driven: data may be kept only
+  while a lawful basis still applies, and "the tax code says five years for the
+  invoice" is not a basis for holding a passport scan for five years.
+
+**Therefore the system must treat them as separate retention classes**, which is
+what §4.2b requires. The agreement and the invoice live on one clock; identity
+images live on their own, probably much shorter, quite possibly "verify, record
+that verification happened, and do not store the image at all".
+
+**What area 5 must return**, and what this document will not guess:
+
+- the retention period for each class — agreement, invoice, identity image,
+  damage evidence, marketing consent;
+- whether storing identity images has a lawful basis at all, or whether
+  recording *that* a licence was checked, its number and its expiry is
+  sufficient;
+- whether damage photographs may be kept beyond the rental's tax life on a
+  legitimate-interest basis for dispute defence, and for how long;
+- and whether any of it changes when the driver is not the customer.
+
+I could not find a Hellenic DPA decision specifically about car-rental identity
+copies. **Absence of a decision is not permission** — that is the same error as
+reading a silent feature page as an absent feature (§1.10). This needs a Greek
+practitioner, not more searching.
 
 ---
 
@@ -1129,15 +1224,43 @@ model is operated, so it can proceed in parallel but gates deployment.
 
 - **Review-triggered coupons** (IOS Rentals) — retention loop, no equivalent here
 - **WhatsApp / out-of-hours capture** (RentingPilot) — suits island customers mid-journey
-- **SMS provider** — Twilio charges **$0.0657 per message to Greece** (≈€0.061),
-  plus $1.15/month for a number; alphanumeric sender IDs are free. Greek and EU
-  providers quote materially less: **Yuboto €0.035–0.050**, **Apifon from
-  €0.008** at volume. At this volume the absolute saving is small, but both keep
-  the data in the EU, which removes a transfer question the privacy policy would
-  otherwise have to answer. `app/api/admin/sms/route.ts` isolates the provider
-  behind one module, so swapping is a contained change. Get written per-message
-  quotes at real volume before switching — published "from" rates are not what a
-  29-vehicle operator pays.
+- **Messaging channel and provider** — *amended 27 August 2026; the first
+  version of this entry compared per-message price and missed two things that
+  decide the outcome.*
+
+  **Sender ID registration is a gate, not a fee.** In Greece an alphanumeric
+  sender ID must be registered with the operators, and messages from an
+  unregistered ID are **rejected** — not relabelled, rejected. Twilio listing
+  "alphanumeric sender ID: free" refers to the charge, not the registration.
+  This system currently sends from `TWILIO_FROM_NUMBER`, a number rather than a
+  brand name, so it is unaffected today — and would walk straight into it the
+  moment anyone tries to send as "Anadyon". Any provider is therefore evaluated
+  first on whether it handles Greek sender-ID registration, and only then on
+  price.
+
+  **Viber changes the arithmetic.** Greek consumers use Viber heavily, and
+  Viber Business Messages fall back to SMS automatically when the recipient is
+  not reachable — one API, cheaper per message, richer content, and a Greek
+  customer far more likely to read it. A pure SMS comparison optimises the wrong
+  channel. Providers that bundle Viber-with-SMS-fallback natively (Sinch,
+  Infobip, and the Greek operators Apifon and Yuboto) are worth more than a
+  cheaper SMS-only rate.
+
+  Per-message SMS rates for reference, not as the deciding factor: **Twilio
+  $0.0657 to Greece** plus $1.15/month per number; **Yuboto €0.035–0.050**;
+  **Apifon from €0.008** at volume. Both Greek providers also keep the data in
+  the EU, which removes a transfer question.
+
+  `app/api/admin/sms/route.ts` is the only file importing `twilio`, so the swap
+  is contained — but the abstraction should become *channel*-agnostic rather
+  than provider-agnostic, since the likely destination is "send this
+  notification" resolving to Viber or SMS, not "send this SMS".
+
+  Before switching: written per-message quotes at real volume; confirmation the
+  provider registers Greek sender IDs on the operator's behalf; and Viber
+  Business Message pricing alongside SMS, since that is probably the channel
+  that matters.
+
 - **Nexi XPay / myPOS** (IOS Rentals) — Greek payment rails
 - **Customer portal** (Coastr, Rent Centric) — self-service booking management
 - **Scheduled email reports** (Wheelsys) — once reporting exists
@@ -1215,6 +1338,106 @@ See `DEFINING-STATEMENTS.md`. The three bearing most here:
 
 TSD's own phrasing is the third, and worth adopting: an agreement that can be
 produced with required fields missing is a **liability**, not a convenience.
+
+---
+
+
+## 9a. Threat model
+
+*Added 27 August 2026. There was none, and the controls in this document were
+being chosen without a stated account of what they defend against.*
+
+This is not a formal STRIDE exercise. It names who would attack this system,
+what they would want, which control answers it, and — the part that matters —
+where the answer is currently thin.
+
+### Who, and what they want
+
+**1. The opportunistic customer.** Wants a cheaper rental or to avoid a damage
+charge. Manipulates the booking form, replays a promo code, or disputes damage
+they caused.
+
+*Answered:* pricing is recalculated server-side from the rates table and the
+client total is only compared, never trusted (§8b); promo use is a ledger with
+hold/redeem/release; seat limits are check constraints. **Phase 2 is the real
+answer to the damage half** — timestamped condition photographs are what make a
+charge defensible.
+
+*Thin:* until phase 2 ships, a damage dispute is one person's word against
+another's.
+
+**2. The credential thief.** Wants the admin. Phishes or reuses a staff
+password.
+
+*Answered:* Supabase Auth with MFA; roles from `app_metadata`, never
+user-editable metadata; an unresolved role denies; the proxy strips the role
+header from incoming requests so it cannot be spoofed; auth calls fail closed
+after 8 seconds.
+
+*Thin:* there is no session-anomaly signal — a login from an unusual place at
+an unusual hour looks like any other. And a stolen session is as good as the
+password until it expires.
+
+**3. The scraper.** Wants the fleet, the rates and the customer list.
+
+*Answered:* the anonymous-privileged-access hole was closed on 16 August;
+public tables are not exposed `TO anon`; RLS filters rows and grants are stated
+explicitly; quote lookups are rate-limited on the real IP, not a forgeable
+header.
+
+*Thin:* the public quote-by-reference path is deliberately unauthenticated.
+Reference entropy is the only control, and nobody has stated what it is.
+
+**4. The insider, malicious or careless.** A staff member exports the customer
+list, or deletes something that mattered.
+
+*Answered:* staff routing is method-aware, so read-only means read-only; rates
+now require an explicit edit session; the service-role key never reaches a
+browser.
+
+*Thin — and this is the weakest area.* There is no audit trail of *reads*.
+Nothing records that a staff member opened 400 customer records, and §4.2d's
+export makes that materially more consequential: one action, one file,
+everything about a customer. That export must be logged, which is why §4.2d
+says so.
+
+**5. The supply chain.** A compromised npm package, or a leaked key in a
+third-party integration.
+
+*Answered:* CodeQL and Dependabot run on every push; `npm ci` from a committed
+lockfile; a build-time guard refuses a production bundle carrying the reCAPTCHA
+test key.
+
+*Thin:* a plaintext Anthropic key sat inside a Make.com scenario and is still
+pending rotation. Integrations outside this repo are outside every control this
+document describes, and that is where the last real leak was.
+
+**6. The state, lawfully.** A tax inspection, or a subject-access request.
+
+*Answered by §4.2d* — one reproducible, hash-indexed export per rental.
+
+*Thin:* it does not exist yet, and §4.2b's retention rules do not either, so
+today the honest answer to "produce everything and nothing more" is that the
+system can do neither precisely.
+
+### What is deliberately out of scope
+
+Physical theft of a vehicle; card fraud, which sits with the acquirer under
+PCI SAQ-A precisely because no card number is ever stored here (§8); and denial
+of service, which is Vercel's edge and not something this application can
+usefully defend.
+
+### The three worth acting on first
+
+1. **Log privileged reads and exports** — the insider case is the least
+   defended, and §4.2d increases the blast radius of one click.
+2. **Rotate the leaked Make.com key** — a known, live exposure outside this
+   repo.
+3. **State the quote-reference entropy** and confirm it is sufficient, or add a
+   second factor to that path.
+
+None of these is phase-2 work. All three are cheaper than the counter and
+currently unowned.
 
 ---
 
