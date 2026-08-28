@@ -715,6 +715,31 @@ reason are written to the event log; device time alone is not legal evidence.
    - EXECUTE revoked from `PUBLIC` and `anon`, granted only to the role that
      needs it.
 
+   > **OPEN — this gateway cannot work as written, and the fix is not decided.**
+   > *Raised 28 August. Do not implement §4.2's finalisation against this
+   > pattern until it is resolved.*
+   >
+   > Every non-test `.rpc()` call site in the repository uses `supabaseAdmin` —
+   > the service role. Under a service-role key **`auth.uid()` returns NULL**,
+   > because there is no end user in that request. So a gateway that "verifies
+   > `auth.uid()` against database-held staff membership" either rejects every
+   > call, or is written permissively enough to let every call through — and the
+   > permissive version is the dangerous one, because it looks like an identity
+   > check and is not.
+   >
+   > This is the *second* time this section has specified a mechanism that
+   > cannot work given how the application actually reaches the database. The
+   > first was the private schema, corrected immediately above. Correcting it
+   > with another untested mechanism would be the third.
+   >
+   > Resolving it is an architecture decision with a real code footprint —
+   > roughly, whether privileged routes stop using `supabaseAdmin` and construct
+   > a user-scoped client from the staff member's access token — and it is
+   > deliberately **left open** rather than answered here. The options, the
+   > trade-offs and what has been verified are written up in
+   > `docs/OPEN-QUESTION-RPC-STAFF-IDENTITY.md`, which is the document to read
+   > and to put in front of an outside reviewer.
+
    Grants are stated explicitly in the migration. Supabase no longer guarantees
    that a newly created public table is reachable through the Data API — grants
    and RLS are separate controls, and assuming either implies the other is how
@@ -822,11 +847,25 @@ and photographs of vehicles taken with customers present.
 The tables already hold `dob`, `driving_licence_number`, `driving_licence_expiry`,
 `passport_number`, `passport_expiry` and `vat_number`.
 
-**The periods are area 5's to determine, not this document's.** Greek accounting
-and myDATA obligations, the rental agreement itself, and identity documents
-almost certainly carry different lifetimes, and one of them being longest does
-not license keeping everything that long. What this section fixes is that the
-*mechanism* is missing regardless of what the periods turn out to be.
+**Two of the periods are already published, and this section previously said
+they were undetermined.** *Corrected 28 August.* `lib/i18n/content/legal.ts`
+commits Anadyon publicly to **five years from the rental date** for booking and
+contract data, and **twelve months** for contact requests that do not become
+bookings. Those are promises made to customers, not open questions.
+
+That changes area 5's task. It is not *set the periods*; it is **validate the
+periods already promised, and make the system honour them** — and if area 5
+concludes different ones are correct, the privacy policy is a versioned change
+to a public document, on data collected under the version it replaces. That is a
+larger act than an internal architecture decision and should be recognised as
+one.
+
+The periods still genuinely open are the ones the policy does not name: identity
+images, damage evidence, and marketing consent. Greek accounting and myDATA
+obligations, the rental agreement itself, and identity documents carry different
+lifetimes, and one of them being longest does not license keeping everything
+that long. What this section fixes either way is that the *mechanism* is missing
+regardless of what any period turns out to be.
 
 Required before phase 2 ships:
 
@@ -844,6 +883,21 @@ Required before phase 2 ships:
   be verifiable.
 - **Anonymisation where deletion is not permitted** — a rental that must survive
   for tax purposes does not need the driver's passport number attached to it.
+- **An `unconverted_enquiry` class.** The twelve-month promise for contact
+  requests that never became bookings is the most specific commitment in the
+  published policy and the one with no mechanism behind it at all. It is not
+  covered by any of the classes above.
+- **Erasure is reconciled with the backups.** *Added 28 August, and it is a
+  direct collision with §4.2a.* The nightly job keeps **30 daily and 12 monthly**
+  encrypted archives in R2. An Article 17 erasure removes the row from the live
+  database and leaves the person's data recoverable from those archives for up
+  to a year — and a restore silently reinstates it, which is erasure undone by
+  the disaster-recovery procedure. The resolution is **not** to rewrite
+  archives: they are encrypted, immutable and the thing being relied on. Keep a
+  **suppression list** of completed erasures and re-apply it as a mandatory step
+  of any restore, and state that step in `RESTORE.md` so it cannot be skipped by
+  whoever is restoring at the time. Neither section mentioned the other before
+  this note.
 - **The privacy policy is re-read against what the system actually does**, in
   area 5. Whichever of the two is wrong gets corrected; today they disagree.
 
@@ -921,9 +975,22 @@ admin action that is itself logged, because exporting a customer's complete
 file is a privileged act. And it respects §4.2b: an export run after a purge
 shows what was destroyed and under which rule, rather than silently omitting it.
 
-This also answers an Article 15 subject-access request, which asks for
-materially the same package with a different recipient. Building it once serves
-both.
+**An Article 15 subject-access request shares the engine, not the output.**
+*Corrected 28 August; this previously said the two were "materially the same
+package with a different recipient", and that is wrong in a way that would leak.*
+They differ on all three of scope, redaction and recipient:
+
+- A tax inspection wants the business's records — the AADE submission, the
+  invoice, staff attribution, the internal adjustment reasons.
+- A subject-access request is bounded to **one person's** personal data, and
+  Article 15(4) requires that producing it not adversely affect the rights of
+  others. The second driver's licence details, another customer visible in the
+  same evidence, staff identities and internal commentary about the requester
+  are all either out of scope or redacted.
+
+Build one export engine with two named packages and two selection rules. Sending
+a tax package to a data subject would disclose other people's data under the
+banner of a GDPR right.
 
 ---
 
@@ -938,7 +1005,10 @@ whole point:
 - **The transaction record** — the agreement, the invoice, the accounting
   entries — is what tax and commercial law reach. Greek rental operators'
   published policies commonly state **five years from completion of the rental**
-  for booking and contract data, citing Greek tax and commercial obligations.
+  for booking and contract data, citing Greek tax and commercial obligations —
+  **and so does ours**, in `lib/i18n/content/legal.ts`. This section originally
+  cited the practice as an external observation without noticing that Anadyon
+  has already adopted it publicly. See §4.2b.
 - **A photograph of a passport is not the transaction record.** The obligation
   is to have verified identity and to hold the contract; it does not
   automatically license storing the image of the document for the same period.
@@ -1070,8 +1140,9 @@ succeeds.**
 | **Supabase data** | Read paths show a stated error, never an empty list — "no reservations today" and "we cannot reach the database" must never look alike. Write paths refuse and say so. |
 | **Storage** | A handover cannot finalise without its photographs. Hold the draft, let staff retry; do not complete a handover whose evidence did not upload. |
 | **Resend** | Queue and retry. Delivery state is already derived from `booking_email_deliveries`, so a failure is visible rather than assumed — `pending` is never read as sent. |
-| **Stripe / Wise** | Never mark paid on a timeout. An unconfirmed payment stays unconfirmed; the webhook is the source of truth, and it is idempotent. |
-| **SMS** | Degrade silently. A confirmation SMS that fails must not block a booking. |
+| **Stripe** | Never mark paid on a timeout. An unconfirmed payment stays unconfirmed; the webhook is the source of truth, and it is idempotent. |
+| **Wise** | *Corrected 28 August — this was wrongly folded in with Stripe above.* **Wise has no webhook.** `lib/wise.ts` says so in the file itself: a deposit link is a constructed URL, "Wise does not call back when the money arrives, so a reservation paid this way has to be reconciled rather than confirming itself." There is nothing to fail closed, because nothing calls back. The failure mode is therefore silence, and the answer is a reconciliation task that is *visible and ages* — an unreconciled Wise deposit must appear as outstanding work, not sit unnoticed until someone checks the bank. |
+| **SMS** | Non-blocking, but recorded and visible. A confirmation SMS that fails must not block a booking — and must not vanish either. *Corrected 28 August: this said "degrade silently", which contradicts this section's own closing rule that degraded state is shown rather than hidden.* A failed message is logged against the reservation and surfaced the way a failed email already is, so "we texted them" can be checked rather than assumed. |
 | **AADE** | Queue for resubmission and surface the backlog. A statutory submission that failed is an operational task, not a lost message. |
 | **Competitor feeds** | Show the data's age. Stale rates presented as current are worse than no rates. |
 
@@ -1385,8 +1456,16 @@ public tables are not exposed `TO anon`; RLS filters rows and grants are stated
 explicitly; quote lookups are rate-limited on the real IP, not a forgeable
 header.
 
-*Thin:* the public quote-by-reference path is deliberately unauthenticated.
-Reference entropy is the only control, and nobody has stated what it is.
+*Thin:* the public quote-by-reference path is deliberately unauthenticated. It
+is gated by a reference plus the customer's surname, with IP rate limiting — but
+a surname is a second *check*, not a second secret, so the reference is doing
+nearly all of the work.
+
+**And the reference is not generated securely.** `app/api/quote/route.ts` builds
+it with `Math.random()`, which is not a cryptographic generator: its output is
+predictable from prior values, and an attacker can obtain as many references of
+their own as they like. This is a code defect rather than a design question, and
+it is tracked separately — see the action item below.
 
 **4. The insider, malicious or careless.** A staff member exports the customer
 list, or deletes something that mattered.
@@ -1404,9 +1483,20 @@ says so.
 **5. The supply chain.** A compromised npm package, or a leaked key in a
 third-party integration.
 
-*Answered:* CodeQL and Dependabot run on every push; `npm ci` from a committed
-lockfile; a build-time guard refuses a production bundle carrying the reCAPTCHA
-test key.
+*Answered:* `npm ci` from a committed lockfile; a build-time guard refuses a
+production bundle carrying the reCAPTCHA test key; CodeQL runs on pushes and
+pull requests to `main` and on a weekly schedule.
+
+*Corrected 28 August.* This previously read "CodeQL and Dependabot run on every
+push", and neither half was true as written. CodeQL does **not** run on a push
+to a `codex/*` or `claude/*` branch — which is where all work happens — only
+once a pull request is open against `main`. And there is no
+`.github/dependabot.yml` in the repository, nor any Dependabot branch or commit
+in its history; alert and security-update settings may be enabled in the GitHub
+repository settings, but nothing in the repository evidences it and **it must be
+verified there rather than assumed**. Automated version updates are not
+configured at all. A control named as the answer to an adversary has to be the
+control that exists.
 
 *Closed, and worth keeping for the shape of it.* On 16 August a plaintext
 Anthropic key was found in the HTTP headers of a Make.com scenario. The key was
@@ -1444,8 +1534,21 @@ usefully defend.
    a rotation date. The Make.com key was rotated and those scenarios retired,
    but that exposure was found by reading a scenario — no gate here would have
    caught it, and nothing says what else exists.
-3. **State the quote-reference entropy** and confirm it is sufficient, or add a
-   second factor to that path.
+3. **Replace the quote reference's generator, and separate the reference from
+   the secret.** Not "state the entropy and confirm it is sufficient" — that was
+   the earlier wording and it invites the wrong answer. The reference is six
+   characters from a 32-symbol alphabet, so anyone can state it in one read:
+   about 30 bits. The number is not the problem. `Math.random()` is not a
+   cryptographic generator, so **length does not help** — `lib/gmail.ts` already
+   records the same lesson from the OAuth `state` value: *"Two concatenated
+   calls made it longer without making it less guessable."*
+
+   What the fix needs, at minimum: keep the six-character reference for emails,
+   phone calls and staff use, where a human has to read it aloud; issue a
+   **separate lookup token of at least 128 bits** from `crypto.randomBytes` for
+   customer-access links; store only its hash; keep the rate limiting, generic
+   failure responses and access logging; and add a uniqueness constraint with a
+   collision retry on the human reference. Do not treat the surname as a secret.
 
 None of these is phase-2 work. All three are cheaper than the counter and
 currently unowned.
@@ -1456,6 +1559,116 @@ currently unowned.
 
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
+
+### 28 August 2026
+
+*Added late — see the note at the end of this entry.*
+
+**The retention periods were already published; this document said they were
+open.** §4.2b deferred them to area 5, and §4.2e cited five years as what other
+Greek operators do, neither noticing that `lib/i18n/content/legal.ts` commits
+Anadyon publicly to five years for booking data and twelve months for
+unconverted enquiries. Area 5's task is to validate and honour promises already
+made, not to set periods fresh — and changing them is a versioned change to a
+public document. An `unconverted_enquiry` retention class was missing entirely.
+
+**Erasure and the backups were specified in isolation and collide.** §4.2a keeps
+30 daily and 12 monthly archives; §4.2b promises Article 17 erasure. Neither
+mentioned the other, so an erasure would have been undone by any restore. §4.2b
+now requires a suppression list re-applied on restore, recorded in `RESTORE.md`.
+
+**A tax-inspection package and a subject-access request are not one output.**
+§4.2d called them "materially the same package with a different recipient". They
+differ on scope, redaction and recipient, and Article 15(4) bounds one of them
+by other people's rights. Shared engine, two named packages, two selection
+rules — sending the tax package to a data subject would disclose other people's
+data under the banner of a GDPR right.
+
+**Wise has no webhook, and §5.3 said it did.** The failover table folded Stripe
+and Wise into one row asserting "the webhook is the source of truth". `lib/wise.ts`
+states the opposite in the file itself. Split, with reconciliation stated as
+visible ageing work.
+
+**§5.3 contradicted itself on SMS** — "degrade silently" against its own closing
+rule that degraded state is shown rather than hidden. Now non-blocking but
+recorded and visible.
+
+**§9a overstated the supply-chain control and understated a live defect.**
+CodeQL does not run on feature-branch pushes and no Dependabot configuration
+exists in the repository; both are now stated as they are. And the action item
+"state the quote-reference entropy and confirm it is sufficient" invited exactly
+the wrong answer: the reference is generated with `Math.random()`, so its length
+is not the question. Rewritten to name the generator, with the separate
+128-bit-token design. The code fix is tracked outside this document.
+
+**§4.2's finalisation gateway cannot work as written, and is now marked OPEN.**
+Every non-test `.rpc()` call site uses `supabaseAdmin`, under which `auth.uid()`
+is NULL — so a gateway verifying `auth.uid()` against staff membership rejects
+everything or waves everything through. This is the second mechanism specified
+in that section without checking how the application reaches the database. It is
+deliberately left unresolved rather than patched a third time; the write-up is
+`docs/OPEN-QUESTION-RPC-STAFF-IDENTITY.md`.
+
+**Why this entry is late, and what that cost.** §10 opens by saying the document
+is revised in place and each entry says what changed and why. Between 25 and 27
+August roughly 600 lines were added — §1.10, §7.1a, §4.2a's correction, §4.2b
+through §4.2e, §5.3, §9a and the messaging amendment — and **not one produced an
+entry here**. A reader consulting this history would have concluded nothing
+changed after the 25th and re-derived it, which is the failure the section
+exists to prevent. The entries below were reconstructed from the branch
+afterwards; writing them at the time would have been cheaper and more accurate.
+
+### 27 August 2026
+
+*Reconstructed 28 August from the branch history.*
+
+**§5.3 added — what happens when a dependency is down.** Nothing here previously
+said, despite the 23 August admin outage having already happened. The rule:
+security fails closed, convenience degrades, money never silently succeeds.
+Stated per dependency, with the honest limit that there is no failover *target*
+— Supabase Free has no replica.
+
+**§4.2b, §4.2c, §4.2d, §4.2e added** — retention and destruction; whether the
+delivery tablet can also take payment; the full file for one rental on demand;
+and how long identity documents may be kept, with the distinction between the
+transaction record and a photograph of a passport.
+
+**§9a added — a threat model.** Six adversaries, what each wants, which control
+answers it, and where the answer is thin. The weakest area is the insider: no
+audit trail of reads, made more consequential by §4.2d's export.
+
+**The Make.com credential closed, the class of exposure kept open.** The key was
+rotated and the scenarios retired — both steps, because retiring a scenario
+revokes nothing. What remains is that credentials held outside this repository
+escape every control this document describes.
+
+**Messaging entry amended.** Greek alphanumeric sender IDs must be registered or
+messages are rejected, which is a gate rather than a fee; and Viber with SMS
+fallback is the channel Greek consumers actually read, so the abstraction should
+be channel-agnostic rather than provider-agnostic.
+
+### 26 August 2026
+
+*Reconstructed 28 August from the branch history.*
+
+**§1.10 added, then downgraded the same day.** GoCars.online was added as the
+first vendor admitted under §1.9's stop rule, from a single pass over the
+vendor's feature page recorded as fact. A second read of the same page
+reproduced neither the bicycle support nor the absence of damage capture. The
+section is now vendor claims with an epistemic note, and the disputed items are
+marked unverified rather than absent: **a feature page that does not mention
+something is not a vendor that lacks it.**
+
+**§7.1a added** — a bounded two-day GoCars gate for the partner channel, because
+§1.10 said build-versus-buy should be examined there while §7 told the
+implementer to build it. The decisive question is whether the partner portal can
+operate without moving booking, pricing and AADE onto their platform.
+
+**Four defects corrected in §4.2**, three of them specifications that could not
+have been built: a private schema unreachable through the Data API; composite
+foreign keys whose targets carried no unique constraint; evidence that would not
+have survived a restore because Storage objects are not in database backups; and
+a shared-template rule that was stated but never enforced.
 
 ### 25 August 2026
 
