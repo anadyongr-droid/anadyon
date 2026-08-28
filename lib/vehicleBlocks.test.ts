@@ -77,6 +77,22 @@ describe("assigning a vehicle by hand", () => {
     expect(mocks.filters).toContainEqual(["or", "ends_on.is.null,ends_on.gte.2026-09-10"]);
   });
 
+  it("refuses a date that is not an ISO calendar date, before it reaches the filter", async () => {
+    // The .or() below takes a PostgREST filter EXPRESSION, so the date lands in
+    // query syntax rather than beside it as a bound parameter — unlike .eq()
+    // and .lte(). Callers pass body.pickup_date straight off the request JSON.
+    //
+    // Refusing here fails closed, like every other path in this guard.
+    for (const bad of ["2026-09-10,id.not.is.null", "not-a-date", "2026-9-1", ""]) {
+      const problem = await vehicleBlockProblem("vehicle-1", bad, "2026-09-14");
+      // The empty string is "nothing submitted" and is permitted; the rest are
+      // malformed and must not reach the query.
+      if (bad === "") expect(problem).toBeNull();
+      else expect(problem, `"${bad}" should not reach the filter`).toContain("not saved");
+    }
+    expect(mocks.filters.filter((f) => f[0] === "or")).toHaveLength(0);
+  });
+
   it("does not query at all when no vehicle or no dates were submitted", async () => {
     // Saving a reservation without touching the car must not become a database
     // round trip, nor a refusal.

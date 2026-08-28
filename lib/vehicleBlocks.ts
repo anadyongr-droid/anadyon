@@ -48,11 +48,32 @@ export function describeBlock(block: VehicleBlock): string {
  * never let "cannot reach the database" look like "nothing found" — and here
  * the two differ by whether a car on a ramp gets handed to a customer.
  */
+/**
+ * ISO calendar dates only, checked before the value reaches a filter string.
+ *
+ * `.or()` below takes a PostgREST filter EXPRESSION, not a bound parameter, so
+ * the date is interpolated into query syntax rather than passed beside it —
+ * `.eq()` and `.lte()` are parameterised, that one is not. Every caller passes
+ * `body.pickup_date` straight off the request JSON, where the surrounding
+ * `as Record<string, unknown> & { pickup_date?: string }` is a TypeScript
+ * assertion and not a runtime check.
+ *
+ * The reachable damage today is a widened OR or a rejected filter, both of
+ * which make the guard REFUSE — it fails safe. That is luck rather than
+ * design: it holds only while this particular expression is a disjunction, and
+ * the next person to rewrite it inherits an injection point with no sign that
+ * one was ever there.
+ */
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 export async function findBlockingBlock(
   vehicleId: string,
   pickupDate: string,
   returnDate: string,
 ): Promise<VehicleBlock | null> {
+  if (!ISO_DATE.test(pickupDate) || !ISO_DATE.test(returnDate)) {
+    throw new Error("vehicle block check requires ISO calendar dates");
+  }
   const { data, error } = await supabaseAdmin
     .from("vehicle_blocks")
     .select("reason, starts_on, ends_on, note")

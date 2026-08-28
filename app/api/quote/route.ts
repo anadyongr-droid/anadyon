@@ -594,10 +594,10 @@ export async function POST(req: NextRequest) {
       <table cellpadding="6" style="border-collapse:collapse;">
         <tr><td><strong>Vehicle Type:</strong></td><td>${vehicleType}</td></tr>
         <tr><td><strong>Model:</strong></td><td>${selectedModel}</td></tr>
-        <tr><td><strong>Pick-up Location:</strong></td><td>${pickupLocation}</td></tr>
-        <tr><td><strong>Drop-off Location:</strong></td><td>${dropoffLocation}</td></tr>
-        <tr><td><strong>Pick-up:</strong></td><td>${pickupDate} at ${pickupTime}</td></tr>
-        <tr><td><strong>Drop-off:</strong></td><td>${dropoffDate} at ${dropoffTime}</td></tr>
+        <tr><td><strong>Pick-up Location:</strong></td><td>${esc(pickupLocation)}</td></tr>
+        <tr><td><strong>Drop-off Location:</strong></td><td>${esc(dropoffLocation)}</td></tr>
+        <tr><td><strong>Pick-up:</strong></td><td>${esc(pickupDate)} at ${esc(pickupTime)}</td></tr>
+        <tr><td><strong>Drop-off:</strong></td><td>${esc(dropoffDate)} at ${esc(dropoffTime)}</td></tr>
         <tr><td><strong>Rental Days:</strong></td><td>${rentalDays}</td></tr>
         ${transmission ? `<tr><td><strong>Transmission:</strong></td><td>${transmission}</td></tr>` : ""}
         <tr><td><strong>Driver Age:</strong></td><td>${effectiveDriverAge}</td></tr>
@@ -681,8 +681,8 @@ export async function POST(req: NextRequest) {
         <tr><td><strong>Mobile:</strong></td><td>${esc(mobileTel)}</td></tr>
         <tr><td><strong>Vehicle:</strong></td><td>${selectedModel} (${vehicleType})</td></tr>
         ${transmission ? `<tr><td><strong>Transmission:</strong></td><td>${transmission}</td></tr>` : ""}
-        <tr><td><strong>Pick-up:</strong></td><td>${pickupLocation} on ${pickupDate} at ${pickupTime}</td></tr>
-        <tr><td><strong>Drop-off:</strong></td><td>${dropoffLocation} on ${dropoffDate} at ${dropoffTime}</td></tr>
+        <tr><td><strong>Pick-up:</strong></td><td>${esc(pickupLocation)} on ${esc(pickupDate)} at ${esc(pickupTime)}</td></tr>
+        <tr><td><strong>Drop-off:</strong></td><td>${esc(dropoffLocation)} on ${esc(dropoffDate)} at ${esc(dropoffTime)}</td></tr>
         <tr><td><strong>Rental Days:</strong></td><td>${rentalDays}</td></tr>
       </table>
 
@@ -717,8 +717,8 @@ export async function POST(req: NextRequest) {
       <table cellpadding="6" style="border-collapse:collapse;">
         <tr><td><strong>Αριθμός αναφοράς:</strong></td><td><strong>${ref}</strong></td></tr>
         <tr><td><strong>Όχημα:</strong></td><td>${selectedModel}</td></tr>
-        <tr><td><strong>Παραλαβή:</strong></td><td>${pickupLocation}, ${pickupDate} στις ${pickupTime}</td></tr>
-        <tr><td><strong>Επιστροφή:</strong></td><td>${dropoffLocation}, ${dropoffDate} στις ${dropoffTime}</td></tr>
+        <tr><td><strong>Παραλαβή:</strong></td><td>${esc(pickupLocation)}, ${esc(pickupDate)} στις ${esc(pickupTime)}</td></tr>
+        <tr><td><strong>Επιστροφή:</strong></td><td>${esc(dropoffLocation)}, ${esc(dropoffDate)} στις ${esc(dropoffTime)}</td></tr>
         <tr><td><strong>Ημέρες ενοικίασης:</strong></td><td>${rentalDays}</td></tr>
       </table>
 
@@ -749,8 +749,8 @@ export async function POST(req: NextRequest) {
       <table cellpadding="6" style="border-collapse:collapse;">
         <tr><td><strong>Reference:</strong></td><td><strong>${ref}</strong></td></tr>
         <tr><td><strong>Vehicle:</strong></td><td>${selectedModel}</td></tr>
-        <tr><td><strong>Pick-up:</strong></td><td>${pickupLocation} on ${pickupDate} at ${pickupTime}</td></tr>
-        <tr><td><strong>Drop-off:</strong></td><td>${dropoffLocation} on ${dropoffDate} at ${dropoffTime}</td></tr>
+        <tr><td><strong>Pick-up:</strong></td><td>${esc(pickupLocation)} on ${esc(pickupDate)} at ${esc(pickupTime)}</td></tr>
+        <tr><td><strong>Drop-off:</strong></td><td>${esc(dropoffLocation)} on ${esc(dropoffDate)} at ${esc(dropoffTime)}</td></tr>
         <tr><td><strong>Rental Days:</strong></td><td>${rentalDays}</td></tr>
       </table>
 
