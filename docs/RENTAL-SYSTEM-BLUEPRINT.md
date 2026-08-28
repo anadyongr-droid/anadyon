@@ -1073,10 +1073,25 @@ the ones working.
 `driving_licence_number` is the only column in the repository baseline and the
 only one application code should read or write. **Live drift remains:** on 25
 August 2026 the production `customers` table still contained both legacy
-`licence_number` and canonical `driving_licence_number`. Phase 1 must verify the
-legacy column is unused/empty, backfill any value that exists, then remove it
-through the normal reviewed migration-and-paste workflow. Licence verification
+`licence_number` and canonical `driving_licence_number`. Licence verification
 must use `driving_licence_number`; the legacy column is not a fallback source.
+
+*Updated 28 August 2026 — written, not yet applied.* Migration
+`20260828140000_drop_legacy_licence_number` and paste copy `036` do the three
+things this section asked for. Verified first: `grep` across every `.ts`, `.tsx`
+and `.mjs` finds no reference to `licence_number` outside `supabase/schema.sql`,
+which is a dump rather than something that runs — so nothing reads it and the
+only risk is data held **only** there.
+
+It backfills a legacy value into the canonical column where the canonical one is
+empty, trimming on the way across, and **refuses rather than guesses** where a
+row holds a different value in each: there is no way to tell from here which is
+current, and picking one silently is how a wrong licence number reaches a rental
+agreement. It names the count so those rows can be found. Safe to run twice, and
+a no-op on a database that never had the column.
+
+`supabase/schema.sql` still shows the column, annotated, because it is a dump of
+production and stays accurate until the migration is run. Re-dump it afterwards.
 
 ---
 
