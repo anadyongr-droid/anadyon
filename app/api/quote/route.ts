@@ -516,39 +516,25 @@ export async function POST(req: NextRequest) {
   // independent — the office copy and the customer copy — and sending them one
   // after the other made the customer wait for both round trips before their
   // booking reference appeared.
-  // No replyTo. This is an internal notification, and setting the customer as
-  // the reply address meant a member of staff hitting Reply — to ask a
-  // colleague about availability, say — wrote to the customer instead. Replies
-  // now stay inside the office.
+  // The quote itself. This one replies to the customer who submitted it, so the
+  // office can answer straight from the email instead of copying the address
+  // out of the body — answering the customer is by far the common case.
   //
-  // The customer's address is printed in the details below as plain text, so
-  // the office can still reach them from this email alone when the admin area
-  // is unavailable. Plain text, not a link or a button: the alert carries the
-  // information and nothing that acts on it.
-  const officeMail = (noVehicle: boolean) => sendMail({
+  // It deliberately carries no alert banner. A flag rides in `officeAlertMail`
+  // below, as a separate email, because a warning bolted onto a
+  // customer-replyable message is how staff came to answer the customer twice:
+  // once by replying to an availability alert, and once before that, which is
+  // why Reply-To was removed here and later restored.
+  const officeMail = () => sendMail({
     from: "Anadyon Website <customerservice@anadyon.gr>",
     to: ["customerservice@anadyon.gr"],
-    // Replies to the customer who submitted the request, so the office can
-    // answer straight from this email instead of copying the address out of
-    // the body. Reverses the earlier "keep replies internal" rule: answering
-    // the customer turned out to be the common case by far.
-    //
-    // Except on the price-manipulation alert. That is the same email with a
-    // warning bolted on, so a blanket Reply-To would point it at whoever just
-    // tampered with the price — and one careless Reply would tell them the
-    // tampering was noticed. There, replies stay internal; the customer's
-    // address is still printed in the body for anyone who decides to write.
+    // Suppressed when the submitted price was manipulated. A Reply-To would
+    // point at whoever just tampered with it, and one careless Reply would tell
+    // them it had been noticed. The address stays printed in the body below for
+    // anyone who decides to write deliberately.
     ...(manipulated ? {} : { replyTo: email }),
-    subject: `${manipulated ? "⚠️ [ALERT] " : ""}${noVehicle ? "🚗 [NO VEHICLE] " : ""}Quote Request — ${lastName}, ${ref}`,
+    subject: `Quote Request — ${lastName}, ${ref}`,
     html: `
-      ${manipulationWarning}
-      ${noVehicle ? `
-      <div style="background:#fee2e2;border:2px solid #dc2626;border-radius:8px;padding:16px;margin-bottom:20px;">
-        <p style="margin:0 0 8px;font-weight:bold;color:#991b1b;">🚗 NO VEHICLE COULD BE ASSIGNED</p>
-        <p style="margin:0 0 4px;color:#7f1d1d;">Nothing was available in the requested category (or a valid upgrade) with the right transmission for these dates, so the reservation was left unallocated rather than given an unsuitable vehicle.</p>
-        <p style="margin:0;color:#7f1d1d;font-size:13px;">This booking needs a manual assignment, or a conversation with the customer about alternatives. It is highlighted in red on the Reservations screen.</p>
-      </div>
-      ` : ""}
       <h2>New Quote Request</h2>
       <p><strong>Reference:</strong> ${ref}</p>
 
@@ -599,6 +585,57 @@ export async function POST(req: NextRequest) {
 
       <hr/>
       <p style="color:#888;font-size:12px;">This is not a confirmed reservation. Anadyon Rentals will contact you shortly with availability and the final price.</p>
+    `,
+  });
+
+  /**
+   * The flag, as its own email.
+   *
+   * Sent only when something needs a person: no vehicle could be allocated, or
+   * the submitted price did not match the server's.
+   *
+   * **It carries no Reply-To, and it never will.** The question an alert
+   * prompts is an internal one — "do we have anything else for these dates?" —
+   * and on 27 August a member of staff asked it by hitting Reply on a
+   * "[NO VEHICLE]" alert, which reached the customer instead of a colleague.
+   * The same fault had happened once before, was fixed by removing Reply-To
+   * from the office email entirely, and came back when that removal was
+   * reversed so ordinary quotes could be answered from the inbox. Separating
+   * the two emails is what lets both rules hold at once.
+   *
+   * The customer's details are printed as plain text, so the office can still
+   * reach them from this email alone when the admin area is unavailable — but
+   * as information, not as an action. No mailto, no link, no button.
+   */
+  const officeAlertMail = (noVehicle: boolean) => sendMail({
+    from: "Anadyon Alerts <no-reply@anadyon.gr>",
+    to: ["customerservice@anadyon.gr"],
+    subject: `${manipulated ? "⚠️ [ALERT] " : ""}${noVehicle ? "🚗 [NO VEHICLE] " : ""}Quote Request — ${lastName}, ${ref}`,
+    html: `
+      ${manipulationWarning}
+      ${noVehicle ? `
+      <div style="background:#fee2e2;border:2px solid #dc2626;border-radius:8px;padding:16px;margin-bottom:20px;">
+        <p style="margin:0 0 8px;font-weight:bold;color:#991b1b;">🚗 NO VEHICLE COULD BE ASSIGNED</p>
+        <p style="margin:0 0 4px;color:#7f1d1d;">Nothing was available in the requested category (or a valid upgrade) with the right transmission for these dates, so the reservation was left unallocated rather than given an unsuitable vehicle.</p>
+        <p style="margin:0;color:#7f1d1d;font-size:13px;">This booking needs a manual assignment, or a conversation with the customer about alternatives. It is highlighted in red on the Reservations screen.</p>
+      </div>
+      ` : ""}
+
+      <h3>Which booking</h3>
+      <table cellpadding="6" style="border-collapse:collapse;">
+        <tr><td><strong>Reference:</strong></td><td><strong>${ref}</strong></td></tr>
+        <tr><td><strong>Customer:</strong></td><td>${esc(title)} ${esc(firstName)} ${esc(lastName)}</td></tr>
+        <tr><td><strong>Email:</strong></td><td>${esc(email)}</td></tr>
+        <tr><td><strong>Mobile:</strong></td><td>${esc(mobileTel)}</td></tr>
+        <tr><td><strong>Vehicle:</strong></td><td>${selectedModel} (${vehicleType})</td></tr>
+        ${transmission ? `<tr><td><strong>Transmission:</strong></td><td>${transmission}</td></tr>` : ""}
+        <tr><td><strong>Pick-up:</strong></td><td>${pickupLocation} on ${pickupDate} at ${pickupTime}</td></tr>
+        <tr><td><strong>Drop-off:</strong></td><td>${dropoffLocation} on ${dropoffDate} at ${dropoffTime}</td></tr>
+        <tr><td><strong>Rental Days:</strong></td><td>${rentalDays}</td></tr>
+      </table>
+
+      <hr/>
+      <p style="color:#888;font-size:12px;"><strong>Replies to this email reach the office, not the customer.</strong> The full quote was sent separately, under the subject "Quote Request — ${esc(lastName)}, ${ref}" — answer the customer from that one.</p>
     `,
   });
 
@@ -731,7 +768,13 @@ export async function POST(req: NextRequest) {
   // the durable retry queue and alerts the office.
   after(async () => {
     const noVehicle = await noVehicleAssigned();
-    await Promise.all([officeMail(noVehicle), customerMail()]);
+    // The alert is a third message, sent only when there is something to flag,
+    // and never merged into the other two. See officeAlertMail for why.
+    await Promise.all([
+      officeMail(),
+      customerMail(),
+      ...(noVehicle || manipulated ? [officeAlertMail(noVehicle)] : []),
+    ]);
   });
 
   return NextResponse.json({ success: true, ref });

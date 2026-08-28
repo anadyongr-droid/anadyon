@@ -15,6 +15,16 @@ import { bookingConfirmedMail, quoteConfirmationMail } from "./bookingEmails";
  *     original fault: a staff member hitting Reply to ask a colleague about
  *     availability wrote to the client instead. The customer's address belongs
  *     in the body, as text — not as a Reply-To, and not as a button.
+ *
+ * They were reconciled for a while by making the quote-request email replyable
+ * and carving out an exception for the price-manipulation warning. That held
+ * until a "[NO VEHICLE]" flag rode the same email and a staff member replied to
+ * it — the identical fault, a second time, through the exception rather than
+ * the rule.
+ *
+ * The quote notification and the alert are now **two separate emails**, so
+ * neither rule has to bend: the notification replies to the customer, the alert
+ * replies to the office, and no message is both.
  */
 const OFFICE = "customerservice@anadyon.gr";
 
@@ -71,21 +81,42 @@ describe("alerts to the office never reply to the customer", () => {
     // The exception, alongside the New Reservation alert below: both announce a
     // booking somebody is about to act on, and answering the customer is the
     // next step. Reply-To changes where an answer goes, never who is sent the
-    // alert — that assertion lives in quoteTamperResistance.
+    // mail — that assertion lives in quoteTamperResistance.
     const block = quoteRoute.match(/const officeMail = \([\s\S]*?subject:/)?.[0] ?? "";
     expect(block, "officeMail block not found").not.toBe("");
-    // Conditional: suppressed on the price-manipulation alert, which is the
-    // same email. Behaviour for both branches is asserted in
-    // quoteTamperResistance against the real route.
+    // Conditional: still suppressed when the price was manipulated, so a reply
+    // cannot reach the person who tampered with it. Behaviour for both branches
+    // is asserted in quoteTamperResistance against the real route.
     expect(block).toContain("manipulated ? {} : { replyTo: email }");
   });
 
-  it("carries no clickable contact anywhere in its body", () => {
+  it("the quote-request alert sets no reply address at all", () => {
+    // Not conditional, unlike the notification above. This email exists to be
+    // acted on internally, so there is no case in which Reply should leave the
+    // office — and an alert that is sometimes replyable is what produced the
+    // fault twice.
+    const block = quoteRoute.match(/const officeAlertMail = \([\s\S]*?\n  \}\);/)?.[0] ?? "";
+    expect(block, "officeAlertMail block not found").not.toBe("");
+    expect(block).not.toContain("replyTo");
+  });
+
+  it("keeps the alert flags out of the notification's subject", () => {
+    // The flags are what make an email look like something to discuss rather
+    // than answer. They belong on the message whose Reply stays inside.
+    const block = quoteRoute.match(/const officeMail = \([\s\S]*?subject:.*/)?.[0] ?? "";
+    expect(block).not.toContain("[NO VEHICLE]");
+    expect(block).not.toContain("[ALERT]");
+  });
+
+  it("carries no clickable contact anywhere in either body", () => {
     // The address is information, not an action. A button was added here once
     // unasked and removed; a mailto link replaced it and was removed too.
-    const block = quoteRoute.match(/const officeMail = \([\s\S]*?\n  \}\);/)?.[0] ?? "";
-    expect(block).not.toContain("mailto:");
-    expect(block).not.toContain("Compose email to customer");
+    for (const name of ["officeMail", "officeAlertMail"]) {
+      const block = quoteRoute.match(new RegExp(`const ${name} = \\([\\s\\S]*?\\n  \\}\\);`))?.[0] ?? "";
+      expect(block, `${name} block not found`).not.toBe("");
+      expect(block, name).not.toContain("mailto:");
+      expect(block, name).not.toContain("Compose email to customer");
+    }
   });
 
   it("the delivery-failure alert sets no reply address", () => {
