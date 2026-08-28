@@ -36,6 +36,12 @@
 -- BEFORE INSERT trigger on website bookings, and any later manual path that
 -- uses the same function. Gating at the call sites instead would mean the next
 -- call site added is unguarded by default.
+-- ALSO IN THIS MIGRATION: turnaround is made symmetric.
+--
+-- Folded in rather than given its own migration because it edits the same
+-- function this one already replaces, and this migration has not been applied
+-- yet. Two migrations redefining find_available_eligible_vehicle in sequence
+-- would be worse to read and no safer.
 begin;
 
 create table if not exists public.vehicle_blocks (
@@ -114,11 +120,20 @@ begin
           and b.starts_on <= p_return_date
           and coalesce(b.ends_on, 'infinity'::date) >= p_pickup_date
      )
+     -- Turnaround applies to BOTH ends, which it previously did not.
+     --
+     -- The old test padded only the existing rental's return, so a new booking
+     -- returning a car at 09:00 was allowed ahead of an existing hire
+     -- collecting it at 09:00: zero changeover, no clean, no refuel, no
+     -- inspection. Found by a deliberate test that booked out the whole
+     -- manual fleet from 30 August and was still allocated a car for
+     -- 29 -> 30 August.
      and not exists (
        select 1 from public.reservations r
         where r.vehicle_id = v.id and r.status not in ('cancelled', 'voided', 'no_show')
           and (r.pickup_date + coalesce(nullif(r.pickup_time, ''), '09:00')::time)
-              < (p_return_date + coalesce(nullif(p_return_time, ''), '09:00')::time)
+              < (p_return_date + coalesce(nullif(p_return_time, ''), '09:00')::time
+              + make_interval(mins => coalesce(v.turnaround_minutes, 120)))
           and (r.return_date + coalesce(nullif(r.return_time, ''), '09:00')::time
               + make_interval(mins => coalesce(v.turnaround_minutes, 120)))
               > (p_pickup_date + coalesce(nullif(p_pickup_time, ''), '09:00')::time)

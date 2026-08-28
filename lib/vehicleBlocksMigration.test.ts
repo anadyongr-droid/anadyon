@@ -222,6 +222,66 @@ describe("vehicle blocks migration", () => {
     }
   });
 
+  describe("turnaround between rentals", () => {
+    /**
+     * Found by a deliberate test: the whole manual fleet was booked out from
+     * 30 August 09:00, a website request for 29 -> 30 August 09:00 was still
+     * allocated a car, and no [NO VEHICLE] alert was raised.
+     *
+     * The old predicate padded only the EXISTING rental's return, so a new
+     * booking returning at 09:00 could sit in front of an existing hire
+     * collecting at 09:00 — no clean, no refuel, no inspection.
+     */
+    async function fleetBookedFrom30th(db: PGlite) {
+      for (const name of ["Hyundai i20", "Hyundai Getz", "Fiat Panda"]) {
+        const { rows } = await db.query<{ id: string }>(
+          `insert into public.vehicles (name, category, pricing_group, transmission, turnaround_minutes)
+           values ($1, 'car', 'car_c', 'Manual', 120) returning id`, [name]);
+        await db.query(
+          `insert into public.reservations (vehicle_id, status, pickup_date, pickup_time, return_date, return_time)
+           values ($1, 'pending', '2026-08-30', '09:00', '2026-08-31', '09:00')`, [rows[0].id]);
+      }
+    }
+    const askManual = async (db: PGlite, from: string, to: string, returnTime = "09:00") => {
+      const { rows } = await db.query<{ v: string | null }>(
+        `select public.find_available_eligible_vehicle(
+           'car_c','Cars','Manual','Hyundai Getz',$1::date,'09:00',$2::date,$3) as v`, [from, to, returnTime]);
+      return rows[0].v;
+    };
+
+    it("refuses a rental that would return a car with no changeover before the next hire", async () => {
+      const db = await migratedDatabase();
+      try {
+        await fleetBookedFrom30th(db);
+        expect(await askManual(db, "2026-08-29", "2026-08-30")).toBeNull();
+      } finally {
+        await db.close();
+      }
+    });
+
+    it("allows the same rental once the gap covers the turnaround", async () => {
+      // The other half. Padding both ends without checking this would refuse
+      // every back-to-back booking and quietly cost the business rentals.
+      const db = await migratedDatabase();
+      try {
+        await fleetBookedFrom30th(db);
+        expect(await askManual(db, "2026-08-29", "2026-08-30", "06:00")).not.toBeNull();
+      } finally {
+        await db.close();
+      }
+    });
+
+    it("leaves rentals nowhere near the existing booking alone", async () => {
+      const db = await migratedDatabase();
+      try {
+        await fleetBookedFrom30th(db);
+        expect(await askManual(db, "2026-08-27", "2026-08-28")).not.toBeNull();
+      } finally {
+        await db.close();
+      }
+    });
+  });
+
   it("refuses a block whose dates run backwards", async () => {
     const db = await migratedDatabase();
     try {
