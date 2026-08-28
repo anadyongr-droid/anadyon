@@ -34,6 +34,10 @@ const BASE_SCHEMA = `
     status text not null default 'available' check (status in ('available', 'maintenance', 'retired')),
     transmission text,
     turnaround_minutes integer,
+    kteo_expiry date,
+    insurance_expiry date,
+    road_tax_paid_until date,
+    next_service_due date,
     sort_order int default 0
   );
 
@@ -279,6 +283,71 @@ describe("vehicle blocks migration", () => {
       } finally {
         await db.close();
       }
+    });
+  });
+
+  describe("statutory cover", () => {
+    /**
+     * The website allocator checked only `status` and the booking overlap. The
+     * admin availability route ran rentalBar(), which bars a vehicle whose KTEO
+     * or insurance has lapsed — "insurance cover is void". So a car staff could
+     * not assign by hand was being allocated automatically to the public.
+     */
+    async function carWith(db: PGlite, cols: Record<string, string | null>): Promise<string> {
+      const keys = Object.keys(cols);
+      const { rows } = await db.query<{ id: string }>(
+        `insert into public.vehicles (name, category, pricing_group, transmission${keys.map((k) => `, ${k}`).join("")})
+         values ('Peugeot 107', 'car', 'car_c', 'Automatic'${keys.map((_, i) => `, $${i + 1}`).join("")}) returning id`,
+        keys.map((k) => cols[k]),
+      );
+      return rows[0].id;
+    }
+
+    it("refuses a vehicle whose KTEO expired before the pick-up", async () => {
+      const db = await migratedDatabase();
+      try {
+        await carWith(db, { kteo_expiry: "2026-09-09" });   // rental starts the 10th
+        expect(await allocate(db)).toBeNull();
+      } finally { await db.close(); }
+    });
+
+    it("refuses a vehicle whose insurance expired before the pick-up", async () => {
+      const db = await migratedDatabase();
+      try {
+        await carWith(db, { insurance_expiry: "2026-09-09" });
+        expect(await allocate(db)).toBeNull();
+      } finally { await db.close(); }
+    });
+
+    it("allows cover that expires ON the pick-up date", async () => {
+      // daysRemaining = 0 is not expired in lib/fleetStatus.ts, and the two
+      // paths have to agree on the boundary as well as the rule.
+      const db = await migratedDatabase();
+      try {
+        const car = await carWith(db, { kteo_expiry: "2026-09-10", insurance_expiry: "2026-09-10" });
+        expect(await allocate(db)).toBe(car);
+      } finally { await db.close(); }
+    });
+
+    it("treats an unrecorded date as unknown, not as expired", async () => {
+      // statusFor() returns 'unknown' for a null and rentalBar only bars on
+      // 'expired'. Blocking nulls would refuse most of the fleet on day one.
+      const db = await migratedDatabase();
+      try {
+        const car = await carWith(db, { kteo_expiry: null, insurance_expiry: null });
+        expect(await allocate(db)).toBe(car);
+      } finally { await db.close(); }
+    });
+
+    it("does not bar on road tax or service, which the admin does not bar on either", async () => {
+      // Both are tracked and warned on, and neither is marked blocksRental.
+      // Blocking here would swap one disagreement between the two paths for
+      // another rather than removing it.
+      const db = await migratedDatabase();
+      try {
+        const car = await carWith(db, { road_tax_paid_until: "2026-01-01", next_service_due: "2026-01-01" });
+        expect(await allocate(db)).toBe(car);
+      } finally { await db.close(); }
     });
   });
 

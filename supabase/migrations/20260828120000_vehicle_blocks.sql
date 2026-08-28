@@ -110,6 +110,24 @@ begin
   select v.id into v_vehicle_id
     from public.vehicles v
    where v.status = 'available' and v.category = v_family
+     -- Statutory cover, mirroring rentalBar() in lib/fleetStatus.ts, which the
+     -- ADMIN availability route already applies and this one did not. A car
+     -- staff could not assign by hand was being allocated automatically by the
+     -- website: "insurance cover is void" is not a scheduling matter.
+     --
+     -- Exactly the two fields marked blocksRental there. Road tax and next
+     -- service are tracked and warned on but deliberately do not bar a rental,
+     -- and blocking on them here would refuse vehicles the admin permits —
+     -- swapping one disagreement for another.
+     --
+     -- A null date is "not recorded", not "expired": statusFor() returns
+     -- severity 'unknown' and rentalBar only bars on 'expired'. Blocking nulls
+     -- would refuse most of the fleet the day this ships.
+     --
+     -- Measured against the pick-up date, as the admin route does. Expiry ON
+     -- the pick-up date still passes, matching daysRemaining = 0 there.
+     and (v.kteo_expiry is null or v.kteo_expiry >= p_pickup_date)
+     and (v.insurance_expiry is null or v.insurance_expiry >= p_pickup_date)
      and (v_required_transmission is null or lower(coalesce(v.transmission, '')) = lower(v_required_transmission))
      and (v_min_rank is null or case v.pricing_group
           when 'car_a' then 1 when 'car_b' then 2 when 'car_c' then 3
