@@ -126,14 +126,23 @@ describe("alerts to the office never reply to the customer", () => {
   });
 });
 
-describe("the new-reservation alert is a deliberate exception", () => {
+describe("the new-reservation announcement is not an alert", () => {
   const adminCreate = readFileSync(new URL("../app/api/admin/reservations/route.ts", import.meta.url), "utf8");
-  const block = adminCreate.match(/from: "Anadyon Alerts <no-reply@anadyon\.gr>"[\s\S]{0,900}/)?.[0] ?? "";
+  const block = adminCreate.match(/from: "Anadyon Reservations <no-reply@anadyon\.gr>"[\s\S]{0,1400}/)?.[0] ?? "";
+
+  it("does not use the Alerts sender", () => {
+    // It used to, and that is why a real alert stopped reading as one: the
+    // office saw "Anadyon Alerts" all day for ordinary bookings, so the sender
+    // carried no information. This message replies to the customer, which is
+    // precisely what an alert must never do — so it must not look like one.
+    expect(block, "announcement block not found").not.toBe("");
+    expect(adminCreate).not.toContain('from: "Anadyon Alerts');
+  });
 
   it("replies to the customer, because answering them is the next step", () => {
-    // Unlike the other office alerts: this one announces a booking somebody is
-    // about to act on, and Tasos asked for Reply to reach the customer.
-    expect(block, "alert block not found").not.toBe("");
+    // Consistent rather than exceptional now: announcements reply to the
+    // customer, alerts reply to the office, and the sender says which is which.
+    expect(block, "announcement block not found").not.toBe("");
     expect(block).toContain("replyTo");
     expect(block).toContain("responseData.customer_email");
   });

@@ -186,7 +186,12 @@ export async function POST(req: NextRequest) {
       // arriving. no-reply@ is used elsewhere in the codebase, is covered by the
       // verified send.anadyon.gr setup, and avoids customerservice@ mailing
       // itself, which is what a from/to on the same box would do.
-      from: "Anadyon Alerts <no-reply@anadyon.gr>",
+      // NOT "Anadyon Alerts". This is a routine notification — a booking was
+      // created — and dressing it as an alert is why a real alert no longer
+      // reads as one: the office sees "Anadyon Alerts" all day for ordinary
+      // work, so the sender stopped carrying information. Alerts keep that
+      // name; announcements get their own.
+      from: "Anadyon Reservations <no-reply@anadyon.gr>",
       // customerservice@ alone: it already forwards to anadyon.gr@gmail.com, so
       // naming both delivered every one of these twice to the same person.
       to: ["customerservice@anadyon.gr"],
@@ -199,7 +204,17 @@ export async function POST(req: NextRequest) {
       ...(String(responseData.customer_email ?? "").trim()
         ? { replyTo: String(responseData.customer_email).trim() }
         : {}),
-      subject: `New Reservation — ${vehicleLabel(responseData.vehicles)} — ${responseData.customer_name}`,
+      // The subject carries what is wrong, not only what happened. A booking
+      // saved with no vehicle is the one state that needs somebody today, and
+      // it was previously indistinguishable from an ordinary one — same sender,
+      // same wording, and the vehicle simply absent from the middle of the line
+      // where nobody reads a gap. Same "[NO VEHICLE]" wording as the website
+      // alert, so staff learn one vocabulary rather than two.
+      // vehicleLabel returns "" with no vehicle, which previously left the
+      // subject reading "New Reservation —  — Name": a gap where the fact was.
+      subject: `${responseData.vehicle_id ? "" : "🚗 [NO VEHICLE] "}New Reservation — ${
+        responseData.vehicle_id ? vehicleLabel(responseData.vehicles) : "no vehicle assigned"
+      } — ${responseData.customer_name}`,
       html: buildEmailHtml(responseData),
     });
   } catch (err) {
