@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { vehicleBlockProblem } from "@/lib/vehicleBlocks";
+import { licenceGate, licenceAttestationNote } from "@/lib/licenceGate";
 import { vehicleLabel } from "@/lib/vehicleLabel";
 import { sendMail } from "@/lib/mailer";
 import { validateQuoteVehicleAssignment } from "@/lib/quoteVehicleAssignment";
@@ -116,6 +117,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: assignmentProblem.error }, { status: assignmentProblem.status });
   }
 
+  // A driver whose licence expires before the vehicle is due back. Refused
+  // unless staff attest, and the attestation is recorded below.
+  const licence = await licenceGate(
+    body.customer_id, body.return_date, body.return_time, raw._licence_verified === true,
+  );
+  if (licence.problem) return NextResponse.json({ error: licence.problem }, { status: 409 });
+
   // A vehicle can be free of other bookings and still not releasable: in the
   // workshop, or without a valid KTEO. Checked before the overlap test because
   // "it is blocked" is the more useful refusal of the two.
@@ -138,6 +146,15 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
+  }
+
+  // The attestation only matters when it actually permitted something, and it
+  // is recorded on the reservation for the same reason the customer-requested
+  // note is: months later, somebody will want to know who decided the licence
+  // was acceptable and when.
+  if (licence.overridden) {
+    const existingNotes = typeof body.notes === "string" ? body.notes : "";
+    body.notes = `${existingNotes}${existingNotes ? "\n" : ""}${licenceAttestationNote()}`.trim();
   }
 
   const deposit = parseFloat((body.total * 0.3).toFixed(2));
