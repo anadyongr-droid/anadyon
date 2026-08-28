@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { vehicleBlockProblem } from "@/lib/vehicleBlocks";
 import { vehicleLabel } from "@/lib/vehicleLabel";
 import { sendMail } from "@/lib/mailer";
 import { validateQuoteVehicleAssignment } from "@/lib/quoteVehicleAssignment";
@@ -114,6 +115,12 @@ export async function POST(req: NextRequest) {
   if (assignmentProblem) {
     return NextResponse.json({ error: assignmentProblem.error }, { status: assignmentProblem.status });
   }
+
+  // A vehicle can be free of other bookings and still not releasable: in the
+  // workshop, or without a valid KTEO. Checked before the overlap test because
+  // "it is blocked" is the more useful refusal of the two.
+  const blockProblem = await vehicleBlockProblem(body.vehicle_id, body.pickup_date, body.return_date);
+  if (blockProblem) return NextResponse.json({ error: blockProblem }, { status: 409 });
 
   // Overlap check
   if (body.vehicle_id && body.pickup_date && body.return_date) {
