@@ -17,7 +17,7 @@ are attributed; judgement calls say so.
 
 ## 1. The field
 
-Fifteen systems examined. They divide into four distinct positions, and knowing
+Sixteen systems examined. They divide into four distinct positions, and knowing
 which position a feature comes from matters more than the feature list.
 
 ### 1.1 The direct comparison — **Wheelsys**
@@ -147,7 +147,7 @@ availability and a commission statement competes for supply we never see.
 That makes it a different question from OTA distribution, which §8 declines
 deliberately. A hotel desk is not a broker: the commission is local and
 negotiable, the guest is already on the island, and the relationship stays
-direct. Worth building; see the deferred list in §7.
+direct. Worth building; see §7.1 and phase 4.
 
 **Source:** [ezcar.gr software page](https://www.ezcar.gr/en-software.php) ·
 [ezcar.eu](https://www.ezcar.eu/) · tenant paths in `lib/competitorRates.ts`.
@@ -208,17 +208,21 @@ sells the same ground from around $50.
 Arguments for continuing to build, none of them decisive on their own:
 
 - **AADE.** The Digital Client List and myDATA are Greek statutory obligations.
-  Of the fifteen systems now surveyed, only IOS Rentals and Wheelsys
-  (§1.1) claim them. Neither CarCEO nor HQ Rental mentions Greek fiscalisation.
+  Of the sixteen systems surveyed, IOS Rentals and Wheelsys (§1.1) claim them —
+  **and GoCars claims them too (§1.10), unverified.** Neither CarCEO nor HQ
+  Rental mentions Greek fiscalisation. Treat this as a weaker differentiator
+  than it was, pending the §7.1a gate.
 - **The competitor rate engine.** Five live feeds into a comparison view appears
-  in **none** of the fifteen. It is the one place this system leads, and it
+  in **none** of the sixteen. It is the one place this system leads, and it
   would not survive a migration.
 - **Server-side price verification.** §8b. Not advertised by any of them.
-- **The mixed fleet.** Cars, scooters and bicycles in one system — only Rent
-  Centric and IOS Rentals do this.
+- **The mixed fleet.** Cars, scooters and bicycles in one system — Rent Centric
+  and IOS Rentals do this. **GoCars may also (§1.10); bicycle support is
+  specifically unverified** and "bikes" in Greek marketing usually means
+  motorcycles.
 - **Switching cost.** 33 migrations, 17 tables and a live booking flow.
 
-Arguments for buying, equally undecided:
+Arguments for buying that the decision below had to answer:
 
 - The counter workflow is the largest remaining build, and it is the part of the
   category that is most commoditised.
@@ -227,14 +231,216 @@ Arguments for buying, equally undecided:
 - Every hour spent on condition capture is an hour not spent on the rate
   intelligence that actually differentiates.
 
-**This is an architect decision and it is deliberately left open here.** What
-should not happen is phases 1-4 being built without the question being asked at
-all, which is the state this document was in until today.
+#### Decision: build the counter in Anadyon; do not replace or dual-enter
+
+*Decided 25 August 2026, before phase 2.* Anadyon remains the system of record
+and the counter workflow is built here, narrowly. CarCEO Pro and HQ Rental are
+not adopted as a second operational system and Anadyon is not migrated into
+either.
+
+The $129/month comparison is not the price of the architecture Anadyon would
+need. A separate counter product must exchange reservations, assigned vehicles,
+customers, payments, status changes and evidence without staff re-keying them.
+CarCEO's published API sits on its $399 tier, not the $129 tier; HQ Rental's API
+and mixed-fleet behaviour are unverified. Neither vendor is recorded in §1 as
+supporting cars, scooters and bicycles together. Buying without a proved
+round-trip integration would create two sources of truth at the point where a
+mistake releases a vehicle or loses evidence.
+
+This is not sunk-cost reasoning. AADE, the competitor-rate engine and the live
+booking path can remain outside a bought counter only if the boundary between
+the two systems is reliable. No such boundary has been verified, while the
+minimum counter data itself is small and fits the reservation, vehicle, damage
+and cost model already present. The correct comparison is therefore a narrow
+phase-2 build against an API-tier integration plus permanent reconciliation,
+not against a standalone $129 subscription.
+
+The decision may be reopened only if one vendor demonstrates, in a trial rather
+than a sales claim, all of the following:
+
+- cars, scooters and bicycles in the same account;
+- API or webhook round trips for Anadyon reservation IDs, vehicle allocation,
+  status and evidence, with idempotency and an export of every record and file;
+- no manual duplicate entry and no replacement of Anadyon's pricing, AADE or
+  competitor-rate systems;
+- EU/GDPR terms, role isolation, audit history, data retention and an exit
+  export acceptable for customer identity and damage evidence; and
+- a tested tablet workflow whose annual API-tier cost plus integration and
+  reconciliation is lower than the bounded phase-2 scope in §4.2.
+
+Until every gate passes, the implementer proceeds with §4.2 and does not run a
+second vendor evaluation mid-build.
+
+
+#### Review of the decision — Claude, 26 August 2026
+
+The decision stands. Three amendments, and one correction accepted.
+
+**Verified independently.** CarCEO's API is on the $399 Enterprise tier, not the
+$129 tier — confirmed against the vendor's own pricing. The reframe that follows
+from it is the strongest part of this section: the cheap number was never the
+relevant number, because a bought counter that cannot exchange reservations,
+allocation and evidence is not the same product as one that can.
+
+**Correction accepted.** An earlier note in this document suggested the partner
+channel reuse the existing `admin`/`staff` role model. §7.1 is right to reject
+that. An external partner is a tenant, not a member of staff, and putting hotels
+inside the internal authorisation model would have made every future permission
+change a cross-tenant risk.
+
+**Amendment 1 — the third option is missing.** The decision is framed as build
+everything against replace everything. §1.5 already records Record360,
+ProovStation and Self-Inspection: point solutions for timestamped condition
+evidence, designed to integrate rather than to own reservation state.
+
+The decision's central objection is two sources of truth "at the point where a
+mistake releases a vehicle or loses evidence". That objection is materially
+weaker for a capture-only tool: it holds no reservation, no allocation and no
+status, and writes photos and a reference back. The reconciliation surface is a
+file and an ID, not an operational state machine.
+
+This does not change the outcome for the counter as a whole. It does mean the
+photo-storage half of §4.2 — `handover_photos`, retention, and the durability
+of damage evidence years later — has a buy option that has not been examined.
+Either dismiss it here with a reason, or record it as open. Skipping it leaves
+§1.5 in the document with nothing depending on it.
+
+**Amendment 2 — neither side is costed.** "A narrow phase-2 build against an
+API-tier integration plus permanent reconciliation" is the correct framing, and
+it is not yet a comparison. Nothing in this section estimates the phase-2 build:
+tables, screens, and the tablet flow in §4.2. A decision taken deliberately
+before phase 2 should carry that estimate, or it cannot be checked later against
+what the build actually cost — which is the only way the reopening gates ever
+get exercised honestly.
+
+**Amendment 3 — say that the gates are near-prohibitive.** Five conditions, all
+demonstrated in a trial rather than claimed. That is a defensible bar for a
+system of record, and it is close to unreachable in practice. As written the
+section implies a live option. Stating plainly that reopening is unlikely, and
+that the gates exist to make the decision falsifiable rather than to invite a
+vendor evaluation, is more honest and does not weaken the decision.
+
+**Minor.** "only IOS Rentals and Wheelsys (§1.1)" — IOS Rentals has no section
+of its own; it appears in the §2 table and the header note. Inherited from my
+own text, not introduced here.
+
+**Not disputed:** §7.1's phasing and its exclusion list; the commission snapshot
+on the reservation; commission payable only after a returned and paid rental
+with explicit ledger reversals; §7.2 placing area 5 before the phase-2 migration
+because legal determines what is lawful to store and charge; and the frozen-pane
+closure criteria, which correctly refuse stylesheet rules, unit tests and
+hand-written reproductions as evidence.
+
+
+#### Architect adjudication — 26 August 2026
+
+The review above was right to raise capture sourcing and wrong to leave it open.
+`AGENTS.md` asks the architect for a section that can be built from without
+asking questions; "either dismiss it here or record it as open" is the opposite
+of that. This resolves it.
+
+**Anadyon remains the system of record** for handovers, damage observations and
+evidence metadata. A capture provider may later act as an *input adapter*, but
+Anadyon always ingests and retains its own durable copy of the original
+evidence. It never depends on an expiring vendor URL, and no vendor holds the
+only copy of a photograph that has to defend a charge years later.
+
+**One bounded evaluation, inside Gate 0**, before the native capture UI is
+built: two business days, Record360 only. It must produce, in writing:
+
+- pricing for 29 mixed assets;
+- DPA, data location and retention terms;
+- complete media export terms;
+- API and webhook access terms; and
+- proof that cars, scooters and bicycles can carry *different* inspection
+  templates.
+
+If any of those is unavailable, or a real iPad and Android trial does not
+succeed, the implementer proceeds with native capture under §4.2. The
+evaluation does not reopen the decision to build the counter here, and must not
+delay the rest of phase 1.
+
+**Two corrections to the review's own reasoning, accepted.** "A file and an ID"
+understated the work: an adapter still needs vehicle mapping, task creation,
+outbound reservation context, webhook authentication and replay handling,
+lifecycle and status mapping, media retrieval and retention, template version
+mapping, and GDPR export and deletion. And the three vendors in §1.5 are not
+interchangeable for this purpose — ProovStation and Self-Inspection sell
+AI-assisted damage analysis, which §8 declines, so only Record360 fits the
+adapter shape. Naming all three as one option was imprecise.
+
+**Costing.** No speculative figure is inserted here. Gate 0 produces a work
+breakdown covering database and functions, storage and evidence handling, the
+tablet capture UI, damage and adjustment workflows, automated and
+physical-device testing, and rollout with ongoing support — then a three-year
+native-build against capture-vendor total. A decision recorded before phase 2
+can only be checked afterwards if the estimate exists.
 
 **Sources:** [carceo.pro](https://carceo.pro/) ·
 [HQ Rental via SoftwareAdvice](https://www.softwareadvice.com/retail/hq-rental-profile/) ·
 [HQRent feature overview](https://hqrent.com/rental-features) ·
 [Rentware via Capterra](https://www.capterra.com/p/182136/Rentware/)
+
+---
+
+### 1.9 Benchmark stop rule
+
+The benchmark stops at sixteen systems. No product is added merely because it
+exists or repeats a capability already represented here. Add one only when
+primary vendor evidence would change one of these decisions: build versus buy
+the counter; Greek fiscalisation; mixed-fleet support; the local partner
+channel; or a deliberate exclusion in §8. If it changes no decision, recording
+it creates maintenance rather than knowledge.
+
+---
+
+### 1.10 The Greek specialist — **GoCars.online**
+
+*Added 26 August 2026, and immediately downgraded — read the epistemic note
+before using anything here.*
+
+A Greek vendor selling rental software into this exact market. It qualifies for
+inclusion under §1.9 because it bears on Greek fiscalisation, mixed-fleet
+support and the local partner channel — three of the five named triggers.
+
+**Vendor claims, none independently verified:** a Digital Client Registry with
+real-time myAADE and myDATA submission; electronic contracts with e-signature;
+an agent portal with per-agent sales tracking and commission reporting; Greek
+bank rails (Piraeus, Alpha, Eurobank, National) alongside Viva Wallet, Stripe
+and PayPal; a customer self-service portal; and booking, pricing and reporting
+tooling. Pricing is not published.
+
+#### Epistemic note — why none of that is treated as established
+
+The first pass over the vendor's feature page produced a confident table
+including bicycle support, and the absence of any damage or condition-capture
+feature. **A second read of the same page reproduced neither.** It found no
+mention of bicycles, motorcycles, an API, damage records or photo check-in at
+all.
+
+One of those reads is wrong and there is no way to tell which from here. What
+can be said is that the section was written as though a summary were evidence,
+which is the failure `DEFINING-STATEMENTS.md` §8 exists to prevent, and it was
+then used to weaken three arguments in §1.8.
+
+Specifically flagged as **unverified**, not as absent:
+
+- **Bicycles.** "Bikes" in Greek marketing commonly means motorcycles. Cars are
+  clearly supported; motorcycles probably; bicycles unknown.
+- **An API.** Reported elsewhere as available "upon agreement" — scope,
+  availability and contractual access all unknown.
+- **Damage records and photo/video check-in.** Reported elsewhere as existing
+  and as *upcoming* respectively. The earlier claim here that GoCars has no
+  condition capture was not supportable; a feature page that does not mention
+  something is not a vendor that does not have it.
+
+**Consequence for §1.8.** The arguments there are annotated rather than
+rewritten: an unverified vendor claim is not grounds to withdraw a decision, and
+it is not grounds to leave a superseded statement standing either. See the
+annotations in §1.8 and the gate in §7.1a.
+
+**Source:** [gocars.online/charaktiristika](https://gocars.online/charaktiristika/)
+— one page, read twice, with different results.
 
 ---
 
@@ -332,31 +538,436 @@ vehicle_damages     description, severity, repair cost, charged_to_customer,
 
 ```
 rental_handovers
-  id, reservation_id, direction ('out' | 'in'),
-  occurred_at, staff_name,
-  odometer_km, fuel_eighths (0-8, as the gauge reads),
-  cleanliness ('clean' | 'acceptable' | 'poor'),
-  notes, signature_url, created_at
+  id uuid PK
+  reservation_id uuid NOT NULL FK reservations ON DELETE RESTRICT
+  vehicle_id uuid NOT NULL FK vehicles ON DELETE RESTRICT
+  direction ('out' | 'in')
+  status ('draft' | 'completed' | 'voided')
+  client_operation_id uuid UNIQUE NOT NULL
+  inspection_template_id uuid NOT NULL
+  created_by, completed_by uuid FK auth.users ON DELETE SET NULL
+  staff_name_snapshot text
+  occurred_at, completed_at, created_at, updated_at timestamptz
+  UNIQUE (id, inspection_template_id)        -- referenced by handover_photos
+  odometer_km integer NULL CHECK >= 0
+  fuel_eighths smallint NULL CHECK 0-8
+  cleanliness ('clean' | 'acceptable' | 'poor') NULL
+  notes, void_reason
 
 handover_photos
-  id, handover_id, angle ('front'|'rear'|'left'|'right'|'interior'|'other'),
-  photo_url, taken_at
+  id uuid PK, handover_id uuid NOT NULL FK rental_handovers
+  inspection_template_id uuid NOT NULL      -- carried so the pair below can be enforced
+  template_view_id uuid NOT NULL, sequence smallint NOT NULL
+  FK (handover_id, inspection_template_id) -> rental_handovers (id, inspection_template_id)
+  FK (inspection_template_id, template_view_id) -> inspection_template_views (template_id, id)
+  object_path text UNIQUE NOT NULL, mime_type, byte_size, width_px, height_px
+  sha256, captured_at, uploaded_at, captured_by
+  UNIQUE (handover_id, id)                   -- referenced by handover_damage_photos
+
+inspection_templates
+  id, vehicle_category, version, active, created_at
+
+inspection_template_views
+  id, template_id, view_code, label, sort_order, required
+  UNIQUE (template_id, view_code)
+  UNIQUE (template_id, id)                   -- referenced by handover_photos
+
+handover_damage_observations
+  id, handover_id, damage_id FK vehicle_damages,
+  observation ('pre_existing'|'unchanged'|'worsened'|'new'), notes
+  UNIQUE (handover_id, damage_id)
+  UNIQUE (handover_id, id)                   -- referenced by handover_damage_photos
+
+handover_damage_photos
+  handover_id uuid NOT NULL                 -- carried so both sides can be pinned
+  observation_id, photo_id
+  PRIMARY KEY (observation_id, photo_id)
+  FK (handover_id, observation_id) -> handover_damage_observations (handover_id, id)
+  FK (handover_id, photo_id)       -> handover_photos (handover_id, id)
+
+reservation_adjustments
+  id, reservation_id, handover_id, damage_id NULL,
+  kind ('fuel'|'mileage'|'damage'|'cleaning'|'other'),
+  description, quantity, unit, unit_rate, amount numeric(10,2) CHECK >= 0,
+  currency 'EUR', calculation_snapshot jsonb,
+  status ('proposed'|'approved'|'waived'|'posted'),
+  approved_by, approved_at, waived_reason, posted_at, created_at
+
+rental_handover_events
+  id, handover_id, event_type ('completed'|'corrected'|'voided'),
+  actor_user_id, reason, before_state jsonb, after_state jsonb, created_at
 ```
 
-One handover row per direction; a reservation has at most two, and the
-difference between them is the whole story of the rental — distance, fuel,
-condition.
+**Verified starting state, 25 August 2026:** the live database has
+`reservations`, `vehicles`, `vehicle_damages` and `vehicle_costs`; it does not
+have `rental_handovers` or `handover_photos`. The private
+`reservation-documents` bucket exists. Phase 2 therefore adds new structures;
+it must not repurpose identity-document storage or claim the counter schema is
+already present.
+
+One non-voided handover per reservation and direction is enforced with a
+partial unique index. `client_operation_id` makes a tablet retry return the
+same draft/completed handover rather than create another. `vehicle_id` is
+stored on the handover even though the reservation also has it: it is the
+physical unit that was actually presented, and later reallocation must not
+rewrite history.
+
+`staff_name` alone was wrong. The actor is the authenticated user ID; the name
+snapshot preserves what staff saw if that user is later renamed or removed.
+
+`signature_url` was also wrong. Signature belongs to the versioned rental
+agreement in phase 3, not to an odometer/fuel record, and a signed URL expires.
+Phase 2 may require the existing `reservations.agreement_signed_at` (including
+the current paper process) before check-out, but it does not invent a second
+signature source.
 
 Photographs are a table rather than columns because the count varies and angles
 must be comparable between out and in. `photo_1..photo_6` would make the
-comparison positional and fragile.
+comparison positional and fragile. The comparison set is a versioned template,
+because a car, scooter and bicycle do not require the same views. Both the out
+and in handover for one reservation use the same template version.
+
+Photographs store the immutable private Storage object path, never a public or
+signed URL. `captured_at` is useful device metadata but `uploaded_at` is the
+server evidence time. MIME type, byte size, dimensions and SHA-256 are recorded
+so the evidence can be validated and an object replacement detected. The
+private `handover-photos` bucket uses UUID paths, an explicit size/MIME allowlist
+and no direct `anon`/`authenticated` policies; reads and writes go through the
+authorised admin API.
 
 **Fuel in eighths:** what the gauge shows and what staff read without
-arithmetic. A percentage invites false precision and argument.
+arithmetic. A percentage invites false precision and argument. It is nullable
+for bicycles and any vehicle without a fuel gauge; the finalisation service
+decides required fields from the assigned vehicle category. Odometer is also
+nullable where the physical unit has no instrument. Do not write invented zero
+readings to satisfy a form.
+
+`vehicle_damages` remains the lifecycle record: discovered, attributed,
+charged/absorbed, repaired. A handover observation is the immutable statement
+of what staff saw at that moment. A new check-in damage creates the damage and
+its `new` observation in the same database transaction; an out handover records
+the open damage rows as `pre_existing`. New code stops writing the legacy
+single `vehicle_damages.photo_url`; evidence is linked through
+`handover_damage_photos` so one damage may have several before/after/detail
+images.
+
+Raw facts and money are deliberately separate. Fuel, mileage and damage do not
+silently alter the original quoted total. They create itemised
+`reservation_adjustments`; approval or waiver is explicit and auditable. The
+customer balance is the agreed rental amount plus approved adjustments minus
+payments. A waived item remains visible rather than being deleted.
+
+Phase 2 does **not** invent automatic fuel or mileage tariffs. Automation needs
+operator-approved tank capacities, included-distance terms, per-unit rates and
+customer wording that do not yet exist. The first release records the measured
+difference and lets authorised staff enter/approve an itemised adjustment;
+`unit_rate` and `calculation_snapshot` preserve how that amount was reached.
+`posted` means transferred to the reservation/invoice balance, not that a card
+was charged. Payment remains in the payment system and no handover action may
+charge a stored payment method automatically.
+
+All times are stored as `timestamptz` and displayed in Europe/Athens for the
+Zakynthos operation. Completion time is server-authored. If staff record an
+earlier real-world occurrence after a connectivity delay, the difference and
+reason are written to the event log; device time alone is not legal evidence.
+
+**Finalisation rules — one short server-side transaction:**
+
+1. Lock the reservation and assigned vehicle; never call Storage, email or a
+   payment provider while locks are held.
+2. Check-out requires a confirmed reservation, an assigned eligible vehicle,
+   no maintenance/statutory/date block, a non-expired driving licence, the
+   required template views, a cleanliness value (with notes when `poor`) and a
+   recorded agreement signature. It atomically completes the out handover and
+   changes the reservation to `active`.
+3. Check-in requires an `active` reservation and a completed out handover. It
+   validates inbound odometer against outbound, creates any new damage and
+   proposed adjustments, updates `vehicles.odometer_km`, completes the in
+   handover and changes the reservation to `returned`.
+4. A completed handover is not normally editable or deletable. A correction
+   requires a reason and writes before/after state to
+   `rental_handover_events` in the same transaction. Voiding is the same kind
+   of audited action, not a DELETE.
+5. Every foreign key is indexed. Operational indexes are
+   `(reservation_id, direction)`, `(vehicle_id, completed_at DESC)`,
+   `(handover_id, template_view_id)` and partial indexes for drafts/proposed
+   adjustments. The expected queries are written before adding more indexes.
+6. Every new public-schema table has RLS enabled and all privileges revoked
+   from `PUBLIC`, `anon` and `authenticated`. The browser never receives the
+   service-role key.
+
+   **Finalisation runs through a two-layer pattern, because a private schema is
+   not reachable the way this codebase calls the database.** All nine existing
+   call sites use `supabaseAdmin.rpc(...)`, which goes through the Supabase Data
+   API, and that API only exposes configured schemas. There is no Postgres
+   driver in `package.json`. A function in a genuinely non-exposed schema would
+   therefore be uncallable — the earlier wording here specified something that
+   could not be built.
+
+   - a **thin gateway function in `public`**, which is what the server route
+     calls;
+   - it verifies `auth.uid()` against database-held staff membership — never a
+     JWT claim — then calls the real implementation in a private schema;
+   - `SECURITY DEFINER` only where it is actually required, always with
+     `SET search_path = ''` and every object fully qualified. A `SECURITY
+     DEFINER` function with a mutable search_path is a privilege-escalation
+     path, not a convenience;
+   - EXECUTE revoked from `PUBLIC` and `anon`, granted only to the role that
+     needs it.
+
+   Grants are stated explicitly in the migration. Supabase no longer guarantees
+   that a newly created public table is reachable through the Data API — grants
+   and RLS are separate controls, and assuming either implies the other is how
+   a table ends up either unreadable or over-exposed.
+7. **A photo cannot reference a view from a different template.**
+   `handover_photos` carries `inspection_template_id`, with a composite foreign
+   key to `rental_handovers (id, inspection_template_id)` and another to
+   `inspection_template_views (template_id, id)`. Without both, a scooter photo
+   can be filed against a car's template view and the out/in comparison silently
+   compares different things.
+   Postgres refuses a composite foreign key unless the referenced columns carry
+   a unique constraint, even where one of them is already the primary key — so
+   `rental_handovers (id, inspection_template_id)` and
+   `inspection_template_views (template_id, id)` each need one adding. They are
+   in the schema above.
+8. **The inbound handover uses the outbound handover's exact template.** The
+   rule is stated elsewhere in this section and nothing enforced it: the schema
+   lets each handover pick its own `inspection_template_id`, so an out/in
+   comparison could silently compare a car template against a scooter one. The
+   finalisation function, holding the reservation lock, requires that where a
+   completed `direction = 'out'` handover exists for the reservation, the
+   inbound handover's `inspection_template_id` equals it — and refuses
+   otherwise. A regression test covers the concurrent case, where two
+   finalisations race, not only the accidental one.
+9. **A damage photo belongs to the same handover as its observation.**
+   `handover_damage_photos` carries `handover_id`, with composite foreign keys
+   to `handover_damage_observations (handover_id, id)` and
+   `handover_photos (handover_id, id)`. Evidence attached across handovers is
+   worse than no evidence: it looks defensible and is not.
+
+Photo upload is a short saga, not a cross-service transaction: create/reuse the
+draft, upload each object, persist verified metadata, then finalise only when
+required objects exist. A failed upload leaves a resumable draft; a scheduled
+cleanup may remove abandoned draft objects after the documented retention
+window. Evidence belonging to a completed handover follows the legal retention
+policy and is not removed by ordinary customer or reservation cleanup.
+
+At rollout, active rentals that began before phase 2 are not given fabricated
+photographs or readings. Staff either capture an explicit
+`legacy_cutover` baseline before return or complete a check-in marked
+`baseline_missing` with a mandatory reason. The UI and reporting must keep
+those rows distinguishable from complete evidence.
 
 **Built for a tablet, not a desktop.** Rent Centric's "Mobile Agent App" and
 Wheelsys's tablet-friendly counter both exist because this is done standing next
 to a car, not at a desk.
+
+**Phase-2 acceptance gate:** the real authenticated tablet flow must prove
+draft resume, double-submit idempotency, simultaneous finalisation conflict,
+required-view enforcement, out/in comparison, damage creation, adjustment
+approval/waiver and both reservation status transitions. Each regression test
+is first run against unfixed code and seen to fail. At least one physical iPad
+and one Android Chrome device complete the flow; viewport emulation alone is
+not evidence of touch behaviour.
+
+
+### 4.2a Evidence survives a restore, or it is not evidence
+
+*Added 26 August 2026, corrected 27 August after reading what already exists.*
+
+**What is already in place, and is better than this section first implied.**
+`.github/workflows/backup.yml` runs nightly: a full dump including roles and
+schema — not a data-only export, which is what turns a restore into a
+reconstruction — refused if empty or truncated, compressed and encrypted with
+`openssl aes-256-cbc` at 600k iterations, **verified to decrypt and list before
+it is trusted**, uploaded to Cloudflare R2 with a monthly copy retained, pruned,
+and alerting to Telegram *only on failure*, because a nightly success message
+trains people to ignore it.
+
+That is a real backup with a real recovery check. The gap is narrower and
+sharper than "backups are missing".
+
+**The gap: Supabase Storage objects are not backed up.** Nothing in
+`backup.yml` or `scripts/backup.mjs` touches `/storage/v1` or a Supabase
+bucket — the "storage" in that workflow is R2, the destination. Today that costs
+nothing, because no bucket holds anything that matters. **Phase 2 changes that
+completely.** A restore would return every handover row, every damage
+observation and every photo *reference*, and not one photograph: a system that
+looks intact and cannot defend a single charge.
+
+Before phase 2 ships:
+
+- the photo bucket is included in the nightly job, encrypted, to the same R2
+  destination;
+- the bucket has versioning or overwrite protection, so a re-upload cannot
+  quietly replace the image a dispute depends on;
+- metadata and the recorded SHA-256 hashes are backed up in step with the
+  objects, so a half-restored pair is detectable;
+- retention and deletion follow §4.2b rather than living only in the backup;
+- the restore is **tested, not documented**, and the test asserts a restored
+  file still hashes to its record.
+
+That last check is the one that matters. A backup that restores a file which no
+longer matches its hash has restored something, but not evidence.
+
+### 4.2b Retention and destruction
+
+*Added 27 August 2026.* **The published privacy policy already promises what the
+system cannot do.** It offers erasure under Article 17 and states retention
+limits. The codebase has no retention field, no purge job and no erasure path —
+`grep` finds the promise in `lib/i18n/content/legal.ts` and nothing that
+performs it. Phase 2 makes this materially worse by adding identity documents
+and photographs of vehicles taken with customers present.
+
+The tables already hold `dob`, `driving_licence_number`, `driving_licence_expiry`,
+`passport_number`, `passport_expiry` and `vat_number`.
+
+**The periods are area 5's to determine, not this document's.** Greek accounting
+and myDATA obligations, the rental agreement itself, and identity documents
+almost certainly carry different lifetimes, and one of them being longest does
+not license keeping everything that long. What this section fixes is that the
+*mechanism* is missing regardless of what the periods turn out to be.
+
+Required before phase 2 ships:
+
+- **A retention class on every table holding personal data** — not a global
+  policy. Accounting records, agreements, identity documents and marketing
+  consent expire on different clocks.
+- **A scheduled purge that runs and leaves a record that it ran.** A purge
+  nobody can prove executed is indistinguishable from one that never did.
+- **An erasure path** that satisfies a real Article 17 request: it deletes what
+  it may, retains what it must, and returns to the requester which of the two
+  applied to each category. "We deleted everything" is a lie whenever tax law
+  says otherwise.
+- **Destruction covers Storage as well as rows.** A purged `handover_photos`
+  row leaves the JPEG in the bucket. The object must go, and the deletion must
+  be verifiable.
+- **Anonymisation where deletion is not permitted** — a rental that must survive
+  for tax purposes does not need the driver's passport number attached to it.
+- **The privacy policy is re-read against what the system actually does**, in
+  area 5. Whichever of the two is wrong gets corrected; today they disagree.
+
+---
+
+### 4.2c The tablet: capture, and whether it can take money
+
+*Added 27 August 2026, answering two operational questions directly.*
+
+**Onboarding and delivery on one tablet: yes, and that is already the design.**
+§4.2 is tablet-first. One device at the car handles identity capture, the
+condition photographs, odometer and fuel, the damage acknowledgement and the
+signature, then finalises. The §4.2 acceptance gate requires a real iPad and a
+real Android device to complete that flow before it ships — viewport emulation
+does not count.
+
+**The same tablet taking payment is a different question, and the answer is
+probably no on an iPad.**
+
+- **Apple's Tap to Pay is iPhone-only.** An iPad cannot accept a contactless
+  card by itself. *Verify with the acquirer before committing hardware* — this
+  is stated from general platform knowledge, not from a quote.
+- **Android soft-POS can.** A suitable Android tablet or phone can accept
+  contactless without extra hardware, which makes the "one device at the
+  airport" model achievable on Android and not on iPad.
+- **A paired reader works on either.** SumUp, Viva Wallet or Stripe Terminal
+  over Bluetooth — a second object to carry, charge and not lose, but it works
+  with the tablet already being used for capture.
+- **A payment link needs no hardware at all.** The customer pays on their own
+  phone; Stripe links already exist in this system. It fails when the customer
+  has no data at the airport, which on an island is not rare.
+
+**What this means for delivery away from the office:** the decision is hardware,
+not software, and it is a Gate 0 decision because it determines what the counter
+UI must support. The system should treat "payment taken" as a fact recorded
+against the reservation, whatever instrument produced it — a reader, a soft-POS
+tap, or a link the customer paid an hour earlier. Coupling the counter flow to
+one payment method would make a hardware choice expensive to reverse.
+
+Viva Wallet is worth evaluating first: it is Greek, already appears in the
+market survey, and covers both soft-POS and readers.
+
+---
+
+
+### 4.2d Producing a rental's full file, on demand
+
+*Added 27 August 2026, in answer to: what happens when a tax inspection asks for
+everything about one rental?*
+
+Today the answer is a person opening several admin screens and a storage bucket
+and hoping they found all of it. That is a bad answer during an inspection and a
+worse one during a dispute, and it gets harder the moment phase 2 adds
+photographs.
+
+**One export, keyed by reservation, producing everything that rental touched:**
+
+- the reservation, its quote, and the customer record as it stood;
+- the signed agreement, with its template version;
+- both handovers — odometer, fuel, cleanliness, staff, timestamps;
+- every photograph, as files, with their SHA-256 hashes and capture times;
+- damage observations and any adjustments, with their reasons;
+- payments, refunds and deposit movements;
+- the AADE submission and the invoice, with their identifiers;
+- every email and SMS sent, with delivery state from
+  `booking_email_deliveries`;
+- an index file listing all of the above with hashes, so the package can be
+  shown to be complete and unaltered.
+
+**Design constraints that matter more than the format.** It is generated from
+the database, never assembled by hand — a hand-built package is unreproducible
+and unverifiable. It is idempotent: the same reservation exported twice
+produces the same content, so two exports can be compared. Producing one is an
+admin action that is itself logged, because exporting a customer's complete
+file is a privileged act. And it respects §4.2b: an export run after a purge
+shows what was destroyed and under which rule, rather than silently omitting it.
+
+This also answers an Article 15 subject-access request, which asks for
+materially the same package with a different recipient. Building it once serves
+both.
+
+---
+
+### 4.2e How long identity documents may be kept — and the distinction that matters
+
+*Added 27 August 2026. Researched, not settled — area 5 decides.*
+
+The instinct is that a rental business must keep licence and passport images for
+years. The research does not support that as stated, and the distinction is the
+whole point:
+
+- **The transaction record** — the agreement, the invoice, the accounting
+  entries — is what tax and commercial law reach. Greek rental operators'
+  published policies commonly state **five years from completion of the rental**
+  for booking and contract data, citing Greek tax and commercial obligations.
+- **A photograph of a passport is not the transaction record.** The obligation
+  is to have verified identity and to hold the contract; it does not
+  automatically license storing the image of the document for the same period.
+  Under GDPR retention is purpose-driven, not time-driven: data may be kept only
+  while a lawful basis still applies, and "the tax code says five years for the
+  invoice" is not a basis for holding a passport scan for five years.
+
+**Therefore the system must treat them as separate retention classes**, which is
+what §4.2b requires. The agreement and the invoice live on one clock; identity
+images live on their own, probably much shorter, quite possibly "verify, record
+that verification happened, and do not store the image at all".
+
+**What area 5 must return**, and what this document will not guess:
+
+- the retention period for each class — agreement, invoice, identity image,
+  damage evidence, marketing consent;
+- whether storing identity images has a lawful basis at all, or whether
+  recording *that* a licence was checked, its number and its expiry is
+  sufficient;
+- whether damage photographs may be kept beyond the rental's tax life on a
+  legitimate-interest basis for dispute defence, and for how long;
+- and whether any of it changes when the driver is not the customer.
+
+I could not find a Hellenic DPA decision specifically about car-rental identity
+copies. **Absence of a decision is not permission** — that is the same error as
+reading a silent feature page as an absent feature (§1.10). This needs a Greek
+practitioner, not more searching.
+
+---
 
 ### 4.3 Stop-sells
 
@@ -389,10 +1000,13 @@ the ones working.
 
 ### 4.5 Schema debt found while writing this
 
-~~`customers` carries both `licence_number` and `driving_licence_number`.~~
-**Resolved.** Only `driving_licence_number` survives in the migrations, and it is
-the column the code reads and writes throughout. Safe to build licence
-verification against.
+`driving_licence_number` is the only column in the repository baseline and the
+only one application code should read or write. **Live drift remains:** on 25
+August 2026 the production `customers` table still contained both legacy
+`licence_number` and canonical `driving_licence_number`. Phase 1 must verify the
+legacy column is unused/empty, backfill any value that exists, then remove it
+through the normal reviewed migration-and-paste workflow. Licence verification
+must use `driving_licence_number`; the legacy column is not a fallback source.
 
 ---
 
@@ -434,6 +1048,46 @@ calendar but no operational day view.
 
 ---
 
+
+### 5.3 When a dependency is down
+
+*Added 27 August 2026. Nothing in this document previously said what should
+happen when something external fails, despite one outage having already
+happened.*
+
+On 23 August the admin became unreachable because middleware auth calls stalled.
+The cause was never established. The fix — an 8-second timeout that denies
+rather than hangs — is in `proxy.ts`, and the incident is written up in
+`INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md`. What was missing is the rule that fix
+was an instance of.
+
+**The rule: security fails closed, convenience degrades, money never silently
+succeeds.**
+
+| Dependency | On failure |
+|---|---|
+| **Supabase auth** | Deny. An unresolved role is not a staff role. Already implemented: 8s timeout, `?unavailable=1`, 503. |
+| **Supabase data** | Read paths show a stated error, never an empty list — "no reservations today" and "we cannot reach the database" must never look alike. Write paths refuse and say so. |
+| **Storage** | A handover cannot finalise without its photographs. Hold the draft, let staff retry; do not complete a handover whose evidence did not upload. |
+| **Resend** | Queue and retry. Delivery state is already derived from `booking_email_deliveries`, so a failure is visible rather than assumed — `pending` is never read as sent. |
+| **Stripe / Wise** | Never mark paid on a timeout. An unconfirmed payment stays unconfirmed; the webhook is the source of truth, and it is idempotent. |
+| **SMS** | Degrade silently. A confirmation SMS that fails must not block a booking. |
+| **AADE** | Queue for resubmission and surface the backlog. A statutory submission that failed is an operational task, not a lost message. |
+| **Competitor feeds** | Show the data's age. Stale rates presented as current are worse than no rates. |
+
+**Two rules that apply everywhere.** Every external call carries a timeout —
+an unbounded call is an outage waiting for a slow day. And degraded state is
+shown, not hidden: the operator needs to know the difference between quiet and
+broken, which is precisely the distinction the August incident destroyed.
+
+**Not covered here:** there is no failover *target*. Supabase Free has no
+replica and the project has no second region. This section is about behaving
+correctly during an outage, not surviving one transparently. Anything stronger
+is a hosting decision with a cost attached, and it belongs in Gate 0 alongside
+the backup requirements in §4.2a.
+
+---
+
 ## 6. Greek-specific obligations
 
 Why a Greek product wins locally, and where Anadyon already competes:
@@ -452,22 +1106,161 @@ Why a Greek product wins locally, and where Anadyon already competes:
 
 | Phase | Scope | Rationale |
 |---|---|---|
-| **1** | Fleet screen — statutory dates with expiry warnings, cost entry, damage log, margin per vehicle | data exists and is invisible; expiry carries fines and voids insurance |
-| **2** | Check-out / check-in with odometer, fuel, condition photos — tablet-first | the category's centre of gravity; source of every damage dispute |
-| **3** | Stop-sells + statutory gating + licence expiry | prevents renting an uninsured vehicle or to an invalid licence |
-| **4** | Digital agreement and signature | legally required for the insurance clause |
+| **Gate 0** | Clear audit area 5; confirm the counter retention, agreement, insurance and adjustment wording with counsel/accountant | area 5 held a blocker and directly determines what phase 2 may collect, retain and charge |
+| **1** | Finish the Fleet foundation; add `vehicle_blocks`, statutory/maintenance availability gating and a licence-expiry check using the existing canonical field; close the live licence-column drift | the counter must not be capable of releasing a blocked vehicle or an invalid driver |
+| **2** | Check-out / check-in facts, template photos, damage observations and itemised adjustments — tablet-first, exactly as §4.2 | the category's centre of gravity and the source of every later contract, charge, damage and service decision |
+| **3** | Versioned digital agreement and signature | legally required for the insurance clause; consumes phase-2 handover and evidence IDs rather than duplicating them |
+| **4** | Partner-channel pilot — hotel/agency accounts, on-behalf booking, retail availability and commission ledger | distribution is the only material local-competitor gap, but it must not add volume before operational and legal controls exist |
 | **5** | Reporting — utilisation, RevPAV, margin per vehicle | needs phase 2 data to mean anything |
 | **6** | Alerts and daily plan — expiry, overdue return, service due | cheap once the data exists |
 
+The earlier order placed all stop-sells after phase 2. That was wrong at the
+finalisation boundary: a check-out action that does not consult maintenance,
+statutory and date blocks can release a vehicle the system already knows should
+not move. The safety kernel therefore moves into phase 1. Phase 2 remains the
+largest unlock and follows immediately; reporting still waits for real
+handover data.
+
+### 7.1 Partner channel — promoted, but not ahead of the counter
+
+The partner channel leaves the deferred list and becomes phase 4. It does not
+jump Gate 0, vehicle/driver gating, phase 2 or the signed-agreement work. More
+bookings into an incomplete counter increase operational risk; after those
+controls, the channel deserves priority over reporting because it can create
+demand rather than only describe it.
+
+The phase-4 MVP is deliberately narrower than an OTA:
+
+- active hotel/travel-agency accounts and named partner users;
+- current retail category availability through the same availability boundary
+  used by the public site;
+- a partner creates a pending booking on the guest's behalf through the same
+  atomic booking service — never direct table writes;
+- the reservation stores partner attribution and the commission terms as a
+  snapshot, so later contract changes do not rewrite old bookings;
+- commission is a percentage of the final vehicle subtotal after discounts,
+  excluding deposits, extras, fuel/mileage/damage/cleaning adjustments and
+  refunds; VAT/accounting treatment is a Gate-0 decision before coding;
+- commission becomes payable only after a returned, paid rental; cancellation,
+  no-show or refund reverses/accrues an explicit ledger entry; and
+- monthly statements, with export, are generated from the ledger rather than a
+  mutable total on the partner account.
+
+Reuse Supabase Auth, not the internal `admin`/`staff` authorisation role. An
+external partner is a tenant: `partner_accounts` owns `partner_users`, bookings
+and statements, and a partner can read only rows belonging to its account.
+
+**Authorisation derives from database membership** — `partner_users.user_id =
+auth.uid()` — and never from a JWT claim in `user_metadata`, which the user can
+edit. This project has already leaked customer PII once through a policy that
+trusted the wrong thing; a partner who can rewrite their own tenant id is the
+same failure with a different table. The
+server remains the normal write path; tenant-scoped RLS is defence in depth.
+No partner receives admin navigation, fleet cost data, competitor rates,
+customer marketing lists or another partner's customer data.
+
+Explicitly excluded from the MVP: partner-owned vehicles, special partner rate
+cards, OTA/broker feeds, multi-level commissions and automated payouts. Those
+are different business models, not hidden phase-4 requirements.
+
+### 7.1a Gate — buy or build the partner channel
+
+*Added 26 August 2026.* §1.10 raised build-versus-buy for the partner channel
+and §7.1 tells the implementer to build it. Two instructions, one of them
+wrong, which is exactly the ambiguity the counter decision was criticised for.
+This resolves it the same way.
+
+**One bounded evaluation, two business days, GoCars only, before phase 4
+begins.** It must produce:
+
+- pricing for 29 mixed assets;
+- whether cars, scooters **and bicycles** are genuinely supported, not inferred
+  from the word "bikes";
+- actual API or export documentation, not "integration upon agreement";
+- **whether the partner portal can operate without moving the booking engine,
+  pricing and AADE paths onto their platform** — the decisive question;
+- commission export format, and proof that one partner cannot see another's
+  customers; and
+- whether the Digital Client Registry submission is automatic or an assisted
+  export.
+
+**If any of these is unavailable, phase 4 proceeds natively under §7.1, without
+further delay or a second vendor evaluation.** A partner portal that requires
+their booking engine is not an addition to Anadyon; it is a replacement, and
+§1.8 already decided against replacement.
+
+This gate concerns the partner channel only. It does not reopen the counter.
+
+### 7.2 Audit debt is a release gate, not another feature phase
+
+**Area 5 — content and legal — is cleared before the phase-2 migration is
+written.** It previously held a blocker and it determines agreement wording,
+damage/fuel/mileage charge authority, evidence retention, identity-document
+handling and partner commission/VAT treatment. Building those columns first
+would turn unreviewed assumptions into schema debt. The result must be graded
+in `docs/audits/`, with each old blocker either closed by evidence or carried as
+an explicit stop.
+
+**Area 2 — design — is graded now as the baseline and again at the phase-2
+preview gate.** It does not block this architecture document, but no counter UI
+ships merely because its database tests pass. The focused preview review covers
+standing tablet use, one-handed capture, sunlight contrast, touch targets,
+camera orientation, draft recovery, error visibility and the out/in comparison.
+The physical iPad and Android acceptance in §4.2 is part of that grade.
+
+Do not mark the existing admin frozen-pane defect closed from stylesheet rules,
+unit tests or a hand-written reproduction. `HANDOVER-ADMIN-FROZEN-PANES.md`
+records that those forms of evidence previously passed while the real page
+failed, and the owner has also reported the failure on Android Chrome. Closure
+requires measurement on the authenticated affected table, an unfixed-state
+reproduction that demonstrably fails, and physical iPad plus Android Chrome
+verification of the corrected state.
+
+This is intentionally asymmetric: legal/content can change what is lawful to
+store and charge, so it precedes the migration; design changes how the approved
+model is operated, so it can proceed in parallel but gates deployment.
+
 ### Deferred, worth revisiting
 
-- **Partner / affiliate channel** (EzCar, §1.6) — hotel and agency accounts with
-  live availability, booking on the guest's behalf, commission tracking and a
-  monthly statement. The one capability the *local* competition has and we do
-  not, and distribution rather than a feature on this island. Reuse the
-  existing role model rather than inventing a second one.
 - **Review-triggered coupons** (IOS Rentals) — retention loop, no equivalent here
 - **WhatsApp / out-of-hours capture** (RentingPilot) — suits island customers mid-journey
+- **Messaging channel and provider** — *amended 27 August 2026; the first
+  version of this entry compared per-message price and missed two things that
+  decide the outcome.*
+
+  **Sender ID registration is a gate, not a fee.** In Greece an alphanumeric
+  sender ID must be registered with the operators, and messages from an
+  unregistered ID are **rejected** — not relabelled, rejected. Twilio listing
+  "alphanumeric sender ID: free" refers to the charge, not the registration.
+  This system currently sends from `TWILIO_FROM_NUMBER`, a number rather than a
+  brand name, so it is unaffected today — and would walk straight into it the
+  moment anyone tries to send as "Anadyon". Any provider is therefore evaluated
+  first on whether it handles Greek sender-ID registration, and only then on
+  price.
+
+  **Viber changes the arithmetic.** Greek consumers use Viber heavily, and
+  Viber Business Messages fall back to SMS automatically when the recipient is
+  not reachable — one API, cheaper per message, richer content, and a Greek
+  customer far more likely to read it. A pure SMS comparison optimises the wrong
+  channel. Providers that bundle Viber-with-SMS-fallback natively (Sinch,
+  Infobip, and the Greek operators Apifon and Yuboto) are worth more than a
+  cheaper SMS-only rate.
+
+  Per-message SMS rates for reference, not as the deciding factor: **Twilio
+  $0.0657 to Greece** plus $1.15/month per number; **Yuboto €0.035–0.050**;
+  **Apifon from €0.008** at volume. Both Greek providers also keep the data in
+  the EU, which removes a transfer question.
+
+  `app/api/admin/sms/route.ts` is the only file importing `twilio`, so the swap
+  is contained — but the abstraction should become *channel*-agnostic rather
+  than provider-agnostic, since the likely destination is "send this
+  notification" resolving to Viber or SMS, not "send this SMS".
+
+  Before switching: written per-message quotes at real volume; confirmation the
+  provider registers Greek sender IDs on the operator's behalf; and Viber
+  Business Message pricing alongside SMS, since that is probably the channel
+  that matters.
+
 - **Nexi XPay / myPOS** (IOS Rentals) — Greek payment rails
 - **Customer portal** (Coastr, Rent Centric) — self-service booking management
 - **Scheduled email reports** (Wheelsys) — once reporting exists
@@ -492,6 +1285,13 @@ Decisions, not omissions:
   defensible; automated detection adds cost and its own dispute surface.
 - **Multi-currency, franchise, multi-location, subscription, P2P sharing, toll
   processing.** Answers to problems a single-island operator does not have.
+
+**Reviewed 25 August 2026: no exclusion changes.** The partner channel is not
+OTA distribution: it is a named local commercial relationship with attributable
+bookings and negotiated commission. Telematics still adds hardware before
+phase-2 readings show a manual-data problem; AI detection still adds a dispute
+surface without replacing evidence; and storing card numbers still crosses the
+PCI boundary for no operational benefit.
 
 ---
 
@@ -541,6 +1341,117 @@ produced with required fields missing is a **liability**, not a convenience.
 
 ---
 
+
+## 9a. Threat model
+
+*Added 27 August 2026. There was none, and the controls in this document were
+being chosen without a stated account of what they defend against.*
+
+This is not a formal STRIDE exercise. It names who would attack this system,
+what they would want, which control answers it, and — the part that matters —
+where the answer is currently thin.
+
+### Who, and what they want
+
+**1. The opportunistic customer.** Wants a cheaper rental or to avoid a damage
+charge. Manipulates the booking form, replays a promo code, or disputes damage
+they caused.
+
+*Answered:* pricing is recalculated server-side from the rates table and the
+client total is only compared, never trusted (§8b); promo use is a ledger with
+hold/redeem/release; seat limits are check constraints. **Phase 2 is the real
+answer to the damage half** — timestamped condition photographs are what make a
+charge defensible.
+
+*Thin:* until phase 2 ships, a damage dispute is one person's word against
+another's.
+
+**2. The credential thief.** Wants the admin. Phishes or reuses a staff
+password.
+
+*Answered:* Supabase Auth with MFA; roles from `app_metadata`, never
+user-editable metadata; an unresolved role denies; the proxy strips the role
+header from incoming requests so it cannot be spoofed; auth calls fail closed
+after 8 seconds.
+
+*Thin:* there is no session-anomaly signal — a login from an unusual place at
+an unusual hour looks like any other. And a stolen session is as good as the
+password until it expires.
+
+**3. The scraper.** Wants the fleet, the rates and the customer list.
+
+*Answered:* the anonymous-privileged-access hole was closed on 16 August;
+public tables are not exposed `TO anon`; RLS filters rows and grants are stated
+explicitly; quote lookups are rate-limited on the real IP, not a forgeable
+header.
+
+*Thin:* the public quote-by-reference path is deliberately unauthenticated.
+Reference entropy is the only control, and nobody has stated what it is.
+
+**4. The insider, malicious or careless.** A staff member exports the customer
+list, or deletes something that mattered.
+
+*Answered:* staff routing is method-aware, so read-only means read-only; rates
+now require an explicit edit session; the service-role key never reaches a
+browser.
+
+*Thin — and this is the weakest area.* There is no audit trail of *reads*.
+Nothing records that a staff member opened 400 customer records, and §4.2d's
+export makes that materially more consequential: one action, one file,
+everything about a customer. That export must be logged, which is why §4.2d
+says so.
+
+**5. The supply chain.** A compromised npm package, or a leaked key in a
+third-party integration.
+
+*Answered:* CodeQL and Dependabot run on every push; `npm ci` from a committed
+lockfile; a build-time guard refuses a production bundle carrying the reCAPTCHA
+test key.
+
+*Closed, and worth keeping for the shape of it.* On 16 August a plaintext
+Anthropic key was found in the HTTP headers of a Make.com scenario. The key was
+rotated and the Make scenarios have since been retired — both steps, which is
+the point: **retiring a scenario revokes nothing.** Make retains blueprints for
+disabled scenarios, and exports and collaborators' copies persist, so the
+exposure ends at the provider, never in the tool.
+
+*Thin, still:* **integrations outside this repo sit outside every control this
+document describes.** No CodeQL run, no Dependabot alert, no migration guard and
+no build-time check reaches a credential pasted into a third-party automation
+tool. This was the project's last real credential leak and it was found by
+reading a scenario, not by any gate. Nothing has changed about that.
+
+**6. The state, lawfully.** A tax inspection, or a subject-access request.
+
+*Answered by §4.2d* — one reproducible, hash-indexed export per rental.
+
+*Thin:* it does not exist yet, and §4.2b's retention rules do not either, so
+today the honest answer to "produce everything and nothing more" is that the
+system can do neither precisely.
+
+### What is deliberately out of scope
+
+Physical theft of a vehicle; card fraud, which sits with the acquirer under
+PCI SAQ-A precisely because no card number is ever stored here (§8); and denial
+of service, which is Vercel's edge and not something this application can
+usefully defend.
+
+### The three worth acting on first
+
+1. **Log privileged reads and exports** — the insider case is the least
+   defended, and §4.2d increases the blast radius of one click.
+2. **Inventory credentials held outside this repo**, and give them an owner and
+   a rotation date. The Make.com key was rotated and those scenarios retired,
+   but that exposure was found by reading a scenario — no gate here would have
+   caught it, and nothing says what else exists.
+3. **State the quote-reference entropy** and confirm it is sufficient, or add a
+   second factor to that path.
+
+None of these is phase-2 work. All three are cheaper than the counter and
+currently unowned.
+
+---
+
 ## 10. Revision history and what has shipped
 
 This document is revised in place. Each entry says what changed and why, so a
@@ -548,14 +1459,34 @@ reader six months out can follow the reasoning without re-deriving it.
 
 ### 25 August 2026
 
+**Counter architecture decided before phase 2.** Build the narrow counter in
+Anadyon and keep one operational source of truth; do not adopt a second system
+whose mixed-fleet and round-trip API behaviour are unverified. §4.2 now defines
+the implementable model, evidence storage, damage observations, adjustment
+ledger, idempotent finalisation, security boundary and real-device acceptance
+gate. The safety kernel moves before check-out, and the local partner channel
+moves from deferred to phase 4, ahead of reporting but behind the counter and
+agreement controls.
+
+**Live-schema claim corrected.** Production still carries legacy
+`customers.licence_number` beside canonical `driving_licence_number`; §4.5 no
+longer calls that debt resolved.
+
+**Benchmark frozen at sixteen.** A new vendor is added only when it changes a
+recorded decision, not because it repeats an existing feature list.
+
 **Added §1.6, the local field.** The eleven systems in §1 are what a Greek
 operator would *buy*. None of them is what our two tracked competitors *run*:
 `ionianrentals` and `motorclubzante` both resolve to `ezcar.eu` tenants — one
 product with two skins. Their ceiling is published rather than guessed, they
 have none of the counter workflow in §3, and the single capability they hold
-that we do not is the **affiliate channel**, now in §7 deferred.
+that we do not is the **affiliate channel**, now promoted to phase 4 in §7.
 
-**§4.5 schema debt resolved.** Only `driving_licence_number` survives.
+**§4.5 source-schema debt was initially recorded as resolved.** Only
+`driving_licence_number` survives in the repository baseline and application
+code. A later live-schema verification on the same date found the production
+legacy column still present; the correction and phase-1 action are recorded
+above rather than erasing how the false conclusion occurred.
 
 **Audits committed.** The three full-system audits moved into `docs/audits/`
 with the ten review areas they are scored against. They had lived outside
@@ -563,14 +1494,15 @@ version control. See `docs/audits/README.md`.
 
 **Added §1.7 and §1.8.** Three systems the original survey missed — CarCEO Pro,
 HQ Rental and Rentware. CarCEO publishes $129/month for unlimited vehicles
-covering most of §7, which raises a build-or-buy question §8 had never asked.
-Recorded, deliberately undecided.
+covering most of §7, which raised a build-or-buy question §8 had never asked.
+It was initially recorded undecided and resolved later the same day in the
+decision above.
 
 ### Shipped since 17 August — verified against the code, not the PR titles
 
-The build order in §7 is unchanged: none of this is counter work. What shipped
-was the integrity layer underneath it, most of it in response to something
-found rather than something planned.
+None of the phase work in §7 shipped in the integrity releases summarised
+below. What shipped was the layer underneath it, most of it in response to
+something found rather than something planned.
 
 | Area | What changed | Where |
 |---|---|---|
