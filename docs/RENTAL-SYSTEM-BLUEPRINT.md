@@ -1193,7 +1193,7 @@ Why a Greek product wins locally, and where Anadyon already competes:
 | Phase | Scope | Rationale |
 |---|---|---|
 | **Gate 0** | Clear audit area 5; confirm the counter retention, agreement, insurance and adjustment wording with counsel/accountant | area 5 held a blocker and directly determines what phase 2 may collect, retain and charge |
-| **1** | Finish the Fleet foundation; add `vehicle_blocks`, statutory/maintenance availability gating and a licence-expiry check using the existing canonical field; close the live licence-column drift | the counter must not be capable of releasing a blocked vehicle or an invalid driver |
+| **1** | ~~Finish the Fleet foundation~~ — **built 28 August, migrations not yet applied.** See §7.3 | the counter must not be capable of releasing a blocked vehicle or an invalid driver |
 | **2** | Check-out / check-in facts, template photos, damage observations and itemised adjustments — tablet-first, exactly as §4.2 | the category's centre of gravity and the source of every later contract, charge, damage and service decision |
 | **3** | Versioned digital agreement and signature | legally required for the insurance clause; consumes phase-2 handover and evidence IDs rather than duplicating them |
 | **4** | Partner-channel pilot — hotel/agency accounts, on-behalf booking, retail availability and commission ledger | distribution is the only material local-competitor gap, but it must not add volume before operational and legal controls exist |
@@ -1206,6 +1206,64 @@ statutory and date blocks can release a vehicle the system already knows should
 not move. The safety kernel therefore moves into phase 1. Phase 2 remains the
 largest unlock and follows immediately; reporting still waits for real
 handover data.
+
+### 7.3 Phase 1, as built
+
+*Added 28 August 2026 by the implementer. Written here because the handover is
+the document: the next agent should not have to reconstruct what phase 1 turned
+into from a branch.*
+
+All four parts are on `claude/pr59-collaboration-lwcnia`. **Two migrations are
+written and deliberately not applied** — `20260828120000_vehicle_blocks` with
+paste copy `035`, and `20260828140000_drop_legacy_licence_number` with `036`.
+Until they run, the vehicle-side gates are inert.
+
+- **`vehicle_blocks`** — dated, whole-day, inclusive at both ends, `ends_on`
+  null for open-ended. Reasons are a closed set: maintenance, statutory,
+  damage, hold, other. `vehicles.status` keeps its job (what the vehicle *is*
+  now, including retired); blocks carry what is true on which dates, which
+  `status` cannot express and which nobody remembers to reset.
+- **Two gates, because there are two paths.** The database gate sits inside
+  `find_available_eligible_vehicle`, the single point that decides allocation,
+  so every caller inherits it. `lib/vehicleBlocks.ts` gates manual assignment
+  on both reservation write paths — the likelier failure, because a person can
+  see the car in the list with a customer waiting. It fails closed per §5.3.
+- **Statutory cover** now bars the website allocator as it already barred the
+  admin screen: `kteo_expiry` and `insurance_expiry` only, being the two fields
+  marked `blocksRental` in `lib/fleetStatus.ts`. Road tax and next service are
+  deliberately not barred — blocking them would refuse vehicles the admin
+  permits and swap one disagreement between the paths for another. A null date
+  is *not recorded*, not *expired*.
+- **Licence expiry** (`lib/licenceGate.ts`) enforces what `licenceStatus()` has
+  reported since it was written and nothing ever acted on: both call sites only
+  *displayed* it. Not a hard refusal — a licence expiring next month can be
+  renewed before a pick-up in three weeks — but staff must attest with
+  `_licence_verified`, and the attestation is written onto the reservation.
+- **§4.5's legacy column** is removed by a migration that backfills, trims, and
+  **refuses rather than guesses** where a row holds a different value in each
+  column.
+
+**Two things found while building it, both live in production until the first
+migration runs:**
+
+- **Turnaround was applied to only one end of a rental.** A booking returning a
+  car at 09:00 was allowed in front of an existing hire collecting it at 09:00 —
+  no clean, no refuel, no inspection. Found by a deliberate test that booked out
+  the whole manual fleet and was still allocated a car. The admin availability
+  route carried the identical asymmetry; both now pad both ends.
+- **The Calendar slid bookings a day earlier.** Not a date bug: the row emitted
+  no `<td>` for a rental that began before the visible window, so every bar to
+  its right shifted left while the header stayed correct. Fixed separately on
+  `claude/calendar-column-shift`, which is deployable on its own.
+
+**One question raised and not decided.** Statutory cover is measured at the
+**pick-up**, matching the admin route; a driving licence is measured at the
+**return**, because "the customer drives on the last day too". The licence side
+is the better-reasoned of the pair — insurance lapsing mid-rental is the
+operator's exposure — but changing it moves both paths and is area 5's to
+settle.
+
+---
 
 ### 7.1 Partner channel — promoted, but not ahead of the counter
 
@@ -1549,8 +1607,18 @@ usefully defend.
    a rotation date. The Make.com key was rotated and those scenarios retired,
    but that exposure was found by reading a scenario — no gate here would have
    caught it, and nothing says what else exists.
-3. **Replace the quote reference's generator, and separate the reference from
-   the secret.** Not "state the entropy and confirm it is sufficient" — that was
+3. **~~Replace the quote reference's generator~~ — done 28 August; the link
+   token remains open.** `generateRef()` now takes `crypto.randomBytes` and
+   masks each byte to five bits, which is uniform because the 32-symbol
+   alphabet divides 256. A reference collision is retried rather than shown to
+   the customer as "we could not save your request", and only on
+   `quotes_ref_key` — a 23505 from the idempotency key is the replay protection
+   working. What is **not** done is the separation below: the reference is
+   still the access secret, at about 30 unpredictable bits. That is a different
+   change because it alters the customer-facing URL.
+
+   The original wording of this item, kept because it is the instructive part:
+   **separate the reference from the secret.** Not "state the entropy and confirm it is sufficient" — that was
    the earlier wording and it invites the wrong answer. The reference is six
    characters from a 32-symbol alphabet, so anyone can state it in one read:
    about 30 bits. The number is not the problem. `Math.random()` is not a
@@ -1578,6 +1646,19 @@ reader six months out can follow the reasoning without re-deriving it.
 ### 28 August 2026
 
 *Added late — see the note at the end of this entry.*
+
+**Phase 1 built; two migrations written and not applied.** §7.3 records what it
+turned into, including two production defects found while building it — a
+turnaround applied to only one end of a rental, and a Calendar that drew a
+booking a day earlier than its stored date. Neither was a date bug and neither
+had a test that could have caught it: the existing ones asserted the predicate
+as written rather than the behaviour it was meant to produce.
+
+**The quote reference no longer comes from `Math.random()`.** §9a's action item
+is struck through with what was done and what deliberately was not: the
+generator is fixed and collisions are retried, but the reference is still the
+access secret at about 30 bits, and separating the two changes the
+customer-facing URL.
 
 **The retention periods were already published; this document said they were
 open.** §4.2b deferred them to area 5, and §4.2e cited five years as what other

@@ -1,6 +1,6 @@
 import { sendMail, type Mail } from "@/lib/mailer";
 import { sendAuditedWorkflowMail } from "@/lib/auditedMail";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { after, NextRequest, NextResponse } from "next/server";
 import { verifyRecaptcha } from "@/lib/recaptcha";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -21,8 +21,33 @@ const TOLERANCE = 0.02; // allow up to €0.02 rounding difference before flaggi
 
 const REF_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 32 chars — no I/O/0/1 to avoid confusion
 
+/**
+ * The customer-facing quote reference.
+ *
+ * `crypto.randomBytes`, not `Math.random`. This value is most of what stands
+ * between a stranger and somebody else's booking: /quote/[ref] is deliberately
+ * unauthenticated, gated by this reference plus a surname — and a surname is a
+ * second check, not a second secret.
+ *
+ * `Math.random` is not a cryptographic generator. Its output is predictable
+ * from prior values, so an attacker who requests a handful of quotes of their
+ * own can work out others. Length is no defence against that, which is the
+ * trap in "state the entropy and confirm it is sufficient": six characters from
+ * 32 symbols is about 30 bits, and 30 predictable bits are worth nothing.
+ * `lib/gmail.ts` already recorded the same lesson on the OAuth `state` value —
+ * "two concatenated calls made it longer without making it less guessable".
+ *
+ * REF_CHARS.length is 32, which divides 256, so masking each byte to five bits
+ * is uniform. Taking a modulo of a byte by a non-power-of-two would bias the
+ * early characters of the alphabet, quietly shrinking the space.
+ *
+ * Still six characters: it is read aloud on the phone and typed off an email,
+ * and lengthening it is the wrong axis. A separate 128-bit link token remains
+ * the stronger design and is recorded in the blueprint §9a — it changes the
+ * customer-facing URL, so it is not folded in here.
+ */
 function generateRef(): string {
-  return Array.from({ length: 6 }, () => REF_CHARS[Math.floor(Math.random() * REF_CHARS.length)]).join("");
+  return Array.from(randomBytes(6), (b) => REF_CHARS[b & 31]).join("");
 }
 
 function esc(val: unknown): string {
@@ -312,7 +337,7 @@ export async function POST(req: NextRequest) {
   const dailyRate = serverDailyRate;
   const vehicleSubtotal = serverVehicleSubtotal;
   const extrasSubtotal = serverExtrasSubtotal;
-  const requestedRef = generateRef();
+  let requestedRef = generateRef();
   const expiresAt = new Date();
   expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
@@ -439,16 +464,43 @@ export async function POST(req: NextRequest) {
     driverAge: effectiveDriverAge ?? "",
   });
 
-  const { data: bookingData, error: bookingError } = await supabaseAdmin.rpc(
-    "create_web_booking",
-    {
+  /**
+   * A reference collision is retried, not shown to the customer.
+   *
+   * `quotes.ref` is UNIQUE, so a duplicate raises 23505 and the booking failed
+   * with "We could not save your request" — a customer turned away by a coin
+   * landing twice, with nothing in the log to say that is what happened. Six
+   * characters from 32 symbols is a large space but not an infinite one, and
+   * the birthday bound closes faster than the count of bookings suggests.
+   *
+   * Only a collision on the reference is retried. 23505 from anything else —
+   * an idempotency key above all — is the replay protection working, and
+   * retrying it would defeat the guard rather than recover from it.
+   */
+  const REF_ATTEMPTS = 5;
+  let bookingData: unknown = null;
+  let bookingError: { message: string; code?: string } | null = null;
+
+  for (let attempt = 1; attempt <= REF_ATTEMPTS; attempt++) {
+    const result = await supabaseAdmin.rpc("create_web_booking", {
       p_quote: quotePayload,
       p_reservation: reservationPayload,
       p_promo_code: promoCode?.trim() || null,
       p_idempotency_key: idempotencyKey,
       p_deposit_rate: DEPOSIT_RATE,
-    }
-  );
+    });
+    bookingData = result.data;
+    bookingError = result.error;
+
+    const collided = result.error?.code === "23505"
+      && /quotes_ref_key/i.test(`${result.error.message} ${result.error.details ?? ""}`);
+    if (!collided) break;
+
+    console.warn(`[quote] reference ${requestedRef} already existed; retrying (${attempt}/${REF_ATTEMPTS})`);
+    requestedRef = generateRef();
+    quotePayload.ref = requestedRef;
+    reservationPayload.notes = `Quote ref: ${requestedRef}${comments ? `. Customer notes: ${comments}` : ""}`;
+  }
 
   const booking = BookingResultSchema.safeParse(bookingData);
   if (bookingError) {
