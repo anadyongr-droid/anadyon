@@ -74,15 +74,39 @@ export default function CalendarPage() {
 
   const endDate = addDays(startDate, days - 1);
 
+  /**
+   * Vehicles out of the active fleet, by id, with the day they went out.
+   *
+   * A blocked car previously showed as empty space, which is exactly where a
+   * dispatcher decides to put a booking. Shaded rather than drawn as a bar, so
+   * that reservations still standing on a blocked vehicle stay visible on top
+   * of it — those are the ones that need moving, and hiding them under a block
+   * would be a second way of telling the screen a comfortable lie.
+   */
+  const [outOfFleet, setOutOfFleet] = useState<Record<string, { starts_on: string; reason: string }>>({});
+
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [vRes, rRes] = await Promise.all([
+    const [vRes, rRes, bRes] = await Promise.all([
       fetch("/api/admin/vehicles"),
       fetch(`/api/admin/reservations?from=${toDateStr(addDays(startDate, -30))}&to=${toDateStr(addDays(endDate, 30))}`),
+      fetch("/api/admin/vehicles/blocks?open=1"),
     ]);
     const [v, r] = await Promise.all([vRes.json(), rRes.json()]);
     setVehicles(v);
     setReservations(r);
+    if (bRes.ok) {
+      const rows: Array<{ vehicle_id: string; starts_on: string; reason: string }> = await bRes.json();
+      // Earliest open block per vehicle: from that day on, the car is out and
+      // stays out until a person records it back.
+      const from: Record<string, { starts_on: string; reason: string }> = {};
+      for (const b of rows) {
+        if (!from[b.vehicle_id] || b.starts_on < from[b.vehicle_id].starts_on) {
+          from[b.vehicle_id] = { starts_on: b.starts_on, reason: b.reason };
+        }
+      }
+      setOutOfFleet(from);
+    }
     setLoading(false);
   }, [startDate, days]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -347,17 +371,34 @@ export default function CalendarPage() {
                         }
 
                         const isToday = cell.date === toDateStr(new Date());
+                        // Out of the fleet from this day on, until somebody
+                        // records it back. Shaded rather than drawn as a bar so
+                        // reservations still standing on a blocked vehicle show
+                        // ON TOP of it — those are the ones needing moved, and
+                        // covering them would be a second comfortable lie.
+                        //
+                        // Not clickable: the write path refuses the booking
+                        // anyway, and offering the plus then refusing teaches
+                        // staff the screen cannot be trusted.
+                        const out = outOfFleet[vehicle.id];
+                        const isOut = !!out && cell.date >= out.starts_on;
                         return (
                           <td
                             key={cell.date}
+                            title={isOut ? `Out of the fleet since ${out.starts_on} (${out.reason})` : undefined}
                             className={`relative h-9 border-l border-gray-100 ${
                               isToday ? "bg-blue-50/40" : ""
-                            } ${isMaint ? "bg-orange-50" : ""}`}
+                            } ${isMaint ? "bg-orange-50" : ""} ${isOut ? "bg-orange-100" : ""}`}
                             onClick={() =>
-                              !isMaint && setModal({ vehicleId: vehicle.id, date: cell.date })
+                              !isMaint && !isOut && setModal({ vehicleId: vehicle.id, date: cell.date })
                             }
                           >
-                            {!isMaint && (
+                            {isOut && out.starts_on === cell.date && (
+                              <span className="absolute inset-y-0 left-1 flex items-center text-[10px] font-semibold text-orange-900">
+                                out
+                              </span>
+                            )}
+                            {!isMaint && !isOut && (
                               <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 cursor-pointer transition-opacity">
                                 <Plus size={12} className="text-gray-600" />
                               </div>

@@ -20,18 +20,42 @@ interface Day {
   events: Ev[];
   overdue: { id: string; customer_name: string | null; customer_phone: string | null; vehicle: string | null; hoursLate: number; urgency: string }[];
   fleet: { id: string; name: string; plate: string | null; barred: string | null; paperwork: string | null; service: string | null }[];
-  counts: { pickups: number; returns: number; overdue: number; fleetAttention: number; blockers: number };
+  outOfFleet: {
+    id: string; reason: string; starts_on: string; expected_return: string | null; note: string | null;
+    vehicle: { name: string; plate: string | null } | null;
+    chase: { urgency: "quiet" | "remind" | "escalate"; daysOut: number; daysToExpected: number | null };
+  }[];
+  counts: { pickups: number; returns: number; overdue: number; fleetAttention: number; blockers: number; outOfFleet: number };
 }
 
 export default function TodayPage() {
   const [day, setDay] = useState<Day | null>(null);
   const [error, setError] = useState("");
+  const [releasing, setReleasing] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/operations/today");
     if (!res.ok) { setError("Could not load today's operations."); return; }
     setDay(await res.json());
   }, []);
+
+  /**
+   * Record a vehicle back in the active fleet.
+   *
+   * The only thing that ends a block — no date does. Reloads rather than
+   * patching the list in place: releasing a vehicle changes what is bookable,
+   * and a screen that shows a stale answer about availability is the failure
+   * this whole area is about.
+   */
+  const release = useCallback(async (id: string) => {
+    setReleasing(id); setError("");
+    const res = await fetch("/api/admin/vehicles/blocks", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }),
+    });
+    if (!res.ok) setError("Could not record that vehicle back in the fleet.");
+    await load();
+    setReleasing(null);
+  }, [load]);
 
   useEffect(() => {
     load();
@@ -143,6 +167,56 @@ export default function TodayPage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/*
+        Vehicles out of the fleet, above "needing attention" because these are
+        earning nothing and only a person can end that. §7.4: the release is one
+        press away on the screen staff already work from — a release that is
+        fiddly does not happen, and then cars sit idle.
+      */}
+      {day.outOfFleet?.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="px-5 py-3 bg-orange-50 border-b border-orange-200 flex items-center gap-2">
+            <Wrench size={14} className="text-orange-700" />
+            <h2 className="font-semibold text-gray-900 text-sm">
+              Out of the fleet ({day.outOfFleet.length})
+            </h2>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {day.outOfFleet.map(b => (
+              <div key={b.id} className="px-5 py-2.5 flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-sm text-gray-900">
+                    {b.vehicle ? vehicleLabel(b.vehicle) : "—"}
+                    {b.vehicle?.plate && <span className="text-gray-600 font-mono text-xs ml-2">{b.vehicle.plate}</span>}
+                  </div>
+                  <div className={`text-xs mt-0.5 ${b.chase.urgency === "escalate" ? "text-red-700" : "text-gray-600"}`}>
+                    {b.reason} · out {b.chase.daysOut} day{b.chase.daysOut === 1 ? "" : "s"}
+                    {/*
+                      "expected back in 6" is what stops a legitimate ten-day
+                      rebuild reading as a nag — and a nag is what gets ignored.
+                    */}
+                    {b.chase.daysToExpected === null
+                      ? " · no expected return"
+                      : b.chase.daysToExpected >= 0
+                        ? ` · expected back in ${b.chase.daysToExpected}`
+                        : ` · overdue by ${Math.abs(b.chase.daysToExpected)}`}
+                    {b.note ? ` · ${b.note}` : ""}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={releasing === b.id}
+                  onClick={() => release(b.id)}
+                  className="shrink-0 text-xs font-medium border border-gray-300 rounded-lg px-2.5 py-1 hover:bg-gray-50 disabled:opacity-40"
+                >
+                  {releasing === b.id ? "…" : "Back in fleet"}
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}

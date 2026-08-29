@@ -33,9 +33,26 @@ export default function FleetPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [open, setOpen] = useState<FleetVehicle | null>(null);
 
+  /**
+   * Vehicles currently out of the fleet, by id.
+   *
+   * §7.4: an open block is a hard stop, and the status dropdown knows nothing
+   * about it. A row reading "available" for a car in a workshop is how staff
+   * learn to disbelieve the refusal they get later.
+   */
+  const [outOfFleet, setOutOfFleet] = useState<Record<string, { starts_on: string; reason: string; expected_return: string | null }>>({});
+
   const load = useCallback(async () => {
-    const res = await fetch("/api/admin/vehicles");
-    if (res.ok) setVehicles(await res.json());
+    const [vehiclesRes, blocksRes] = await Promise.all([
+      fetch("/api/admin/vehicles"),
+      fetch("/api/admin/vehicles/blocks?open=1"),
+    ]);
+    if (vehiclesRes.ok) setVehicles(await vehiclesRes.json());
+    if (blocksRes.ok) {
+      const rows: Array<{ vehicle_id: string; starts_on: string; reason: string; expected_return: string | null }> =
+        await blocksRes.json();
+      setOutOfFleet(Object.fromEntries(rows.map(b => [b.vehicle_id, b])));
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -123,6 +140,12 @@ export default function FleetPage() {
                     >
                       <td className="px-5 py-3">
                         <div className="font-medium text-gray-800">{v.name}</div>
+                        {outOfFleet[v.id] && (
+                          <div className="text-xs text-orange-700 mt-0.5">
+                            Out of fleet since {outOfFleet[v.id].starts_on} ({outOfFleet[v.id].reason})
+                            {outOfFleet[v.id].expected_return ? ` — expected ${outOfFleet[v.id].expected_return}` : " — no estimate"}
+                          </div>
+                        )}
                         {b.barred && <div className="text-xs text-red-600 mt-0.5">{b.reason}</div>}
                       </td>
                       <td className="px-3 py-3 text-gray-500 text-xs font-mono">{v.plate || "—"}</td>
@@ -133,14 +156,25 @@ export default function FleetPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
-                        <select
-                          value={v.status}
-                          disabled={saving === v.id}
-                          onChange={e => updateStatus(v.id, e.target.value)}
-                          className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer ${statusClass(v.status)}`}
-                        >
-                          {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        {outOfFleet[v.id] ? (
+                          // Deliberately not a dropdown. Status cannot end a
+                          // block, so offering a control that looks as though it
+                          // might would be a lie about what the system will do.
+                          // Putting the car back happens in Availability, where
+                          // it is attributed.
+                          <span className="text-xs font-medium px-2 py-1 rounded-full bg-orange-100 text-orange-800">
+                            out of fleet
+                          </span>
+                        ) : (
+                          <select
+                            value={v.status}
+                            disabled={saving === v.id}
+                            onChange={e => updateStatus(v.id, e.target.value)}
+                            className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer ${statusClass(v.status)}`}
+                          >
+                            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        )}
                       </td>
                     </tr>
                   );
