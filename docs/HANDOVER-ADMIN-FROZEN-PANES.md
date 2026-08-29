@@ -128,6 +128,87 @@ measurement from a real authenticated admin page.**
 
 ---
 
+## Fourth attempt — 29 August 2026: an instrument, and two corrections
+
+*No fix. What this added is the thing all three earlier attempts lacked: a
+measurement that cannot quietly lie.* `tests/browser/frozen-panes.spec.ts`.
+
+**The instrument asserts its own preconditions before it measures anything**, in
+a test of its own that fails loudly rather than skipping: `<main>` must have more
+than 300px of scroll in each direction, and the wrapper must not be a scroll
+container. Attempt 1's box never scrolled and attempt 3's table had `maxScrollLeft:
+5`; either would now fail as a broken instrument instead of reporting a result.
+
+It also asserts it still matches the real shell — that `AdminLayoutClient` uses
+`admin-root h-dvh overflow-hidden bg-gray-50 flex` around
+`main.flex-1.min-w-0.overflow-auto`, and that the sticky rules are still in
+`app/globals.css`, which it reads off disk rather than paraphrasing. If the shell
+changes, this file breaks rather than measuring something that no longer exists.
+
+### The measurement, at last
+
+Under preconditions that genuinely exhibit the scenario, at 820×1024:
+
+```
+maxScrollLeft:  1400+     (attempt 3 had 5)
+maxScrollTop:   1900+
+headerPinned:   true
+colPinned:      true      -- never validly measured before
+cornerPinned:   true      (both axes at once)
+```
+
+**In Chromium the deployed CSS is structurally correct.** That is not a fix and
+it does not contradict the owner: it narrows the cause to WebKit/iOS, or to
+something on the real authenticated page this harness does not model.
+
+### A diagnostic the earlier attempts did not have
+
+Clipping an ancestor does **not** make the first column ride away. It removes
+the sideways scroll entirely — the table stops overflowing `<main>`, and
+`scrollLeft` stays 0 however hard you push. So the symptom distinguishes the
+cause:
+
+| What the owner sees | Cause |
+|---|---|
+| Will not scroll sideways at all | a clipping ancestor between the cell and `<main>` |
+| Scrolls, but the column travels with it | something else — engine, or a containing block |
+
+### Disproved: `transform` on the wrapper
+
+This document lists `transform` among the things that "would create a containing
+block and break `position: sticky`". Measured: **it does not.** A transform on
+the wrapper makes it a containing block for descendants, but the scrollport is
+still `<main>` and the header pins to it regardless. That is now an assertion
+rather than a note, so a future engine that disagrees says so instead of the
+belief being carried into a fifth attempt.
+
+### Two harness bugs worth recording, being the same class that killed 1 and 3
+
+- **Padding on the wrong element.** The first harness put `p-6` on `<main>`;
+  the real shell puts it on the page root *inside* main. Every sticky
+  measurement came out 24px off and looked like a product bug. It was the
+  instrument.
+- **`scrollWidth - clientWidth` does not test scrollability.** Under
+  `overflow: visible` the content still overflows, so that difference is large
+  while nothing scrolls. It reported the wrapper as a scroll container when it
+  is not. Whether an element scrolls is a computed-style question.
+
+### What this still cannot tell you
+
+**Only Chromium was available.** The defect is on an iPad, which is WebKit — the
+engine that matters here and the one not measured. Run it under
+`playwright.crossbrowser.config.ts`, which has a `webkit` project, before drawing
+any conclusion about iOS. A green run in Chromium is not a fixed iPad.
+
+And it is still not the real page: no admin credentials, so the authenticated
+screens remain unmeasured. That is unchanged and remains the single most useful
+next step.
+
+Note the browser suite is not part of the default CI run, so this file does not
+execute on every push.
+
+---
+
 ## Suggested next steps
 
 1. **Log in and read the real thing.** On `/admin/reservations`, scrolled:
