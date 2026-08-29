@@ -12,11 +12,32 @@ import type { NextRequest } from "next/server";
  */
 const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
+  /**
+   * The vehicle the booking function allocated, or null when it found nothing.
+   *
+   * Held in a box rather than passed in, because the route reads it back from
+   * the reservations table after the fact. Before this existed the mock threw
+   * `Unexpected table reservations`, `noVehicleAssigned` swallowed the throw
+   * and returned false, and **every test in this file ran with the flag down** —
+   * including the one that claimed to cover it being raised.
+   */
+  vehicleId: { current: "vehicle-1" as string | null },
   sendMail: vi.fn(async (_mail: Record<string, unknown>) => ({ ok: true, queued: false })),
   auditedMail: vi.fn(async (_input: Record<string, unknown>) => (
     { ok: true, queued: false, deliveryId: "delivery-1" }
   )),
-  after: vi.fn((task: () => unknown) => task()),
+  /**
+   * `after` work, kept so a test can wait for it.
+   *
+   * Calling the task and dropping the promise happened to work while the
+   * route's post-response path was a single microtask deep. Reading the
+   * allocated vehicle back made it deeper, and the mail assertions started
+   * running before any mail had been sent. `post` now awaits these.
+   */
+  afterTasks: [] as Promise<unknown>[],
+  after: vi.fn((task: () => unknown) => {
+    mocks.afterTasks.push(Promise.resolve(task()));
+  }),
 }));
 
 vi.mock("next/server", async (importOriginal) => {
@@ -53,6 +74,15 @@ vi.mock("@/lib/supabase", () => ({
       }
       if (name === "rates") return { select: async () => ({ data: rates, error: null }) };
       if (name === "extras_config") return { select: async () => ({ data: extras, error: null }) };
+      if (name === "reservations") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: { vehicle_id: mocks.vehicleId.current }, error: null }),
+            }),
+          }),
+        };
+      }
       throw new Error(`Unexpected table ${name}`);
     },
     rpc: mocks.rpc,
@@ -97,11 +127,17 @@ const requestBody = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const post = (body: Record<string, unknown>) => POST(new Request("http://localhost/api/quote", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(body),
-}) as NextRequest);
+const post = async (body: Record<string, unknown>) => {
+  const res = await POST(new Request("http://localhost/api/quote", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }) as NextRequest);
+  // The response is deliberately returned before the emails go out; a test
+  // asserting on them has to wait for the work the route deferred.
+  await Promise.all(mocks.afterTasks);
+  return res;
+};
 
 /** The quote payload the route asked the database to store. */
 const storedQuote = () => mocks.rpc.mock.calls[0][1].p_quote as Record<string, unknown>;
@@ -109,6 +145,8 @@ const idempotencyKey = () => mocks.rpc.mock.calls[0][1].p_idempotency_key as str
 
 beforeEach(() => {
   mocks.rpc.mockReset();
+  mocks.vehicleId.current = "vehicle-1";
+  mocks.afterTasks.length = 0;
   mocks.sendMail.mockClear();
   mocks.auditedMail.mockClear();
   mocks.rpc.mockResolvedValue({
@@ -226,56 +264,126 @@ describe("combined child-seat limit at the public API", () => {
   });
 });
 
-describe("the quote-request alert replies to the customer", () => {
-  const officeMail = () => mocks.sendMail.mock.calls
-    .map(([mail]) => mail as unknown as { to: string[]; replyTo?: unknown; subject: string })
-    .find((mail) => Array.isArray(mail.to) && mail.to.includes("customerservice@anadyon.gr"));
+describe("the office notification and the alert are two separate emails", () => {
+  /**
+   * Separated after a member of staff hit Reply on a "[NO VEHICLE]" alert to
+   * ask a colleague about availability, and wrote to the customer instead.
+   *
+   * The same fault had already happened once and been fixed by removing
+   * Reply-To entirely; that fix was later reversed because answering the
+   * customer is the common case for an ordinary quote. Reversing it put the
+   * alert back inside a customer-replyable email.
+   *
+   * So the two are now different emails with different reply rules, rather
+   * than one email with a banner bolted on:
+   *
+   *   - the **notification** is the quote, and replies to the customer;
+   *   - the **alert** is the flag, and replies to the office.
+   */
+  const officeMails = () => mocks.sendMail.mock.calls
+    .map(([mail]) => mail as unknown as {
+      from: string; to: string[]; replyTo?: unknown; subject: string; html: string;
+    })
+    .filter((mail) => Array.isArray(mail.to) && mail.to.includes("customerservice@anadyon.gr"));
 
-  it("replies to the customer who submitted the request", async () => {
+  // Told apart by sender, not by subject text: the sender is the thing a
+  // recipient's Reply acts on, and it does not change with wording.
+  const notification = () => officeMails().find((m) => m.from.includes("Anadyon Website"));
+  const alert = () => officeMails().find((m) => m.from.includes("Anadyon Alerts"));
+
+  it("sends only the notification when nothing is flagged", async () => {
+    await post(requestBody());
+    expect(notification()).toBeDefined();
+    expect(alert()).toBeUndefined();
+  });
+
+  it("the notification replies to the customer who submitted the request", async () => {
     // Reverses the earlier "keep replies internal" rule: answering the customer
     // turned out to be the common case, and it meant copying the address out.
     await post(requestBody());
-    const mail = officeMail();
-    expect(mail).toBeDefined();
-    expect(mail!.replyTo).toBe("test@example.com");
+    expect(notification()!.replyTo).toBe("test@example.com");
   });
 
-  it("keeps replies internal on the price-manipulation [ALERT]", async () => {
-    // Same email with a warning bolted on. A Reply-To here would point at
-    // whoever just tampered with the price, and one careless Reply would tell
-    // them it had been noticed.
-    await post(requestBody({ total: 1 }));
-    const mail = officeMail();
-    expect(mail!.subject).toMatch(/\[ALERT\]/);
-    expect(mail!.replyTo).toBeUndefined();
+  describe("when no vehicle could be assigned", () => {
+    beforeEach(() => { mocks.vehicleId.current = null; });
+
+    it("raises the flag at all", async () => {
+      // Asserted first, and deliberately. The previous version of these tests
+      // named this case and never reached it, because the mock threw on the
+      // reservations read and the route swallowed it. A test that cannot
+      // observe the precondition cannot be trusted about what follows.
+      await post(requestBody());
+      expect(alert(), "no alert email was sent").toBeDefined();
+      expect(alert()!.subject).toContain("[NO VEHICLE]");
+    });
+
+    it("sends the alert as its own email, not as a banner on the notification", async () => {
+      await post(requestBody());
+      expect(officeMails()).toHaveLength(2);
+      expect(notification()!.subject).not.toContain("[NO VEHICLE]");
+    });
+
+    it("gives the alert no reply path to the customer", async () => {
+      // The whole point. Reply on this email reaches the office, because the
+      // question it prompts - "do we have anything else?" - is an internal one.
+      await post(requestBody());
+      expect(alert()!.replyTo).toBeUndefined();
+    });
+
+    it("still lets the notification reply to the customer", async () => {
+      // An unallocated booking is an operational flag, not a security one:
+      // talking to the customer about alternatives is exactly what it calls
+      // for. That conversation starts from the quote, not from the alert.
+      await post(requestBody());
+      expect(notification()!.replyTo).toBe("test@example.com");
+    });
   });
 
-  it("still replies to the customer when only the vehicle flag is raised", async () => {
-    // [NO VEHICLE] is an operational flag, not a security one — talking to the
-    // customer about alternatives is exactly what it calls for.
-    await post(requestBody());
-    expect(officeMail()!.replyTo).toBe("test@example.com");
+  describe("when the submitted price was manipulated", () => {
+    it("sends the alert separately, with no reply path", async () => {
+      await post(requestBody({ total: 1 }));
+      expect(alert()!.subject).toContain("[ALERT]");
+      expect(alert()!.replyTo).toBeUndefined();
+    });
+
+    it("also suppresses the reply path on the notification", async () => {
+      // A Reply-To here would point at whoever just tampered with the price,
+      // and one careless Reply would tell them it had been noticed. This rule
+      // predates the split and survives it.
+      await post(requestBody({ total: 1 }));
+      expect(notification()!.replyTo).toBeUndefined();
+    });
+
+    it("keeps the warning out of the notification entirely", async () => {
+      await post(requestBody({ total: 1 }));
+      expect(alert()!.html).toContain("PRICE MANIPULATION");
+      expect(notification()!.html).not.toContain("PRICE MANIPULATION");
+    });
   });
 
-  it("still goes to the office, not to the customer", async () => {
+  it("sends both to the office, never to the customer", async () => {
     // Reply-To changes where an answer lands; it must not change who receives
-    // the alert. Sending this to the customer would show them the internal
+    // the mail. Sending either to the customer would show them the internal
     // price-manipulation warning.
+    mocks.vehicleId.current = null;
     await post(requestBody({ total: 1 }));
-    const mail = officeMail();
-    expect(mail!.to).toEqual(["customerservice@anadyon.gr"]);
-    expect(mail!.to).not.toContain("test@example.com");
+    for (const mail of officeMails()) {
+      expect(mail.to).toEqual(["customerservice@anadyon.gr"]);
+      expect(mail.to).not.toContain("test@example.com");
+    }
   });
 
-  it("prints the customer's address in the body as plain text", async () => {
-    // The office must be able to reach the customer from this email alone when
-    // the admin area is unavailable — but the alert carries the information
-    // and nothing that acts on it. No links, no buttons.
+  it("prints the customer's address in both bodies as plain text", async () => {
+    // The office must be able to reach the customer from either email alone
+    // when the admin area is unavailable - but they carry the information and
+    // nothing that acts on it. No links, no buttons.
+    mocks.vehicleId.current = null;
     await post(requestBody());
-    const mail = officeMail() as unknown as { html: string };
-    expect(mail.html).toContain("test@example.com");
-    expect(mail.html).not.toContain("mailto:");
-    expect(mail.html).not.toContain("Compose email to customer");
+    for (const mail of officeMails()) {
+      expect(mail.html).toContain("test@example.com");
+      expect(mail.html).not.toContain("mailto:");
+      expect(mail.html).not.toContain("Compose email to customer");
+    }
   });
 
   it("sends the customer acknowledgment with a reply path to the office", async () => {

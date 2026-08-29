@@ -19,7 +19,6 @@ create table if not exists customers (
   email text,
   phone text,
   nationality text,
-  licence_number text,
   notes text,
   created_at timestamptz default now()
 );

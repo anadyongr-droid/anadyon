@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { vehicleBlockProblem, blockAttestationNote } from "@/lib/vehicleBlocks";
+import { licenceGate, licenceAttestationNote } from "@/lib/licenceGate";
 import { sendMail } from "@/lib/mailer";
 import { validateQuoteVehicleAssignment } from "@/lib/quoteVehicleAssignment";
 import { confirmPaidBooking } from "@/lib/confirmPaidBooking";
@@ -56,7 +58,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // assignment rules below.
   const { data: existing, error: existingError } = await supabaseAdmin
     .from("reservations")
-    .select("quote_id, vehicle_id, status, deposit_paid_at, total, deposit, balance_due, notes")
+    // customer_id, return_date and return_time are read so the licence gate can
+    // judge an edit that does not resubmit them — changing only the pick-up, or
+    // only the vehicle, must still be measured against the real return.
+    .select("quote_id, vehicle_id, status, deposit_paid_at, total, deposit, balance_due, notes, customer_id, return_date, return_time")
     .eq("id", id)
     .maybeSingle();
   if (existingError || !existing) {
@@ -137,6 +142,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: assignmentProblem.error }, { status: assignmentProblem.status });
   }
 
+  // Same gate on edit: changing the return date can push it past an expiry
+  // that was fine when the booking was taken.
+  const licence = await licenceGate(
+    typeof body.customer_id === "string" ? body.customer_id : existing.customer_id,
+    body.return_date ?? existing.return_date,
+    body.return_time ?? existing.return_time,
+    raw._licence_verified === true,
+  );
+  if (licence.problem) return NextResponse.json({ error: licence.problem }, { status: 409 });
+
+  // A vehicle can be free of other bookings and still not releasable: in the
+  // workshop, or without a valid KTEO. Checked before the overlap test because
+  // "it is blocked" is the more useful refusal of the two.
+  const block = await vehicleBlockProblem(
+    body.vehicle_id,
+    body.return_date ?? existing.return_date,
+    raw._block_override === true,
+  );
+  if (block.problem) return NextResponse.json({ error: block.problem }, { status: 409 });
+
   // Overlap check when a vehicle is assigned
   if (body.vehicle_id && body.pickup_date && body.return_date) {
     const { data: conflicts } = await supabaseAdmin
@@ -171,6 +196,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // on the reservation because "the customer asked for this" is exactly the
   // thing somebody will want evidence of later — a refund dispute, or a driver
   // who says they never agreed to the automatic.
+  for (const line of [
+    licence.overridden ? licenceAttestationNote() : null,
+    block.overridden ? blockAttestationNote(block.overridden) : null,
+  ]) {
+    if (!line) continue;
+    const existingNotes = typeof update.notes === "string" ? update.notes : (existing.notes ?? "");
+    update.notes = `${existingNotes}${existingNotes ? "\n" : ""}${line}`.trim();
+  }
+
   if (customerRequested && vehicleChanged) {
     const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
     const existingNotes = typeof update.notes === "string" ? update.notes : (existing.notes ?? "");

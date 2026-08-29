@@ -72,7 +72,11 @@ export default function VehicleModal({
   const dialogRef = useModalBehavior<HTMLDivElement>(onClose);
   const [form, setForm] = useState<FleetVehicle>(vehicle);
   const [ledger, setLedger] = useState<Ledger | null>(null);
-  const [tab, setTab] = useState<"details" | "costs" | "damages">("details");
+  const [tab, setTab] = useState<"details" | "costs" | "damages" | "blocks">("details");
+  const [blocks, setBlocks] = useState<VehicleBlockRow[] | null>(null);
+  // Reservations the block just created does not cancel. Held here rather than
+  // inside the tab so it survives a re-render of the list beneath it.
+  const [covered, setCovered] = useState<CoveredReservation[] | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -88,7 +92,51 @@ export default function VehicleModal({
     if (res.ok) setLedger(await res.json());
   }, [vehicle.id]);
 
-  useEffect(() => { loadLedger(); }, [loadLedger]);
+  const loadBlocks = useCallback(async () => {
+    const res = await fetch(`/api/admin/vehicles/blocks?vehicle_id=${vehicle.id}`);
+    if (res.ok) setBlocks(await res.json());
+  }, [vehicle.id]);
+
+  // One effect for both reads rather than two: the ledger and the availability
+  // history are the same "open this vehicle" event.
+  useEffect(() => { loadLedger(); loadBlocks(); }, [loadLedger, loadBlocks]);
+
+  const openBlock = blocks?.find(b => !b.released_at) ?? null;
+
+  async function addBlock(row: Record<string, unknown>) {
+    setError("");
+    const res = await fetch("/api/admin/vehicles/blocks", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...row, vehicle_id: vehicle.id }),
+    });
+    if (!res.ok) { setError((await res.json().catch(() => ({}))).error ?? "Could not take this vehicle out."); return false; }
+    const body = await res.json();
+    // Surfaced immediately: a block stops NEW allocation only, and bookings
+    // already on the vehicle sit quietly until the customer turns up.
+    setCovered(body.covered_reservations ?? []);
+    await loadBlocks();
+    onSaved();
+    return true;
+  }
+
+  async function releaseBlock(id: string) {
+    setError("");
+    const res = await fetch("/api/admin/vehicles/blocks", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }),
+    });
+    if (!res.ok) { setError((await res.json().catch(() => ({}))).error ?? "Could not record it back."); return; }
+    setCovered(null);
+    await loadBlocks();
+    onSaved();
+  }
+
+  async function deleteBlock(id: string) {
+    setError("");
+    const res = await fetch(`/api/admin/vehicles/blocks?id=${id}`, { method: "DELETE" });
+    if (!res.ok) { setError((await res.json().catch(() => ({}))).error ?? "Could not delete."); return; }
+    await loadBlocks();
+    onSaved();
+  }
 
   const statuses = vehicleDateStatuses(form);
   const bar = rentalBar(form);
@@ -139,6 +187,30 @@ export default function VehicleModal({
           <button type="button" aria-label="Close vehicle dialog" onClick={onClose} className="text-gray-600 hover:text-gray-900 p-2 -mr-2"><X size={20} /></button>
         </div>
 
+        {/*
+          An open block is the loudest thing on this dialog, above the statutory
+          bar, because it is the one a person put there and the one a person has
+          to take away. §7.4: nothing else ends it.
+        */}
+        {openBlock && (
+          <div className="mx-6 mt-4 flex items-start justify-between gap-3 text-sm text-orange-800 bg-orange-50 border border-orange-200 rounded-lg px-4 py-2.5">
+            <span className="flex items-start gap-2">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+              <span>
+                <strong>Out of the fleet</strong> since {openBlock.starts_on} ({openBlock.reason})
+                {openBlock.expected_return
+                  ? <> · expected back {openBlock.expected_return}</>
+                  : <> · no expected return recorded</>}
+                {openBlock.note ? ` — ${openBlock.note}` : ""}
+              </span>
+            </span>
+            <button type="button" onClick={() => releaseBlock(openBlock.id)}
+              className="shrink-0 text-xs font-medium bg-white border border-orange-300 rounded-lg px-2.5 py-1 hover:bg-orange-100">
+              Back in fleet
+            </button>
+          </div>
+        )}
+
         {/* The single most important thing about a vehicle: may it go out? */}
         {bar.barred && (
           <div className="mx-6 mt-4 flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
@@ -148,13 +220,15 @@ export default function VehicleModal({
         )}
 
         <div className="px-6 pt-4 flex gap-1 border-b border-gray-100 shrink-0">
-          {(["details","costs","damages"] as const).map(t => (
+          {(["details","costs","damages","blocks"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-3 py-2 text-sm font-medium rounded-t-lg -mb-px border-b-2 transition ${
                 tab === t ? "border-blue-600 text-blue-700" : "border-transparent text-gray-500 hover:text-gray-700"
               }`}>
-              {t === "details" ? "Details" : t === "costs" ? `Costs${ledger ? ` (${ledger.costs.length})` : ""}`
-                : `Damages${ledger?.openDamages ? ` (${ledger.openDamages} open)` : ""}`}
+              {t === "details" ? "Details"
+                : t === "costs" ? `Costs${ledger ? ` (${ledger.costs.length})` : ""}`
+                : t === "damages" ? `Damages${ledger?.openDamages ? ` (${ledger.openDamages} open)` : ""}`
+                : `Availability${openBlock ? " · out" : ""}`}
             </button>
           ))}
         </div>
@@ -246,6 +320,10 @@ export default function VehicleModal({
         )}
 
         {tab === "costs" && <CostsTab ledger={ledger} restricted={restricted} onAdd={r => addRow("cost", r)} onRemove={id => removeRow("cost", id)} />}
+        {tab === "blocks" && (
+          <BlocksTab blocks={blocks} covered={covered} onAdd={addBlock}
+            onRelease={releaseBlock} onDelete={deleteBlock} onDismissCovered={() => setCovered(null)} />
+        )}
         {tab === "damages" && <DamagesTab ledger={ledger} restricted={restricted} onAdd={r => addRow("damage", r)} onRemove={id => removeRow("damage", id)} />}
 
         {error && <div className="mx-6 mb-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</div>}
@@ -385,6 +463,177 @@ function DamagesTab({ ledger, restricted, onAdd, onRemove }: {
             </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── Availability ────────────────────────────────────────────────────────────
+
+export interface VehicleBlockRow {
+  id: string;
+  reason: string;
+  starts_on: string;
+  /** The garage's estimate. It releases nothing — see §7.4. */
+  expected_return: string | null;
+  note: string | null;
+  released_at: string | null;
+}
+
+export interface CoveredReservation {
+  id: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  pickup_date: string;
+  return_date: string;
+  status: string;
+}
+
+const BLOCK_REASONS = ["maintenance", "damage", "hold", "statutory", "other"] as const;
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * Taking a vehicle out of the active fleet, and putting it back.
+ *
+ * Blueprint §7.4. The expected return is captured because it is worth knowing
+ * and worth chasing, and is labelled so nobody reads it as a release date —
+ * a garage's promise is not a fact, and letting it free the vehicle on its own
+ * is the failure this design exists to prevent.
+ */
+function BlocksTab({ blocks, covered, onAdd, onRelease, onDelete, onDismissCovered }: {
+  blocks: VehicleBlockRow[] | null;
+  covered: CoveredReservation[] | null;
+  onAdd: (row: Record<string, unknown>) => Promise<boolean>;
+  onRelease: (id: string) => void;
+  onDelete: (id: string) => void;
+  onDismissCovered: () => void;
+}) {
+  const [row, setRow] = useState({ reason: "maintenance", starts_on: today(), expected_return: "", note: "" });
+
+  if (!blocks) return <div className="p-6 text-sm text-gray-600">Loading…</div>;
+
+  const open = blocks.filter(b => !b.released_at);
+  const past = blocks.filter(b => b.released_at);
+
+  return (
+    <div className="p-6 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
+      {/*
+        The bookings the block did not cancel. Shown once, at the moment the
+        decision is made, with phone numbers — so they are moved or called on
+        the day the car goes in rather than on the day it bites.
+      */}
+      {covered && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm text-amber-900">
+              {covered.length === 0
+                ? <>Nothing was booked on this vehicle. Nobody to move.</>
+                : <><strong>{covered.length} booking{covered.length === 1 ? "" : "s"} already on this vehicle.</strong>{" "}
+                    Taking it out does not cancel them — move them to another vehicle or call the customer.</>}
+            </p>
+            <button type="button" onClick={onDismissCovered}
+              className="shrink-0 text-xs text-amber-800 hover:text-amber-950 underline">Dismiss</button>
+          </div>
+          {covered.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {covered.map(r => (
+                <li key={r.id} className="text-xs text-amber-900">
+                  • {r.customer_name ?? "—"} · {r.pickup_date} → {r.return_date} · {r.status}
+                  {r.customer_phone ? ` · ${r.customer_phone}` : ""}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {open.length === 0 && (
+        <div className="grid grid-cols-12 gap-2 items-end">
+          <div className="col-span-3">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Reason</label>
+            <Select className={input} value={row.reason} onChange={e => setRow(r => ({ ...r, reason: e.target.value }))}>
+              {BLOCK_REASONS.map(t => <option key={t} value={t}>{t}</option>)}
+            </Select>
+          </div>
+          <div className="col-span-3">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Out since</label>
+            <input type="date" className={input} value={row.starts_on}
+              onChange={e => setRow(r => ({ ...r, starts_on: e.target.value }))} />
+          </div>
+          <div className="col-span-3">
+            {/* Labelled for what it is. It chases; it does not release. */}
+            <label className="block text-xs font-medium text-gray-600 mb-1">Expected back (estimate)</label>
+            <input type="date" className={input} value={row.expected_return}
+              onChange={e => setRow(r => ({ ...r, expected_return: e.target.value }))} />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Note</label>
+            <input className={input} value={row.note} placeholder="gearbox"
+              onChange={e => setRow(r => ({ ...r, note: e.target.value }))} />
+          </div>
+          <button
+            onClick={async () => { if (await onAdd(row)) setRow(r => ({ ...r, expected_return: "", note: "" })); }}
+            disabled={!row.starts_on}
+            className="col-span-1 flex items-center justify-center bg-blue-600 text-white rounded-lg h-[38px] hover:bg-blue-700 disabled:opacity-40">
+            <Plus size={16} />
+          </button>
+        </div>
+      )}
+
+      <p className="text-xs text-gray-500">
+        A vehicle stays out until somebody records it back. The expected date is for planning and
+        reminders only — it never returns the vehicle to the fleet on its own.
+      </p>
+
+      {open.map(b => (
+        <div key={b.id} className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 flex items-start justify-between gap-3">
+          <div className="text-sm text-orange-900">
+            <strong>Out since {b.starts_on}</strong> · {b.reason}
+            {b.expected_return ? <> · expected back {b.expected_return}</> : <> · no estimate</>}
+            {b.note ? <div className="text-xs mt-0.5">{b.note}</div> : null}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button type="button" onClick={() => onRelease(b.id)}
+              className="text-xs font-medium bg-white border border-orange-300 rounded-lg px-2.5 py-1 hover:bg-orange-100">
+              Back in fleet
+            </button>
+            {/*
+              Deleting is only ever cancelling a plan. Once the vehicle has
+              actually been out, the record of that is the point — so the button
+              is not offered, and the route refuses it anyway.
+            */}
+            {b.starts_on > today() && (
+              <button type="button" onClick={() => onDelete(b.id)} title="Cancel this planned block"
+                className="text-gray-500 hover:text-red-600 p-1"><Trash2 size={13} /></button>
+            )}
+          </div>
+        </div>
+      ))}
+
+      {past.length > 0 && (
+        <div className="admin-table-wrap">
+          <table className="admin-table w-full text-sm">
+            <thead><tr className="text-xs text-gray-500 border-b border-gray-100">
+              <th className="text-left py-2 font-medium">Out</th><th className="text-left py-2 font-medium">Reason</th>
+              <th className="text-left py-2 font-medium">Back</th><th className="text-left py-2 font-medium">Note</th>
+            </tr></thead>
+            <tbody>
+              {past.map(b => (
+                <tr key={b.id} className="border-b border-gray-50">
+                  <td className="py-2 text-gray-600 text-xs">{b.starts_on}</td>
+                  <td className="py-2 text-gray-700">{b.reason}</td>
+                  <td className="py-2 text-gray-600 text-xs">{b.released_at?.slice(0, 10)}</td>
+                  <td className="py-2 text-gray-500 text-xs">{b.note ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {open.length === 0 && past.length === 0 && (
+        <p className="text-sm text-gray-600 text-center py-6">This vehicle has never been taken out of the fleet.</p>
       )}
     </div>
   );

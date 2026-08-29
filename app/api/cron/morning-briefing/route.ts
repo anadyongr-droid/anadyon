@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendTelegram, drainTelegramQueue } from "@/lib/telegram";
+import { blockChase, ESCALATE_FROM_DAYS } from "@/lib/vehicleBlocks";
+import { sendMail } from "@/lib/mailer";
 import { drainMailQueue } from "@/lib/mailer";
 import { syncEmails, detectReplies, runWatchdog } from "@/lib/emailSync";
 import { runHealthChecks, formatHealthAlert } from "@/lib/healthChecks";
@@ -73,6 +75,16 @@ async function reportHealth() {
 }
 
 // Runs daily at 08:00 Greece time (06:00 UTC in winter / 05:00 UTC in summer)
+/**
+ * Same shape as the copies in the quote and reservation routes. Local rather
+ * than shared because that is this codebase's existing convention for it;
+ * worth centralising one day, but not as a side effect of a fleet feature.
+ */
+function esc(v: unknown): string {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 // Vercel cron configured in vercel.json
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -129,6 +141,31 @@ export async function GET(req: NextRequest) {
     .in("status", ["confirmed", "active"])
     .order("return_time");
 
+  // Vehicles out of the active fleet. Blueprint §7.4: nothing releases these
+  // but a person, so the only thing standing between a car in a workshop and a
+  // car nobody has thought about for a fortnight is this reminder.
+  const { data: openBlocks } = await supabaseAdmin
+    .from("vehicle_blocks")
+    .select("id, reason, starts_on, expected_return, note, vehicles(name, plate)")
+    .is("released_at", null)
+    .order("starts_on");
+
+  const chased = (openBlocks ?? [])
+    .map((b) => ({ block: b, chase: blockChase(b) }))
+    .filter((x) => x.chase.urgency !== "quiet");
+  const escalated = chased.filter((x) => x.chase.urgency === "escalate");
+
+  /** "out 4 days, expected back in 6" — the second half is what stops it being a nag. */
+  const outLine = (x: (typeof chased)[number]) => {
+    const v = x.block.vehicles as { name?: string; plate?: string | null } | null;
+    const days = x.chase.daysOut === 1 ? "1 ημέρα" : `${x.chase.daysOut} ημέρες`;
+    const expected =
+      x.chase.daysToExpected === null ? " — χωρίς εκτιμώμενη επιστροφή"
+      : x.chase.daysToExpected >= 0 ? ` — αναμένεται σε ${x.chase.daysToExpected}`
+      : ` — ΕΚΠΡΟΘΕΣΜΟ κατά ${Math.abs(x.chase.daysToExpected)}`;
+    return `  • ${v?.name ?? "?"}${v?.plate ? ` (${v.plate})` : ""} — εκτός ${days}${expected}${x.block.note ? ` | ${x.block.note}` : ""}`;
+  };
+
   // Open unread emails
   const { count: openEmails } = await supabaseAdmin
     .from("emails")
@@ -136,6 +173,14 @@ export async function GET(req: NextRequest) {
     .eq("status", "open");
 
   let msg = `☀️ <b>Καλημέρα! Briefing ${today}</b>\n\n`;
+
+  // Above the day's movements on purpose. A vehicle that has been out four days
+  // is not news that keeps until the end of the message.
+  if (escalated.length) {
+    msg += `🔧 <b>ΟΧΗΜΑΤΑ ΕΚΤΟΣ ΣΤΟΛΟΥ — ΑΠΑΙΤΕΙΤΑΙ ΕΝΕΡΓΕΙΑ (${escalated.length}):</b>\n`;
+    escalated.forEach((x) => { msg += `${outLine(x)}\n`; });
+    msg += "\n";
+  }
 
   if (pickups?.length) {
     msg += `🚗 <b>Παραλαβές σήμερα (${pickups.length}):</b>\n`;
@@ -159,11 +204,68 @@ export async function GET(req: NextRequest) {
     msg += "🔄 Δεν υπάρχουν επιστροφές σήμερα.\n\n";
   }
 
+  // The day-2 reminders, below the movements: visibility rather than alarm.
+  // Anything already escalated is at the top and is not repeated here.
+  const reminders = chased.filter((x) => x.chase.urgency === "remind");
+  if (reminders.length) {
+    msg += `🔧 <b>Εκτός στόλου (${reminders.length}):</b>\n`;
+    reminders.forEach((x) => { msg += `${outLine(x)}\n`; });
+    msg += "\n";
+  }
+
   if (openEmails && openEmails > 0) {
     msg += `📧 <b>Αναπάντητα emails: ${openEmails}</b>\n`;
   }
 
   await sendTelegram(msg);
+
+  /**
+   * Escalation only — never the daily reminder.
+   *
+   * §7.4: the briefing is read every morning and carries the routine
+   * visibility. An email arriving every day about the same vehicle gets
+   * filtered, and a filtered alert is worse than none — so email is reserved
+   * for the four-days-out case, and its arrival is itself the signal.
+   *
+   * To the owner directly rather than customerservice@: an asset sitting idle
+   * is not a customer-service matter, and the shared inbox forwards there
+   * anyway, which would deliver it twice.
+   */
+  if (escalated.length) {
+    const rows = escalated.map((x) => {
+      const v = x.block.vehicles as { name?: string; plate?: string | null } | null;
+      const expected = x.chase.daysToExpected === null
+        ? "none recorded"
+        : x.chase.daysToExpected >= 0
+          ? `in ${x.chase.daysToExpected} day${x.chase.daysToExpected === 1 ? "" : "s"}`
+          : `overdue by ${Math.abs(x.chase.daysToExpected)} day${Math.abs(x.chase.daysToExpected) === 1 ? "" : "s"}`;
+      return `<tr><td>${esc(v?.name ?? "?")}${v?.plate ? ` (${esc(v.plate)})` : ""}</td>`
+        + `<td>${esc(x.block.reason)}</td><td>${esc(x.block.starts_on)}</td>`
+        + `<td>${x.chase.daysOut}</td><td>${esc(expected)}</td>`
+        + `<td>${esc(x.block.note ?? "")}</td></tr>`;
+    }).join("");
+
+    await sendMail({
+      from: "Anadyon Alerts <no-reply@anadyon.gr>",
+      to: ["anadyon.gr@gmail.com"],
+      // No replyTo: this is an alert, and Reply belongs inside the office.
+      subject: `🔧 ${escalated.length} vehicle${escalated.length === 1 ? "" : "s"} out of the fleet for ${ESCALATE_FROM_DAYS}+ days`,
+      html: `
+        <p>These vehicles are recorded as out of the active fleet and nobody has
+        put them back. They cannot be booked — online or by staff — until
+        somebody records them returned.</p>
+        <table cellpadding="6" style="border-collapse:collapse;">
+          <tr><th align="left">Vehicle</th><th align="left">Reason</th><th align="left">Out since</th>
+              <th align="left">Days</th><th align="left">Expected</th><th align="left">Note</th></tr>
+          ${rows}
+        </table>
+        <hr/>
+        <p style="color:#888;font-size:12px;">An expected return date never releases a vehicle by itself —
+        that is deliberate. Record it back from the Today screen or the vehicle's Blocks tab.
+        Replies to this email reach the office, not a customer.</p>
+      `,
+    });
+  }
 
   // Today's briefing is away; now retry anything that failed to send earlier.
   // Deliberately after, not before: a backlog must never delay the one message

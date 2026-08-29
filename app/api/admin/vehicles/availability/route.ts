@@ -117,8 +117,12 @@ export async function GET(req: NextRequest) {
     const bookedEnd = toInstant(r.return_date, r.return_time);
     const readyAt = addMinutes(bookedEnd, turnaround);
 
-    // Half-open intervals: a rental may begin exactly when the vehicle is ready.
-    const clashes = bookedStart < wantEnd && readyAt > wantStart;
+    // Turnaround applies to BOTH ends. Padding only the existing rental's
+    // return let a new booking returning the car at 09:00 sit in front of an
+    // existing hire collecting it at 09:00, with no changeover at all. The
+    // vehicle needs the same window whichever side of it we are standing on.
+    const wantReadyAt = addMinutes(wantEnd, turnaround);
+    const clashes = bookedStart < wantReadyAt && readyAt > wantStart;
     if (!clashes) continue;
 
     // Distinguish a real double-booking from a gap that is merely too short —

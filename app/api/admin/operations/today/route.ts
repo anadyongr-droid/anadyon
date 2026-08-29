@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { dayEvents, findOverdue, licenceStatus, instant } from "@/lib/operations";
 import { rentalBar } from "@/lib/fleetStatus";
+import { blockChase } from "@/lib/vehicleBlocks";
 
 // Staff-accessible: this is the screen they work from. Nothing financial is
 // returned — no rates, totals, costs or margins — so it stays inside what a
@@ -110,17 +111,40 @@ export async function GET() {
       service: null,
     }));
 
+  /**
+   * Vehicles out of the active fleet, with how hard they need chasing.
+   *
+   * §7.4: nothing releases these but a person, so this list and the morning
+   * briefing are the only things standing between a car in a workshop and a car
+   * nobody has thought about for a fortnight. It sits on the screen staff work
+   * from, with the release one press away — a release that is fiddly does not
+   * happen, and then vehicles sit idle instead of going out.
+   */
+  const { data: blockRows } = await supabaseAdmin
+    .from("vehicle_blocks")
+    .select("id, vehicle_id, reason, starts_on, expected_return, note")
+    .is("released_at", null)
+    .order("starts_on");
+
+  const outOfFleet = (blockRows ?? []).map(b => ({
+    ...b,
+    vehicle: vehicleById.get(b.vehicle_id) ?? null,
+    chase: blockChase(b, now),
+  }));
+
   return NextResponse.json({
     date: todayIso,
     generatedAt: now.toISOString(),
     events,
     overdue,
     fleet,
+    outOfFleet,
     counts: {
       pickups: events.filter(e => e.kind === "pickup").length,
       returns: events.filter(e => e.kind === "return").length,
       overdue: overdue.length,
       fleetAttention: fleet.length,
+      outOfFleet: outOfFleet.length,
       // Anything a member of staff must resolve before a vehicle can leave.
       blockers: events.filter(e => e.blocked || e.licence?.blocks).length,
     },

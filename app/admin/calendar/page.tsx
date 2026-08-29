@@ -5,7 +5,7 @@ import StatusLegend from "../components/StatusLegend";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import ReservationModal from "../components/ReservationModal";
 import { vehicleLabel } from "@/lib/vehicleLabel";
-import { unallocatedCalendarReservations } from "@/lib/calendarReservations";
+import { calendarRowCells, unallocatedCalendarReservations } from "@/lib/calendarReservations";
 
 interface Vehicle {
   id: string;
@@ -51,11 +51,6 @@ function toDateStr(d: Date) {
 }
 
 // Parse a YYYY-MM-DD string as local midnight (avoids UTC shift)
-function parseLocalDate(s: string): Date {
-  const [y, mo, d] = s.split("-").map(Number);
-  return new Date(y, mo - 1, d);
-}
-
 function formatDay(d: Date) {
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 }
@@ -79,15 +74,39 @@ export default function CalendarPage() {
 
   const endDate = addDays(startDate, days - 1);
 
+  /**
+   * Vehicles out of the active fleet, by id, with the day they went out.
+   *
+   * A blocked car previously showed as empty space, which is exactly where a
+   * dispatcher decides to put a booking. Shaded rather than drawn as a bar, so
+   * that reservations still standing on a blocked vehicle stay visible on top
+   * of it — those are the ones that need moving, and hiding them under a block
+   * would be a second way of telling the screen a comfortable lie.
+   */
+  const [outOfFleet, setOutOfFleet] = useState<Record<string, { starts_on: string; reason: string }>>({});
+
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [vRes, rRes] = await Promise.all([
+    const [vRes, rRes, bRes] = await Promise.all([
       fetch("/api/admin/vehicles"),
       fetch(`/api/admin/reservations?from=${toDateStr(addDays(startDate, -30))}&to=${toDateStr(addDays(endDate, 30))}`),
+      fetch("/api/admin/vehicles/blocks?open=1"),
     ]);
     const [v, r] = await Promise.all([vRes.json(), rRes.json()]);
     setVehicles(v);
     setReservations(r);
+    if (bRes.ok) {
+      const rows: Array<{ vehicle_id: string; starts_on: string; reason: string }> = await bRes.json();
+      // Earliest open block per vehicle: from that day on, the car is out and
+      // stays out until a person records it back.
+      const from: Record<string, { starts_on: string; reason: string }> = {};
+      for (const b of rows) {
+        if (!from[b.vehicle_id] || b.starts_on < from[b.vehicle_id].starts_on) {
+          from[b.vehicle_id] = { starts_on: b.starts_on, reason: b.reason };
+        }
+      }
+      setOutOfFleet(from);
+    }
     setLoading(false);
   }, [startDate, days]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -105,28 +124,6 @@ export default function CalendarPage() {
     category: cat,
     vehicles: vehicles.filter((v) => v.category === cat && v.status !== "retired"),
   })).filter((g) => g.vehicles.length > 0);
-
-  // Get reservation bar(s) for a vehicle on a given date
-  function getResForVehicleDay(vehicleId: string, date: Date): Reservation | undefined {
-    const ds = toDateStr(date);
-    return reservations.find(
-      (r) => r.vehicle_id === vehicleId && r.pickup_date <= ds && r.return_date >= ds
-    );
-  }
-
-  // Determine if this cell is the START of a reservation bar
-  function isBarStart(res: Reservation, date: Date): boolean {
-    return res.pickup_date === toDateStr(date);
-  }
-
-  // Calculate bar span (days visible in current view), return date inclusive
-  function barSpan(res: Reservation, date: Date): number {
-    const start = new Date(Math.max(parseLocalDate(res.pickup_date).getTime(), date.getTime()));
-    const end = addDays(parseLocalDate(res.return_date), 1); // +1 to make return date inclusive
-    const viewEnd = addDays(endDate, 1);
-    const actualEnd = new Date(Math.min(end.getTime(), viewEnd.getTime()));
-    return Math.max(1, Math.ceil((actualEnd.getTime() - start.getTime()) / 86400000));
-  }
 
   return (
     <div className="p-6 min-h-full">
@@ -328,18 +325,29 @@ export default function CalendarPage() {
                             )}
                         </div>
                       </td>
-                      {/* Day cells */}
-                      {dateRange.map((date) => {
-                        const res = getResForVehicleDay(vehicle.id, date);
-                        const isToday = toDateStr(date) === toDateStr(new Date());
+                      {/*
+                        Day cells, from a single pass that emits exactly the
+                        columns it consumes. The previous version decided each
+                        column with two independent predicates and emitted no
+                        <td> at all for a covered day whose bar had not
+                        rendered — which is every day of a rental that began
+                        before the visible window. The row came up short and
+                        every bar to its right slid a day left, while the
+                        header stayed correct, so a booking appeared to have
+                        moved. See lib/calendarReservations.ts.
+                      */}
+                      {calendarRowCells(
+                        reservations.filter((r) => r.vehicle_id === vehicle.id),
+                        dateRange.map(toDateStr),
+                      ).map((cell, cellIndex) => {
                         const isMaint = vehicle.status === "maintenance";
 
-                        if (res && isBarStart(res, date)) {
-                          const span = barSpan(res, date);
+                        if (cell.kind === "bar") {
+                          const res = cell.reservation;
                           return (
                             <td
-                              key={date.toISOString()}
-                              colSpan={span}
+                              key={`${res.id}-${cellIndex}`}
+                              colSpan={cell.span}
                               className="px-0 py-1 relative"
                             >
                               <button
@@ -347,26 +355,50 @@ export default function CalendarPage() {
                                 title={`${res.customer_name} — €${res.total}`}
                                 className={`w-full h-7 rounded flex items-center px-2 gap-1 text-left text-xs font-medium truncate cursor-pointer transition-opacity hover:opacity-90 ${statusClass(res.status, "solid")}`}
                               >
+                                {/*
+                                  A bar clipped by the edge of the view says so.
+                                  Without it a rental that started last week
+                                  reads as one starting on the first visible
+                                  day — a different wrong answer from the one
+                                  this fix removes.
+                                */}
+                                {cell.continuesBefore && <span aria-hidden>‹</span>}
                                 <span className="truncate">{res.customer_name}</span>
+                                {cell.continuesAfter && <span aria-hidden className="ml-auto">›</span>}
                               </button>
                             </td>
                           );
                         }
 
-                        // Cell occupied by a reservation bar (not start)
-                        if (res) return null;
-
+                        const isToday = cell.date === toDateStr(new Date());
+                        // Out of the fleet from this day on, until somebody
+                        // records it back. Shaded rather than drawn as a bar so
+                        // reservations still standing on a blocked vehicle show
+                        // ON TOP of it — those are the ones needing moved, and
+                        // covering them would be a second comfortable lie.
+                        //
+                        // Not clickable: the write path refuses the booking
+                        // anyway, and offering the plus then refusing teaches
+                        // staff the screen cannot be trusted.
+                        const out = outOfFleet[vehicle.id];
+                        const isOut = !!out && cell.date >= out.starts_on;
                         return (
                           <td
-                            key={date.toISOString()}
+                            key={cell.date}
+                            title={isOut ? `Out of the fleet since ${out.starts_on} (${out.reason})` : undefined}
                             className={`relative h-9 border-l border-gray-100 ${
                               isToday ? "bg-blue-50/40" : ""
-                            } ${isMaint ? "bg-orange-50" : ""}`}
+                            } ${isMaint ? "bg-orange-50" : ""} ${isOut ? "bg-orange-100" : ""}`}
                             onClick={() =>
-                              !isMaint && setModal({ vehicleId: vehicle.id, date: toDateStr(date) })
+                              !isMaint && !isOut && setModal({ vehicleId: vehicle.id, date: cell.date })
                             }
                           >
-                            {!isMaint && (
+                            {isOut && out.starts_on === cell.date && (
+                              <span className="absolute inset-y-0 left-1 flex items-center text-[10px] font-semibold text-orange-900">
+                                out
+                              </span>
+                            )}
+                            {!isMaint && !isOut && (
                               <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 cursor-pointer transition-opacity">
                                 <Plus size={12} className="text-gray-600" />
                               </div>

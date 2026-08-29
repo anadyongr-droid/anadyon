@@ -1,6 +1,6 @@
 import { sendMail, type Mail } from "@/lib/mailer";
 import { sendAuditedWorkflowMail } from "@/lib/auditedMail";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { after, NextRequest, NextResponse } from "next/server";
 import { verifyRecaptcha } from "@/lib/recaptcha";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -21,8 +21,33 @@ const TOLERANCE = 0.02; // allow up to €0.02 rounding difference before flaggi
 
 const REF_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 32 chars — no I/O/0/1 to avoid confusion
 
+/**
+ * The customer-facing quote reference.
+ *
+ * `crypto.randomBytes`, not `Math.random`. This value is most of what stands
+ * between a stranger and somebody else's booking: /quote/[ref] is deliberately
+ * unauthenticated, gated by this reference plus a surname — and a surname is a
+ * second check, not a second secret.
+ *
+ * `Math.random` is not a cryptographic generator. Its output is predictable
+ * from prior values, so an attacker who requests a handful of quotes of their
+ * own can work out others. Length is no defence against that, which is the
+ * trap in "state the entropy and confirm it is sufficient": six characters from
+ * 32 symbols is about 30 bits, and 30 predictable bits are worth nothing.
+ * `lib/gmail.ts` already recorded the same lesson on the OAuth `state` value —
+ * "two concatenated calls made it longer without making it less guessable".
+ *
+ * REF_CHARS.length is 32, which divides 256, so masking each byte to five bits
+ * is uniform. Taking a modulo of a byte by a non-power-of-two would bias the
+ * early characters of the alphabet, quietly shrinking the space.
+ *
+ * Still six characters: it is read aloud on the phone and typed off an email,
+ * and lengthening it is the wrong axis. A separate 128-bit link token remains
+ * the stronger design and is recorded in the blueprint §9a — it changes the
+ * customer-facing URL, so it is not folded in here.
+ */
 function generateRef(): string {
-  return Array.from({ length: 6 }, () => REF_CHARS[Math.floor(Math.random() * REF_CHARS.length)]).join("");
+  return Array.from(randomBytes(6), (b) => REF_CHARS[b & 31]).join("");
 }
 
 function esc(val: unknown): string {
@@ -312,7 +337,7 @@ export async function POST(req: NextRequest) {
   const dailyRate = serverDailyRate;
   const vehicleSubtotal = serverVehicleSubtotal;
   const extrasSubtotal = serverExtrasSubtotal;
-  const requestedRef = generateRef();
+  let requestedRef = generateRef();
   const expiresAt = new Date();
   expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
@@ -439,16 +464,43 @@ export async function POST(req: NextRequest) {
     driverAge: effectiveDriverAge ?? "",
   });
 
-  const { data: bookingData, error: bookingError } = await supabaseAdmin.rpc(
-    "create_web_booking",
-    {
+  /**
+   * A reference collision is retried, not shown to the customer.
+   *
+   * `quotes.ref` is UNIQUE, so a duplicate raises 23505 and the booking failed
+   * with "We could not save your request" — a customer turned away by a coin
+   * landing twice, with nothing in the log to say that is what happened. Six
+   * characters from 32 symbols is a large space but not an infinite one, and
+   * the birthday bound closes faster than the count of bookings suggests.
+   *
+   * Only a collision on the reference is retried. 23505 from anything else —
+   * an idempotency key above all — is the replay protection working, and
+   * retrying it would defeat the guard rather than recover from it.
+   */
+  const REF_ATTEMPTS = 5;
+  let bookingData: unknown = null;
+  let bookingError: { message: string; code?: string } | null = null;
+
+  for (let attempt = 1; attempt <= REF_ATTEMPTS; attempt++) {
+    const result = await supabaseAdmin.rpc("create_web_booking", {
       p_quote: quotePayload,
       p_reservation: reservationPayload,
       p_promo_code: promoCode?.trim() || null,
       p_idempotency_key: idempotencyKey,
       p_deposit_rate: DEPOSIT_RATE,
-    }
-  );
+    });
+    bookingData = result.data;
+    bookingError = result.error;
+
+    const collided = result.error?.code === "23505"
+      && /quotes_ref_key/i.test(`${result.error.message} ${result.error.details ?? ""}`);
+    if (!collided) break;
+
+    console.warn(`[quote] reference ${requestedRef} already existed; retrying (${attempt}/${REF_ATTEMPTS})`);
+    requestedRef = generateRef();
+    quotePayload.ref = requestedRef;
+    reservationPayload.notes = `Quote ref: ${requestedRef}${comments ? `. Customer notes: ${comments}` : ""}`;
+  }
 
   const booking = BookingResultSchema.safeParse(bookingData);
   if (bookingError) {
@@ -516,39 +568,25 @@ export async function POST(req: NextRequest) {
   // independent — the office copy and the customer copy — and sending them one
   // after the other made the customer wait for both round trips before their
   // booking reference appeared.
-  // No replyTo. This is an internal notification, and setting the customer as
-  // the reply address meant a member of staff hitting Reply — to ask a
-  // colleague about availability, say — wrote to the customer instead. Replies
-  // now stay inside the office.
+  // The quote itself. This one replies to the customer who submitted it, so the
+  // office can answer straight from the email instead of copying the address
+  // out of the body — answering the customer is by far the common case.
   //
-  // The customer's address is printed in the details below as plain text, so
-  // the office can still reach them from this email alone when the admin area
-  // is unavailable. Plain text, not a link or a button: the alert carries the
-  // information and nothing that acts on it.
-  const officeMail = (noVehicle: boolean) => sendMail({
+  // It deliberately carries no alert banner. A flag rides in `officeAlertMail`
+  // below, as a separate email, because a warning bolted onto a
+  // customer-replyable message is how staff came to answer the customer twice:
+  // once by replying to an availability alert, and once before that, which is
+  // why Reply-To was removed here and later restored.
+  const officeMail = () => sendMail({
     from: "Anadyon Website <customerservice@anadyon.gr>",
     to: ["customerservice@anadyon.gr"],
-    // Replies to the customer who submitted the request, so the office can
-    // answer straight from this email instead of copying the address out of
-    // the body. Reverses the earlier "keep replies internal" rule: answering
-    // the customer turned out to be the common case by far.
-    //
-    // Except on the price-manipulation alert. That is the same email with a
-    // warning bolted on, so a blanket Reply-To would point it at whoever just
-    // tampered with the price — and one careless Reply would tell them the
-    // tampering was noticed. There, replies stay internal; the customer's
-    // address is still printed in the body for anyone who decides to write.
+    // Suppressed when the submitted price was manipulated. A Reply-To would
+    // point at whoever just tampered with it, and one careless Reply would tell
+    // them it had been noticed. The address stays printed in the body below for
+    // anyone who decides to write deliberately.
     ...(manipulated ? {} : { replyTo: email }),
-    subject: `${manipulated ? "⚠️ [ALERT] " : ""}${noVehicle ? "🚗 [NO VEHICLE] " : ""}Quote Request — ${lastName}, ${ref}`,
+    subject: `Quote Request — ${lastName}, ${ref}`,
     html: `
-      ${manipulationWarning}
-      ${noVehicle ? `
-      <div style="background:#fee2e2;border:2px solid #dc2626;border-radius:8px;padding:16px;margin-bottom:20px;">
-        <p style="margin:0 0 8px;font-weight:bold;color:#991b1b;">🚗 NO VEHICLE COULD BE ASSIGNED</p>
-        <p style="margin:0 0 4px;color:#7f1d1d;">Nothing was available in the requested category (or a valid upgrade) with the right transmission for these dates, so the reservation was left unallocated rather than given an unsuitable vehicle.</p>
-        <p style="margin:0;color:#7f1d1d;font-size:13px;">This booking needs a manual assignment, or a conversation with the customer about alternatives. It is highlighted in red on the Reservations screen.</p>
-      </div>
-      ` : ""}
       <h2>New Quote Request</h2>
       <p><strong>Reference:</strong> ${ref}</p>
 
@@ -556,10 +594,10 @@ export async function POST(req: NextRequest) {
       <table cellpadding="6" style="border-collapse:collapse;">
         <tr><td><strong>Vehicle Type:</strong></td><td>${vehicleType}</td></tr>
         <tr><td><strong>Model:</strong></td><td>${selectedModel}</td></tr>
-        <tr><td><strong>Pick-up Location:</strong></td><td>${pickupLocation}</td></tr>
-        <tr><td><strong>Drop-off Location:</strong></td><td>${dropoffLocation}</td></tr>
-        <tr><td><strong>Pick-up:</strong></td><td>${pickupDate} at ${pickupTime}</td></tr>
-        <tr><td><strong>Drop-off:</strong></td><td>${dropoffDate} at ${dropoffTime}</td></tr>
+        <tr><td><strong>Pick-up Location:</strong></td><td>${esc(pickupLocation)}</td></tr>
+        <tr><td><strong>Drop-off Location:</strong></td><td>${esc(dropoffLocation)}</td></tr>
+        <tr><td><strong>Pick-up:</strong></td><td>${esc(pickupDate)} at ${esc(pickupTime)}</td></tr>
+        <tr><td><strong>Drop-off:</strong></td><td>${esc(dropoffDate)} at ${esc(dropoffTime)}</td></tr>
         <tr><td><strong>Rental Days:</strong></td><td>${rentalDays}</td></tr>
         ${transmission ? `<tr><td><strong>Transmission:</strong></td><td>${transmission}</td></tr>` : ""}
         <tr><td><strong>Driver Age:</strong></td><td>${effectiveDriverAge}</td></tr>
@@ -602,6 +640,57 @@ export async function POST(req: NextRequest) {
     `,
   });
 
+  /**
+   * The flag, as its own email.
+   *
+   * Sent only when something needs a person: no vehicle could be allocated, or
+   * the submitted price did not match the server's.
+   *
+   * **It carries no Reply-To, and it never will.** The question an alert
+   * prompts is an internal one — "do we have anything else for these dates?" —
+   * and on 27 August a member of staff asked it by hitting Reply on a
+   * "[NO VEHICLE]" alert, which reached the customer instead of a colleague.
+   * The same fault had happened once before, was fixed by removing Reply-To
+   * from the office email entirely, and came back when that removal was
+   * reversed so ordinary quotes could be answered from the inbox. Separating
+   * the two emails is what lets both rules hold at once.
+   *
+   * The customer's details are printed as plain text, so the office can still
+   * reach them from this email alone when the admin area is unavailable — but
+   * as information, not as an action. No mailto, no link, no button.
+   */
+  const officeAlertMail = (noVehicle: boolean) => sendMail({
+    from: "Anadyon Alerts <no-reply@anadyon.gr>",
+    to: ["customerservice@anadyon.gr"],
+    subject: `${manipulated ? "⚠️ [ALERT] " : ""}${noVehicle ? "🚗 [NO VEHICLE] " : ""}Quote Request — ${lastName}, ${ref}`,
+    html: `
+      ${manipulationWarning}
+      ${noVehicle ? `
+      <div style="background:#fee2e2;border:2px solid #dc2626;border-radius:8px;padding:16px;margin-bottom:20px;">
+        <p style="margin:0 0 8px;font-weight:bold;color:#991b1b;">🚗 NO VEHICLE COULD BE ASSIGNED</p>
+        <p style="margin:0 0 4px;color:#7f1d1d;">Nothing was available in the requested category (or a valid upgrade) with the right transmission for these dates, so the reservation was left unallocated rather than given an unsuitable vehicle.</p>
+        <p style="margin:0;color:#7f1d1d;font-size:13px;">This booking needs a manual assignment, or a conversation with the customer about alternatives. It is highlighted in red on the Reservations screen.</p>
+      </div>
+      ` : ""}
+
+      <h3>Which booking</h3>
+      <table cellpadding="6" style="border-collapse:collapse;">
+        <tr><td><strong>Reference:</strong></td><td><strong>${ref}</strong></td></tr>
+        <tr><td><strong>Customer:</strong></td><td>${esc(title)} ${esc(firstName)} ${esc(lastName)}</td></tr>
+        <tr><td><strong>Email:</strong></td><td>${esc(email)}</td></tr>
+        <tr><td><strong>Mobile:</strong></td><td>${esc(mobileTel)}</td></tr>
+        <tr><td><strong>Vehicle:</strong></td><td>${selectedModel} (${vehicleType})</td></tr>
+        ${transmission ? `<tr><td><strong>Transmission:</strong></td><td>${transmission}</td></tr>` : ""}
+        <tr><td><strong>Pick-up:</strong></td><td>${esc(pickupLocation)} on ${esc(pickupDate)} at ${esc(pickupTime)}</td></tr>
+        <tr><td><strong>Drop-off:</strong></td><td>${esc(dropoffLocation)} on ${esc(dropoffDate)} at ${esc(dropoffTime)}</td></tr>
+        <tr><td><strong>Rental Days:</strong></td><td>${rentalDays}</td></tr>
+      </table>
+
+      <hr/>
+      <p style="color:#888;font-size:12px;"><strong>Replies to this email reach the office, not the customer.</strong> The full quote was sent separately, under the subject "Quote Request — ${esc(lastName)}, ${ref}" — answer the customer from that one.</p>
+    `,
+  });
+
   // Receipt acknowledgment to the customer — deliberately distinct from the
   // later quote confirmation and post-payment booking confirmation emails.
   // It always uses the correct server figures and follows the language used on
@@ -628,8 +717,8 @@ export async function POST(req: NextRequest) {
       <table cellpadding="6" style="border-collapse:collapse;">
         <tr><td><strong>Αριθμός αναφοράς:</strong></td><td><strong>${ref}</strong></td></tr>
         <tr><td><strong>Όχημα:</strong></td><td>${selectedModel}</td></tr>
-        <tr><td><strong>Παραλαβή:</strong></td><td>${pickupLocation}, ${pickupDate} στις ${pickupTime}</td></tr>
-        <tr><td><strong>Επιστροφή:</strong></td><td>${dropoffLocation}, ${dropoffDate} στις ${dropoffTime}</td></tr>
+        <tr><td><strong>Παραλαβή:</strong></td><td>${esc(pickupLocation)}, ${esc(pickupDate)} στις ${esc(pickupTime)}</td></tr>
+        <tr><td><strong>Επιστροφή:</strong></td><td>${esc(dropoffLocation)}, ${esc(dropoffDate)} στις ${esc(dropoffTime)}</td></tr>
         <tr><td><strong>Ημέρες ενοικίασης:</strong></td><td>${rentalDays}</td></tr>
       </table>
 
@@ -660,8 +749,8 @@ export async function POST(req: NextRequest) {
       <table cellpadding="6" style="border-collapse:collapse;">
         <tr><td><strong>Reference:</strong></td><td><strong>${ref}</strong></td></tr>
         <tr><td><strong>Vehicle:</strong></td><td>${selectedModel}</td></tr>
-        <tr><td><strong>Pick-up:</strong></td><td>${pickupLocation} on ${pickupDate} at ${pickupTime}</td></tr>
-        <tr><td><strong>Drop-off:</strong></td><td>${dropoffLocation} on ${dropoffDate} at ${dropoffTime}</td></tr>
+        <tr><td><strong>Pick-up:</strong></td><td>${esc(pickupLocation)} on ${esc(pickupDate)} at ${esc(pickupTime)}</td></tr>
+        <tr><td><strong>Drop-off:</strong></td><td>${esc(dropoffLocation)} on ${esc(dropoffDate)} at ${esc(dropoffTime)}</td></tr>
         <tr><td><strong>Rental Days:</strong></td><td>${rentalDays}</td></tr>
       </table>
 
@@ -731,7 +820,13 @@ export async function POST(req: NextRequest) {
   // the durable retry queue and alerts the office.
   after(async () => {
     const noVehicle = await noVehicleAssigned();
-    await Promise.all([officeMail(noVehicle), customerMail()]);
+    // The alert is a third message, sent only when there is something to flag,
+    // and never merged into the other two. See officeAlertMail for why.
+    await Promise.all([
+      officeMail(),
+      customerMail(),
+      ...(noVehicle || manipulated ? [officeAlertMail(noVehicle)] : []),
+    ]);
   });
 
   return NextResponse.json({ success: true, ref });

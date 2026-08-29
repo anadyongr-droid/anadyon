@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Captures whatever reaches Postgres, which is the whole point: the cancellation
@@ -220,7 +221,9 @@ describe("POST /api/admin/reservations", () => {
 
   it("announces a genuinely new reservation to the office", async () => {
     await POST(postReq({ status: "pending", total: 100, customer_name: "A B" }));
-    expect(sentEmails.some((e) => e.subject.startsWith("New Reservation"))).toBe(true);
+    // No vehicle_id is posted here, so the subject now leads with the flag —
+    // the announcement says what needs a person before it says what happened.
+    expect(sentEmails.some((e) => e.subject.includes("New Reservation"))).toBe(true);
     expect(insertPayload).toMatchObject({ source: "admin" });
   });
 
@@ -240,5 +243,33 @@ describe("POST /api/admin/reservations", () => {
     await POST(postReq({ status: "cancelled", total: 100, customer_name: "A B" }));
     expect(sentEmails).toHaveLength(0);
     expect(insertPayload).toMatchObject({ status: "cancelled" });
+  });
+});
+
+describe("the new-reservation announcement says what needs a person", () => {
+  const route = readFileSync(new URL("./route.ts", import.meta.url), "utf8");
+  const block = route.match(/from: "Anadyon Reservations[\s\S]*?html: buildEmailHtml/)?.[0] ?? "";
+
+  it("does not wear the Alerts sender for a routine booking", () => {
+    // "Anadyon Alerts" arriving all day for ordinary work is why a real alert
+    // stopped reading as one. The sender has to carry information.
+    expect(block, "announcement block not found").not.toBe("");
+    expect(route).not.toContain('from: "Anadyon Alerts');
+  });
+
+  it("flags a reservation saved with no vehicle, in the subject", () => {
+    // Previously indistinguishable from an ordinary booking: same sender, same
+    // wording, and the vehicle simply missing from the middle of the line.
+    expect(block).toContain("[NO VEHICLE]");
+    expect(block).toContain("responseData.vehicle_id");
+  });
+
+  it("reuses the website's wording rather than inventing a second one", () => {
+    const quoteRoute = readFileSync(new URL("../../quote/route.ts", import.meta.url), "utf8");
+    expect(quoteRoute).toContain("[NO VEHICLE]");
+  });
+
+  it("never leaves an empty gap where the vehicle should be", () => {
+    expect(block).toContain("no vehicle assigned");
   });
 });
