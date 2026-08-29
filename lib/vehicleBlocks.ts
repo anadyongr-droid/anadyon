@@ -1,85 +1,82 @@
 import { supabaseAdmin } from "@/lib/supabase";
 
 /**
- * Dated availability blocks, on the manual assignment path.
+ * A vehicle taken out of the active fleet.
  *
- * The database gates automatic website allocation inside
- * `find_available_eligible_vehicle` (migration 20260828120000). That covers the
- * path nobody watches. This covers the one a person drives — assigning a
- * vehicle from the Reservations screen — which is the likelier way a blocked
- * vehicle gets released, because a person can see the car in the list and has a
- * customer waiting.
+ * Blueprint §7.4. `vehicles.status` cannot do this job: it is a switch with no
+ * dates and no memory, so it cannot say "in the workshop from Tuesday", cannot
+ * hold a future entry, and depends on somebody remembering to set it back.
  *
- * Blueprint §7 phase 1: "the counter must not be capable of releasing a blocked
- * vehicle or an invalid driver."
+ * **An expected return is a promise from a third party, not a fact.** The
+ * garage says the 15th and does not deliver. So `expected_return` drives
+ * planning, display and reminders and ends nothing: a block is open until a
+ * person records the vehicle back, and an open block is a hard stop out of the
+ * fleet for every date from `starts_on` onward — including dates past the
+ * estimate, and including next season.
+ *
+ * That costs forward bookings, knowingly. The escape is the attestation below,
+ * not a softer rule: a hard stop nobody can pass honestly is one they pass by
+ * deleting the block, and the record goes with it.
  */
 export interface VehicleBlock {
+  id: string;
   reason: string;
   starts_on: string;
-  /** Null is open-ended — blocked from `starts_on` until somebody closes it. */
-  ends_on: string | null;
+  /** The garage's estimate. Advisory: it releases nothing. */
+  expected_return: string | null;
   note: string | null;
 }
 
 const REASON_TEXT: Record<string, string> = {
   maintenance: "is in maintenance",
-  statutory: "has a statutory block (KTEO, insurance or road tax)",
+  statutory: "is held for a statutory reason",
   damage: "is off the road with damage",
   hold: "is on hold",
-  other: "is blocked",
+  other: "is out of the fleet",
 };
 
 /** What to tell the person who just tried to assign it. */
 export function describeBlock(block: VehicleBlock): string {
   const what = REASON_TEXT[block.reason] ?? REASON_TEXT.other;
-  const until = block.ends_on ? `until ${block.ends_on}` : "with no end date set";
+  const since = `out since ${block.starts_on}`;
+  const expected = block.expected_return
+    ? `, expected back ${block.expected_return}`
+    : ", with no expected return recorded";
   const note = block.note ? ` — ${block.note}` : "";
-  return `This vehicle ${what} from ${block.starts_on} ${until}${note}.`;
+  return `This vehicle ${what} (${since}${expected})${note}.`;
 }
 
-/**
- * The first block overlapping the rental, or null if the vehicle is free.
- *
- * Blocks are whole days, inclusive at both ends, matching the database
- * predicate: a rental overlaps when it starts on or before the block's last day
- * and ends on or after its first.
- *
- * Throws rather than returning null when the read fails. §5.3: a read path must
- * never let "cannot reach the database" look like "nothing found" — and here
- * the two differ by whether a car on a ramp gets handed to a customer.
- */
-/**
- * ISO calendar dates only, checked before the value reaches a filter string.
- *
- * `.or()` below takes a PostgREST filter EXPRESSION, not a bound parameter, so
- * the date is interpolated into query syntax rather than passed beside it —
- * `.eq()` and `.lte()` are parameterised, that one is not. Every caller passes
- * `body.pickup_date` straight off the request JSON, where the surrounding
- * `as Record<string, unknown> & { pickup_date?: string }` is a TypeScript
- * assertion and not a runtime check.
- *
- * The reachable damage today is a widened OR or a rejected filter, both of
- * which make the guard REFUSE — it fails safe. That is luck rather than
- * design: it holds only while this particular expression is a disjunction, and
- * the next person to rewrite it inherits an injection point with no sign that
- * one was ever there.
- */
+/** Written onto the reservation when staff assign the vehicle anyway. */
+export function blockAttestationNote(block: VehicleBlock): string {
+  const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
+  return `[${stamp} UTC] Assigned despite an open ${block.reason} block (out since ${block.starts_on}), confirmed by staff.`;
+}
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-export async function findBlockingBlock(
+/**
+ * The open block that stops this rental, or null.
+ *
+ * Only the return date matters: a block beginning on or before the rental ends
+ * covers it, and an open block has no far end to compare against.
+ *
+ * Throws rather than returning null when the read fails. §5.3 — a read path
+ * must never let "cannot reach the database" look like "nothing found", and
+ * here the two differ by whether a car on a ramp is handed to a customer.
+ */
+export async function findOpenBlock(
   vehicleId: string,
-  pickupDate: string,
   returnDate: string,
 ): Promise<VehicleBlock | null> {
-  if (!ISO_DATE.test(pickupDate) || !ISO_DATE.test(returnDate)) {
-    throw new Error("vehicle block check requires ISO calendar dates");
+  if (!ISO_DATE.test(returnDate)) {
+    throw new Error("vehicle block check requires an ISO calendar date");
   }
   const { data, error } = await supabaseAdmin
     .from("vehicle_blocks")
-    .select("reason, starts_on, ends_on, note")
+    .select("id, reason, starts_on, expected_return, note")
     .eq("vehicle_id", vehicleId)
+    .is("released_at", null)
     .lte("starts_on", returnDate)
-    .or(`ends_on.is.null,ends_on.gte.${pickupDate}`)
     .order("starts_on")
     .limit(1);
 
@@ -87,9 +84,17 @@ export async function findBlockingBlock(
   return data?.[0] ?? null;
 }
 
+export interface BlockGateResult {
+  /** The message to refuse with, or null to proceed. */
+  problem: string | null;
+  /** The block that was overridden, when an attestation permitted one. */
+  overridden: VehicleBlock | null;
+}
+
+const OK: BlockGateResult = { problem: null, overridden: null };
+
 /**
- * Guard for the reservation write paths. Returns the message to refuse with, or
- * null to proceed.
+ * Guard for the reservation write paths.
  *
  * Fails closed: an unreadable blocks table refuses the assignment. Releasing a
  * vehicle because the check was unavailable is the outcome this exists to
@@ -97,18 +102,76 @@ export async function findBlockingBlock(
  */
 export async function vehicleBlockProblem(
   vehicleId: unknown,
-  pickupDate: unknown,
   returnDate: unknown,
-): Promise<string | null> {
-  if (typeof vehicleId !== "string" || typeof pickupDate !== "string" || typeof returnDate !== "string") {
-    return null;
-  }
-  if (!vehicleId || !pickupDate || !returnDate) return null;
+  attested: boolean,
+): Promise<BlockGateResult> {
+  if (typeof vehicleId !== "string" || !vehicleId) return OK;
+  if (typeof returnDate !== "string" || !returnDate) return OK;
 
+  let block: VehicleBlock | null;
   try {
-    const block = await findBlockingBlock(vehicleId, pickupDate, returnDate);
-    return block ? describeBlock(block) : null;
+    block = await findOpenBlock(vehicleId, returnDate);
   } catch {
-    return "Could not check whether this vehicle is blocked. The assignment was not saved — try again.";
+    return {
+      problem: "Could not check whether this vehicle is out of the fleet. The reservation was not saved — try again.",
+      overridden: null,
+    };
   }
+
+  if (!block) return OK;
+  if (attested) return { problem: null, overridden: block };
+  return {
+    problem: `${describeBlock(block)} Confirm you are assigning it anyway to save this reservation.`,
+    overridden: null,
+  };
+}
+
+// ── Chasing a vehicle that has not come back ────────────────────────────────
+
+/** Days out before the daily reminder starts. */
+export const REMIND_FROM_DAYS = 2;
+/** Days out before it escalates: top of the briefing, and an email. */
+export const ESCALATE_FROM_DAYS = 4;
+
+export type BlockUrgency = "quiet" | "remind" | "escalate";
+
+export interface BlockChase {
+  urgency: BlockUrgency;
+  /** Whole days since the vehicle went out. Negative for a future block. */
+  daysOut: number;
+  /** Whole days until the estimate; negative once it has passed; null if none. */
+  daysToExpected: number | null;
+}
+
+function wholeDays(from: string, to: Date): number {
+  const start = new Date(`${from}T00:00:00Z`);
+  const end = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
+  return Math.floor((end - start.getTime()) / 86_400_000);
+}
+
+/**
+ * How hard to chase an open block.
+ *
+ * Clocked from **how long the vehicle has been out**, not from the estimate.
+ * Measuring against a number that may already be wrong is no measurement — and
+ * the estimate is exactly the thing being doubted.
+ *
+ * `daysToExpected` is carried so the reminder can distinguish a legitimate
+ * ten-day rebuild from a car nobody has thought about. A line that reads
+ * "out 4 days, expected back in 6" is information; the same line without it
+ * is a nag, and a nag is what gets ignored.
+ */
+export function blockChase(
+  block: Pick<VehicleBlock, "starts_on" | "expected_return">,
+  today: Date = new Date(),
+): BlockChase {
+  const daysOut = wholeDays(block.starts_on, today);
+  const daysToExpected = block.expected_return ? -wholeDays(block.expected_return, today) : null;
+
+  const urgency: BlockUrgency =
+    daysOut >= ESCALATE_FROM_DAYS ? "escalate"
+    : daysOut >= REMIND_FROM_DAYS ? "remind"
+    : "quiet";
+
+  return { urgency, daysOut, daysToExpected };
 }

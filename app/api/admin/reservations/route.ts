@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { vehicleBlockProblem } from "@/lib/vehicleBlocks";
+import { vehicleBlockProblem, blockAttestationNote } from "@/lib/vehicleBlocks";
 import { licenceGate, licenceAttestationNote } from "@/lib/licenceGate";
 import { vehicleLabel } from "@/lib/vehicleLabel";
 import { sendMail } from "@/lib/mailer";
@@ -127,8 +127,10 @@ export async function POST(req: NextRequest) {
   // A vehicle can be free of other bookings and still not releasable: in the
   // workshop, or without a valid KTEO. Checked before the overlap test because
   // "it is blocked" is the more useful refusal of the two.
-  const blockProblem = await vehicleBlockProblem(body.vehicle_id, body.pickup_date, body.return_date);
-  if (blockProblem) return NextResponse.json({ error: blockProblem }, { status: 409 });
+  const block = await vehicleBlockProblem(
+    body.vehicle_id, body.return_date, raw._block_override === true,
+  );
+  if (block.problem) return NextResponse.json({ error: block.problem }, { status: 409 });
 
   // Overlap check
   if (body.vehicle_id && body.pickup_date && body.return_date) {
@@ -152,9 +154,13 @@ export async function POST(req: NextRequest) {
   // is recorded on the reservation for the same reason the customer-requested
   // note is: months later, somebody will want to know who decided the licence
   // was acceptable and when.
-  if (licence.overridden) {
+  for (const line of [
+    licence.overridden ? licenceAttestationNote() : null,
+    block.overridden ? blockAttestationNote(block.overridden) : null,
+  ]) {
+    if (!line) continue;
     const existingNotes = typeof body.notes === "string" ? body.notes : "";
-    body.notes = `${existingNotes}${existingNotes ? "\n" : ""}${licenceAttestationNote()}`.trim();
+    body.notes = `${existingNotes}${existingNotes ? "\n" : ""}${line}`.trim();
   }
 
   const deposit = parseFloat((body.total * 0.3).toFixed(2));
