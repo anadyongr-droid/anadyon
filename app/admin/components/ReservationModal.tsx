@@ -1048,6 +1048,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
                         <FileText size={11} /> {doc.name}
                       </button>
                       <button onClick={() => handleDocumentDelete(doc.path)}
+                        aria-label={`Delete ${doc.name}`}
                         className="text-gray-500 hover:text-red-600 ml-2"><X size={11} /></button>
                     </div>
                   ))}

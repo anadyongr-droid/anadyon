@@ -371,6 +371,7 @@ function CostsTab({ ledger, restricted, onAdd, onRemove }: {
         </div>
         <button
           onClick={async () => { if (await onAdd({ ...row, amount: Number(row.amount) })) setRow(r => ({ ...r, amount: "", supplier: "", notes: "" })); }}
+          aria-label="Add cost"
           disabled={!row.amount}
           className="col-span-1 flex items-center justify-center bg-blue-600 text-white rounded-lg h-[38px] hover:bg-blue-700 disabled:opacity-40">
           <Plus size={16} />
@@ -394,7 +395,7 @@ function CostsTab({ ledger, restricted, onAdd, onRemove }: {
                   <td className="py-2 text-gray-500 text-xs">{c.supplier ?? "—"}</td>
                   <td className="py-2 text-right tabular-nums">{euro(Number(c.amount))}</td>
                   <td className="py-2 text-right">
-                    <button onClick={() => onRemove(c.id)} className="text-gray-500 hover:text-red-600 p-1"><Trash2 size={13} /></button>
+                    <button onClick={() => onRemove(c.id)} aria-label={`Remove ${c.cost_type.replace("_"," ")} cost of ${euro(Number(c.amount))} from ${c.incurred_on}`} className="text-gray-500 hover:text-red-600 p-1"><Trash2 size={13} /></button>
                   </td>
                 </tr>
               ))}
@@ -438,6 +439,7 @@ function DamagesTab({ ledger, restricted, onAdd, onRemove }: {
         </label>
         <button
           onClick={async () => { if (await onAdd({ ...row, repair_cost: row.repair_cost === "" ? null : Number(row.repair_cost) })) setRow(r => ({ ...r, description: "", repair_cost: "", charged_to_customer: false })); }}
+          aria-label="Add damage"
           disabled={!row.description.trim()}
           className="col-span-1 flex items-center justify-center bg-blue-600 text-white rounded-lg h-[38px] hover:bg-blue-700 disabled:opacity-40">
           <Plus size={16} />
@@ -459,7 +461,7 @@ function DamagesTab({ ledger, restricted, onAdd, onRemove }: {
                   {!d.repaired_on && <span className="text-amber-700"> · open</span>}
                 </div>
               </div>
-              <button onClick={() => onRemove(d.id)} className="text-gray-500 hover:text-red-600 p-1 shrink-0"><Trash2 size={13} /></button>
+              <button onClick={() => onRemove(d.id)} aria-label={`Remove damage — ${d.description}`} className="text-gray-500 hover:text-red-600 p-1 shrink-0"><Trash2 size={13} /></button>
             </div>
           ))}
         </div>
@@ -574,6 +576,7 @@ function BlocksTab({ blocks, covered, onAdd, onRelease, onDelete, onDismissCover
           </div>
           <button
             onClick={async () => { if (await onAdd(row)) setRow(r => ({ ...r, expected_return: "", note: "" })); }}
+            aria-label="Take this vehicle out of the fleet"
             disabled={!row.starts_on}
             className="col-span-1 flex items-center justify-center bg-blue-600 text-white rounded-lg h-[38px] hover:bg-blue-700 disabled:opacity-40">
             <Plus size={16} />

@@ -146,6 +146,7 @@ export default function CalendarPage() {
           <div className="flex items-center gap-1">
             <button
               onClick={() => setStartDate((d) => addDays(d, -days))}
+              aria-label={`Back ${days} days`}
               className="p-1.5 border border-gray-300 rounded-lg hover:bg-gray-50"
             >
               <ChevronLeft size={16} />
@@ -158,6 +159,7 @@ export default function CalendarPage() {
             </button>
             <button
               onClick={() => setStartDate((d) => addDays(d, days))}
+              aria-label={`Forward ${days} days`}
               className="p-1.5 border border-gray-300 rounded-lg hover:bg-gray-50"
             >
               <ChevronRight size={16} />

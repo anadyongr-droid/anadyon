@@ -124,7 +124,7 @@ export default function DiscountRulesPage() {
         <div className="bg-white border border-gray-200 rounded-xl p-5 mb-5 max-w-lg">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-900 text-sm">{editId ? "Edit Rule" : "New Rule"}</h2>
-            <button onClick={() => setShowForm(false)}><X size={16} className="text-gray-600" /></button>
+            <button onClick={() => setShowForm(false)} aria-label="Close the form"><X size={16} className="text-gray-600" /></button>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
@@ -236,8 +236,8 @@ export default function DiscountRulesPage() {
                       </button>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => startEdit(r)} className="text-gray-600 hover:text-gray-900 mr-2"><Pencil size={13} /></button>
-                    <button onClick={() => handleDelete(r.id)} className="text-gray-600 hover:text-red-500"><X size={13} /></button>
+                    <button onClick={() => startEdit(r)} aria-label={`Edit ${r.name}`} className="text-gray-600 hover:text-gray-900 mr-2"><Pencil size={13} /></button>
+                    <button onClick={() => handleDelete(r.id)} aria-label={`Delete rule ${r.name}`} className="text-gray-600 hover:text-red-500"><X size={13} /></button>
                   </td>
                 </tr>
               ))}
