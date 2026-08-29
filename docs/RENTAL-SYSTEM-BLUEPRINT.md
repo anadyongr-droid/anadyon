@@ -1224,7 +1224,7 @@ Two of the three gates in `035` took effect the moment it ran, because it
 replaces `find_available_eligible_vehicle`: the symmetric turnaround and the
 statutory check. The block gate is live but `vehicle_blocks` is empty, so it
 constrains nothing until rows are added — the operator-facing way to create
-them is not built and is the obvious next piece of fleet work.
+them is not built. **§7.4 is the design for it**, decided 28 August.
 
 - **`vehicle_blocks`** — dated, whole-day, inclusive at both ends, `ends_on`
   null for open-ended. Reasons are a closed set: maintenance, statutory,
@@ -1270,6 +1270,139 @@ migration runs:**
 is the better-reasoned of the pair — insurance lapsing mid-rental is the
 operator's exposure — but changing it moves both paths and is area 5's to
 settle.
+
+---
+
+### 7.4 Taking a vehicle out of the active fleet
+
+*Added 28 August 2026. Decided with Tasos; buildable from this section without
+further questions.* `vehicle_blocks` and both gates are live (§7.3); nothing
+writes to the table yet. This is what should.
+
+**The problem `vehicles.status` cannot solve.** It is a switch with no dates and
+no memory: it cannot say "in the workshop Tuesday to Thursday", cannot hold a
+future entry, and depends on somebody remembering to set it back. A car left on
+`maintenance` stops earning silently; one left on `available` goes out while it
+is still on a ramp.
+
+**Statutory cover is out of scope here and needs no block.** §7.3's gate reads
+`kteo_expiry` and `insurance_expiry` off the vehicle and bars it automatically
+on the day cover lapses. Blocks are for what has no column of its own: a
+workshop visit, damage with no known end, an owner's hold.
+
+#### The central rule: an expected return is a promise, not a fact
+
+The first design stored the mechanic's date as `ends_on` and let the block
+expire on it. That is wrong, and it is wrong in the dangerous direction: the day
+arrives, the block lapses on its own, and a car that is still in pieces becomes
+bookable with nobody asked.
+
+So:
+
+| Field | Meaning |
+|---|---|
+| `expected_return` | The garage's estimate. Drives planning, display and reminders. **Ends nothing.** |
+| `released_at` / `released_by` | Set by a member of staff when the car is physically back. **Only this ends the block.** |
+
+A block is open while `released_at is null`, and an open block is a **hard stop
+out of the active fleet** — the vehicle cannot be allocated for any date from
+`starts_on` onward, including dates beyond `expected_return`.
+
+That costs forward bookings: a car in on 1 September cannot be sold for October
+until it is marked back. Accepted knowingly. Workshop blocks are usually days,
+and one rule staff can hold in their head beats two they cannot. The escape is
+the override below, not a softer rule.
+
+#### The override, which is not optional
+
+A hard stop with no way through gets worked around: the first time a car is
+genuinely needed — the mechanic finished early, a customer is waiting — somebody
+will **delete the block**, and the record goes with it.
+
+So assignment against an open block is refused *unless* staff attest, using the
+`_licence_verified` / `_customer_requested_change` idiom already in this
+codebase. The car goes out, a line is written on the reservation naming who
+overrode a block and when, and the frequency becomes visible. A refusal people
+cannot pass honestly is one they pass dishonestly.
+
+#### Creating a block must surface the bookings it does not cancel
+
+A block stops *new* allocation. It does **not** touch reservations already on
+that vehicle, which sit quietly until the customer arrives.
+
+Creating one therefore reports, immediately and in the same interaction: *"this
+block covers N existing reservations"*, listed with dates and contact details.
+The decision to move or call them is made on the day the car goes in, not on the
+day it bites.
+
+#### Reminders
+
+Clocked from **how long the car has been out**, not from the expected return —
+an estimate that may already be wrong is a poor thing to measure against.
+
+- **From day 2 out**, daily, in the morning Telegram briefing: the vehicle, how
+  long it has been out, and its expected return. Where `expected_return` is
+  still in the future the line says so, so a legitimate ten-day rebuild reads as
+  under control rather than as a nag.
+- **From day 4 out**, escalation: the same item flagged at the top of the
+  briefing **and** an email to `anadyon.gr@gmail.com`.
+
+Two channels doing different jobs, deliberately. The briefing is read every
+morning and is where routine visibility belongs; an email that arrives every day
+about the same car gets filtered, and then the alert is worse than nothing.
+**Email is reserved for escalation, so its arrival is itself the signal.**
+
+Note the recipient is the owner directly, not `customerservice@` — an asset
+sitting idle is not a customer-service matter, and the shared inbox already
+forwards there anyway.
+
+Vercel's Hobby plan permits a single cron and the morning briefing is it (§5.3),
+so both reminder stages come from that one daily pass.
+
+#### Where it appears
+
+- **Vehicle modal** — a Blocks tab beside the existing Costs and Damages tabs:
+  open and past blocks, a form to create one, and the release action.
+- **Today screen** — the screen staff work from. Cars out, days out, and
+  one-click release. A release that is fiddly does not happen, and then cars sit
+  idle.
+- **Fleet screen** — a blocked vehicle must not read `available`, or staff will
+  disbelieve the refusal they later get.
+- **Calendar** — a distinct bar rather than empty space. Empty space is exactly
+  where a dispatcher decides to put a booking.
+
+#### Schema delta
+
+`vehicle_blocks` exists with `ends_on`. Needs: `ends_on` renamed to
+`expected_return`, plus `released_at timestamptz` and `released_by uuid`, and
+`find_available_eligible_vehicle` changed from a date-range overlap to
+`released_at is null and starts_on <= p_return_date`.
+
+Safe to do as a rename rather than an additive migration **because the table is
+empty in production** — verified after `20260828120000` was applied. That will
+not be true later.
+
+#### Deferred: automatic re-allocation
+
+*Recorded 28 August at Tasos's request. Not phase 1.*
+
+Taking a vehicle out would trigger automatic re-allocation of its reservations
+for the next four weeks; and from the second week of an unreturned vehicle
+onward, reservations beyond that window would be re-allocated too.
+
+**The constraint that must not be lost.** `lib/substitution.ts` already decides
+what may replace what: a `blocked` verdict, and `consentCanPermit` for the
+subset a customer may agree to. Automatic re-allocation has to run **through**
+that, never around it. A machine that silently moves a customer from an
+automatic to a manual, or across vehicle families, produces a dispute the system
+was built to prevent — and it would do it at scale, quietly, which is worse than
+a person doing it once.
+
+So the shape, when it is built: propose, do not perform. Re-allocate only where
+`checkSubstitution` returns `ok`; queue anything needing consent as an
+operational task with the customer's contact details; never downgrade without a
+recorded agreement. Whether the customer is told automatically is a §4.2-era
+question and is not settled here.
 
 ---
 
@@ -1661,6 +1794,15 @@ turnaround applied to only one end of a rental, and a Calendar that drew a
 booking a day earlier than its stored date. Neither was a date bug and neither
 had a test that could have caught it: the existing ones asserted the predicate
 as written rather than the behaviour it was meant to produce.
+
+**§7.4 added — taking a vehicle out of the active fleet.** The design for the
+half of `vehicle_blocks` that does not exist yet: who writes a block, what ends
+one, and what chases it. Its central rule came out of Tasos pointing at the
+weak point in the first sketch — a garage's promised return date was being
+stored as though it were a fact, so a block would have expired on its own and
+released a car that was still in pieces. Nothing now ends a block except a
+person. The deferred automatic re-allocation is recorded with the constraint
+that matters: it has to run through `lib/substitution.ts`, not around it.
 
 **§4.5's schema debt is closed.** The legacy `customers.licence_number` column
 is gone from production and from `supabase/schema.sql`. It had been recorded as
