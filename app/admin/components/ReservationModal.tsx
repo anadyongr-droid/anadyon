@@ -554,7 +554,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <h2 id="reservation-dialog-title" className="font-bold text-gray-900">{isEdit ? "Edit Reservation" : "New Reservation"}</h2>
-          <button type="button" aria-label="Close reservation dialog" onClick={onClose} className="text-gray-600 hover:text-gray-900"><X size={20} /></button>
+          <button type="button" aria-label="Close reservation dialog" onClick={onClose} className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg transition -mr-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"><X size={20} /></button>
         </div>
 
         <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
@@ -1049,7 +1049,7 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
                       </button>
                       <button onClick={() => handleDocumentDelete(doc.path)}
                         aria-label={`Delete ${doc.name}`}
-                        className="text-gray-500 hover:text-red-600 ml-2"><X size={11} /></button>
+                        className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg transition text-gray-500 hover:text-red-600 hover:bg-red-50 ml-2 shrink-0"><X size={11} /></button>
                     </div>
                   ))}
                 </div>

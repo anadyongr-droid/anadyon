@@ -147,20 +147,20 @@ export default function CalendarPage() {
             <button
               onClick={() => setStartDate((d) => addDays(d, -days))}
               aria-label={`Back ${days} days`}
-              className="p-1.5 border border-gray-300 rounded-lg hover:bg-gray-50"
+              className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg transition border border-gray-300 hover:bg-gray-50"
             >
               <ChevronLeft size={16} />
             </button>
             <button
               onClick={() => setStartDate(new Date(new Date().setHours(0, 0, 0, 0)))}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+              className="min-h-11 px-3 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
             >
               Today
             </button>
             <button
               onClick={() => setStartDate((d) => addDays(d, days))}
               aria-label={`Forward ${days} days`}
-              className="p-1.5 border border-gray-300 rounded-lg hover:bg-gray-50"
+              className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg transition border border-gray-300 hover:bg-gray-50"
             >
               <ChevronRight size={16} />
             </button>

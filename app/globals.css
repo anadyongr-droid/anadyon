@@ -216,3 +216,43 @@ body {
  * If a frozen column genuinely crowds a small screen, narrow the column; do
  * not switch the behaviour off.
  */
+
+/*
+ * A 44×44 hit area on a control that must stay visually smaller.
+ *
+ * Used only where the visual size is load-bearing — the three "add row" buttons
+ * in the vehicle ledger sit in a `grid-cols-12 items-end` row and are sized
+ * `h-[38px]` to line up with the inputs beside them. Growing the button to 44px
+ * breaks that alignment; growing the inputs to match would resize every field
+ * in the modal, which is a bigger change than the one being made here.
+ *
+ * So the box stays 38px and the *hit area* is extended to 44px, 3px into the
+ * row's own `gap-2` gutter above and below, where there is nothing to hit.
+ *
+ * ─── Do not reach for this as the general answer. ───
+ *
+ * An invisible hit area larger than its control silently overlaps whatever sits
+ * next to it, and the overlap is unhittable-by-inspection: nothing on screen
+ * shows you where the boundary went. The edit and delete buttons on Discount
+ * Rules are 13px icons 8px apart — giving each a 44px invisible area would make
+ * them overlap by roughly 35px, so a tap aimed at Edit would land on Delete.
+ * That is a data-loss bug wearing an accessibility fix as a disguise.
+ *
+ * Everywhere the layout can afford it, the button is made genuinely 44×44 and
+ * spaced, so the target you can see is the target you hit. This utility exists
+ * for the one case where that was not possible, and its safety depends on the
+ * neighbouring gutter being empty — check that before adding a third caller.
+ */
+.touch-target { position: relative; }
+
+.touch-target::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  min-width: 44px;
+  min-height: 44px;
+}

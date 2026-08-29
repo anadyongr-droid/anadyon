@@ -66,14 +66,16 @@ function openingTag(src: string, at: number): { attrs: string; end: number } | n
 // newlines. The tsconfig target rejects the flag anyway.
 const ICON_ONLY = /^\s*(\{[^{}]*&&\s*)?<[A-Z][A-Za-z0-9]*(\s[^>]*)?\/>\s*\}?\s*$/;
 
-interface Unnamed {
+interface IconButton {
   file: string;
   line: number;
   body: string;
+  named: boolean;
+  big: boolean;
 }
 
-function unnamedButtons(): Unnamed[] {
-  const found: Unnamed[] = [];
+function iconButtons(): IconButton[] {
+  const found: IconButton[] = [];
   for (const path of tsxFiles(join(root, "app/admin"))) {
     const src = readFileSync(path, "utf8");
     for (let i = src.indexOf("<button"); i !== -1; i = src.indexOf("<button", i + 1)) {
@@ -83,13 +85,20 @@ function unnamedButtons(): Unnamed[] {
       if (close === -1) continue;
       const body = src.slice(tag.end, close);
       if (body.includes("<button")) continue; // nested — the inner one is checked on its own pass
-      if (/aria-label|title=/.test(tag.attrs)) continue;
-      if (body.includes("sr-only")) continue;
       if (!ICON_ONLY.test(body)) continue;
       found.push({
         file: path.slice(root.length),
         line: src.slice(0, i).split("\n").length,
         body: body.trim().replace(/\s+/g, " "),
+        named: /aria-label|title=/.test(tag.attrs) || body.includes("sr-only"),
+        // Both dimensions, because `h-11` alone still allows a 13px-wide
+        // target. `w-11 h-11` and `min-h-11 min-w-11` are both in use and both
+        // fine; `.touch-target` covers the case where the visual box must stay
+        // smaller. Accepting only one spelling would have flagged the mobile
+        // navigation buttons, which were already correct.
+        big:
+          /\b(?:min-)?h-11\b|\bsize-11\b|touch-target/.test(tag.attrs) &&
+          /\b(?:min-)?w-11\b|\bsize-11\b|touch-target/.test(tag.attrs),
       });
     }
   }
@@ -98,12 +107,27 @@ function unnamedButtons(): Unnamed[] {
 
 describe("admin buttons announce themselves", () => {
   it("no icon-only button is left without an accessible name", () => {
-    const unnamed = unnamedButtons();
+    const unnamed = iconButtons().filter((b) => !b.named);
     const listed = unnamed.map((u) => `  ${u.file}:${u.line}  ${u.body}`).join("\n");
     expect(
       unnamed,
       `These buttons contain only an icon, so a screen reader announces "button" ` +
         `and nothing else. Add an aria-label, a title, or sr-only text:\n${listed}`
+    ).toEqual([]);
+  });
+
+  it("no icon-only button is smaller than 44px", () => {
+    // The rate card's buttons are held to min-h-11 by lib/ratesEditGate.test.ts.
+    // These are the controls most likely to be hit by accident — a 13px delete
+    // sitting 8px from a 13px edit — so they are held to the same floor.
+    const small = iconButtons().filter((b) => !b.big);
+    const listed = small.map((u) => `  ${u.file}:${u.line}  ${u.body}`).join("\n");
+    expect(
+      small,
+      `These icon-only buttons are below the 44px minimum. Give them ` +
+        `min-h-11 min-w-11, or .touch-target where the visual size is ` +
+        `load-bearing — but read that utility's warning about overlapping ` +
+        `hit areas before reaching for it:\n${listed}`
     ).toEqual([]);
   });
 

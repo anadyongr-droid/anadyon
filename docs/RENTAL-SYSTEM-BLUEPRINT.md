@@ -1867,16 +1867,42 @@ regression cannot quietly turn the first test green again. This is the
 "a reproduction must be able to reproduce" rule in a new costume: a check that
 cannot fail is worse than no check, because it is also a claim.
 
-**Raised, not built: the admin's touch targets.** The same fifteen buttons are
-all below the 44px minimum the rate card is already held to — measured from
-their own classes: the calendar arrows are 28px (`p-1.5` + a 16px icon), the
-ledger deletes 21px (`p-1` + 13px), the reservation-document delete 11px, and
-the edit/delete pair on both pricing screens 13px, with no padding at all. The
-two Active toggles were brought to 44px because they were the specific control
-in question; the rest were left alone deliberately. Enlarging them changes the
-visual density of six screens, and `docs/audits/` area 2 (design) is ungraded —
-that is Tasos's call, not an implementer's. The measurements are here so the
-decision can be made without re-taking them.
+**The admin's touch targets — raised, then approved and built.** The same
+buttons were all below the 44px minimum the rate card is already held to: the
+calendar arrows 28px (`p-1.5` + a 16px icon), the ledger deletes 21px, the
+reservation-document delete 11px, the modal close buttons 20px, and the
+edit/delete pair on both pricing screens 13px with no padding at all. Raised as
+a design decision rather than built unasked, because it changes the density of
+six screens and `docs/audits/` area 2 is ungraded; Tasos approved it the same
+evening, so it is now done. Nineteen controls in total.
+
+*The trap that shaped the fix, and it is a nasty one.* The obvious way to fix a
+touch target without touching the design is to leave the control its size and
+extend the hit area invisibly. Applied blindly that is worse than the bug. The
+edit and delete buttons on Discount Rules are 13px icons **8px apart**: give
+each a 44px invisible area and they overlap by roughly 35px, so a tap aimed at
+Edit lands on Delete — and nothing on screen shows you where the boundary went.
+A data-loss bug wearing an accessibility fix as a disguise.
+
+So the rule here is: **make the target you can see the target you hit.**
+Sixteen controls became genuinely 44×44 and, where they sit in pairs, are
+spaced so their boxes cannot overlap. The invisible-extension trick survives in
+exactly one place — `.touch-target` in `globals.css`, used by the three "add
+row" buttons in the vehicle ledger, which are `h-[38px]` to line up with the
+inputs beside them in a `grid-cols-12 items-end` row. There the 3px of extra
+hit area on each side reaches into the row's own gutter, where there is nothing
+to hit. The utility carries that warning in its own comment, because its safety
+is a property of *where it is used*, not of the utility.
+
+*Two things the size check caught that the name check could not.* The mobile
+navigation buttons were flagged and were already correct at `w-11 h-11` — the
+first version of the check looked only for `min-h-11`, and would have had an
+implementer "fix" working code. It now accepts either spelling and requires
+**both** dimensions, since `h-11` alone still permits a 13px-wide target. And
+three modal close buttons (customer, reservation, vehicle) were 20px despite
+having proper `aria-label`s all along, so the naming sweep had skipped them
+entirely: being named and being reachable are different properties, and a check
+for one silently passes the other.
 
 ### 28 August 2026
 

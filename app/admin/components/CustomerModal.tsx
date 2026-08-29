@@ -166,7 +166,7 @@ export default function CustomerModal({ customer, onClose, onSaved }: Props) {
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="customer-dialog-title" tabIndex={-1} className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[calc(100dvh-2rem)] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <h2 id="customer-dialog-title" className="font-bold text-gray-900">{isEdit ? "Edit Customer" : "New Customer"}</h2>
-          <button type="button" aria-label="Close customer dialog" onClick={onClose} className="text-gray-600 hover:text-gray-900"><X size={20} /></button>
+          <button type="button" aria-label="Close customer dialog" onClick={onClose} className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg transition -mr-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"><X size={20} /></button>
         </div>
 
         <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
