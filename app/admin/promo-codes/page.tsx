@@ -81,7 +81,12 @@ export default function PromoCodesPage() {
     load();
   }
 
+  // A pricing change, not a display preference — turning an active promo code off
+  // changes what the next customer is quoted. It asks first for the same reason
+  // handleDelete does, and says which way it is about to go.
   async function toggleActive(c: PromoCode) {
+    const direction = c.active ? "Turn off" : "Turn on";
+    if (!confirm(`${direction} ${c.code}? This changes what customers are charged.`)) return;
     await fetch(`/api/admin/promo-codes/${c.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -192,12 +197,18 @@ export default function PromoCodesPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{c.expires_at ?? "Never"}</td>
                   <td className="px-4 py-3 text-center">
-                    <button onClick={() => toggleActive(c)}
-                      className={`w-5 h-5 rounded-full border flex items-center justify-center mx-auto ${
-                        c.active ? "bg-green-500 border-green-500 text-white" : "border-gray-300"
-                      }`}>
-                      {c.active && <Check size={11} />}
-                    </button>
+                    <button type="button" onClick={() => toggleActive(c)}
+                      role="switch" aria-checked={c.active}
+                      aria-label={`${c.active ? "Active" : "Inactive"} — ${c.code}`}
+                      title={`${c.active ? "Active" : "Inactive"} — ${c.code}`}
+                      className="min-h-11 min-w-11 flex items-center justify-center mx-auto rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400 transition">
+                        <span aria-hidden="true"
+                          className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                            c.active ? "bg-green-500 border-green-500 text-white" : "border-gray-300"
+                          }`}>
+                          {c.active && <Check size={11} />}
+                        </span>
+                      </button>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button onClick={() => startEdit(c)} className="text-gray-600 hover:text-gray-900 mr-2"><Pencil size={13} /></button>
