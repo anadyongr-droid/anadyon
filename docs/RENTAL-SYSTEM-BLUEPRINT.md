@@ -1275,9 +1275,16 @@ settle.
 
 ### 7.4 Taking a vehicle out of the active fleet
 
-*Added 28 August 2026. Decided with Tasos; buildable from this section without
-further questions.* `vehicle_blocks` and both gates are live (§7.3); nothing
-writes to the table yet. This is what should.
+*Added 28 August 2026, **built and the migration applied 29 August**. Decided
+with Tasos.* Migration `20260829090000` with paste copy `037` is in production:
+`ends_on` is now `expected_return`, `released_at` / `released_by` exist, and the
+allocator's block test is `released_at is null and starts_on <= p_return_date`.
+
+**The screens are on `claude/pr59-collaboration-lwcnia` and not yet deployed.**
+Until that branch reaches `main`, production holds the stricter allocator with
+no way to create a block — harmless, because nothing can write one, but the
+feature is not usable until the branch ships. The design below is what was
+built.
 
 **The problem `vehicles.status` cannot solve.** It is a switch with no dates and
 no memory: it cannot say "in the workshop Tuesday to Thursday", cannot hold a
