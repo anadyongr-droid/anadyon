@@ -1847,6 +1847,37 @@ Regression tests: `lib/ratesEditGate.test.ts` (mapping) and the new
 `lib/pricingToggleGate.test.ts` (both toggles). Both were run against the
 unfixed pages first — 9 and 12 failures respectively — before being trusted.
 
+**The a11y gap that finding turned up, and what closing it cost.** The empty
+button on the toggles was not an isolated slip. Sweeping every `.tsx` under
+`app/admin` for buttons whose only content is an icon found **fifteen** with no
+accessible name at all — announced as "button" and nothing else. Among them:
+the delete buttons on Discount Rules and Promo Codes (an unlabelled X that
+removes a pricing rule), the document delete inside the reservation modal, and
+the calendar's date-navigation arrows. All fifteen now carry an `aria-label`
+naming the row they act on, and `lib/adminButtonNames.test.ts` keeps them named.
+
+*The scanner is worth reading before writing another one like it.* The obvious
+form — `/<button[^>]*>/` — is wrong, and wrong in the direction that hides the
+bug: `onClick={() => remove(id)}` contains a `>` inside the arrow, so `[^>]*`
+ends the opening tag mid-handler and reads the rest of the handler as the
+button's content. Every one of these buttons has an arrow handler, so the naive
+scan reported **zero problems across the whole admin**. The check tracks brace,
+paren and quote depth instead, and a second test pins that parser so a
+regression cannot quietly turn the first test green again. This is the
+"a reproduction must be able to reproduce" rule in a new costume: a check that
+cannot fail is worse than no check, because it is also a claim.
+
+**Raised, not built: the admin's touch targets.** The same fifteen buttons are
+all below the 44px minimum the rate card is already held to — measured from
+their own classes: the calendar arrows are 28px (`p-1.5` + a 16px icon), the
+ledger deletes 21px (`p-1` + 13px), the reservation-document delete 11px, and
+the edit/delete pair on both pricing screens 13px, with no padding at all. The
+two Active toggles were brought to 44px because they were the specific control
+in question; the rest were left alone deliberately. Enlarging them changes the
+visual density of six screens, and `docs/audits/` area 2 (design) is ungraded —
+that is Tasos's call, not an implementer's. The measurements are here so the
+decision can be made without re-taking them.
+
 ### 28 August 2026
 
 *Added late — see the note at the end of this entry.*
