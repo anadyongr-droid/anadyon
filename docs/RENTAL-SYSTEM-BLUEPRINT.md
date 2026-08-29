@@ -1791,6 +1791,62 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 29 August 2026
+
+**A class of UI defect, not three separate ones.** Tasos asked for the category
+mapping on Market to be protected behind an Edit button, the way the rate card
+already is. Sweeping the admin for the same shape — a *saved* value rendered as
+a live control, with no baseline to restore — turned up two more instances, and
+the sweep is worth recording because the shape is easy to reintroduce.
+
+*What the shape is:* a control whose initial value comes from the database and
+whose `onChange` writes somewhere, rendered live on first paint. It has no
+"pressed edit" step, so there is no moment at which the user declared intent,
+and usually no copy of what was loaded, so there is nothing to cancel back to.
+On a phone it is a mis-tap away from a silent change.
+
+Three instances, all on pricing screens:
+
+- **Market → Category mapping.** Every "Maps to" dropdown was live on load.
+  Staff had it worse than admins: they could change every row and only learn on
+  Save that `proxy.ts` lists `/api/admin/competitors/mapping` as `READ_ONLY` for
+  them (asserted at `lib/staffPermissions.test.ts:84`) — the screen offered an
+  edit it could never keep. Now opens disabled, needs Edit, and Cancel restores
+  the last loaded or saved mapping. A *failed* save deliberately keeps the
+  session open, because the edits on screen are the only copy of them.
+- **Discount rules → Active**, and **Promo codes → Active.** Worse than the
+  mapping, because these wrote to the database on the tap rather than to local
+  state. A 20px unlabelled circle, no confirmation, no undo. Now confirms,
+  naming the rule or code and the direction — "Are you sure?" on a toggle tells
+  you nothing, since you cannot tell from it which way you are going.
+
+Two defects rode along on those toggles that were not about intent at all, and
+are recorded so the next audit does not re-find them:
+
+- The target was `w-5 h-5` — 20px — on the control most likely to be hit by
+  accident. `lib/ratesEditGate.test.ts` already holds the rate card's buttons to
+  44px; nothing held these. The dot still renders at 20px; the hit area is 44px.
+- They had no accessible name, and an *inactive* row rendered an entirely empty
+  button: `{r.active && <Check/>}` puts nothing inside it, so a screen reader
+  announced "button" and stopped. Now `role="switch"` with `aria-checked` and a
+  label naming the row.
+
+*Why `scripts/check-a11y.mjs` was never going to catch those two:* it covers the
+public pages only. Every admin screen is outside it. That is a gap in the audit,
+not a gap in the check — worth closing, but it needs a logged-in render, which
+the current harness has no way to produce.
+
+*Not changed, deliberately:* the gate on all three is presentation only, exactly
+as it is on the rate card. `proxy.ts` is what actually refuses a staff write,
+and that was verified against the file rather than assumed from the comment in
+the page. `promo-codes` and `discount-rules` also carry a create/edit *form*,
+which is a different shape — it already has an explicit Save, so a stray tap in
+it writes nothing, and it was left alone.
+
+Regression tests: `lib/ratesEditGate.test.ts` (mapping) and the new
+`lib/pricingToggleGate.test.ts` (both toggles). Both were run against the
+unfixed pages first — 9 and 12 failures respectively — before being trusted.
+
 ### 28 August 2026
 
 *Added late — see the note at the end of this entry.*
