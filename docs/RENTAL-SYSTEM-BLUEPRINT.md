@@ -1076,9 +1076,13 @@ August 2026 the production `customers` table still contained both legacy
 `licence_number` and canonical `driving_licence_number`. Licence verification
 must use `driving_licence_number`; the legacy column is not a fallback source.
 
-*Updated 28 August 2026 — written, not yet applied.* Migration
-`20260828140000_drop_legacy_licence_number` and paste copy `036` do the three
-things this section asked for. Verified first: `grep` across every `.ts`, `.tsx`
+*Updated 28 August 2026 — **applied; this debt is closed**.* Migration
+`20260828140000_drop_legacy_licence_number` and paste copy `036` were run
+against production on 28 August and reported completion, which means they found
+no row holding a different value in each column — the migration refuses and
+drops nothing in that case. `supabase/schema.sql` has been brought in line.
+Recorded rather than deleted, because how a live schema came to differ from its
+migrations is the part worth keeping. What they did: Verified first: `grep` across every `.ts`, `.tsx`
 and `.mjs` finds no reference to `licence_number` outside `supabase/schema.sql`,
 which is a dump rather than something that runs — so nothing reads it and the
 only risk is data held **only** there.
@@ -1090,8 +1094,7 @@ current, and picking one silently is how a wrong licence number reaches a rental
 agreement. It names the count so those rows can be found. Safe to run twice, and
 a no-op on a database that never had the column.
 
-`supabase/schema.sql` still shows the column, annotated, because it is a dump of
-production and stays accurate until the migration is run. Re-dump it afterwards.
+The live drift recorded at the top of this section no longer exists.
 
 ---
 
@@ -1193,7 +1196,7 @@ Why a Greek product wins locally, and where Anadyon already competes:
 | Phase | Scope | Rationale |
 |---|---|---|
 | **Gate 0** | Clear audit area 5; confirm the counter retention, agreement, insurance and adjustment wording with counsel/accountant | area 5 held a blocker and directly determines what phase 2 may collect, retain and charge |
-| **1** | ~~Finish the Fleet foundation~~ — **built 28 August, migrations not yet applied.** See §7.3 | the counter must not be capable of releasing a blocked vehicle or an invalid driver |
+| **1** | ~~Finish the Fleet foundation~~ — **built and applied 28 August.** See §7.3 | the counter must not be capable of releasing a blocked vehicle or an invalid driver |
 | **2** | Check-out / check-in facts, template photos, damage observations and itemised adjustments — tablet-first, exactly as §4.2 | the category's centre of gravity and the source of every later contract, charge, damage and service decision |
 | **3** | Versioned digital agreement and signature | legally required for the insurance clause; consumes phase-2 handover and evidence IDs rather than duplicating them |
 | **4** | Partner-channel pilot — hotel/agency accounts, on-behalf booking, retail availability and commission ledger | distribution is the only material local-competitor gap, but it must not add volume before operational and legal controls exist |
@@ -1213,10 +1216,15 @@ handover data.
 the document: the next agent should not have to reconstruct what phase 1 turned
 into from a branch.*
 
-All four parts are on `claude/pr59-collaboration-lwcnia`. **Two migrations are
-written and deliberately not applied** — `20260828120000_vehicle_blocks` with
+All four parts are on `claude/pr59-collaboration-lwcnia`. **Both migrations were
+applied to production on 28 August** — `20260828120000_vehicle_blocks` with
 paste copy `035`, and `20260828140000_drop_legacy_licence_number` with `036`.
-Until they run, the vehicle-side gates are inert.
+
+Two of the three gates in `035` took effect the moment it ran, because it
+replaces `find_available_eligible_vehicle`: the symmetric turnaround and the
+statutory check. The block gate is live but `vehicle_blocks` is empty, so it
+constrains nothing until rows are added — the operator-facing way to create
+them is not built and is the obvious next piece of fleet work.
 
 - **`vehicle_blocks`** — dated, whole-day, inclusive at both ends, `ends_on`
   null for open-ended. Reasons are a closed set: maintenance, statutory,
@@ -1647,12 +1655,16 @@ reader six months out can follow the reasoning without re-deriving it.
 
 *Added late — see the note at the end of this entry.*
 
-**Phase 1 built; two migrations written and not applied.** §7.3 records what it
-turned into, including two production defects found while building it — a
+**Phase 1 built, and both migrations applied to production the same day.** §7.3
+records what it turned into, including two production defects found while building it — a
 turnaround applied to only one end of a rental, and a Calendar that drew a
 booking a day earlier than its stored date. Neither was a date bug and neither
 had a test that could have caught it: the existing ones asserted the predicate
 as written rather than the behaviour it was meant to produce.
+
+**§4.5's schema debt is closed.** The legacy `customers.licence_number` column
+is gone from production and from `supabase/schema.sql`. It had been recorded as
+live drift since 25 August.
 
 **The quote reference no longer comes from `Math.random()`.** §9a's action item
 is struck through with what was done and what deliberately was not: the

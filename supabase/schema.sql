@@ -19,11 +19,6 @@ create table if not exists customers (
   email text,
   phone text,
   nationality text,
-  -- LEGACY, pending removal by migration 20260828140000. Not canonical and
-  -- not a fallback source: driving_licence_number below is the only column
-  -- application code reads or writes. Blueprint §4.5. Re-dump this file once
-  -- the migration has been run.
-  licence_number text,
   notes text,
   created_at timestamptz default now()
 );
