@@ -34,6 +34,28 @@ export const UNDECLARED_ALLOWLIST = new Map([
 ]);
 
 /**
+ * A table name, with the schema qualifier discarded if present.
+ *
+ * `alter table public.reservations` and `alter table reservations` name the same
+ * table. The original pattern here was a bare `(\\w+)`, which matched neither
+ * the qualifier nor the name when both were present — it saw `public`, looked
+ * for `ADD COLUMN` next, found `.reservations`, and gave up silently.
+ *
+ * That was not cosmetic. Migrations switched to schema-qualified names when the
+ * timestamped naming convention started, so **every table created since then
+ * was invisible to the drift check** — `vehicle_blocks`, which the availability
+ * allocator depends on, and `vehicle_change_requests` among them. The check went
+ * on reporting success for tables it had never looked at, which is the exact
+ * failure `.github/workflows/ci.yml` warns about in its own schema-drift step:
+ * a check that reports success for something it did not look at is worse than
+ * no check, because it gets believed.
+ *
+ * Found on 30 August by the reverse direction reporting `reservations.quote_id`
+ * as undeclared when a migration declares it plainly.
+ */
+const TABLE = String.raw`(?:[a-z_][a-z0-9_$]*\s*\.\s*)?([a-z_][a-z0-9_$]*)`;
+
+/**
  * Every column the migrations declare, as table → Set(column).
  *
  * Both forms have to be read: the baseline creates tables outright, while later
@@ -51,7 +73,9 @@ export function declaredColumns(migrationsDir) {
     const sql = readFileSync(join(migrationsDir, file), "utf8");
 
     // CREATE TABLE [IF NOT EXISTS] name ( ... );
-    for (const m of sql.matchAll(/CREATE TABLE(?:\s+IF NOT EXISTS)?\s+(\w+)\s*\(([\s\S]*?)\n\s*\);/gi)) {
+    const createTable = new RegExp(
+      String.raw`CREATE TABLE(?:\s+IF NOT EXISTS)?\s+${TABLE}\s*\(([\s\S]*?)\n\s*\);`, "gi");
+    for (const m of sql.matchAll(createTable)) {
       const table = m[1];
       for (const line of m[2].split("\n")) {
         // A column line starts at one indent level with a bare identifier.
@@ -63,12 +87,18 @@ export function declaredColumns(migrationsDir) {
       }
     }
 
-    for (const m of sql.matchAll(/ALTER TABLE\s+(\w+)\s+ADD COLUMN(?:\s+IF NOT EXISTS)?\s+([a-z_][a-z0-9_]*)/gi)) {
+    // `ONLY` is accepted because Postgres allows it and at least one migration
+    // uses it; it changes inheritance behaviour, not which column is added.
+    const addColumn = new RegExp(
+      String.raw`ALTER TABLE\s+(?:ONLY\s+)?${TABLE}\s+ADD COLUMN(?:\s+IF NOT EXISTS)?\s+([a-z_][a-z0-9_]*)`, "gi");
+    for (const m of sql.matchAll(addColumn)) {
       add(m[1], m[2]);
     }
 
     // A column dropped later is no longer expected.
-    for (const m of sql.matchAll(/ALTER TABLE\s+(\w+)\s+DROP COLUMN(?:\s+IF EXISTS)?\s+([a-z_][a-z0-9_]*)/gi)) {
+    const dropColumn = new RegExp(
+      String.raw`ALTER TABLE\s+(?:ONLY\s+)?${TABLE}\s+DROP COLUMN(?:\s+IF EXISTS)?\s+([a-z_][a-z0-9_]*)`, "gi");
+    for (const m of sql.matchAll(dropColumn)) {
       tables.get(m[1])?.delete(m[2]);
     }
   }

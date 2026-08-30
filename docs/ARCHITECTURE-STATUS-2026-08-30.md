@@ -319,8 +319,22 @@ This defect was the opposite, and no check in the repository would ever have
 found it. So the staging exit criterion is not "the replay is green" but "the
 replayed schema matches production, compared both ways", which has not been done.
 
-**And the claim that `customers.name` is the only column of its class is
-currently a one-off, not a check.** It was established by comparing the five
+**First real run against production, 30 August: it found a bug in itself.** The
+reverse direction reported `reservations.quote_id` as undeclared, when
+`20260821175132_link_web_booking_customers.sql` declares it plainly. The
+parser's table-name pattern was a bare `(\w+)`, which matches neither half of
+`public.reservations` — it saw `public`, looked for `ADD COLUMN` next, found
+`.reservations`, and gave up silently. Migrations adopted schema-qualified names
+when the timestamped convention started, so this was never one missed column:
+**five whole tables were invisible to the drift check**, including
+`vehicle_blocks`, which the availability allocator depends on, and
+`vehicle_change_requests` from migration 038. The forward direction — the half
+that has existed for weeks — was reporting success for tables it had never
+looked at, which is precisely what `.github/workflows/ci.yml` warns about in its
+own schema-drift step. Fixed, with six tests that fail against the old parser.
+
+**And the claim that `customers.name` is the only column of its class was
+a one-off, not a check** — which is exactly why this was worth building. It was established by comparing the five
 shared tables by hand on 30 August. That is evidence, not a guard: it cannot
 fail in CI and it will not notice the next one. Making the drift checker
 bidirectional and running it against production converts a manual finding into a

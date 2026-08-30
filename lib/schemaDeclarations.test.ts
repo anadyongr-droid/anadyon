@@ -56,6 +56,73 @@ describe("reading what the migrations declare", () => {
   });
 });
 
+describe("schema-qualified names", () => {
+  /**
+   * The bug the reverse direction found on its first real run against
+   * production, 30 August. It reported `reservations.quote_id` as undeclared
+   * when 20260821175132_link_web_booking_customers.sql declares it plainly —
+   * because the table-name pattern was a bare `(\w+)`, which matched neither
+   * half of `public.reservations`. It saw `public`, looked for ADD COLUMN next,
+   * found `.reservations`, and gave up without saying so.
+   *
+   * Migrations adopted schema-qualified names when the timestamped convention
+   * started, so this was not one missed column: five whole tables were
+   * invisible to the drift check, `vehicle_blocks` and
+   * `vehicle_change_requests` among them. The forward direction had been
+   * reporting success for tables it never looked at.
+   */
+  it("reads a schema-qualified CREATE TABLE", () => {
+    const dir = fixture({
+      "001_a.sql": "create table if not exists public.widgets (\n  id uuid primary key,\n  label text\n);",
+    });
+    expect([...declaredColumns(dir).get("widgets")].sort()).toEqual(["id", "label"]);
+  });
+
+  it("reads a schema-qualified ADD COLUMN split across lines", () => {
+    // Exactly the shape that was missed, newline included.
+    const dir = fixture({
+      "001_a.sql": "create table public.widgets (\n  id uuid primary key\n);",
+      "002_b.sql": "alter table public.widgets\n  add column if not exists colour uuid references public.paints(id);",
+    });
+    expect(declaredColumns(dir).get("widgets").has("colour")).toBe(true);
+  });
+
+  it("accepts ALTER TABLE ONLY", () => {
+    const dir = fixture({
+      "001_a.sql": "create table public.widgets (\n  id uuid primary key\n);",
+      "002_b.sql": "alter table only public.widgets add column if not exists colour text;",
+    });
+    expect(declaredColumns(dir).get("widgets").has("colour")).toBe(true);
+  });
+
+  it("drops a schema-qualified column too", () => {
+    const dir = fixture({
+      "001_a.sql": "create table public.widgets (\n  id uuid primary key,\n  legacy text\n);",
+      "002_b.sql": "alter table public.widgets drop column if exists legacy;",
+    });
+    expect(declaredColumns(dir).get("widgets").has("legacy")).toBe(false);
+  });
+
+  it("sees the five real tables that were invisible", () => {
+    // Named individually rather than counted, so a future rename fails loudly
+    // instead of quietly restoring the blind spot.
+    const seen = declaredColumns(REAL);
+    for (const t of [
+      "vehicle_blocks",              // the availability allocator reads this
+      "vehicle_change_requests",     // migration 038, four eyes on the fleet
+      "booking_email_deliveries",
+      "booking_email_events",
+      "promo_redemptions",
+    ]) {
+      expect(seen.has(t), `${t} is invisible to the drift check`).toBe(true);
+    }
+  });
+
+  it("declares reservations.quote_id, the column that exposed this", () => {
+    expect(declaredColumns(REAL).get("reservations").has("quote_id")).toBe(true);
+  });
+});
+
 describe("views", () => {
   it("finds them, so the reverse check can skip them", () => {
     // A view's columns come from a SELECT list, which this parser cannot read.
