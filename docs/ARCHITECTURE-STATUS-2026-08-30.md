@@ -111,7 +111,9 @@ patterns worth agreeing or disagreeing with.
    §2: the allocator is what stops a rental. Only `major` bars; `minor` and
    `moderate` are recorded and shown. Releasing a damage block is
    administrator-only, unlike every other block reason, because it is a
-   liability judgement rather than an operational fact.
+   liability judgement rather than an operational fact. **Bar immediately and
+   let an administrator lift it** was Tasos's choice between two options put to
+   him, not an agent's design call.
 5. **#65 — four eyes on the fleet record.** Staff may write `status`,
    `odometer_km` and `vehicle_notes` directly; everything else becomes a change
    request an administrator approves. Approval and application are one
@@ -134,7 +136,8 @@ that verifies `auth.uid()` against database-held staff membership. That design
 cannot work as written, because the application calls with the service role and
 `auth.uid()` is therefore NULL.
 
-The interim position, visible in migration 038, is that identity is
+The interim position, visible in migration 038 — written this weekend,
+applied to production by Tasos and verified — is that identity is
 **application-asserted**: a `requested_by` column holds the application's claim
 about who acted, with a comment saying it is to be re-derived from the session
 once this is answered. That is honest but it is not a control — an application
@@ -253,6 +256,45 @@ rather than parking it. But the resolution's whole weight now rests on a
 two-day evaluation nobody has done, behind a gate nobody has opened, with no
 cost estimate on either side. That is a decision that *looks* settled.
 
+### 5.7 The partner channel — the one competitive gap, deliberately deferred
+
+`docs/RENTAL-SYSTEM-BLUEPRINT.md` §7.1. Hotel and travel-agency accounts booking
+on a guest's behalf is the single capability the local competition has and this
+system does not. It was promoted out of the deferred list and made **phase 4** —
+behind Gate 0, the vehicle and driver gating, phase 2 and the signed agreement —
+on the reasoning that more bookings into an incomplete counter increase
+operational risk rather than revenue.
+
+That is a defensible ordering and it is also the one that costs the most if it
+is wrong, because it is the only item on the list that creates demand rather
+than describing it. §7.1a adds a bounded build-or-buy gate on it (GoCars), which
+has not been run either.
+
+### 5.8 What is waiting on a person, not on code
+
+Listed because four of the open items above are not engineering problems and a
+reviewer should not propose engineering for them:
+
+- **The RPC diagnostics** in `docs/OPEN-QUESTION-RPC-STAFF-IDENTITY.md` §10.
+  Runnable, never run. They gate §5.1, which gates phase 2.
+- **AADE sandbox credentials** — `AADE_USER_ID`, `AADE_SUBSCRIPTION_KEY`,
+  `COMPANY_VAT_NUMBER`, `COMPANY_BRANCH`, with `AADE_PRODUCTION` left unset. No
+  filing has been sent anywhere without them.
+- **The DCL XSD**, downloadable from `aade.gr`, which is blocked from the build
+  container. Without it the client-list XML cannot be checked the way the
+  invoice XML was.
+- **Two accountant questions** — whether `11.2` (ΑΠΥ, services) is the right
+  receipt type for a rental, and whether the declaration's hardcoded
+  `nonIssueInvoice=true` is consistent with also filing an invoice.
+
+### 5.9 One claim from this weekend that has not been observed
+
+#64 asserts that logging **major** damage stops a vehicle being bookable. That
+is verified in tests and by reading the allocator, and it has **not** been
+watched happen: nobody has logged major damage on a real vehicle and then tried
+to book it on the public site. It is the cheapest possible end-to-end check and
+it is exactly the kind of thing §6 exists to make routine.
+
 ## 6. The new part — environments, and why this discussion happened
 
 This is the section written this weekend, and the one §8 asks about.
@@ -354,7 +396,14 @@ was meant to produce."* No environment fixes that.
 ## 7. The judgements most likely to be wrong
 
 Offered as targets. Each is a real decision taken this weekend, with the
-reasoning that produced it, and each is a one-line reversal.
+reasoning that produced it, and each is close to a one-line reversal.
+
+**Some of these are Tasos's calls, not an agent's.** "Hard bar on open major
+damage" and "bar at once, an administrator lifts it" were his instructions,
+chosen from options put to him; that only `major` bars — and therefore that
+`moderate` changes no outcome — is the implementer's reading of them, and is the
+part in question below. Where a judgement is his, a review that disagrees says
+so and it goes back to him rather than being reversed.
 
 **7.1 Only `major` damage bars a vehicle.** The reasoning was that treating a
 scuffed bumper as a booking-stopper trains everybody to log damage as `minor` to
@@ -418,7 +467,7 @@ is a good pattern or a clever one is a fair question.
 
 | Question | Document |
 |---|---|
-| The whole architecture, in depth | `docs/RENTAL-SYSTEM-BLUEPRINT.md` (2,472 lines; §7 is the build order, §10 the revision history) |
+| The whole architecture, in depth | `docs/RENTAL-SYSTEM-BLUEPRINT.md` (2,542 lines; §7 is the build order, §10 the revision history) |
 | How to build the three environment items | `docs/HANDOVER-TEST-ENVIRONMENT.md` |
 | The unresolved outage | `docs/INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md` |
 | The identity question blocking phase 2 | `docs/OPEN-QUESTION-RPC-STAFF-IDENTITY.md` |
