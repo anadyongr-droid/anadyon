@@ -1810,7 +1810,13 @@ Rather than widen what staff may write, that same refused set now becomes a
 property is pinned by `lib/fourEyes.test.ts`, which asserts the writable set is
 unchanged and that the request block never touches `vehicles`.
 
-*Migration `20260830120000` + paste `038`. Not applied — hand both to Tasos.*
+*Migration `20260830120000` + paste `038` — **applied to production, 30 August**.*
+Verified rather than assumed: the table and function exist, RLS is on, three
+indexes (the primary key's included — an earlier count of two forgot it), and
+`has_function_privilege('service_role', …)` is true. That last check is the one
+worth repeating on any future `SECURITY DEFINER` function: this blueprint records
+revoking a function from `service_role` and leaving it uncallable **twice**, and
+the symptom both times was a feature that looked installed and failed on use.
 
 **A mixed edit does both, and says so.** The odometer saves at once; the
 statutory dates in the same form go to the queue. Refusing the whole submission
