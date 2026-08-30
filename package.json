@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "check:migration-replay": "node scripts/check-migration-replay.mjs",
     "check:schema": "node scripts/check-schema-drift.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
