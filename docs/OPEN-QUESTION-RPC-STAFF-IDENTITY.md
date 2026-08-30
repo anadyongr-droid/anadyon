@@ -493,11 +493,41 @@ as $$ select auth.uid(),
 grant execute on function public.whoami_probe() to authenticated;
 ```
 
-Call it from a route built with `createServerClient` (the
-`app/api/admin/users/route.ts` pattern) while signed in as staff, **not** with
-`supabaseAdmin`. A non-null `uid` proves Option A; a null one falsifies the
-whole approach and Option B becomes the answer by elimination. Drop the function
-afterwards.
+Then, signed in to `/admin` **as an administrator**, open:
+
+```
+/api/admin/diagnostics/rpc-identity
+```
+
+That route is built for this and nothing else. It constructs a per-request
+client from the session cookies — the Option A pattern, borrowed from
+`app/api/admin/users/route.ts` — and calls the probe through it, **not** through
+`supabaseAdmin`. `lib/rpcIdentityProbe.test.ts` asserts it never reaches for the
+service role, because swapping the client would leave the route returning 200
+and proving nothing.
+
+**An administrator session is enough**, and the earlier draft of this section
+was wrong to ask for staff. What is under test is whether JWT claims reach the
+function at all, which does not depend on which role the claim carries. Running
+it as staff would mean adding a throwaway diagnostic to `proxy.ts`'s `STAFF_API`
+allowlist, and allowlist entries added "temporarily" are how allowlists grow.
+
+**Reading it:**
+
+| Result | Meaning |
+|---|---|
+| `uid` non-null, `pg_role` = `authenticated` | Option A works. §12.4 stands, and the build can start. |
+| `uid` null | Option A is falsified. §12.4 is wrong and Option B wins by elimination. |
+| `function does not exist` | The SQL above has not been run. Not an answer. |
+
+**Then remove both**, in the same sitting — delete
+`app/api/admin/diagnostics/rpc-identity/route.ts` with its test, and run:
+
+```sql
+drop function if exists public.whoami_probe();
+```
+
+A diagnostic left in place becomes an endpoint nobody remembers adding.
 
 ### 12.5 A separate finding, not about identity
 
