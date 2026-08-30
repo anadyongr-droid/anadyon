@@ -1,10 +1,33 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { statusClass } from "../lib/statusColors";
-import { AlertTriangle, Clock } from "lucide-react";
+import { AlertTriangle, ClipboardCheck, Clock } from "lucide-react";
 import VehicleModal, { type FleetVehicle } from "../components/VehicleModal";
 import { worstSeverity, rentalBar, vehicleDateStatuses, type Severity } from "@/lib/fleetStatus";
 import { damageLabel, type VehicleDamageSummary } from "@/lib/openDamage";
+import { useIsAdmin } from "../RoleContext";
+
+/** A change staff proposed and nobody has decided yet. */
+interface ChangeRequest {
+  id: string;
+  vehicle_id: string;
+  changes: Record<string, unknown>;
+  before: Record<string, unknown>;
+  note: string | null;
+  requested_at: string;
+  vehicles?: { name?: string; plate?: string | null } | null;
+}
+
+/** Column name → what the fleet form calls it. */
+function fieldLabel(column: string): string {
+  return column.replace(/_/g, " ").replace(/\bkteo\b/i, "KTEO").replace(/^./, (c) => c.toUpperCase());
+}
+
+/** null and "" both mean "nothing was there", and both read badly as themselves. */
+function shown(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  return String(value);
+}
 
 const STATUS_OPTIONS = ["available", "maintenance", "retired"];
 
@@ -52,14 +75,30 @@ export default function FleetPage() {
    */
   const [damage, setDamage] = useState<Record<string, VehicleDamageSummary>>({});
 
+  /**
+   * Changes staff have proposed and nobody has decided yet.
+   *
+   * Everyone can see the queue: the person who raised a request should be able
+   * to tell whether it was approved without asking. Only an administrator sees
+   * the Approve and Reject buttons, and only an administrator's PATCH is
+   * accepted — the check is on the route, not on the rendering.
+   */
+  // Presentation only — the change-requests route refuses a staff PATCH
+  // regardless of what renders here.
+  const isAdmin = useIsAdmin();
+  const [pending, setPending] = useState<ChangeRequest[]>([]);
+  const [deciding, setDeciding] = useState<string | null>(null);
+  const [decideError, setDecideError] = useState("");
+
   const load = useCallback(async () => {
-    // Three independent reads. Awaiting them in turn would show the list, then
+    // Four independent reads. Awaiting them in turn would show the list, then
     // the blocks, then the damage, and a row that says "available" before its
     // damage line arrives is the same lie the block line was added to stop.
-    const [vehiclesRes, blocksRes, damageRes] = await Promise.all([
+    const [vehiclesRes, blocksRes, damageRes, pendingRes] = await Promise.all([
       fetch("/api/admin/vehicles"),
       fetch("/api/admin/vehicles/blocks?open=1"),
       fetch("/api/admin/vehicles/damages"),
+      fetch("/api/admin/vehicles/change-requests?status=pending"),
     ]);
     if (vehiclesRes.ok) setVehicles(await vehiclesRes.json());
     if (blocksRes.ok) {
@@ -71,7 +110,23 @@ export default function FleetPage() {
       const rows: VehicleDamageSummary[] = await damageRes.json();
       setDamage(Object.fromEntries(rows.map(d => [d.vehicle_id, d])));
     }
+    if (pendingRes.ok) setPending(await pendingRes.json());
   }, []);
+
+  async function decide(id: string, decision: "approve" | "reject") {
+    setDeciding(id); setDecideError("");
+    const res = await fetch("/api/admin/vehicles/change-requests", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, decision }),
+    });
+    setDeciding(null);
+    if (!res.ok) {
+      // A 409 here is usually the vehicle having moved since the request was
+      // made — worth showing verbatim, because the message names the field.
+      setDecideError((await res.json().catch(() => ({}))).error ?? "Could not record that decision.");
+    }
+    await load();
+  }
 
   useEffect(() => { load(); }, [load]);
 
@@ -103,6 +158,71 @@ export default function FleetPage() {
       </p>
 
       {/* What needs attention, before the list of what does not. */}
+      {pending.length > 0 && (
+        <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50/60 px-5 py-4">
+          <div className="flex items-center gap-2 mb-2">
+            <ClipboardCheck size={16} className="text-blue-700 shrink-0" />
+            <strong className="text-sm text-blue-900">
+              {pending.length} {pending.length === 1 ? "change" : "changes"} waiting for approval
+            </strong>
+          </div>
+          {!isAdmin && (
+            <p className="text-xs text-blue-800 mb-2">
+              An administrator has to approve these before they take effect. The vehicle
+              still shows its current values until then.
+            </p>
+          )}
+          {decideError && (
+            <div role="alert" className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+              {decideError}
+            </div>
+          )}
+          <ul className="space-y-2">
+            {pending.map(r => (
+              <li key={r.id} className="rounded-lg border border-blue-200 bg-white px-3 py-2">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-gray-800">
+                      {r.vehicles?.name ?? "Vehicle"}{r.vehicles?.plate ? ` (${r.vehicles.plate})` : ""}
+                    </div>
+                    <ul className="mt-0.5 space-y-0.5">
+                      {Object.keys(r.changes).map(k => (
+                        <li key={k} className="text-xs text-gray-600">
+                          <span className="font-medium text-gray-700">{fieldLabel(k)}:</span>{" "}
+                          <span className="line-through text-gray-500">{shown(r.before[k])}</span>{" "}
+                          → <span className="text-gray-900">{shown(r.changes[k])}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {r.note && <div className="text-xs text-gray-500 mt-0.5 italic">{r.note}</div>}
+                  </div>
+                  {isAdmin && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => decide(r.id, "reject")}
+                        disabled={deciding === r.id}
+                        className="min-h-11 px-3 rounded-lg border border-gray-300 bg-white text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => decide(r.id, "approve")}
+                        disabled={deciding === r.id}
+                        className="min-h-11 px-4 rounded-lg bg-blue-700 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:opacity-50"
+                      >
+                        {deciding === r.id ? "Saving…" : "Approve"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {(barred.length > 0 || expiringSoon.length > 0) && (
         <div className="space-y-2 mb-6">
           {barred.length > 0 && (

@@ -143,8 +143,16 @@ export default function VehicleModal({
   const statuses = vehicleDateStatuses(form);
   const bar = rentalBar(form);
 
+  /** Column name → what the form calls it, so the notice reads like the screen. */
+  function fieldLabel(column: string): string {
+    return column
+      .replace(/_/g, " ")
+      .replace(/\bkteo\b/i, "KTEO")
+      .replace(/^./, (c) => c.toUpperCase());
+  }
+
   async function save() {
-    setSaving(true); setError("");
+    setSaving(true); setError(""); setNotice("");
     // Empty date and numeric inputs arrive as ""; Postgres rejects those for
     // typed columns.
     const payload: Record<string, unknown> = {};
@@ -156,7 +164,32 @@ export default function VehicleModal({
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
     });
     setSaving(false);
-    if (!res.ok) { setError((await res.json().catch(() => ({}))).error ?? "Could not save."); return; }
+
+    // 202 means nothing was written directly and a proposal was raised — a
+    // success, not the failure `res.ok` would call it for any other 2xx.
+    if (!res.ok && res.status !== 202) {
+      setError((await res.json().catch(() => ({}))).error ?? "Could not save.");
+      return;
+    }
+
+    /*
+     * A staff edit to a field they may not write becomes a change request
+     * rather than a 403. Say which fields went to the queue, because "saved"
+     * over a form that did not change would be a lie, and silence would leave
+     * them wondering whether the KTEO date took.
+     */
+    const saved = await res.json().catch(() => ({}));
+    if (saved?._requested?.fields?.length) {
+      const fields = saved._requested.fields.map(fieldLabel).join(", ");
+      setNotice(
+        `Sent for approval: ${fields}. These need an administrator before they ` +
+        `take effect — the vehicle still shows its current values until then.`
+      );
+      // The panel on the fleet list counts pending requests, so it has changed.
+      onSaved();
+      return;
+    }
+
     onSaved();
   }
 

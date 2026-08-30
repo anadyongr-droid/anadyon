@@ -1791,6 +1791,69 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 30 August 2026 — four eyes on the fleet record
+
+Tasos asked for the fleet screen to be opened to staff **and** made editable,
+with an administrator approving what staff enter.
+
+**The design in one line: the refusal becomes a proposal.**
+
+`app/api/admin/vehicles/[id]` already computed a `refused` list — the fields a
+staff session may not write — and answered 403 naming them. `STAFF_WRITABLE` is
+`status`, `odometer_km`, `vehicle_notes`, chosen as counter tasks. So a staff
+member noticing a KTEO certificate expires next week had no way to record it
+except to tell somebody.
+
+Rather than widen what staff may write, that same refused set now becomes a
+`vehicle_change_requests` row, and an administrator turns it into a change.
+**Nothing here lets staff write a column they could not write before.** The
+property is pinned by `lib/fourEyes.test.ts`, which asserts the writable set is
+unchanged and that the request block never touches `vehicles`.
+
+*Migration `20260830120000` + paste `038`. Not applied — hand both to Tasos.*
+
+**A mixed edit does both, and says so.** The odometer saves at once; the
+statutory dates in the same form go to the queue. Refusing the whole submission
+because one field needs review would discard a reading somebody just took off
+the dashboard. The response carries `_requested`, the modal names the fields
+that went for approval, and it treats **202 as success** — `res.ok` is false for
+202, so the obvious check would show "Could not save" over a proposal recorded
+perfectly.
+
+**No approval for status, odometer or notes**, deliberately. Putting a review
+between a staff member and "this vehicle is in maintenance" would delay the one
+action that protects a customer. Slow in the wrong direction.
+
+**Two things the SQL has to get right, both executed against a real Postgres in
+`lib/vehicleChangeRequestsMigration.test.ts` rather than reasoned about.**
+
+1. *Approval and application are one act.* Separate statements can be
+   interrupted between them, leaving a request reading "approved" over a vehicle
+   that never changed. `apply_vehicle_change_request` does both under a row
+   lock, so two administrators pressing Approve cannot both apply.
+
+2. *Approving must not undo somebody's work.* Staff propose `kteo_expiry` on
+   Monday. An administrator fixes that field by hand on Tuesday. Approving the
+   stale request on Wednesday would silently revert Tuesday. Every column named
+   in `before` is compared against the vehicle now, and a mismatch refuses the
+   **whole** request — surfaced as a 409 naming the field, not a 500, because
+   nothing is broken and re-reading is the fix. An unrelated field moving (an
+   odometer reading at handover) does not invalidate a pending KTEO correction.
+
+**The key is interpolated as an identifier inside a `SECURITY DEFINER`
+function**, so it is validated against `information_schema.columns` and against
+an explicit `id`/`created_at` denylist rather than trusted from the application.
+`jsonb_populate_record` against the `vehicles` type does the conversion, so a
+date arrives as a date and not as text that happens to look like one.
+
+**What is still not four-eyed, and should be said plainly.** An administrator
+editing the fleet directly is unchanged — one pair of eyes, as before. This
+covers *staff* input, which is what was asked. If the intent is that no single
+person can alter a statutory date unreviewed, that is a larger change: it would
+mean an administrator's own edits also entering the queue, and a second
+administrator to clear them. Anadyon has one administrator today, so that would
+deadlock. Worth deciding explicitly rather than discovering.
+
 ### 30 August 2026 — major damage takes a vehicle off the road
 
 Tasos's decision, after the visibility work raised it: recording **unrepaired
