@@ -92,3 +92,57 @@ describe("market does not wait on itself", () => {
     expect(market).not.toMatch(/setGroups\(\(await res\.json\(\)\)\.groups \?\? \[\]\);\s*\n\s*await loadComparison\(\);/);
   });
 });
+
+/**
+ * The category mapping had the same defect the rate card did, and nobody
+ * noticed because the fix stopped at the Rates screen.
+ *
+ * Every "Maps to" dropdown on the Market page was live the moment the page
+ * rendered. A stray tap on a phone reclassified a competitor category, and the
+ * only way back was to reload — the page held no copy of what had been loaded.
+ * Worse, staff could change every dropdown and only discover on Save that the
+ * PATCH comes back 403, so the screen offered an edit it could never keep.
+ */
+describe("the category mapping opens read-only too", () => {
+  it("mapping editing is off until it is asked for", () => {
+    expect(market).toMatch(/const \[editingMapping, setEditingMapping\] = useState\(false\)/);
+  });
+
+  it("permission and intent are both required to reclassify", () => {
+    expect(market).toMatch(/const canEditMapping = isAdmin && editingMapping/);
+  });
+
+  it("the dropdowns follow canEditMapping, not the bare render", () => {
+    expect(market, "the select is still live on load")
+      .toMatch(/disabled=\{!canEditMapping\}/);
+  });
+
+  it("offers Edit mapping, then Save and Cancel", () => {
+    expect(market).toContain("Edit mapping");
+    expect(market).toContain("Save mapping");
+    expect(market).toContain("Cancel mapping");
+  });
+
+  it("Cancel restores the mapping last loaded or saved", () => {
+    expect(market).toMatch(/function cancelMappingEdit\(\)[\s\S]{0,160}setGroups\(pristineGroups\)/);
+  });
+
+  it("a save becomes the new baseline and closes the session", () => {
+    // Otherwise Cancel would later revert to classifications already written to
+    // the database, and the dropdowns would stay live behind the user.
+    expect(market).toMatch(/setPristineGroups\(groups\)/);
+    expect(market).toMatch(/setEditingMapping\(false\)/);
+  });
+
+  it("the load seeds the baseline, so Cancel works before any save", () => {
+    expect(market).toMatch(/setPristineGroups\(loaded\)/);
+  });
+
+  it("staff are told the mapping is an administrator's to set", () => {
+    expect(market).toContain("View only — the mapping is set by an administrator");
+  });
+
+  it("the mapping buttons meet the touch-target minimum", () => {
+    expect((market.match(/min-h-10|min-h-11/g) ?? []).length).toBeGreaterThanOrEqual(5);
+  });
+});

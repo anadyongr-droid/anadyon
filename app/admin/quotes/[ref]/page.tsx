@@ -154,7 +154,7 @@ export default function QuoteDetailPage() {
   return (
     <div className="p-6 max-w-3xl">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.back()} className="text-gray-600 hover:text-gray-900 transition">
+        <button onClick={() => router.back()} aria-label="Back" className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg transition text-gray-600 hover:text-gray-900 hover:bg-gray-100">
           <ArrowLeft size={18} />
         </button>
         <div>

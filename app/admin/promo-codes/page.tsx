@@ -81,7 +81,12 @@ export default function PromoCodesPage() {
     load();
   }
 
+  // A pricing change, not a display preference — turning an active promo code off
+  // changes what the next customer is quoted. It asks first for the same reason
+  // handleDelete does, and says which way it is about to go.
   async function toggleActive(c: PromoCode) {
+    const direction = c.active ? "Turn off" : "Turn on";
+    if (!confirm(`${direction} ${c.code}? This changes what customers are charged.`)) return;
     await fetch(`/api/admin/promo-codes/${c.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -105,7 +110,8 @@ export default function PromoCodesPage() {
         <div className="bg-white border border-gray-200 rounded-xl p-5 mb-5 max-w-lg">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-900 text-sm">{editId ? "Edit Code" : "New Code"}</h2>
-            <button onClick={() => setShowForm(false)}><X size={16} className="text-gray-600" /></button>
+            <button onClick={() => setShowForm(false)} aria-label="Close the form"
+              className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg transition -mr-2 text-gray-600 hover:bg-gray-100"><X size={16} className="text-gray-600" /></button>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -192,16 +198,26 @@ export default function PromoCodesPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{c.expires_at ?? "Never"}</td>
                   <td className="px-4 py-3 text-center">
-                    <button onClick={() => toggleActive(c)}
-                      className={`w-5 h-5 rounded-full border flex items-center justify-center mx-auto ${
-                        c.active ? "bg-green-500 border-green-500 text-white" : "border-gray-300"
-                      }`}>
-                      {c.active && <Check size={11} />}
-                    </button>
+                    <button type="button" onClick={() => toggleActive(c)}
+                      role="switch" aria-checked={c.active}
+                      aria-label={`${c.active ? "Active" : "Inactive"} — ${c.code}`}
+                      title={`${c.active ? "Active" : "Inactive"} — ${c.code}`}
+                      className="min-h-11 min-w-11 flex items-center justify-center mx-auto rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400 transition">
+                        <span aria-hidden="true"
+                          className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                            c.active ? "bg-green-500 border-green-500 text-white" : "border-gray-300"
+                          }`}>
+                          {c.active && <Check size={11} />}
+                        </span>
+                      </button>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => startEdit(c)} className="text-gray-600 hover:text-gray-900 mr-2"><Pencil size={13} /></button>
-                    <button onClick={() => handleDelete(c.id)} className="text-gray-600 hover:text-red-500"><X size={13} /></button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button onClick={() => startEdit(c)} aria-label={`Edit ${c.code}`}
+                        className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg transition text-gray-600 hover:text-gray-900 hover:bg-gray-100"><Pencil size={13} /></button>
+                      <button onClick={() => handleDelete(c.id)} aria-label={`Delete promo code ${c.code}`}
+                        className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg transition text-gray-600 hover:text-red-500 hover:bg-red-50"><X size={13} /></button>
+                    </div>
                   </td>
                 </tr>
               ))}
