@@ -336,3 +336,60 @@ returns NULL with no claims set; the guard clause raises as intended;
 `SECURITY DEFINER` does bypass RLS; and `SET request.jwt.claims` will forge a
 `sub` and defeat the guard — which is precisely why "the application asserts who
 is acting" (Option B) is a trust decision and not a technical one.
+
+---
+
+## 11. Result of diagnostic 10a — 30 August 2026
+
+Run by Tasos against production, in a **staff** session (obtained after the
+`set-password` MFA fix shipped, which is what had made a staff login
+unavailable). Key names and types only, as the snippet prints:
+
+```
+aal  <string>                      is_anonymous  <boolean>
+amr  <array>                       iss  <string>
+app_metadata.provider  <string>    phone  <string>
+app_metadata.providers  <array>    role  <string>
+app_metadata.role  <string>        session_id  <string>
+aud  <string>                      sub  <string>
+email  <string>                    user_metadata.email_verified  <boolean>
+exp  <number>
+iat  <number>
+```
+
+### What this settles
+
+**`sub` is present, so Option A works.** Under a user-scoped client the staff
+member's JWT reaches the Data API and `auth.uid()` resolves to this value. The
+gateway design in §2 is buildable as written. That was the question.
+
+**`app_metadata.role` is present**, so the role travels in the token and
+`proxy.ts` is no longer the only place that knows it. §10's table anticipated
+this.
+
+**`aal` is present, which §10's table did not anticipate and is worth having.**
+The assurance level is a claim, so a function can require `aal2` for a specific
+operation rather than trusting that middleware checked. For the counter that is
+a real option: releasing a damage block, or voiding a charge, could demand a
+second factor *at the database*, not merely at the screen.
+
+### What it does not settle, and one tension to resolve
+
+**The cost of Option A is still unmeasured.** §10b — RLS state, existing
+`authenticated` grants, and the `SECURITY DEFINER` inventory — has not been run.
+Option A's "against" is entirely about that work, so the decision is not ready.
+
+**And §10's table overstates one thing.** It reads *"the role is in the token.
+Option A can authorise in SQL from the JWT"* — but §2's design says the gateway
+*"verifies `auth.uid()` against database-held staff membership — **never** a JWT
+claim"*. Both cannot stand, and §2 is right. A claim is minted at sign-in and
+stays valid until the token expires, so a staff member whose access is revoked
+keeps a `role` claim saying otherwise for the life of their session. Availability
+is not authority.
+
+**The resolution, unless review disagrees:** use `sub` for identity, verify role
+and membership against the database, and treat `app_metadata.role` as a cheap
+pre-filter that can only ever *narrow* what the database then confirms — never
+as the thing that grants. `aal` is the exception worth arguing about: it
+describes how the *current session* was authenticated rather than what the
+account is entitled to, and it cannot be stale in the same way.
