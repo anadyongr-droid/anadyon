@@ -1791,6 +1791,154 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 29 August 2026
+
+**A class of UI defect, not three separate ones.** Tasos asked for the category
+mapping on Market to be protected behind an Edit button, the way the rate card
+already is. Sweeping the admin for the same shape — a *saved* value rendered as
+a live control, with no baseline to restore — turned up two more instances, and
+the sweep is worth recording because the shape is easy to reintroduce.
+
+*What the shape is:* a control whose initial value comes from the database and
+whose `onChange` writes somewhere, rendered live on first paint. It has no
+"pressed edit" step, so there is no moment at which the user declared intent,
+and usually no copy of what was loaded, so there is nothing to cancel back to.
+On a phone it is a mis-tap away from a silent change.
+
+Three instances, all on pricing screens:
+
+- **Market → Category mapping.** Every "Maps to" dropdown was live on load.
+  Staff had it worse than admins: they could change every row and only learn on
+  Save that `proxy.ts` lists `/api/admin/competitors/mapping` as `READ_ONLY` for
+  them (asserted at `lib/staffPermissions.test.ts:84`) — the screen offered an
+  edit it could never keep. Now opens disabled, needs Edit, and Cancel restores
+  the last loaded or saved mapping. A *failed* save deliberately keeps the
+  session open, because the edits on screen are the only copy of them.
+- **Discount rules → Active**, and **Promo codes → Active.** Worse than the
+  mapping, because these wrote to the database on the tap rather than to local
+  state. A 20px unlabelled circle, no confirmation, no undo. Now confirms,
+  naming the rule or code and the direction — "Are you sure?" on a toggle tells
+  you nothing, since you cannot tell from it which way you are going.
+
+Two defects rode along on those toggles that were not about intent at all, and
+are recorded so the next audit does not re-find them:
+
+- The target was `w-5 h-5` — 20px — on the control most likely to be hit by
+  accident. `lib/ratesEditGate.test.ts` already holds the rate card's buttons to
+  44px; nothing held these. The dot still renders at 20px; the hit area is 44px.
+- They had no accessible name, and an *inactive* row rendered an entirely empty
+  button: `{r.active && <Check/>}` puts nothing inside it, so a screen reader
+  announced "button" and stopped. Now `role="switch"` with `aria-checked` and a
+  label naming the row.
+
+*Why `scripts/check-a11y.mjs` was never going to catch those two:* it covers the
+public pages only. Every admin screen is outside it. That is a gap in the audit,
+not a gap in the check — worth closing, but it needs a logged-in render, which
+the current harness has no way to produce.
+
+*Not changed, deliberately:* the gate on all three is presentation only, exactly
+as it is on the rate card. `proxy.ts` is what actually refuses a staff write,
+and that was verified against the file rather than assumed from the comment in
+the page. `promo-codes` and `discount-rules` also carry a create/edit *form*,
+which is a different shape — it already has an explicit Save, so a stray tap in
+it writes nothing, and it was left alone.
+
+Regression tests: `lib/ratesEditGate.test.ts` (mapping) and the new
+`lib/pricingToggleGate.test.ts` (both toggles). Both were run against the
+unfixed pages first — 9 and 12 failures respectively — before being trusted.
+
+**The a11y gap that finding turned up, and what closing it cost.** The empty
+button on the toggles was not an isolated slip. Sweeping every `.tsx` under
+`app/admin` for buttons whose only content is an icon found **fifteen** with no
+accessible name at all — announced as "button" and nothing else. Among them:
+the delete buttons on Discount Rules and Promo Codes (an unlabelled X that
+removes a pricing rule), the document delete inside the reservation modal, and
+the calendar's date-navigation arrows. All fifteen now carry an `aria-label`
+naming the row they act on, and `lib/adminButtonNames.test.ts` keeps them named.
+
+*The scanner is worth reading before writing another one like it.* The obvious
+form — `/<button[^>]*>/` — is wrong, and wrong in the direction that hides the
+bug: `onClick={() => remove(id)}` contains a `>` inside the arrow, so `[^>]*`
+ends the opening tag mid-handler and reads the rest of the handler as the
+button's content. Every one of these buttons has an arrow handler, so the naive
+scan reported **zero problems across the whole admin**. The check tracks brace,
+paren and quote depth instead, and a second test pins that parser so a
+regression cannot quietly turn the first test green again. This is the
+"a reproduction must be able to reproduce" rule in a new costume: a check that
+cannot fail is worse than no check, because it is also a claim.
+
+**The admin's touch targets — raised, then approved and built.** The same
+buttons were all below the 44px minimum the rate card is already held to: the
+calendar arrows 28px (`p-1.5` + a 16px icon), the ledger deletes 21px, the
+reservation-document delete 11px, the modal close buttons 20px, and the
+edit/delete pair on both pricing screens 13px with no padding at all. Raised as
+a design decision rather than built unasked, because it changes the density of
+six screens and `docs/audits/` area 2 is ungraded; Tasos approved it the same
+evening, so it is now done. Nineteen controls in total.
+
+*The trap that shaped the fix, and it is a nasty one.* The obvious way to fix a
+touch target without touching the design is to leave the control its size and
+extend the hit area invisibly. Applied blindly that is worse than the bug. The
+edit and delete buttons on Discount Rules are 13px icons **8px apart**, so
+their centres are only 21px apart: give each a 44px invisible area and the two
+overlap by **23px** — wide enough to swallow Edit's own centre. Delete is later
+in the DOM, so it paints on top and wins every pixel they share. Asking the
+browser `elementFromPoint` on the middle of the edit icon returns **the delete
+button**. A tap aimed squarely at Edit deletes the rule, and nothing on screen
+shows where the boundary went. A data-loss bug wearing an accessibility fix as
+a disguise.
+
+That is measured, not estimated: `tests/browser/touch-targets.spec.ts` asks the
+browser what a thumb would hit. An earlier draft of this entry reasoned the
+overlap out by hand and said "roughly 35px" — wrong arithmetic, and the reason
+it is now a test rather than a sentence.
+
+The spec asks `elementFromPoint` rather than reading
+`getComputedStyle(el, "::after").width`, for two reasons. Hit testing *is* the
+claim; a computed width is only a proxy, and it is the half that varies between
+engines — the suite runs in Firefox as well as Chromium, and this container has
+no Firefox to check against. And "the centre of Edit belongs to Delete" is
+evidence anyone can act on, where "23px" needs working out. The correctly-spaced
+pair is asserted alongside as the control, so the hazard test cannot be passing
+for some unrelated reason.
+The same spec confirms `.touch-target` does what it claims (a 38×38 button gets
+a centred 44×44 hit area, overhanging 3px a side) and that the pair as shipped —
+two real 44px boxes 8px apart — overlaps by exactly zero.
+
+One of those three tests deliberately asserts a **hazard** rather than a
+feature. `.touch-target` is the tempting general answer, because it costs no
+visual change at all; the test measures what it does to a close-set pair so that
+the next person to reach for it finds the number, instead of rediscovering it
+from a support call about a rule someone deleted while aiming for Edit.
+
+*And the instrument was verified against its own absence.* Renaming the class
+and re-running looked like it passed — because `playwright.config.ts` reuses a
+running server, so the browser was still being served the previous build's CSS.
+The config carries a comment warning about exactly that, and it caught someone
+out again. Only after a rebuild did the precondition fire as designed. Editing
+CSS and re-running the browser tests proves nothing without a rebuild in
+between.
+
+So the rule here is: **make the target you can see the target you hit.**
+Sixteen controls became genuinely 44×44 and, where they sit in pairs, are
+spaced so their boxes cannot overlap. The invisible-extension trick survives in
+exactly one place — `.touch-target` in `globals.css`, used by the three "add
+row" buttons in the vehicle ledger, which are `h-[38px]` to line up with the
+inputs beside them in a `grid-cols-12 items-end` row. There the 3px of extra
+hit area on each side reaches into the row's own gutter, where there is nothing
+to hit. The utility carries that warning in its own comment, because its safety
+is a property of *where it is used*, not of the utility.
+
+*Two things the size check caught that the name check could not.* The mobile
+navigation buttons were flagged and were already correct at `w-11 h-11` — the
+first version of the check looked only for `min-h-11`, and would have had an
+implementer "fix" working code. It now accepts either spelling and requires
+**both** dimensions, since `h-11` alone still permits a 13px-wide target. And
+three modal close buttons (customer, reservation, vehicle) were 20px despite
+having proper `aria-label`s all along, so the naming sweep had skipped them
+entirely: being named and being reachable are different properties, and a check
+for one silently passes the other.
+
 ### 28 August 2026
 
 *Added late — see the note at the end of this entry.*

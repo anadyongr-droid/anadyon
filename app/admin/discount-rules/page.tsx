@@ -93,7 +93,12 @@ export default function DiscountRulesPage() {
     load();
   }
 
+  // A pricing change, not a display preference — turning an active rule off
+  // changes what the next customer is quoted. It asks first for the same reason
+  // handleDelete does, and says which way it is about to go.
   async function toggleActive(r: Rule) {
+    const direction = r.active ? "Turn off" : "Turn on";
+    if (!confirm(`${direction} ${r.name}? This changes what customers are charged.`)) return;
     await fetch(`/api/admin/discount-rules/${r.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -119,7 +124,8 @@ export default function DiscountRulesPage() {
         <div className="bg-white border border-gray-200 rounded-xl p-5 mb-5 max-w-lg">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-900 text-sm">{editId ? "Edit Rule" : "New Rule"}</h2>
-            <button onClick={() => setShowForm(false)}><X size={16} className="text-gray-600" /></button>
+            <button onClick={() => setShowForm(false)} aria-label="Close the form"
+              className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg transition -mr-2 text-gray-600 hover:bg-gray-100"><X size={16} className="text-gray-600" /></button>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
@@ -217,16 +223,26 @@ export default function DiscountRulesPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{r.pricing_group ?? "All"}</td>
                   <td className="px-4 py-3 text-center">
-                    <button onClick={() => toggleActive(r)}
-                      className={`w-5 h-5 rounded-full border flex items-center justify-center mx-auto ${
-                        r.active ? "bg-green-500 border-green-500 text-white" : "border-gray-300"
-                      }`}>
-                      {r.active && <Check size={11} />}
-                    </button>
+                    <button type="button" onClick={() => toggleActive(r)}
+                      role="switch" aria-checked={r.active}
+                      aria-label={`${r.active ? "Active" : "Inactive"} — ${r.name}`}
+                      title={`${r.active ? "Active" : "Inactive"} — ${r.name}`}
+                      className="min-h-11 min-w-11 flex items-center justify-center mx-auto rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400 transition">
+                        <span aria-hidden="true"
+                          className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                            r.active ? "bg-green-500 border-green-500 text-white" : "border-gray-300"
+                          }`}>
+                          {r.active && <Check size={11} />}
+                        </span>
+                      </button>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => startEdit(r)} className="text-gray-600 hover:text-gray-900 mr-2"><Pencil size={13} /></button>
-                    <button onClick={() => handleDelete(r.id)} className="text-gray-600 hover:text-red-500"><X size={13} /></button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button onClick={() => startEdit(r)} aria-label={`Edit ${r.name}`}
+                        className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg transition text-gray-600 hover:text-gray-900 hover:bg-gray-100"><Pencil size={13} /></button>
+                      <button onClick={() => handleDelete(r.id)} aria-label={`Delete rule ${r.name}`}
+                        className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg transition text-gray-600 hover:text-red-500 hover:bg-red-50"><X size={13} /></button>
+                    </div>
                   </td>
                 </tr>
               ))}

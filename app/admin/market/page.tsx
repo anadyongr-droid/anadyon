@@ -67,6 +67,12 @@ export default function MarketPage() {
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [editingRates, setEditingRates] = useState(false);
+  // The mapping is read far more often than it is changed, and a stray tap on a
+  // phone should not be able to reclassify a competitor category. The dropdowns
+  // stay disabled until Edit is pressed.
+  const [editingMapping, setEditingMapping] = useState(false);
+  // What was last loaded or saved, so Cancel can put it back.
+  const [pristineGroups, setPristineGroups] = useState<GroupRow[]>([]);
   const [rateDrafts, setRateDrafts] = useState<Rate[]>([]);
   const [rateLoading, setRateLoading] = useState(false);
   const [rateSaving, setRateSaving] = useState(false);
@@ -88,13 +94,28 @@ export default function MarketPage() {
       await Promise.all([
         (async () => {
           const res = await fetch("/api/admin/competitors/mapping");
-          if (res.ok) setGroups((await res.json()).groups ?? []);
+          if (!res.ok) return;
+          const loaded: GroupRow[] = (await res.json()).groups ?? [];
+          setGroups(loaded);
+          // Seeded here as well as after a save, so Cancel works on a screen
+          // that has never been saved.
+          setPristineGroups(loaded);
         })(),
         loadComparison(),
       ]);
       setLoading(false);
     })();
   }, [loadComparison]);
+
+  const canEditMapping = isAdmin && editingMapping;
+
+  function startMappingEdit() { setEditingMapping(true); setNote(null); }
+
+  function cancelMappingEdit() {
+    setGroups(pristineGroups);
+    setEditingMapping(false);
+    setNote(null);
+  }
 
   function setMapping(competitor: string, carGroup: string, value: string) {
     setGroups(prev =>
@@ -164,7 +185,16 @@ export default function MarketPage() {
     });
     const d = await res.json();
     setNote(res.ok ? `Saved — ${d.updated} observations classified.` : d.error ?? "Save failed.");
-    if (res.ok) await loadComparison();
+    if (res.ok) {
+      // A successful save becomes the new baseline and closes the edit session,
+      // so Cancel can never revert to classifications already written, and the
+      // dropdowns are not left live behind the user.
+      setPristineGroups(groups);
+      setEditingMapping(false);
+      await loadComparison();
+    }
+    // A failed save keeps the session open — the edits are still on screen and
+    // still the only copy of them.
     setSaving(false);
   }
 
@@ -334,15 +364,43 @@ export default function MarketPage() {
               {mappedCount} of {groups.length} categories mapped
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            {note && <span className="text-xs text-gray-500">{note}</span>}
-            {isAdmin && <button
-              onClick={save}
-              disabled={saving}
-              className="flex items-center gap-1.5 text-sm font-medium text-white bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition"
-            >
-              <Save size={14} /> {saving ? "Saving…" : "Save mapping"}
-            </button>}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {note && <span className="max-w-72 text-right text-xs text-gray-500">{note}</span>}
+            {/* Staff read the mapping; they do not change it. Showing the button
+                and letting the save come back 403 would read as a fault, not a
+                rule — the same reason the rate card hides its Edit. */}
+            {!isAdmin ? (
+              <span className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-500">
+                View only — the mapping is set by an administrator
+              </span>
+            ) : editingMapping ? (
+              <>
+                <button
+                  type="button"
+                  onClick={cancelMappingEdit}
+                  disabled={saving}
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <X size={15} /> Cancel mapping
+                </button>
+                <button
+                  type="button"
+                  onClick={save}
+                  disabled={saving}
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:opacity-50"
+                >
+                  <Save size={15} /> {saving ? "Saving…" : "Save mapping"}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={startMappingEdit}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-800"
+              >
+                <PencilLine size={15} /> Edit mapping
+              </button>
+            )}
           </div>
         </div>
 
@@ -390,7 +448,12 @@ export default function MarketPage() {
                   <select
                     value={g.pricing_group ?? ""}
                     onChange={e => setMapping(g.competitor, g.car_group, e.target.value)}
-                    className="border border-gray-200 rounded px-2 py-1 text-xs w-48 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    disabled={!canEditMapping}
+                    className={`rounded px-2 py-1 text-xs w-48 border focus:outline-none focus:ring-1 focus:ring-blue-400 ${
+                      canEditMapping
+                        ? "border-gray-200 bg-white"
+                        : "border-transparent bg-gray-50 text-gray-700 appearance-none"
+                    }`}
                   >
                     {OUR_GROUPS.map(o => (
                       <option key={o.value} value={o.value}>{o.label}</option>
