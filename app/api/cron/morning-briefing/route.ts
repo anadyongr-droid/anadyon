@@ -6,6 +6,14 @@ import { sendMail } from "@/lib/mailer";
 import { drainMailQueue } from "@/lib/mailer";
 import { syncEmails, detectReplies, runWatchdog } from "@/lib/emailSync";
 import { runHealthChecks, formatHealthAlert } from "@/lib/healthChecks";
+import { summariseOpenDamage, type DamageSeverity, type OpenDamageRow } from "@/lib/openDamage";
+
+/** The briefing is Greek; the column is an English check constraint. */
+const SEVERITY_EL: Record<DamageSeverity, string> = {
+  minor: "ελαφριά",
+  moderate: "μέτρια",
+  major: "σοβαρή",
+};
 
 export const maxDuration = 60;
 
@@ -166,6 +174,26 @@ export async function GET(req: NextRequest) {
     return `  • ${v?.name ?? "?"}${v?.plate ? ` (${v.plate})` : ""} — εκτός ${days}${expected}${x.block.note ? ` | ${x.block.note}` : ""}`;
   };
 
+  // Unrepaired damage across the fleet. Blueprint: recorded since migration 011
+  // and surfaced nowhere but one vehicle's modal, so a scuff reported in June
+  // could sit unrepaired all season without anyone being reminded of it.
+  //
+  // No repair costs are read — see lib/openDamage.ts. This is a nudge, not a
+  // financial report, and the briefing goes to a Telegram group.
+  const { data: openDamageRows } = await supabaseAdmin
+    .from("vehicle_damages")
+    .select("vehicle_id, severity, reported_on, description, vehicles(name, plate)")
+    .is("repaired_on", null);
+
+  const damaged = summariseOpenDamage((openDamageRows ?? []) as unknown as OpenDamageRow[]);
+  /** vehicle_id → "Micra (ΖΑΚ-1234)", so the summary can name the car. */
+  const damagedNames = new Map<string, string>();
+  for (const r of (openDamageRows ?? []) as Array<{ vehicle_id: string; vehicles?: { name?: string; plate?: string | null } | null }>) {
+    if (damagedNames.has(r.vehicle_id)) continue;
+    const v = r.vehicles;
+    damagedNames.set(r.vehicle_id, `${v?.name ?? "?"}${v?.plate ? ` (${v.plate})` : ""}`);
+  }
+
   // Open unread emails
   const { count: openEmails } = await supabaseAdmin
     .from("emails")
@@ -179,6 +207,18 @@ export async function GET(req: NextRequest) {
   if (escalated.length) {
     msg += `🔧 <b>ΟΧΗΜΑΤΑ ΕΚΤΟΣ ΣΤΟΛΟΥ — ΑΠΑΙΤΕΙΤΑΙ ΕΝΕΡΓΕΙΑ (${escalated.length}):</b>\n`;
     escalated.forEach((x) => { msg += `${outLine(x)}\n`; });
+    msg += "\n";
+  }
+
+  // Below the escalated blocks and above the day's movements. A car out of the
+  // fleet for four days needs action today; damage needs to be remembered, and
+  // the difference in urgency is the order they appear in.
+  if (damaged.length) {
+    msg += `🔧 <b>Ζημιές σε εκκρεμότητα (${damaged.length}):</b>\n`;
+    for (const d of damaged) {
+      const days = d.daysOpen === 1 ? "1 ημέρα" : `${d.daysOpen} ημέρες`;
+      msg += `  • ${damagedNames.get(d.vehicle_id) ?? "?"} — ${d.total > 1 ? `${d.total} ζημιές, χειρότερη ` : ""}${SEVERITY_EL[d.worst]} — ανοιχτή ${days}\n`;
+    }
     msg += "\n";
   }
 

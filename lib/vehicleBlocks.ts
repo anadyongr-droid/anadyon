@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase";
+import { wholeDays } from "./wholeDays";
 
 /**
  * A vehicle taken out of the active fleet.
@@ -141,12 +142,6 @@ export interface BlockChase {
   daysOut: number;
   /** Whole days until the estimate; negative once it has passed; null if none. */
   daysToExpected: number | null;
-}
-
-function wholeDays(from: string, to: Date): number {
-  const start = new Date(`${from}T00:00:00Z`);
-  const end = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
-  return Math.floor((end - start.getTime()) / 86_400_000);
 }
 
 /**
