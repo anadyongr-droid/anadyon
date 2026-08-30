@@ -516,15 +516,27 @@ The other thirteen do not depend on that assumption at all — an empty
 `search_path` *forces* qualification, so a later edit cannot reintroduce the
 problem by accident.
 
-Not yet checked, and cheap:
+**Checked, 30 August. Both false.**
 
-```sql
-select nspname,
-       has_schema_privilege('authenticated', nspname, 'CREATE') as authenticated_can_create,
-       has_schema_privilege('anon',          nspname, 'CREATE') as anon_can_create
-from pg_namespace where nspname = 'public';
+```
+ nspname | authenticated_can_create | anon_can_create
+ public  | false                    | false
 ```
 
-Both false and this is a tidiness item. Either true and it is a real finding.
-Worth noting either way: `assert_least_privilege`, the function that checks
-least privilege, is itself on the looser pattern.
+`has_schema_privilege` counts privileges held via `PUBLIC` as well as those
+granted to the role directly, so a false for both rules out the vector entirely
+rather than for those two roles only. Nothing reachable can create an object in
+`public` to shadow an unqualified name. **This is a tidiness item, not a
+finding.**
+
+**And it is not worth converting the seven.** Moving a function to
+`search_path = ''` means schema-qualifying every reference in its body, and the
+list includes `book_vehicle` and `create_web_booking` — the two functions the
+website's entire booking path runs through. Real regression risk, against a
+vector that is closed. The proportionate rule is forward-looking: **new
+`SECURITY DEFINER` functions use `search_path = ''`**, which is already what the
+recent ones do (038 and 039 among them), and the seven are left alone unless one
+is being edited for another reason anyway.
+
+Worth noting for its own sake: `assert_least_privilege`, the function that
+checks least privilege, is itself on the looser pattern.
