@@ -79,6 +79,8 @@ export default function VehicleModal({
   const [covered, setCovered] = useState<CoveredReservation[] | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Not an error: something the operator must know happened, in amber.
+  const [notice, setNotice] = useState("");
 
   // Costs and damages are admin-only; a staff session gets 403 here and the
   // financial tabs stay empty rather than the screen failing outright.
@@ -164,7 +166,33 @@ export default function VehicleModal({
       body: JSON.stringify({ kind, ...row }),
     });
     if (!res.ok) { setError((await res.json().catch(() => ({}))).error ?? "Could not add."); return false; }
+
+    /*
+     * Recording unrepaired major damage takes the vehicle off the road at once.
+     * Say so plainly, here, rather than letting somebody discover it when a
+     * booking will not allocate — a consequence nobody was told about reads as
+     * a fault. The Blocks tab is where an expected return goes, and where an
+     * administrator puts the vehicle back.
+     */
+    const saved = await res.json().catch(() => ({}));
+    if (saved?._blocked) {
+      setNotice(
+        "Recorded, and this vehicle is now out of the active fleet — it cannot be " +
+        "booked online or assigned by staff. Add an expected return in the Blocks " +
+        "tab. Only an administrator can put it back."
+      );
+    } else if (saved?._block_error) {
+      // The damage saved; the block did not. Worth saying loudly, because the
+      // operator would otherwise reasonably believe the car is off the road.
+      setNotice(
+        "The damage was recorded, but this vehicle could NOT be taken out of the " +
+        `fleet automatically (${saved._block_error}). It is still bookable — take ` +
+        "it out by hand in the Blocks tab."
+      );
+    }
+
     await loadLedger();
+    await loadBlocks();
     return true;
   }
 
@@ -327,6 +355,11 @@ export default function VehicleModal({
         {tab === "damages" && <DamagesTab ledger={ledger} restricted={restricted} onAdd={r => addRow("damage", r)} onRemove={id => removeRow("damage", id)} />}
 
         {error && <div className="mx-6 mb-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</div>}
+        {notice && (
+          <div role="status" className="mx-6 mb-2 text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+            {notice}
+          </div>
+        )}
 
         <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100 shrink-0">
           <button onClick={onClose} className="text-sm text-gray-600 px-4 py-2 hover:text-gray-900">Cancel</button>

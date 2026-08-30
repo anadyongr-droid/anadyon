@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { computeMargin } from "@/lib/fleetStatus";
+import { blockNote, shouldOpenBlock, type DamageRow } from "@/lib/damageBlock";
 
 // One vehicle's financial picture: what it earned, what it cost, what is
 // damaged. Served together because the margin is meaningless without both
@@ -120,7 +121,53 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const { data, error } = await supabaseAdmin.from(table).insert(cleaned).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+
+  /*
+   * Unrepaired major damage takes the vehicle off the road immediately.
+   *
+   * Through vehicle_blocks rather than a new flag, because a block is what the
+   * SQL allocator actually consults — see lib/damageBlock.ts. Anything else
+   * would warn on the fleet screen while the website carried on booking the car.
+   *
+   * The insert is not fatal to the request. The damage is already recorded and
+   * that is the part the operator typed; failing the whole call here would lose
+   * it and teach people not to log damage. The response says what happened, and
+   * the fleet screen shows the truth either way.
+   */
+  let blocked: { id: string } | null = null;
+  let blockError: string | null = null;
+
+  if (kind === "damage" && shouldOpenBlock(cleaned as DamageRow)) {
+    const { data: open } = await supabaseAdmin
+      .from("vehicle_blocks")
+      .select("id")
+      .eq("vehicle_id", id)
+      .eq("reason", "damage")
+      .is("released_at", null)
+      .limit(1);
+
+    if (open?.length) {
+      // Already off the road for damage. A second major dent does not need a
+      // second block, and two would have to be released separately.
+      blocked = { id: open[0].id };
+    } else {
+      const { data: created, error: blockErr } = await supabaseAdmin
+        .from("vehicle_blocks")
+        .insert({
+          vehicle_id: id,
+          reason: "damage",
+          starts_on: new Date().toISOString().slice(0, 10),
+          note: blockNote(cleaned as DamageRow),
+          created_by: null,
+        })
+        .select("id")
+        .single();
+      if (blockErr) blockError = blockErr.message;
+      else blocked = created;
+    }
+  }
+
+  return NextResponse.json({ ...data, _blocked: blocked, _block_error: blockError });
 }
 
 /** Removes a cost or damage row. */
