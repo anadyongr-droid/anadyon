@@ -1791,6 +1791,104 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 30 August 2026 — AADE, checked against the published schema
+
+**The invoice module would have been rejected on every single filing.** Checked
+against `InvoicesDoc-v1.0.10.xsd` — the version our own `xmlns` declares —
+`InvoiceSummaryType` is an `xs:sequence` of **eight mandatory** elements. The
+module sent three. `totalWithheldAmount`, `totalFeesAmount`,
+`totalStampDutyAmount`, `totalOtherTaxesAmount` and `totalDeductionsAmount` were
+simply absent. None of them applies to a vehicle rental, but "does not apply" is
+`0.00` in a mandatory element, not an omitted one.
+
+Nothing would have reached a business rule; it fails schema validation first.
+Nobody found out because the module has no credentials and had no tests — which
+is the more useful lesson than the missing fields themselves. **A module that
+has never run is not "built", it is "written".** §2 called both of these
+"waiting on environment variables", and this one was waiting on being correct.
+
+Also confirmed from the same schema, so the earlier entry's reasoning is now
+verified rather than argued: `11.2` and `2.1` are both valid `InvoiceType`
+values, and `vatCategory` is an int 1–10 so `1` is in range. And `paymentMethods`
+is **optional** (`minOccurs="0"`), which contradicts what was flagged the hour
+before — worth recording as a correction rather than quietly dropping. Schema-
+optional is not the same as business-rule-optional, so it stays on the sandbox
+checklist, but it is not the blocker it was called.
+
+*The XML is now tested by generating it,* not by reading the source for
+literals. `buildInvoiceXml` and `buildDclXml` are exported for that. Order is
+asserted as well as presence, because `xs:sequence` is positional and a
+presence-only check waves a reordering straight through — both failure modes
+were reintroduced and watched to fail.
+
+**What could not be checked, and must not be assumed.** The client list files
+against a *different* AADE API, whose schema is published only on `aade.gr`.
+This environment's egress policy blocks that host, and the README says to report
+a block rather than route around it. So the DCL XML is verified for internal
+consistency only — the country resolves, the refusal fires, the escaping holds —
+and **not** against its real schema. Given the invoice module turned out to be
+missing five mandatory elements, the honest expectation is that the DCL has
+something similar waiting. The sandbox is what will say.
+
+### 30 August 2026 — AADE
+
+**Both filing modules were wrong, and neither had a single test.** They were
+described in §2 as waiting only on environment variables. That was true of the
+*configuration* and quite untrue of the *code*.
+
+**The country was wrong in both, and wrong in the dangerous direction.** The
+client list read `customers.nationality` — free text on the customer form, with
+the placeholder "e.g. British" — and put it straight into
+`<counterpartCountry>`. A demonym is not a country. The invoice module read the
+right field, `customers.country`, but that holds an English display name:
+`app/components/BookingForm.tsx` builds its dropdown from
+`Intl.DisplayNames(["en"], {type:"region"})` and stores **the name as the
+value**, so it is "United Kingdom", never "GB". AADE wants ISO 3166-1 alpha-2.
+
+Both then ended `?? "GR"`. That is the part that matters: an unknown country
+would have filed as Greece, and AADE would have accepted it without a murmur.
+**A filing that is rejected can be corrected; a filing that is accepted with the
+wrong country is a false statutory record nobody will ever look at again.** For
+a business whose customers are overwhelmingly foreign, that was close to every
+filing. Both now refuse — `UnfilableError`, answered as a 422 naming the record
+to fix — rather than default.
+
+`lib/aadeCountry.ts` resolves the name by **inverting the same `Intl` call the
+form wrote with**, so the map cannot drift from the dropdown the way a
+hand-typed table would.
+
+**The invoice type was wrong for private customers**, which is what Tasos's
+question surfaced. myDATA distinguishes `11.1` ΑΛΠ — Απόδειξη Λιανικής Πώλησης,
+a retail receipt for *goods* — from `11.2` ΑΠΥ — Απόδειξη Παροχής Υπηρεσιών,
+for *services*. Renting a vehicle is a service, so a private customer's receipt
+is 11.2, and the module filed 11.1. The tell that this was a slip rather than a
+decision: the B2B branch already used `2.1` ΤΠΥ, the *service* invoice. So it
+knew. Nearly every receipt Anadyon issues goes to a private individual, so
+nearly every one would have carried the wrong document type. **Confirm with the
+accountant before the first live filing**, as with anything statutory — but
+11.1 for a rental is not defensible either way.
+
+**A refusal used to wedge the reservation permanently.** `claim_dcl_submission`
+and `claim_invoice_submission` refuse anything already `submitting`/`issuing`,
+and there is no timeout and no reset. An exception escaping after the claim but
+before the status write left that reservation unfilable forever. Both now catch,
+write `error` — which *is* re-claimable — and only then return.
+
+**Testing before going live is already supported and needs no code.** Both
+modules choose their endpoint on `AADE_PRODUCTION === "true"`, defaulting to
+`mydataapidev.aade.gr`. Leave the variable unset and everything files against
+AADE's developer environment. Outstanding: `AADE_USER_ID`,
+`AADE_SUBSCRIPTION_KEY`, `COMPANY_VAT_NUMBER`, and `COMPANY_BRANCH` (defaults
+to `0`).
+
+*A note on the tests, because it caught us three times in one evening.* These
+are source-reading tests, and a comment describing a defect reads as the
+defect: the "no `?? \"GR\"`" check failed on the comment explaining that the
+`?? "GR"` had been removed, exactly as the damage-visibility suite had failed
+hours earlier on a comment saying a column was excluded. `lib/aadeFilings.test.ts`
+now strips comments before matching, with the stripper itself under test. Each
+of the four defects above was reintroduced one at a time and watched to fail.
+
 ### 30 August 2026
 
 **Open damage was recorded faithfully and surfaced nowhere.** `vehicle_damages`
