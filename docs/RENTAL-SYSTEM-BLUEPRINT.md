@@ -1879,10 +1879,34 @@ evening, so it is now done. Nineteen controls in total.
 *The trap that shaped the fix, and it is a nasty one.* The obvious way to fix a
 touch target without touching the design is to leave the control its size and
 extend the hit area invisibly. Applied blindly that is worse than the bug. The
-edit and delete buttons on Discount Rules are 13px icons **8px apart**: give
-each a 44px invisible area and they overlap by roughly 35px, so a tap aimed at
-Edit lands on Delete — and nothing on screen shows you where the boundary went.
-A data-loss bug wearing an accessibility fix as a disguise.
+edit and delete buttons on Discount Rules are 13px icons **8px apart**, so
+their centres are 21px apart: give each a 44px invisible area and they overlap
+by **23px**. Delete paints last and wins the overlap, so Edit keeps 21px of the
+44px it appears to have, and Delete sits under nearly half of where Edit looks
+like it is — with nothing on screen showing where the boundary went. A data-loss
+bug wearing an accessibility fix as a disguise.
+
+That 23px is measured, not estimated: `tests/browser/touch-targets.spec.ts`
+takes it in Chromium against the built page. An earlier draft of this entry
+reasoned it out by hand and said "roughly 35px", which was simply wrong
+arithmetic — and is the reason the number is now a test rather than a sentence.
+The same spec confirms `.touch-target` does what it claims (a 38×38 button gets
+a centred 44×44 hit area, overhanging 3px a side) and that the pair as shipped —
+two real 44px boxes 8px apart — overlaps by exactly zero.
+
+One of those three tests deliberately asserts a **hazard** rather than a
+feature. `.touch-target` is the tempting general answer, because it costs no
+visual change at all; the test measures what it does to a close-set pair so that
+the next person to reach for it finds the number, instead of rediscovering it
+from a support call about a rule someone deleted while aiming for Edit.
+
+*And the instrument was verified against its own absence.* Renaming the class
+and re-running looked like it passed — because `playwright.config.ts` reuses a
+running server, so the browser was still being served the previous build's CSS.
+The config carries a comment warning about exactly that, and it caught someone
+out again. Only after a rebuild did the precondition fire as designed. Editing
+CSS and re-running the browser tests proves nothing without a rebuild in
+between.
 
 So the rule here is: **make the target you can see the target you hit.**
 Sixteen controls became genuinely 44×44 and, where they sit in pairs, are

@@ -234,9 +234,12 @@ body {
  * An invisible hit area larger than its control silently overlaps whatever sits
  * next to it, and the overlap is unhittable-by-inspection: nothing on screen
  * shows you where the boundary went. The edit and delete buttons on Discount
- * Rules are 13px icons 8px apart — giving each a 44px invisible area would make
- * them overlap by roughly 35px, so a tap aimed at Edit would land on Delete.
- * That is a data-loss bug wearing an accessibility fix as a disguise.
+ * Rules are 13px icons 8px apart, so their centres are 21px apart: give each a
+ * 44px invisible area and they overlap by 23px — measured in Chromium by
+ * tests/browser/touch-targets.spec.ts, not reasoned out. Delete paints last and
+ * wins that region, leaving Edit 21px of the 44px it appears to have and
+ * putting Delete under nearly half of where Edit looks like it is. A data-loss
+ * bug wearing an accessibility fix as a disguise.
  *
  * Everywhere the layout can afford it, the button is made genuinely 44×44 and
  * spaced, so the target you can see is the target you hit. This utility exists
