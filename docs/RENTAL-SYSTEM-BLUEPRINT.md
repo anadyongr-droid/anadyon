@@ -1791,6 +1791,290 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 30 August 2026 — confirmed: preview deployments carry the production service-role key
+
+*Verified, not inferred. Tasos read the Vercel settings the same day the
+question was raised.*
+
+`SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` are all enabled for **Production and Preview**.
+So every preview deployment — every pull-request branch, unreviewed and
+half-finished ones included — has run with the production service-role key
+against the live database. That key bypasses row-level security by design, and
+the database it reaches holds passport numbers, driving licence numbers and
+dates of birth.
+
+This is the finding that turns the staging work from a testing convenience into
+a data-protection obligation, and it is why the argument in the status document
+was rewritten on the same day: vendor sandboxes were never the case for staging;
+this is.
+
+**It also retires a piece of advice given repeatedly this month.** "Check it on
+the Vercel preview" was, every time, an instruction to check against production.
+`HANDOFF-H1.md` §6 had said so all along — *"There is no staging database. A real
+booking creates real rows."* — and it was not read.
+
+**The immediate fix is not the staging build.** Preview-scoped **placeholder**
+values close it in under an hour, and placeholders rather than unset values
+because `lib/supabase.ts` constructs its clients at module scope, so an unset
+variable fails the preview *build* rather than only its data access —
+`.github/workflows/ci.yml` already documents that and works around it the same
+way. Previews then build and render with no data at all, which is correct:
+migration 019's own comment records that *"everything the site serves goes
+through the service role"*, so there is no partial mode to fall back to.
+
+**Rotation was recommended here, and then withdrawn the same day.** The first
+version of this entry said the key should be rotated as well as re-scoped, on
+the reasoning that scoping closes the door without establishing that nobody
+walked through it. Tasos asked which key had been exposed and why it needed
+changing, and the reasoning did not survive the question.
+
+It conflated two risks. The one that was real is **unreviewed code running with
+the key**: a preview deployment serves whatever is on its branch, at a publicly
+reachable URL, against production data — so a broken `proxy.ts`, a leaking
+route, or an agent-written bug had the whole database behind it. Scoping fixed
+precisely that, and it is why the work was urgent.
+
+The other is **disclosure of the key itself**, which only rotation addresses.
+Its plausible routes — Vercel dashboard access, build logs, a dependency
+executing during a build — apply to production builds identically. Preview
+scoping never widened them and removing it does not narrow them. Nothing
+suggests any of them occurred, and the value has never been in git or in a
+browser.
+
+So rotation is optional and low priority rather than the second half of the fix.
+Recorded because the withdrawal is the useful part: *"rotate after any
+exposure"* is a good reflex that produces a bad answer when the exposure was
+misuse rather than disclosure, and the distinction is worth having next time.
+Where it does apply — the Make.com credential in §9a — the key was rotated and
+the scenarios retired, which is the shape of a real disclosure response.
+
+### 30 August 2026 — outside review, and the two places this document was wrong
+
+*Fable reviewed `docs/ARCHITECTURE-STATUS-2026-08-30.md` cold, from that file
+alone. Recorded here because two of its findings are corrections rather than
+opinions, and because the standing rule in §9 that comes out of it applies
+beyond the section that produced it.*
+
+**Direction: upheld.** The reason given is worth keeping, because it is the
+thing to protect: enforcement keeps landing at the one point that can actually
+refuse — the SQL allocator, server-side price verification, the locked approval
+transaction in migration 038 — rather than each feature inventing its own. §7.4
+opening a `vehicle_blocks` row instead of teaching the UI a warning is that
+discipline holding under time pressure. Systems in this category rot when the
+enforcement point multiplies.
+
+**Correction 1 — the case for a staging database was argued wrongly.** The
+status document led with vendor sandboxes: AADE, Stripe, NBG exercised against
+real request/response cycles. That is not a case for staging. Driving the AADE
+sandbox needs credentials and any non-production place to point them — a script
+calling `lib/aadeXml.ts` and the submit path with fixture data needs no database
+at all, and Stripe test mode is the same. Leading with sandboxes both delayed
+work that can start the day credentials arrive **and** buried the actual
+argument, which is that preview deployments appear to run unreviewed branch code
+with the production service-role key against a `customers` table holding
+passport numbers, licence numbers and dates of birth. The service role bypasses
+row-level security by design. That is a data-protection exposure, and it
+justifies the work on its own.
+
+**Correction 2 — that claim is inferred, not verified.** Nobody has opened
+Vercel → Settings → Environment Variables and looked. Vercel applies a variable
+to every environment unless it is scoped, and `PREVIEW-RECAPTCHA-TEST-KEYS.md`
+records the preview-scoped variables it needs as *"not yet set"*, so the default
+is the likely state — but likely is not checked, and this document has a rule
+about that. One click settles it and it decides the urgency of everything else.
+
+**§7.2 is a defect, not a judgement.** The fleet-wide damage endpoint keeps
+`repair_cost` out of a staff response by its `select` list, pinned by
+`lib/damageVisibility.test.ts`. The realistic failure is not the test missing a
+change; it is a refactor to `select("*")` that updates the now-failing pin in
+the same commit, which is the known weakness of pinning tests. Column grants
+cannot help, because everything runs under the service role. The replacement is
+a **view without the financial columns**, queried by that endpoint, making the
+leak structurally impossible. Caveat held honestly: this repository contains no
+views at all today, so it is a new pattern here; if it proves awkward through the
+Data API, a second route handler with its own narrow query is the same fix.
+
+**Standing rule, general beyond §7.2:** *a source-reading test may be a
+tripwire, never the sole guard on something security-shaped.* The pattern stays
+— it catches drift nothing else looks at — but it is not a control.
+
+**The Record360 evaluation leaves Gate 0.** The 26 August adjudication put it
+inside Gate 0; that coupled vendor questions to a legal audit they do not depend
+on. Nothing area 5 produces changes what is asked of Record360 — pricing, DPA,
+export terms, API access, template variety. Area 5 changes what is done with the
+answers. Run it in parallel, now, while reopening the decision is still cheap:
+every week of counter code is sunk cost against a decision already described as
+one that *looks* settled. The deferred cost estimate stands as a deferral but
+needs a named owner and a date, because a reopening gate with no number never
+trips.
+
+**Not adopted as stated.** The review recommended scoping production secrets to
+Production in Vercel today and letting previews go dark. The security property
+is right and should happen immediately; the mechanism needs one change.
+`lib/supabase.ts` constructs its clients at module scope, so *unset* variables
+fail the preview **build**, not merely its data access — `.github/workflows/ci.yml`
+already documents this and works around it with placeholders. Preview-scoped
+placeholder values give the identical security property with a preview that
+still builds.
+
+**Ordering upheld, on a better argument than was offered.** Error tracking
+before staging is not an artefact of the outage being recent: two hours against
+half a day to two days wins on cost asymmetry alone, and error tracking is the
+only one of the three that pays off the week it is built. Remove the incident
+from the record entirely and the order does not change.
+
+### 30 August 2026 — the migration chain does not replay, and why 001 is not the place to fix it
+
+*Architect decision, recorded because Codex asked for it before implementing.
+The finding is Codex's, from the §3.1 preflight in
+`docs/HANDOVER-TEST-ENVIRONMENT.md`, and it is correct: replaying the migrations
+into an empty database stops at 017 with `column "name" of relation "customers"
+does not exist`. Reproduced here — 16 of 37 applied.*
+
+**The question asked.** Should `001_baseline.sql` be corrected to recreate the
+legacy `customers.name NOT NULL` column that production carried before 017, so
+the whole chain replays? Codex recommended that over conditionally skipping 017.
+
+**The answer is no to both, and the third option is one line.**
+
+**What actually happened, which neither option quite describes.**
+`supabase/schema.sql` — headed *"Run this in the Supabase SQL editor"* — is the
+hand-made schema that predates the migration files. It creates `customers` with
+seven columns, one of them `name text not null`. `001_baseline.sql` was written
+later with a thirty-two-column `customers`, using `CREATE TABLE IF NOT EXISTS`.
+Against production that statement was a **no-op**: the table already existed, so
+none of the baseline's columns arrived. That is not a footnote — it is why
+`010_close_schema_drift.sql` exists at all, and 010's own header records the
+cost, including a Stripe deposit that could be charged and never recorded.
+
+So 001 has never described production. It is a declaration production ignored.
+
+**Why amending 001 is the wrong repair.** Adding `name NOT NULL` to the baseline
+would make it describe a thirty-three-column table that existed at no point in
+time: not the seven-column hand-made original, and not the thirty-two-column
+table the baseline intended. It manufactures a history to make a replay green.
+It also has a concrete cost — `scripts/check-schema-drift.mjs` derives *what the
+migrations declare* by reading these files, so adding `name` to 001 makes the
+drift checker start asserting a column that 017's own comment says should be
+dropped once external consumers are confirmed. The repair would block the
+cleanup it is meant to preserve.
+
+**Why conditionally skipping 017 is also wrong.** Codex's objection stands and
+is the right one: staging would then lack both the column and the
+`customers_sync_legacy_name_trg` trigger that production has, and a staging
+database that differs from production in a trigger firing on every customer
+insert is precisely the drift that makes staging lie.
+
+**The decision.** Make **017 self-sufficient**, by prepending one statement:
+
+```sql
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS name text;
+```
+
+- Against production it is a provable no-op: the column is already there, the
+  `DROP NOT NULL` already ran, and the trigger is `CREATE OR REPLACE`.
+- Against an empty database it creates the column, the `DROP NOT NULL` becomes a
+  no-op, and the trigger and comment install as they did in production.
+- **Verified:** with it, all 37 migrations replay, and `customers.name` ends as
+  `text`, nullable, with `customers_sync_legacy_name_trg` attached — the same
+  state production reached by a different route.
+- 017 is already the file that documents this anomaly, at length, in its own
+  header. The repair belongs beside the explanation.
+- 017 predates the paste convention (copies start at 022), so no paste copy has
+  to move with it.
+
+**The principle, since it will come up again.** A migration chain's job is to
+arrive at the right schema, not to re-enact the past. That a fresh database
+never holds `NOT NULL` on a column production held it on is a difference in
+history, not in schema, and nothing reads the history.
+
+**The larger finding, which is the part worth keeping.** `001_baseline.sql`
+contains thirteen `CREATE TABLE IF NOT EXISTS` statements, and five of those
+tables already existed from `schema.sql`. Any column the hand-made schema had
+and the baseline did not would be invisible to every check in this repository:
+`check-schema-drift.mjs` compares in one direction only — columns the migrations
+declare that the database lacks — and `customers.name` is the opposite,
+a column the database has that the migrations never declare. It was found by
+accident, when a replay happened to trip over it.
+
+Compared directly, `customers.name` is the **only** such column across all five
+shared tables. So the problem is bounded and closed. But the check that would
+have found it deliberately does not exist, which changes the acceptance test for
+the staging work: **a green replay is not the exit criterion — a replayed schema
+that matches production is.** That comparison has not been run and belongs in
+§3.1 of the handover before staging is declared working.
+
+### 30 August 2026 — environments: there is only production
+
+*Architect entry. Nothing here is built. The build brief is
+`docs/HANDOVER-TEST-ENVIRONMENT.md`; the reviewable status of the whole
+architecture is `docs/ARCHITECTURE-STATUS-2026-08-30.md`.*
+
+**The finding, and a correction owed to the record.** `docs/HANDOFF-H1.md` §6
+has said since it was written that *"There is no staging database. A real
+booking creates real rows."* That is still true, and it means every "check it on
+the Vercel preview" issued during this month's work was pointing at production
+data. Preview deployments get their own hostname and their own build; they do
+not get their own database.
+
+Three gaps follow from it, and they were prioritised in this order:
+
+**1. Error tracking — first, and not because it is the biggest.** There is none:
+no entry in `package.json`, and the only production signals are the 05:00
+Telegram briefing and the four-hour email watchdog, both of which report
+business state rather than that a request threw. The argument for putting it
+ahead of everything is `docs/INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md`: three hours
+of the owner locked out of `/admin`, every hypothesis disproved, **cause never
+established** — and that document's §6 names the exact evidence that would have
+settled it, a `[proxy]` log line that was emitted and lost because nothing
+collected it. Two hours of work makes the recurrence diagnosable. Staging would
+not have helped with that incident at all.
+
+**2. The end-to-end suite into CI.** `tests/e2e/` already holds nine files
+covering quote → conversion → lifecycle → guards → operations → security →
+readiness, with the mail transport stubbed at the floor in `setup.ts` rather
+than left to each test to remember. It runs by hand only, because it writes to
+the live database. Almost all the work is already done; what is missing is
+somewhere safe to point it.
+
+**3. The staging Supabase project.** The keystone — item 2 cannot run without
+it — but third, because it is the only one of the three with an unknown in its
+estimate. Half a day if the 37 migrations replay cleanly into an empty database,
+one to two days if they do not, and an hour with PGlite (already a dependency,
+already used by the `lib/*Migration.test.ts` family) settles which before
+anything is committed to.
+
+**What staging is worth, stated narrowly.** The strongest argument is not
+"previews stop writing to production" — it is the vendor sandboxes. AADE, Stripe
+and NBG can only be exercised against real request/response cycles somewhere
+that is not the live business, and §5.3 of the status document is the evidence:
+the AADE work is finished and has never been sent anywhere. The invoice XML was
+checked against the published schema; the client-list declaration could not be,
+because `aade.gr` is unreachable from the build container.
+
+**And what it is not worth.** Neither production defect found on 28 August — the
+turnaround applied to one end of a rental, the Calendar drawing a booking a day
+early — would have been caught by any of this. Both produced plausible output,
+so an end-to-end run would have exercised them and reported success. That
+entry's own conclusion holds: the tests *"asserted the predicate as written
+rather than the behaviour it was meant to produce."* No environment fixes that.
+
+**The design constraint that decides whether it is worth having at all.**
+Staging's failure mode is drift, and a stale staging is worse than none because
+it gets believed. So: one command resets it, and nothing in it is ever fixed by
+hand — a schema change arrives as a migration or it does not arrive. Seed data
+is synthetic and never a production dump; `customers` holds passport numbers,
+licence numbers and dates of birth of people who consented to renting a car, not
+to their documents being copied into a system with looser access.
+
+**Open, for the architect rather than the branch:** whether staging is its own
+Vercel project (stable URL, easier Stripe and Resend webhook registration) or
+rides preview deployments of the existing one; whether the e2e job runs on every
+pull request; whether the database resets on a schedule; and the retention
+setting on whatever error tracker is chosen, given it receives stack traces from
+routes that handle identity documents.
+
 ### 30 August 2026 — four eyes on the fleet record
 
 Tasos asked for the fleet screen to be opened to staff **and** made editable,
