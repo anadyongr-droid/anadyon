@@ -287,7 +287,28 @@ reviewer should not propose engineering for them:
   receipt type for a rental, and whether the declaration's hardcoded
   `nonIssueInvoice=true` is consistent with also filing an invoice.
 
-### 5.9 One claim from this weekend that has not been observed
+### 5.9 The migration chain did not replay — found, decided, fixed in one line
+
+The §3.1 preflight in `docs/HANDOVER-TEST-ENVIRONMENT.md` was run on 30 August
+and stopped at 16 of 37: migration 017 assumes a legacy `customers.name` column
+that `001_baseline.sql` never creates. The cause is that 001 uses `CREATE TABLE
+IF NOT EXISTS` on tables the hand-made `supabase/schema.sql` had already made,
+so in production the baseline was a no-op and the legacy column survived — which
+is also why `010_close_schema_drift.sql` exists.
+
+Decided (blueprint §10): make 017 self-sufficient with one
+`ADD COLUMN IF NOT EXISTS`, rather than amending the baseline to manufacture a
+history or making 017 conditional and letting staging diverge. Verified: all 37
+then replay to the same final state production holds, and `customers.name` is
+the only column of its class across the five shared tables.
+
+**The part that outlives the fix:** `scripts/check-schema-drift.mjs` compares in
+one direction only — columns the migrations declare that the database lacks.
+This defect was the opposite, and no check in the repository would ever have
+found it. So the staging exit criterion is not "the replay is green" but "the
+replayed schema matches production, compared both ways", which has not been done.
+
+### 5.10 One claim from this weekend that has not been observed
 
 #64 asserts that logging **major** damage stops a vehicle being bookable. That
 is verified in tests and by reading the allocator, and it has **not** been
@@ -467,7 +488,7 @@ is a good pattern or a clever one is a fair question.
 
 | Question | Document |
 |---|---|
-| The whole architecture, in depth | `docs/RENTAL-SYSTEM-BLUEPRINT.md` (2,542 lines; §7 is the build order, §10 the revision history) |
+| The whole architecture, in depth | `docs/RENTAL-SYSTEM-BLUEPRINT.md` (2,623 lines; §7 is the build order, §10 the revision history) |
 | How to build the three environment items | `docs/HANDOVER-TEST-ENVIRONMENT.md` |
 | The unresolved outage | `docs/INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md` |
 | The identity question blocking phase 2 | `docs/OPEN-QUESTION-RPC-STAFF-IDENTITY.md` |

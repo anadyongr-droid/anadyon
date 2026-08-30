@@ -1791,6 +1791,87 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 30 August 2026 — the migration chain does not replay, and why 001 is not the place to fix it
+
+*Architect decision, recorded because Codex asked for it before implementing.
+The finding is Codex's, from the §3.1 preflight in
+`docs/HANDOVER-TEST-ENVIRONMENT.md`, and it is correct: replaying the migrations
+into an empty database stops at 017 with `column "name" of relation "customers"
+does not exist`. Reproduced here — 16 of 37 applied.*
+
+**The question asked.** Should `001_baseline.sql` be corrected to recreate the
+legacy `customers.name NOT NULL` column that production carried before 017, so
+the whole chain replays? Codex recommended that over conditionally skipping 017.
+
+**The answer is no to both, and the third option is one line.**
+
+**What actually happened, which neither option quite describes.**
+`supabase/schema.sql` — headed *"Run this in the Supabase SQL editor"* — is the
+hand-made schema that predates the migration files. It creates `customers` with
+seven columns, one of them `name text not null`. `001_baseline.sql` was written
+later with a thirty-two-column `customers`, using `CREATE TABLE IF NOT EXISTS`.
+Against production that statement was a **no-op**: the table already existed, so
+none of the baseline's columns arrived. That is not a footnote — it is why
+`010_close_schema_drift.sql` exists at all, and 010's own header records the
+cost, including a Stripe deposit that could be charged and never recorded.
+
+So 001 has never described production. It is a declaration production ignored.
+
+**Why amending 001 is the wrong repair.** Adding `name NOT NULL` to the baseline
+would make it describe a thirty-three-column table that existed at no point in
+time: not the seven-column hand-made original, and not the thirty-two-column
+table the baseline intended. It manufactures a history to make a replay green.
+It also has a concrete cost — `scripts/check-schema-drift.mjs` derives *what the
+migrations declare* by reading these files, so adding `name` to 001 makes the
+drift checker start asserting a column that 017's own comment says should be
+dropped once external consumers are confirmed. The repair would block the
+cleanup it is meant to preserve.
+
+**Why conditionally skipping 017 is also wrong.** Codex's objection stands and
+is the right one: staging would then lack both the column and the
+`customers_sync_legacy_name_trg` trigger that production has, and a staging
+database that differs from production in a trigger firing on every customer
+insert is precisely the drift that makes staging lie.
+
+**The decision.** Make **017 self-sufficient**, by prepending one statement:
+
+```sql
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS name text;
+```
+
+- Against production it is a provable no-op: the column is already there, the
+  `DROP NOT NULL` already ran, and the trigger is `CREATE OR REPLACE`.
+- Against an empty database it creates the column, the `DROP NOT NULL` becomes a
+  no-op, and the trigger and comment install as they did in production.
+- **Verified:** with it, all 37 migrations replay, and `customers.name` ends as
+  `text`, nullable, with `customers_sync_legacy_name_trg` attached — the same
+  state production reached by a different route.
+- 017 is already the file that documents this anomaly, at length, in its own
+  header. The repair belongs beside the explanation.
+- 017 predates the paste convention (copies start at 022), so no paste copy has
+  to move with it.
+
+**The principle, since it will come up again.** A migration chain's job is to
+arrive at the right schema, not to re-enact the past. That a fresh database
+never holds `NOT NULL` on a column production held it on is a difference in
+history, not in schema, and nothing reads the history.
+
+**The larger finding, which is the part worth keeping.** `001_baseline.sql`
+contains thirteen `CREATE TABLE IF NOT EXISTS` statements, and five of those
+tables already existed from `schema.sql`. Any column the hand-made schema had
+and the baseline did not would be invisible to every check in this repository:
+`check-schema-drift.mjs` compares in one direction only — columns the migrations
+declare that the database lacks — and `customers.name` is the opposite,
+a column the database has that the migrations never declare. It was found by
+accident, when a replay happened to trip over it.
+
+Compared directly, `customers.name` is the **only** such column across all five
+shared tables. So the problem is bounded and closed. But the check that would
+have found it deliberately does not exist, which changes the acceptance test for
+the staging work: **a green replay is not the exit criterion — a replayed schema
+that matches production is.** That comparison has not been run and belongs in
+§3.1 of the handover before staging is declared working.
+
 ### 30 August 2026 — environments: there is only production
 
 *Architect entry. Nothing here is built. The build brief is

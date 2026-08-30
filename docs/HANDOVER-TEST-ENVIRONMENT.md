@@ -266,6 +266,35 @@ Report the result before continuing. If it is clean, say so and proceed. If it
 is not, stop and write up what broke — that is a design question for the
 architect, not something to fix inside this branch.
 
+#### §3.1 — RUN, 30 August 2026. Result: one blocker, decided, chain now clean.
+
+Codex ran this and stopped exactly as instructed. Recorded here so the next
+reader does not repeat it:
+
+- **16 of 37 applied.** 017 failed with `column "name" of relation "customers"
+  does not exist`.
+- **Cause:** `001_baseline.sql` uses `CREATE TABLE IF NOT EXISTS` on tables the
+  hand-made `supabase/schema.sql` had already created, so in production the
+  baseline's `customers` definition was a no-op and the legacy `name text NOT
+  NULL` column survived. 017 assumes it. 017's own header already says this.
+- **Decision** (blueprint §10, 30 August): prepend
+  `ALTER TABLE customers ADD COLUMN IF NOT EXISTS name text;` to 017. Do **not**
+  amend 001, and do **not** make 017 conditional. The reasoning is in the
+  blueprint entry; 017 has no paste copy, so nothing moves with it.
+- **Verified:** with that one line, **all 37 replay**, and `customers.name` ends
+  `text`, nullable, with `customers_sync_legacy_name_trg` attached — the state
+  production reached by a different route.
+- **`customers.name` is the only column of its class.** All five tables shared
+  between `schema.sql` and 001 were compared directly; nothing else is missing.
+
+**This changes the exit criterion below.** A green replay proves the chain runs;
+it does not prove the result matches production. `scripts/check-schema-drift.mjs`
+compares one direction only — columns the migrations declare that the database
+lacks — and `customers.name` was the opposite, which is why nothing caught it.
+Before staging is declared working, compare the replayed schema against the
+live one in **both** directions and record the diff. That comparison is now part
+of §3.6.
+
 ### 3.2 The rule about applying migrations
 
 `AGENTS.md`, verbatim:
@@ -413,6 +442,10 @@ every morning.
 - `npm run check:schema` and `npm run check:grants` both pass against staging.
 - A document upload reaches the `reservation-documents` bucket and can be
   downloaded again.
+- **The replayed schema is compared against production in both directions**, and
+  any difference is either explained or closed. See the §3.1 result note: the
+  existing drift checker only looks one way, and the one defect found so far was
+  invisible to it.
 - The morning briefing, triggered by hand with `CRON_SECRET`, produces output.
 
 ---
