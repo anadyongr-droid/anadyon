@@ -32,7 +32,7 @@ type Reservation = {
   customers?: { first_name?: string; last_name?: string; full_name?: string; nationality?: string; country?: string } | null;
 };
 
-function buildDclXml(res: Reservation): string {
+export function buildDclXml(res: Reservation): string {
   // Prefer linked CRM customer for name / nationality
   const firstName = res.customers?.first_name
     ?? String(res.customer_name ?? "").trim().split(" ")[0] ?? "";

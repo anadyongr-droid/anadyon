@@ -1791,6 +1791,45 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 30 August 2026 — AADE, checked against the published schema
+
+**The invoice module would have been rejected on every single filing.** Checked
+against `InvoicesDoc-v1.0.10.xsd` — the version our own `xmlns` declares —
+`InvoiceSummaryType` is an `xs:sequence` of **eight mandatory** elements. The
+module sent three. `totalWithheldAmount`, `totalFeesAmount`,
+`totalStampDutyAmount`, `totalOtherTaxesAmount` and `totalDeductionsAmount` were
+simply absent. None of them applies to a vehicle rental, but "does not apply" is
+`0.00` in a mandatory element, not an omitted one.
+
+Nothing would have reached a business rule; it fails schema validation first.
+Nobody found out because the module has no credentials and had no tests — which
+is the more useful lesson than the missing fields themselves. **A module that
+has never run is not "built", it is "written".** §2 called both of these
+"waiting on environment variables", and this one was waiting on being correct.
+
+Also confirmed from the same schema, so the earlier entry's reasoning is now
+verified rather than argued: `11.2` and `2.1` are both valid `InvoiceType`
+values, and `vatCategory` is an int 1–10 so `1` is in range. And `paymentMethods`
+is **optional** (`minOccurs="0"`), which contradicts what was flagged the hour
+before — worth recording as a correction rather than quietly dropping. Schema-
+optional is not the same as business-rule-optional, so it stays on the sandbox
+checklist, but it is not the blocker it was called.
+
+*The XML is now tested by generating it,* not by reading the source for
+literals. `buildInvoiceXml` and `buildDclXml` are exported for that. Order is
+asserted as well as presence, because `xs:sequence` is positional and a
+presence-only check waves a reordering straight through — both failure modes
+were reintroduced and watched to fail.
+
+**What could not be checked, and must not be assumed.** The client list files
+against a *different* AADE API, whose schema is published only on `aade.gr`.
+This environment's egress policy blocks that host, and the README says to report
+a block rather than route around it. So the DCL XML is verified for internal
+consistency only — the country resolves, the refusal fires, the escaping holds —
+and **not** against its real schema. Given the invoice module turned out to be
+missing five mandatory elements, the honest expectation is that the DCL has
+something similar waiting. The sandbox is what will say.
+
 ### 30 August 2026 — AADE
 
 **Both filing modules were wrong, and neither had a single test.** They were

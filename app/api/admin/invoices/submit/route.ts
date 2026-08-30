@@ -36,7 +36,7 @@ export class UnfilableError extends Error {}
 // VAT 24% on car rental services in Greece
 const VAT_RATE = 0.24;
 
-function buildInvoiceXml(res: Reservation, series: string, aa: number): string {
+export function buildInvoiceXml(res: Reservation, series: string, aa: number): string {
   const issuerVat    = process.env.COMPANY_VAT_NUMBER ?? "";
   const issuerBranch = process.env.COMPANY_BRANCH ?? "0";
   const issuerCountry = "GR";
@@ -111,6 +111,20 @@ function buildInvoiceXml(res: Reservation, series: string, aa: number): string {
     <invoiceSummary>
       <totalNetValue>${netAmount.toFixed(2)}</totalNetValue>
       <totalVatAmount>${vatAmount.toFixed(2)}</totalVatAmount>
+      <!--
+        These five are MANDATORY in InvoiceSummaryType (InvoicesDoc-v1.0.10.xsd)
+        and were absent, so every filing this module ever attempted would have
+        been rejected by schema validation before reaching a business rule. A
+        vehicle rental has none of them, but "none" is 0.00, not omitted.
+
+        The order is the schema's, not ours: xs:sequence is positional, so
+        totalGrossValue has to stay last.
+      -->
+      <totalWithheldAmount>0.00</totalWithheldAmount>
+      <totalFeesAmount>0.00</totalFeesAmount>
+      <totalStampDutyAmount>0.00</totalStampDutyAmount>
+      <totalOtherTaxesAmount>0.00</totalOtherTaxesAmount>
+      <totalDeductionsAmount>0.00</totalDeductionsAmount>
       <totalGrossValue>${grossAmount.toFixed(2)}</totalGrossValue>
     </invoiceSummary>
   </invoice>
