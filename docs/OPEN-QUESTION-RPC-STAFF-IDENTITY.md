@@ -393,3 +393,138 @@ pre-filter that can only ever *narrow* what the database then confirms — never
 as the thing that grants. `aal` is the exception worth arguing about: it
 describes how the *current session* was authenticated rather than what the
 account is entitled to, and it cannot be stale in the same way.
+
+---
+
+## 12. Result of diagnostic 10b — 30 August 2026
+
+All four queries run against production by Tasos. **The costing in §6 was too
+pessimistic, and in an instructive direction: it feared a fail-open risk that
+does not exist, and it sized the work against the wrong set of functions.**
+
+### 12.1 RLS is on everywhere; `authenticated` has almost nothing
+
+All **22** tables have `rls_enabled = true`. Not one is false, so the failure
+§10b was written to look for — *"every table with rls_enabled = false and no
+policies is a table that would become readable or writable by any logged-in
+staff member"* — **has zero instances**.
+
+Policies exist on three tables only (`extras_config`, `quotes`, `rates`, one
+each). Grants to `authenticated` exist on two, read-only:
+
+| table | privileges to `authenticated` |
+|---|---|
+| `extras_config` | SELECT |
+| `rates` | SELECT |
+
+RLS enabled with no policy denies everything to a role that is neither owner nor
+`BYPASSRLS`. So today the database is **deny-by-default for `authenticated`**,
+and the application works solely because every call goes through the service
+role. That is a coherent posture rather than an accident, and it is the reason
+migrations 014 and 023 exist.
+
+### 12.2 The failure direction is inverted from what §6 assumed
+
+§6's case against Option A reads *"each needs correct policies and grants —
+meaningful work, and a migration that is easy to get subtly wrong."*
+
+The work is real. The **danger** is not. Getting a policy wrong under Option A
+means a staff call is **refused** — immediately, visibly, in testing. It cannot
+mean a table quietly becomes readable, because the starting position is deny.
+Fail-closed and fail-open are not the same risk wearing different clothes, and
+"easy to get subtly wrong" was the wrong phrase: it is easy to get *obviously*
+wrong, which is the kind you want.
+
+This is the strongest argument yet for Option A over Option B, and it is the
+opposite of what this document expected the diagnostics to show.
+
+### 12.3 The staff-initiated group is currently **one function**
+
+§5 says any answer must keep working for calls with no user behind them, and
+that the two groups must be separated. Query 4 makes the split concrete — and
+the staff side is far smaller than "the reservation, invoice and AADE routes"
+implied:
+
+| group | functions |
+|---|---|
+| **Staff-initiated** | `apply_vehicle_change_request` — and nothing else today |
+| **Public / website** | `create_web_booking`, `find_available_eligible_vehicle`, `assign_eligible_vehicle_to_web_reservation`, `book_vehicle`, `redeem_promo`, `promo_hold`, `promo_redeem`, `promo_release`, `promo_uses_remaining`, `release_promo` |
+| **System / cron / webhook** | `promo_release_expired`, `record_booking_email_event`, `claim_dcl_submission`, `claim_invoice_submission`, `next_invoice_aa` |
+| **Triggers, never called directly** | `sync_customer_identity_from_customer`, `sync_customer_identity_from_reservation`, `sync_web_quote_customer_dob`, `customers_sync_legacy_name`, `set_updated_at` |
+| **Meta** | `assert_least_privilege` |
+
+`apply_vehicle_change_request` touches two tables: `vehicle_change_requests` and
+`vehicles`. **That is the whole of Option A's surface today** — one function, two
+tables — not twenty functions and twenty-two tables. Phase 2's handover
+finalisation joins this group, which is exactly where identity matters and
+exactly why the question was asked.
+
+### 12.4 The consequence §6 missed, and the one thing left to confirm
+
+**Option A probably needs no RLS policies at all.** The gateway is reached as
+`authenticated`, but the work still happens in a `SECURITY DEFINER` function,
+which executes as its owner and therefore bypasses RLS on the tables it touches.
+What changes hands is *identity*, not *privilege*. So the cost reduces to:
+
+1. `GRANT EXECUTE` on the gateway to `authenticated` — currently revoked, by
+   migrations 014 and 023, deliberately;
+2. the gateway verifying membership against the database, per §2;
+3. the §5 separation, which query 4 above now supplies as a list.
+
+**This rests on one assumption that has not been tested and must be before any
+of it is built:** that `auth.uid()` resolves inside a `SECURITY DEFINER`
+function when the call arrives from a user-scoped client. It should — PostgREST
+sets the JWT claims per request and `auth.uid()` reads them, independently of
+which role the function body executes as — but "should" is what this whole
+document exists to stop relying on.
+
+**Diagnostic 10c, to be run before anything is built:**
+
+```sql
+create or replace function public.whoami_probe()
+returns table (uid uuid, jwt_role text, pg_role text)
+language sql
+security definer
+set search_path = ''
+as $$ select auth.uid(),
+             current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'role',
+             current_user::text $$;
+
+grant execute on function public.whoami_probe() to authenticated;
+```
+
+Call it from a route built with `createServerClient` (the
+`app/api/admin/users/route.ts` pattern) while signed in as staff, **not** with
+`supabaseAdmin`. A non-null `uid` proves Option A; a null one falsifies the
+whole approach and Option B becomes the answer by elimination. Drop the function
+afterwards.
+
+### 12.5 A separate finding, not about identity
+
+Seven of the twenty `SECURITY DEFINER` functions do not use the project's
+`search_path = ''` standard:
+
+| `search_path=public, pg_temp` | `search_path=public` |
+|---|---|
+| `book_vehicle`, `claim_dcl_submission`, `claim_invoice_submission`, `next_invoice_aa`, `redeem_promo` | `assert_least_privilege`, `release_promo` |
+
+`pg_temp` is last in all five, which is the position PostgreSQL's own
+documentation recommends, so the temp-schema shadowing vector is closed. The
+residual exposure is `public`: an unqualified name inside those bodies resolves
+there, which is safe only while no reachable role can `CREATE` in that schema.
+The other thirteen do not depend on that assumption at all — an empty
+`search_path` *forces* qualification, so a later edit cannot reintroduce the
+problem by accident.
+
+Not yet checked, and cheap:
+
+```sql
+select nspname,
+       has_schema_privilege('authenticated', nspname, 'CREATE') as authenticated_can_create,
+       has_schema_privilege('anon',          nspname, 'CREATE') as anon_can_create
+from pg_namespace where nspname = 'public';
+```
+
+Both false and this is a tidiness item. Either true and it is a real finding.
+Worth noting either way: `assert_least_privilege`, the function that checks
+least privilege, is itself on the looser pattern.
