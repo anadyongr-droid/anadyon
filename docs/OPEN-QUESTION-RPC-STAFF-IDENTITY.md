@@ -336,3 +336,265 @@ returns NULL with no claims set; the guard clause raises as intended;
 `SECURITY DEFINER` does bypass RLS; and `SET request.jwt.claims` will forge a
 `sub` and defeat the guard — which is precisely why "the application asserts who
 is acting" (Option B) is a trust decision and not a technical one.
+
+---
+
+## 11. Result of diagnostic 10a — 30 August 2026
+
+Run by Tasos against production, in a **staff** session (obtained after the
+`set-password` MFA fix shipped, which is what had made a staff login
+unavailable). Key names and types only, as the snippet prints:
+
+```
+aal  <string>                      is_anonymous  <boolean>
+amr  <array>                       iss  <string>
+app_metadata.provider  <string>    phone  <string>
+app_metadata.providers  <array>    role  <string>
+app_metadata.role  <string>        session_id  <string>
+aud  <string>                      sub  <string>
+email  <string>                    user_metadata.email_verified  <boolean>
+exp  <number>
+iat  <number>
+```
+
+### What this settles
+
+**`sub` is present, so Option A works.** Under a user-scoped client the staff
+member's JWT reaches the Data API and `auth.uid()` resolves to this value. The
+gateway design in §2 is buildable as written. That was the question.
+
+**`app_metadata.role` is present**, so the role travels in the token and
+`proxy.ts` is no longer the only place that knows it. §10's table anticipated
+this.
+
+**`aal` is present, which §10's table did not anticipate and is worth having.**
+The assurance level is a claim, so a function can require `aal2` for a specific
+operation rather than trusting that middleware checked. For the counter that is
+a real option: releasing a damage block, or voiding a charge, could demand a
+second factor *at the database*, not merely at the screen.
+
+### What it does not settle, and one tension to resolve
+
+**The cost of Option A is still unmeasured.** §10b — RLS state, existing
+`authenticated` grants, and the `SECURITY DEFINER` inventory — has not been run.
+Option A's "against" is entirely about that work, so the decision is not ready.
+
+**And §10's table overstates one thing.** It reads *"the role is in the token.
+Option A can authorise in SQL from the JWT"* — but §2's design says the gateway
+*"verifies `auth.uid()` against database-held staff membership — **never** a JWT
+claim"*. Both cannot stand, and §2 is right. A claim is minted at sign-in and
+stays valid until the token expires, so a staff member whose access is revoked
+keeps a `role` claim saying otherwise for the life of their session. Availability
+is not authority.
+
+**The resolution, unless review disagrees:** use `sub` for identity, verify role
+and membership against the database, and treat `app_metadata.role` as a cheap
+pre-filter that can only ever *narrow* what the database then confirms — never
+as the thing that grants. `aal` is the exception worth arguing about: it
+describes how the *current session* was authenticated rather than what the
+account is entitled to, and it cannot be stale in the same way.
+
+---
+
+## 12. Result of diagnostic 10b — 30 August 2026
+
+All four queries run against production by Tasos. **The costing in §6 was too
+pessimistic, and in an instructive direction: it feared a fail-open risk that
+does not exist, and it sized the work against the wrong set of functions.**
+
+### 12.1 RLS is on everywhere; `authenticated` has almost nothing
+
+All **22** tables have `rls_enabled = true`. Not one is false, so the failure
+§10b was written to look for — *"every table with rls_enabled = false and no
+policies is a table that would become readable or writable by any logged-in
+staff member"* — **has zero instances**.
+
+Policies exist on three tables only (`extras_config`, `quotes`, `rates`, one
+each). Grants to `authenticated` exist on two, read-only:
+
+| table | privileges to `authenticated` |
+|---|---|
+| `extras_config` | SELECT |
+| `rates` | SELECT |
+
+RLS enabled with no policy denies everything to a role that is neither owner nor
+`BYPASSRLS`. So today the database is **deny-by-default for `authenticated`**,
+and the application works solely because every call goes through the service
+role. That is a coherent posture rather than an accident, and it is the reason
+migrations 014 and 023 exist.
+
+### 12.2 The failure direction is inverted from what §6 assumed
+
+§6's case against Option A reads *"each needs correct policies and grants —
+meaningful work, and a migration that is easy to get subtly wrong."*
+
+The work is real. The **danger** is not. Getting a policy wrong under Option A
+means a staff call is **refused** — immediately, visibly, in testing. It cannot
+mean a table quietly becomes readable, because the starting position is deny.
+Fail-closed and fail-open are not the same risk wearing different clothes, and
+"easy to get subtly wrong" was the wrong phrase: it is easy to get *obviously*
+wrong, which is the kind you want.
+
+This is the strongest argument yet for Option A over Option B, and it is the
+opposite of what this document expected the diagnostics to show.
+
+### 12.3 The staff-initiated group is currently **one function**
+
+§5 says any answer must keep working for calls with no user behind them, and
+that the two groups must be separated. Query 4 makes the split concrete — and
+the staff side is far smaller than "the reservation, invoice and AADE routes"
+implied:
+
+| group | functions |
+|---|---|
+| **Staff-initiated** | `apply_vehicle_change_request` — and nothing else today |
+| **Public / website** | `create_web_booking`, `find_available_eligible_vehicle`, `assign_eligible_vehicle_to_web_reservation`, `book_vehicle`, `redeem_promo`, `promo_hold`, `promo_redeem`, `promo_release`, `promo_uses_remaining`, `release_promo` |
+| **System / cron / webhook** | `promo_release_expired`, `record_booking_email_event`, `claim_dcl_submission`, `claim_invoice_submission`, `next_invoice_aa` |
+| **Triggers, never called directly** | `sync_customer_identity_from_customer`, `sync_customer_identity_from_reservation`, `sync_web_quote_customer_dob`, `customers_sync_legacy_name`, `set_updated_at` |
+| **Meta** | `assert_least_privilege` |
+
+`apply_vehicle_change_request` touches two tables: `vehicle_change_requests` and
+`vehicles`. **That is the whole of Option A's surface today** — one function, two
+tables — not twenty functions and twenty-two tables. Phase 2's handover
+finalisation joins this group, which is exactly where identity matters and
+exactly why the question was asked.
+
+### 12.4 The consequence §6 missed, and the one thing left to confirm
+
+**Option A probably needs no RLS policies at all.** The gateway is reached as
+`authenticated`, but the work still happens in a `SECURITY DEFINER` function,
+which executes as its owner and therefore bypasses RLS on the tables it touches.
+What changes hands is *identity*, not *privilege*. So the cost reduces to:
+
+1. `GRANT EXECUTE` on the gateway to `authenticated` — currently revoked, by
+   migrations 014 and 023, deliberately;
+2. the gateway verifying membership against the database, per §2;
+3. the §5 separation, which query 4 above now supplies as a list.
+
+**This rests on one assumption that has not been tested and must be before any
+of it is built:** that `auth.uid()` resolves inside a `SECURITY DEFINER`
+function when the call arrives from a user-scoped client. It should — PostgREST
+sets the JWT claims per request and `auth.uid()` reads them, independently of
+which role the function body executes as — but "should" is what this whole
+document exists to stop relying on.
+
+**Diagnostic 10c, to be run before anything is built:**
+
+```sql
+create or replace function public.whoami_probe()
+returns table (uid uuid, jwt_role text, pg_role text)
+language sql
+security definer
+set search_path = ''
+as $$ select auth.uid(),
+             current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'role',
+             current_user::text $$;
+
+grant execute on function public.whoami_probe() to authenticated;
+```
+
+### The short way — a script, no browser
+
+Sign in with a password and you get a JWT carrying `sub` at `aal1`; MFA raises
+the assurance level, it does not add the subject. A JWT reaching PostgREST is
+the whole mechanism under test, so no browser, no cookies and no authenticator
+are needed:
+
+```
+PROBE_EMAIL=you@example.com PROBE_PASSWORD='…' npm run probe:rpc-identity
+```
+
+**It calls the function twice, and the control is the point.** Once with the
+user's token, once with the service role. The service-role call is expected to
+return a NULL `uid` — that is the defect this document is about. Both null means
+something else is wrong and neither result should be believed; both non-null
+means the probe is not measuring what it claims. Only `uid` under the user and
+NULL under the service role proves anything.
+
+The password is read from the environment and written nowhere.
+
+### The long way — the route, in a browser
+
+Kept because it exercises the real production path: a cookie-backed
+`createServerClient`, which is what the application would actually use. The
+script proves the mechanism; this proves the mechanism *as the app builds it*.
+If the script answers cleanly, this is optional.
+
+Signed in to `/admin` **as an administrator**, open:
+
+```
+/api/admin/diagnostics/rpc-identity
+```
+
+That route is built for this and nothing else. It constructs a per-request
+client from the session cookies — the Option A pattern, borrowed from
+`app/api/admin/users/route.ts` — and calls the probe through it, **not** through
+`supabaseAdmin`. `lib/rpcIdentityProbe.test.ts` asserts it never reaches for the
+service role, because swapping the client would leave the route returning 200
+and proving nothing.
+
+**An administrator session is enough**, and the earlier draft of this section
+was wrong to ask for staff. What is under test is whether JWT claims reach the
+function at all, which does not depend on which role the claim carries. Running
+it as staff would mean adding a throwaway diagnostic to `proxy.ts`'s `STAFF_API`
+allowlist, and allowlist entries added "temporarily" are how allowlists grow.
+
+**Reading it:**
+
+| Result | Meaning |
+|---|---|
+| `uid` non-null, `pg_role` = `authenticated` | Option A works. §12.4 stands, and the build can start. |
+| `uid` null | Option A is falsified. §12.4 is wrong and Option B wins by elimination. |
+| `function does not exist` | The SQL above has not been run. Not an answer. |
+
+**Then remove all of it**, in the same sitting — delete
+`app/api/admin/diagnostics/rpc-identity/route.ts` with its test,
+`scripts/probe-rpc-identity.mjs` and its `package.json` entry, and run:
+
+```sql
+drop function if exists public.whoami_probe();
+```
+
+A diagnostic left in place becomes an endpoint nobody remembers adding.
+
+### 12.5 A separate finding, not about identity
+
+Seven of the twenty `SECURITY DEFINER` functions do not use the project's
+`search_path = ''` standard:
+
+| `search_path=public, pg_temp` | `search_path=public` |
+|---|---|
+| `book_vehicle`, `claim_dcl_submission`, `claim_invoice_submission`, `next_invoice_aa`, `redeem_promo` | `assert_least_privilege`, `release_promo` |
+
+`pg_temp` is last in all five, which is the position PostgreSQL's own
+documentation recommends, so the temp-schema shadowing vector is closed. The
+residual exposure is `public`: an unqualified name inside those bodies resolves
+there, which is safe only while no reachable role can `CREATE` in that schema.
+The other thirteen do not depend on that assumption at all — an empty
+`search_path` *forces* qualification, so a later edit cannot reintroduce the
+problem by accident.
+
+**Checked, 30 August. Both false.**
+
+```
+ nspname | authenticated_can_create | anon_can_create
+ public  | false                    | false
+```
+
+`has_schema_privilege` counts privileges held via `PUBLIC` as well as those
+granted to the role directly, so a false for both rules out the vector entirely
+rather than for those two roles only. Nothing reachable can create an object in
+`public` to shadow an unqualified name. **This is a tidiness item, not a
+finding.**
+
+**And it is not worth converting the seven.** Moving a function to
+`search_path = ''` means schema-qualifying every reference in its body, and the
+list includes `book_vehicle` and `create_web_booking` — the two functions the
+website's entire booking path runs through. Real regression risk, against a
+vector that is closed. The proportionate rule is forward-looking: **new
+`SECURITY DEFINER` functions use `search_path = ''`**, which is already what the
+recent ones do (038 and 039 among them), and the seven are left alone unless one
+is being edited for another reason anyway.
+
+Worth noting for its own sake: `assert_least_privilege`, the function that
+checks least privilege, is itself on the looser pattern.
