@@ -203,3 +203,136 @@ tracked separately.
 | `app/api/quote/route.ts` | A representative system-initiated RPC |
 | `supabase/migrations/023_least_privilege_grants.sql` | How grants are currently written |
 | `docs/RENTAL-SYSTEM-BLUEPRINT.md` §4.2 | The blocked design, with this question marked OPEN |
+
+---
+
+## 10. How to run the two diagnostics — 30 August 2026
+
+Both of these were blocking a decision, and neither needs a migration. Nothing
+here writes to the database.
+
+### 10a. The JWT payload — what claims a staff session actually carries
+
+This decides whether Option A can read the role from the token, or whether the
+role has to keep coming from `proxy.ts`.
+
+**Do not paste a raw access token into a chat, an issue, or a document.** It is
+a bearer credential and it is valid until it expires — anyone holding it is that
+staff member. The snippet below never prints one: it walks the decoded payload
+and prints **key names and value types only**, which is the entire question.
+
+Log in to the admin site as a normal staff member, open the browser console on
+any `/admin` page, and run:
+
+```js
+(() => {
+  // @supabase/ssr stores the session in cookies, chunked when large.
+  const raw = document.cookie.split("; ")
+    .filter(c => /^sb-.*-auth-token(\.\d+)?=/.test(c))
+    .sort()                                   // .0, .1, … reassemble in order
+    .map(c => c.slice(c.indexOf("=") + 1))
+    .join("");
+  if (!raw) return "No Supabase auth cookie here — logged in on this domain?";
+
+  let v = decodeURIComponent(raw);
+  if (v.startsWith("base64-")) v = atob(v.slice(7));
+  const token = JSON.parse(v).access_token;
+
+  const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+  const payload = JSON.parse(atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, "=")));
+
+  // Shape only. No values leave this function.
+  const shape = (o, prefix = "") => Object.entries(o).flatMap(([k, val]) => {
+    const path = prefix ? `${prefix}.${k}` : k;
+    return val && typeof val === "object" && !Array.isArray(val)
+      ? shape(val, path)
+      : [`${path}  <${Array.isArray(val) ? "array" : typeof val}>`];
+  });
+  return shape(payload).sort().join("\n");
+})()
+```
+
+What to look for in the output, and what each answer means:
+
+| Key present | What it settles |
+|---|---|
+| `sub` | Always there. This is exactly what `auth.uid()` returns — the two are the same value by definition, so no separate test of `auth.uid()` is needed. |
+| `app_metadata.role` (or similar) | The role is **in the token**. Option A can authorise in SQL from the JWT, and `proxy.ts` stops being the only place that knows. |
+| `role` | This is the *Postgres* role (`authenticated`), not the Anadyon one. Easy to confuse with the row above; they are unrelated. |
+| no role claim anywhere | Option A still works for identity, but the role must keep coming from `proxy.ts`, and §7 question 2 gets harder. |
+
+### 10b. What Option A would actually cost
+
+§6 says Option A needs "correct policies and grants" on every table the
+functions touch, and calls that "meaningful work". That is a guess. These four
+queries turn it into a count. All are read-only catalogue queries — safe to run
+in the Supabase SQL editor, and safe to re-run.
+
+```sql
+-- 1. Every SECURITY DEFINER function, and whether its search_path is pinned.
+--    A blank search_path is the CVE-2018-1058 envelope; anything else is a
+--    finding in its own right.
+select p.proname,
+       p.prosecdef                                    as security_definer,
+       coalesce(array_to_string(p.proconfig, ', '), '(none)') as settings,
+       pg_get_function_identity_arguments(p.oid)      as args
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+order by p.prosecdef desc, p.proname;
+
+-- 2. RLS state per table. Under Option A these calls run as `authenticated`,
+--    so every table with rls_enabled = false and no policies is a table that
+--    would become readable or writable by any logged-in staff member.
+select c.relname                                                as table_name,
+       c.relrowsecurity                                          as rls_enabled,
+       c.relforcerowsecurity                                     as rls_forced,
+       (select count(*) from pg_policy pol where pol.polrelid = c.oid) as policies
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public' and c.relkind = 'r'
+order by c.relrowsecurity, c.relname;
+
+-- 3. What `authenticated` can already do without any policy work.
+select table_name,
+       string_agg(privilege_type, ', ' order by privilege_type) as privileges
+from information_schema.role_table_grants
+where grantee = 'authenticated' and table_schema = 'public'
+group by table_name
+order by table_name;
+
+-- 4. Which tables each SECURITY DEFINER function names in its body.
+--    A text match, so it over-reports (a table named in a comment counts) —
+--    it is a worklist to check, not an answer.
+select p.proname as function_name, t.relname as touches_table
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+cross join lateral (
+  select c.relname
+  from pg_class c
+  join pg_namespace cn on cn.oid = c.relnamespace
+  where cn.nspname = 'public' and c.relkind = 'r'
+    and p.prosrc ~* ('\m' || c.relname || '\M')
+) t
+where n.nspname = 'public' and p.prosecdef
+order by 1, 2;
+```
+
+**How to read the result.** Query 2 is the one that decides. Count the tables
+that query 4 lists against the staff-initiated functions (§5), then look up each
+in query 2. Every one showing `rls_enabled = false` is a table needing a policy
+before Option A is safe — because the moment those calls stop using the service
+role, the only thing standing between a logged-in staff member and the raw table
+is a policy that does not exist yet. That count *is* the cost of Option A, and
+it is the number §7 question 1 is really asking about.
+
+If it comes back small, Option A is the straightforward answer. If it is most
+of the schema, question 3 — is Option B defensible for a 29-vehicle operator —
+stops being a shortcut and becomes a proportionate reading of the threat.
+
+**What is already settled and does not need re-testing.** Run against PGlite on
+26 August, recorded here so nobody spends an evening on it twice: `auth.uid()`
+returns NULL with no claims set; the guard clause raises as intended;
+`SECURITY DEFINER` does bypass RLS; and `SET request.jwt.claims` will forge a
+`sub` and defeat the guard — which is precisely why "the application asserts who
+is acting" (Option B) is a trust decision and not a technical one.
