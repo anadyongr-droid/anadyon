@@ -15,7 +15,7 @@ All three are enabled for **Production and Preview**:
 |---|---|
 | `SUPABASE_SERVICE_ROLE_KEY` | Production **and Preview** |
 | `NEXT_PUBLIC_SUPABASE_URL` | Production **and Preview** |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production and Preview, already split into per-environment entries |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production and Preview, as **two separate entries** of the same name |
 
 So every preview deployment carries the **production service-role key**, which
 bypasses row-level security by design, pointed at the live database. Every
@@ -23,22 +23,49 @@ pull-request branch — unreviewed, half-finished, whatever — has had unrestri
 read and write access to a `customers` table holding passport numbers, driving
 licence numbers and dates of birth.
 
-The anon key already having split entries is useful news: it means the
-per-environment mechanism is set up and understood on this project, so item 2 is
-the same operation you have already done once.
+The anon key already existing as two entries is useful news twice over: it
+confirms the per-environment mechanism is set up on this project, and it means
+that one needs editing rather than splitting. Item 2 says which is which.
 
 ---
 
 ## 2. Scope the Preview values to placeholders — **do this next**, under an hour
 
-For each of the three, **add a second value scoped to Preview only** — do not
-edit or delete the Production one:
+**The three are not in the same state, so they need two different operations.**
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` is already two entries — one Production, one
+Preview. The other two are single entries ticked for both.
+
+**A. The two single entries — `SUPABASE_SERVICE_ROLE_KEY` and
+`NEXT_PUBLIC_SUPABASE_URL`.** These have to be *split*, and the order matters:
+Vercel will not accept a second entry for an environment the first one still
+covers.
+
+1. Open the existing entry, **untick Preview**, leave Production ticked, save.
+2. **Add a new entry** with the same name, scoped to **Preview only**, with the
+   placeholder value below.
+
+Doing it the other way round — creating the new one first — is rejected with a
+name conflict, which is confusing enough to look like a permissions problem.
+
+**B. The anon key — already split.** Nothing to split. **Edit the existing
+Preview entry in place** and replace its value. Do not add a third entry.
 
 | Name | Preview value |
 |---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | `placeholder` |
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://placeholder.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `placeholder-anon-key` |
-| `SUPABASE_SERVICE_ROLE_KEY` | `placeholder` |
+
+**Do the service-role key first** if you are interrupted partway. It is the only
+one of the three that is actually dangerous: the anon key is `NEXT_PUBLIC_` and
+therefore public by design, and migration 019 removed `anon`'s grants anyway, so
+it opens nothing on its own. The URL is not a credential. **The service-role key
+is the whole exposure** — it bypasses row-level security by design.
+
+Worth a glance while you are in there: what the existing Preview anon entry
+currently holds. If it is a copy of the production anon key that is no problem
+for the reason above, but it tells you whether the split was made for a reason
+that still applies.
 
 **Placeholders rather than nothing, deliberately.** `lib/supabase.ts` builds its
 clients at module scope, so an *unset* variable fails the preview **build**, not
