@@ -356,8 +356,15 @@ There is no environment between a developer and the business. Concretely:
   and half-finished ones — carries the production service-role key, which
   bypasses row-level security by design, against the live database.
 
-  Two consequences follow, and the second is easy to miss. **Closing it is now
-  urgent rather than tidy.** And **the key should be rotated afterwards, not
+  **Closed the same day** by splitting `SUPABASE_SERVICE_ROLE_KEY` and giving
+  Preview a placeholder value. The two `NEXT_PUBLIC_` variables were left as
+  they are — neither is a credential in any useful sense, and both are blocked
+  by a pre-existing type misconfiguration; see
+  `docs/ACTIONS-FOR-TASOS-2026-08-30.md` §2, which also records the residual:
+  previews still point at the production project, so a future anon-readable
+  table would silently restore read access, with nothing watching for it.
+
+  One consequence remains, and it is easy to miss. And **the key should be rotated afterwards, not
   only re-scoped**: it has been present in the build environment of every branch
   built this month, so scoping alone closes the door without asking whether
   anyone walked through it. This is precautionary — the exposure is to people

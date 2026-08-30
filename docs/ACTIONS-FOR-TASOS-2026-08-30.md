@@ -31,54 +31,45 @@ that one needs editing rather than splitting. Item 2 says which is which.
 
 ## 2. Scope the Preview values to placeholders — **do this next**, under an hour
 
-**The three are not in the same state, so they need two different operations.**
-`NEXT_PUBLIC_SUPABASE_ANON_KEY` is already two entries — one Production, one
-Preview. The other two are single entries ticked for both.
+**Only one of the three actually matters, and it is the only one that worked.**
+Done 30 August:
 
-**A. The two single entries — `SUPABASE_SERVICE_ROLE_KEY` and
-`NEXT_PUBLIC_SUPABASE_URL`.** These have to be *split*, and the order matters:
-Vercel will not accept a second entry for an environment the first one still
-covers.
-
-1. Open the existing entry, **untick Preview**, leave Production ticked, save.
-2. **Add a new entry** with the same name, scoped to **Preview only**, with the
-   placeholder value below.
-
-Doing it the other way round — creating the new one first — is rejected with a
-name conflict, which is confusing enough to look like a permissions problem.
-
-**A second wrinkle on `NEXT_PUBLIC_SUPABASE_URL`.** Vercel refuses to store a
-`NEXT_PUBLIC_`-prefixed variable as a sensitive value — *"Remove the public
-framework prefix to keep this value private… If that's safe, change the variable
-to Config."* Change it to **Config**. That is the correct classification, not a
-workaround: `NEXT_PUBLIC_` is Next.js's marker for "compile this into the browser
-bundle", so the value is public by definition, and the Production entry of the
-same name will already be Config.
-
-**Do not carry that over to `SUPABASE_SERVICE_ROLE_KEY`.** It has no
-`NEXT_PUBLIC_` prefix, never reaches the browser, and must stay in the sensitive
-category. The rule for everything on this page: `NEXT_PUBLIC_*` is Config,
-everything else is sensitive.
-
-**B. The anon key — already split.** Nothing to split. **Edit the existing
-Preview entry in place** and replace its value. Do not add a third entry.
-
-| Name | Preview value |
+| Name | What happened |
 |---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` | `placeholder` |
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://placeholder.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `placeholder-anon-key` |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Split and placeholdered on Preview. This closed the exposure.** |
+| `NEXT_PUBLIC_SUPABASE_URL` | Not changed — blocked, see below. No security consequence. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Not changed — blocked, see below. No security consequence. |
 
-**Do the service-role key first** if you are interrupted partway. It is the only
-one of the three that is actually dangerous: the anon key is `NEXT_PUBLIC_` and
-therefore public by design, and migration 019 removed `anon`'s grants anyway, so
-it opens nothing on its own. The URL is not a credential. **The service-role key
-is the whole exposure** — it bypasses row-level security by design.
+The service-role key was the whole exposure: it bypasses row-level security by
+design. The other two are not credentials in any useful sense. The URL is
+already in the production site's browser bundle, and the anon key is too —
+migration 019 revoked `anon`'s table grants, so it reads nothing. A preview
+holding either is no more exposed than the live site is.
 
-Worth a glance while you are in there: what the existing Preview anon entry
-currently holds. If it is a copy of the production anon key that is no problem
-for the reason above, but it tells you whether the split was made for a reason
-that still applies.
+**Why the other two were abandoned.** Both are stored as *sensitive*, and both
+carry Next.js's `NEXT_PUBLIC_` prefix, which Vercel now refuses for a sensitive
+value: *"Remove the public framework prefix to keep this value private… If
+that's safe, change the variable to Config."* The Config option is greyed out,
+because the type belongs to the variable **name** rather than to each
+per-environment value — so a Preview entry cannot diverge from the Production
+entry's type. They predate the check.
+
+Fixing it means changing the **Production** entry to Config first, which is
+correct — the value is public either way — but it touches a production variable
+to buy nothing. Not worth doing mid-flight. Recorded rather than done.
+
+**The residual, which has no tripwire on it.** Previews still point at the
+production project, holding an anon key that currently reads nothing. If anyone
+later adds an anon-readable table or a permissive RLS policy, previews silently
+regain read access to production, and no check in this repository would notice.
+The real fix is the staging project; until then this is a known gap rather than
+an unknown one.
+
+**If you are redoing this from scratch**, for reference: the service-role key
+needs *splitting* — open the existing entry, untick Preview, save, then add a
+new Preview-only entry with value `placeholder`. Vercel rejects a second entry
+for an environment the first still covers, and that rejection reads like a
+permissions problem.
 
 **Placeholders rather than nothing, deliberately.** `lib/supabase.ts` builds its
 clients at module scope, so an *unset* variable fails the preview **build**, not
