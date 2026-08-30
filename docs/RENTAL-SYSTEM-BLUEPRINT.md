@@ -1791,6 +1791,81 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 30 August 2026 — outside review, and the two places this document was wrong
+
+*Fable reviewed `docs/ARCHITECTURE-STATUS-2026-08-30.md` cold, from that file
+alone. Recorded here because two of its findings are corrections rather than
+opinions, and because the standing rule in §9 that comes out of it applies
+beyond the section that produced it.*
+
+**Direction: upheld.** The reason given is worth keeping, because it is the
+thing to protect: enforcement keeps landing at the one point that can actually
+refuse — the SQL allocator, server-side price verification, the locked approval
+transaction in migration 038 — rather than each feature inventing its own. §7.4
+opening a `vehicle_blocks` row instead of teaching the UI a warning is that
+discipline holding under time pressure. Systems in this category rot when the
+enforcement point multiplies.
+
+**Correction 1 — the case for a staging database was argued wrongly.** The
+status document led with vendor sandboxes: AADE, Stripe, NBG exercised against
+real request/response cycles. That is not a case for staging. Driving the AADE
+sandbox needs credentials and any non-production place to point them — a script
+calling `lib/aadeXml.ts` and the submit path with fixture data needs no database
+at all, and Stripe test mode is the same. Leading with sandboxes both delayed
+work that can start the day credentials arrive **and** buried the actual
+argument, which is that preview deployments appear to run unreviewed branch code
+with the production service-role key against a `customers` table holding
+passport numbers, licence numbers and dates of birth. The service role bypasses
+row-level security by design. That is a data-protection exposure, and it
+justifies the work on its own.
+
+**Correction 2 — that claim is inferred, not verified.** Nobody has opened
+Vercel → Settings → Environment Variables and looked. Vercel applies a variable
+to every environment unless it is scoped, and `PREVIEW-RECAPTCHA-TEST-KEYS.md`
+records the preview-scoped variables it needs as *"not yet set"*, so the default
+is the likely state — but likely is not checked, and this document has a rule
+about that. One click settles it and it decides the urgency of everything else.
+
+**§7.2 is a defect, not a judgement.** The fleet-wide damage endpoint keeps
+`repair_cost` out of a staff response by its `select` list, pinned by
+`lib/damageVisibility.test.ts`. The realistic failure is not the test missing a
+change; it is a refactor to `select("*")` that updates the now-failing pin in
+the same commit, which is the known weakness of pinning tests. Column grants
+cannot help, because everything runs under the service role. The replacement is
+a **view without the financial columns**, queried by that endpoint, making the
+leak structurally impossible. Caveat held honestly: this repository contains no
+views at all today, so it is a new pattern here; if it proves awkward through the
+Data API, a second route handler with its own narrow query is the same fix.
+
+**Standing rule, general beyond §7.2:** *a source-reading test may be a
+tripwire, never the sole guard on something security-shaped.* The pattern stays
+— it catches drift nothing else looks at — but it is not a control.
+
+**The Record360 evaluation leaves Gate 0.** The 26 August adjudication put it
+inside Gate 0; that coupled vendor questions to a legal audit they do not depend
+on. Nothing area 5 produces changes what is asked of Record360 — pricing, DPA,
+export terms, API access, template variety. Area 5 changes what is done with the
+answers. Run it in parallel, now, while reopening the decision is still cheap:
+every week of counter code is sunk cost against a decision already described as
+one that *looks* settled. The deferred cost estimate stands as a deferral but
+needs a named owner and a date, because a reopening gate with no number never
+trips.
+
+**Not adopted as stated.** The review recommended scoping production secrets to
+Production in Vercel today and letting previews go dark. The security property
+is right and should happen immediately; the mechanism needs one change.
+`lib/supabase.ts` constructs its clients at module scope, so *unset* variables
+fail the preview **build**, not merely its data access — `.github/workflows/ci.yml`
+already documents this and works around it with placeholders. Preview-scoped
+placeholder values give the identical security property with a preview that
+still builds.
+
+**Ordering upheld, on a better argument than was offered.** Error tracking
+before staging is not an artefact of the outage being recent: two hours against
+half a day to two days wins on cost asymmetry alone, and error tracking is the
+only one of the three that pays off the week it is built. Remove the incident
+from the record entirely and the order does not change.
+
 ### 30 August 2026 — the migration chain does not replay, and why 001 is not the place to fix it
 
 *Architect decision, recorded because Codex asked for it before implementing.

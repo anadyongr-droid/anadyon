@@ -238,17 +238,21 @@ named in §1.5 are not interchangeable — ProovStation and Self-Inspection sell
 AI-assisted damage analysis, which §8 declines, so only Record360 fits the
 adapter shape.
 
-**What is still open.** Two things, and neither is a disagreement:
+**What is still open — and one thing that changed on 30 August.**
 
-- **The Record360 evaluation has not been run.** It sits inside Gate 0, and
-  Gate 0 is not cleared because audit area 5 is ungraded (§5.2). So the
-  build-versus-buy decision is currently resting on an evaluation that is
-  scheduled and unperformed.
-- **Neither side is costed.** The adjudication declined to insert a speculative
-  figure and instead required Gate 0 to produce a work breakdown and a
-  three-year native-build-against-capture-vendor total. Without it the decision
-  cannot be checked afterwards against what the build actually cost, which is
-  the only way the reopening gates ever get exercised honestly.
+- **The Record360 evaluation has not been run, and it is being decoupled from
+  Gate 0.** Outside review made a distinction the adjudication missed: nothing
+  audit area 5 produces changes *what you ask Record360* — pricing, DPA, export
+  terms, API access, template variety. Area 5 changes what you do with the
+  answers. Coupling the two was therefore an unforced delay, and an expensive
+  one, because every week of counter code adds sunk cost to a decision this
+  document already calls "looks settled". **Run it now, in parallel with Gate 0,
+  not behind it.**
+- **Neither side is costed.** The adjudication declined a speculative figure and
+  required Gate 0 to produce a work breakdown and a three-year
+  native-build-against-capture-vendor total. That deferral is defensible; what
+  is not is leaving it unowned. **A reopening gate with no number behind it
+  never trips.** The estimate needs a named owner and a date, and has neither.
 
 **Why this is worth a reviewer's attention.** The process worked — a decision
 was reviewed, the review found a real gap, and the adjudication resolved it
@@ -271,6 +275,13 @@ than describing it. §7.1a adds a bounded build-or-buy gate on it (GoCars), whic
 has not been run either.
 
 ### 5.8 What is waiting on a person, not on code
+
+**This list, not any engineering item, is the project's actual constraint.**
+Every entry is cheap and none is technical, and between them they gate the
+highest-value work in the document — §5.1 above all. Engineering has been
+flowing around the blockage rather than through it, which is what makes a list
+of merged pull requests look like progress while the thing that unlocks phase 2
+stays untouched.
 
 Listed because four of the open items above are not engineering problems and a
 reviewer should not propose engineering for them:
@@ -308,6 +319,15 @@ This defect was the opposite, and no check in the repository would ever have
 found it. So the staging exit criterion is not "the replay is green" but "the
 replayed schema matches production, compared both ways", which has not been done.
 
+**And the claim that `customers.name` is the only column of its class is
+currently a one-off, not a check.** It was established by comparing the five
+shared tables by hand on 30 August. That is evidence, not a guard: it cannot
+fail in CI and it will not notice the next one. Making the drift checker
+bidirectional and running it against production converts a manual finding into a
+repeatable one, and would catch a surviving legacy column before it costs
+another round of replay debugging. Hours of work, and it should precede staging
+rather than follow it.
+
 ### 5.10 One claim from this weekend that has not been observed
 
 #64 asserts that logging **major** damage stops a vehicle being bookable. That
@@ -324,11 +344,18 @@ This is the section written this weekend, and the one §8 asks about.
 
 There is no environment between a developer and the business. Concretely:
 
-- **There is no staging database.** Every Vercel preview deployment reads and
-  writes the production Supabase project. Every instruction of the form "check
-  it on the preview" issued during this month's work was, in fact, an
-  instruction to check it against live customer data. That is a correction owed
-  to the record, not a hypothetical.
+- **There is no staging database**, and preview deployments appear to carry the
+  production credentials. Every instruction of the form "check it on the
+  preview" issued during this month's work was therefore an instruction to check
+  against live customer data. That is a correction owed to the record.
+
+  **One part of this is inferred, not verified, and it is the load-bearing
+  part:** nobody has opened Vercel → Settings → Environment Variables and
+  confirmed the scoping. Vercel applies a variable to every environment unless
+  it is scoped, and `docs/PREVIEW-RECAPTCHA-TEST-KEYS.md` records that the
+  preview-scoped variables it needs are *"not yet set"* — so the default is the
+  likely state. Likely is not checked. This is a one-click confirmation and it
+  decides how urgent §6.2's item 3 is; it should be the first thing done.
 - **There is no error tracking.** Nothing in `package.json`. The only production
   signals are the 05:00 Telegram briefing and the four-hour email watchdog, and
   both report on *business* state — neither reports that a request threw.
@@ -376,16 +403,36 @@ estimate splits on one question: do 37 migrations replay cleanly into an empty
 database? An hour with PGlite — already a dependency, already used by several
 migration tests — answers it before anything is committed to.
 
-### 6.3 What staging actually buys, stated narrowly
+### 6.3 What staging actually buys
 
-The honest case is narrower than the usual one:
+*Rewritten 30 August after outside review. The first version led with vendor
+sandboxes and was wrong to — see the note at the end.*
 
-1. **Vendor sandboxes.** AADE, Stripe and NBG can be exercised against real
-   request/response cycles instead of against a mock of what the documentation
-   claims. This is the strongest argument, and §5.3 is the evidence: the AADE
-   work is stuck at "written, never sent".
-2. **A place the e2e suite can run unattended.**
-3. **A place to look at an admin screen while logged in.**
+**The case is a data-protection one, not a testing one.** If the scoping in §6.1
+is what it appears to be, then every preview deployment — that is, every pull
+request branch, including unreviewed and half-finished ones — runs with the
+production service-role key against a `customers` table holding passport
+numbers, driving licence numbers, dates of birth and addresses. The service role
+bypasses row-level security by design. That is unreviewed code with unrestricted
+write access to special-category personal data, and it is a standing exposure
+rather than an inconvenience. It justifies the two days on its own, and it is
+the reason to do it whether or not anything is ever tested there.
+
+Second, and genuinely useful but secondary:
+
+1. **A place the e2e suite can run unattended** — item 2, which has no other
+   home.
+2. **A place to look at an admin screen while logged in.** No admin screen
+   changed this weekend has been seen by anyone.
+
+**What is *not* an argument for staging, though the first draft of this section
+said it was:** the vendor sandboxes. Exercising AADE needs credentials and any
+non-production place to point them — a local script driving `lib/aadeXml.ts` and
+the submit call with fixture data would do it, and needs no database at all.
+Stripe test mode is the same. The DCL schema needs one human download. None of
+that should wait on a staging project, and treating it as the headline reason
+delayed work that could start the day the credentials arrive. That was a
+confusion in this document, not a change of position.
 
 ### 6.4 The counter-argument, which is real
 
@@ -432,18 +479,34 @@ avoid the consequence. The counter-argument is that `moderate` is doing no work
 at all if it never changes an outcome, and a three-level severity where only one
 level has effects may as well be a boolean.
 
-**7.2 Staff can see fleet-wide open damage, including on vehicles they are not
-handling.** Justified because they are the ones handing over the car. The
-money is held back by a `select` list, which is a single line standing between a
-staff session and every repair cost in the business. A test pins it. A reviewer
-may reasonably think a line of test-enforced convention is thin protection for
-that, and that the right answer is a separate endpoint or a view.
+**7.2 Staff can see fleet-wide open damage — and the money is held back by a
+`select` list.** ~~Offered as a judgement that might be wrong.~~ **Reviewed 30
+August and found wrong. It is now a defect to fix, not a judgement to weigh.**
+
+The visibility itself stands: staff hand over the car and need to know it is
+damaged. What does not stand is the guard. The realistic failure was never "a
+test misses a change" — it is someone refactoring the endpoint to `select("*")`
+and updating the now-failing pin in the same commit, because a pinning test is
+edited alongside the code it pins. That is the known weakness of the pattern,
+and here it is the only thing between a staff session and every repair cost in
+the business. Column grants cannot help: everything runs under the service role,
+which bypasses them by design.
+
+**The fix is a database view without the financial columns**, queried by the
+fleet-wide endpoint, which makes the leak structurally impossible instead of
+conventionally discouraged — and retires the worst of the §7.6 tests with it.
+One caveat, honestly held: this project currently contains **no views at all**,
+so it is a new pattern here. Reads through the Data API under the service role
+should be unaffected, but that is reasoning, not a test. If it proves awkward, a
+second route handler with its own narrow query is the same fix, less elegant.
+An hour settles which.
 
 **7.3 Administrator self-edits do not enter the four-eyes queue.** With exactly
 one administrator, requiring a second pair of eyes on their own change
-deadlocks. The recommendation was therefore *no*. The counter-argument is that
-this makes the control a staff-supervision mechanism rather than a data-quality
-one, and it should be described as such rather than as "four eyes".
+deadlocks, so the answer is *no* and stays *no*. **The naming was the confused
+part, and that is now settled:** this is a staff-supervision control, not a
+data-quality one, and the documents should say so rather than saying "four
+eyes", which promises something it does not deliver.
 
 **7.4 Identity in database functions is application-asserted.** §5.1. The
 interim position is documented in the migration itself, which is better than
@@ -455,12 +518,19 @@ order these differently, and the argument for that is not weak.
 
 **7.6 Source-reading tests.** Several tests in `lib/` assert against the *text*
 of route handlers — that a `select` names certain columns, that a `Promise.all`
-contains a certain fetch. They catch a class of regression nothing else does
-(the fleet-wide `select` becoming `select("*")`), and they tripped on their own
-comments three times before the comment-stripping was made robust. Whether this
-is a good pattern or a clever one is a fair question.
+contains a certain fetch. They tripped on their own comments three times before
+the comment-stripping was made robust.
 
-## 8. What the reviewer is asked to comment on
+**Reviewed 30 August; the answer is a qualified keep.** They are good
+*tripwires* — cheap, and they catch a class of drift nothing else looks at. They
+are not controls, and the rule that follows is now standing: **a source-reading
+test may never be the sole guard on something security-shaped.** §7.2 was
+exactly that, which is why it is being replaced rather than defended.
+
+## 8. What the reviewer was asked to comment on
+
+*Answered 30 August. The review and what changed because of it are in §10; the
+questions are kept below because the answers only make sense against them.*
 
 1. **The ordering in §6.2.** Error tracking, then staging, then e2e in CI. Is
    the incident-based argument for putting observability first sound, or is it
@@ -496,3 +566,49 @@ is a good pattern or a clever one is a fair question.
 | Standing security rules | `docs/HANDOFF-H1.md` §7 |
 | The ten audit areas and what each did not cover | `docs/audits/` |
 | How the two agents work and why the rules exist | `AGENTS.md` |
+
+## 10. Outside review — 30 August 2026, and what changed
+
+An outside reviewer (Fable) answered §8 from this document alone, reading none of
+the further-reading files. The verdict on direction was yes, with the strongest
+reason being that enforcement keeps landing at the one point that can actually
+refuse — the SQL allocator, server-side pricing, the locked approval transaction
+in #65 — rather than each feature inventing its own enforcement point.
+
+**Five things changed as a result. Two of them were errors in this document.**
+
+1. **§6.3 was confused, and is rewritten.** It led with vendor sandboxes as the
+   case for staging. Vendor sandboxes are not a case for staging: AADE and
+   Stripe need credentials and any non-production place to point them, which a
+   local script provides. Leading with them delayed work that needs no database
+   and buried the real argument — that preview deployments appear to run
+   unreviewed code with the production service-role key against special-category
+   personal data. That is now the argument.
+2. **§6.1's central claim is marked as inferred.** Nobody has actually opened
+   Vercel's environment-variable settings. It is a one-click check and it is
+   load-bearing for how urgent the staging work is.
+3. **§7.2 moved from "possibly wrong" to "wrong".** A source-reading test cannot
+   guard the repair ledger, because the realistic failure is a refactor that
+   updates the pin in the same commit. A view without the financial columns
+   replaces it.
+4. **§7.6 gained a standing rule** — source-reading tests are tripwires, never
+   the sole guard on something security-shaped.
+5. **§5.6's Record360 evaluation is decoupled from Gate 0**, on the observation
+   that nothing area 5 produces changes what you ask the vendor; it changes what
+   you do with the answers. And the cost estimate needs an owner and a date,
+   because a reopening gate with no number never trips.
+
+**Ordering was upheld, with a better argument than this document gave.** Error
+tracking first is not a recency artefact: two hours against half a day to two
+days wins on cost asymmetry alone, and it is the only item that pays off the
+week it is built. Delete the outage from the record and the order is unchanged.
+
+**§7.1, 7.3, 7.4 and 7.5 were left as decided**, with §7.3's naming corrected.
+
+**Not adopted as stated:** the recommendation to scope production secrets to
+Production in Vercel today and let previews go dark. The security property is
+right and should happen immediately, but `lib/supabase.ts` builds its clients at
+module scope, so *unset* variables fail the preview **build**, not just its data
+access — as `.github/workflows/ci.yml` already documents. Preview-scoped
+**placeholder** values give the identical security property with a preview that
+still builds. Same action, one refinement.

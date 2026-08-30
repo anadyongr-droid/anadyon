@@ -16,6 +16,30 @@ to build any of them.
 
 ---
 
+## 0a. Changed after outside review, 30 August — read this first
+
+Three changes to the brief below, from a review recorded in
+`docs/RENTAL-SYSTEM-BLUEPRINT.md` §10 (30 August, "outside review"):
+
+1. **Do item 3's Vercel scoping first, and separately.** Before any of the build
+   work: confirm in Vercel → Settings → Environment Variables whether the
+   Supabase variables are scoped, and if they are not, add **Preview-scoped
+   placeholder values** (the pattern `.github/workflows/ci.yml` already uses)
+   so previews stop carrying production credentials. Placeholders, not unset —
+   `lib/supabase.ts` builds its clients at module scope, so unset variables fail
+   the preview *build*. This is under an hour and closes a standing exposure
+   that the rest of the work only closes at the end.
+2. **Do not wait on staging to exercise the AADE sandbox.** §3 is not a
+   prerequisite for it. The day credentials arrive, drive `lib/aadeXml.ts` and
+   the submit path from a script with fixture data. The same goes for Stripe
+   test mode. The first version of this brief implied otherwise.
+3. **Make `scripts/check-schema-drift.mjs` bidirectional before standing staging
+   up**, and run it against production. Today it only reports columns the
+   migrations declare that the database lacks; `customers.name` was the reverse,
+   which is why nothing caught it. The §3.1 note's claim that it is the only
+   column of its class is a hand comparison, not a check — this converts it into
+   one. Hours of work.
+
 ## 0. What this is, in one paragraph
 
 Anadyon has no error tracking, no automated end-to-end run, and no database
