@@ -18,7 +18,8 @@
     "test:browser": "playwright test",
     "backup": "node scripts/backup.mjs",
     "check:grants": "node scripts/check-grants.mjs",
-    "test:browser:all": "playwright test --config playwright.crossbrowser.config.ts"
+    "test:browser:all": "playwright test --config playwright.crossbrowser.config.ts",
+    "probe:rpc-identity": "node scripts/probe-rpc-identity.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

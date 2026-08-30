@@ -493,7 +493,34 @@ as $$ select auth.uid(),
 grant execute on function public.whoami_probe() to authenticated;
 ```
 
-Then, signed in to `/admin` **as an administrator**, open:
+### The short way — a script, no browser
+
+Sign in with a password and you get a JWT carrying `sub` at `aal1`; MFA raises
+the assurance level, it does not add the subject. A JWT reaching PostgREST is
+the whole mechanism under test, so no browser, no cookies and no authenticator
+are needed:
+
+```
+PROBE_EMAIL=you@example.com PROBE_PASSWORD='…' npm run probe:rpc-identity
+```
+
+**It calls the function twice, and the control is the point.** Once with the
+user's token, once with the service role. The service-role call is expected to
+return a NULL `uid` — that is the defect this document is about. Both null means
+something else is wrong and neither result should be believed; both non-null
+means the probe is not measuring what it claims. Only `uid` under the user and
+NULL under the service role proves anything.
+
+The password is read from the environment and written nowhere.
+
+### The long way — the route, in a browser
+
+Kept because it exercises the real production path: a cookie-backed
+`createServerClient`, which is what the application would actually use. The
+script proves the mechanism; this proves the mechanism *as the app builds it*.
+If the script answers cleanly, this is optional.
+
+Signed in to `/admin` **as an administrator**, open:
 
 ```
 /api/admin/diagnostics/rpc-identity
@@ -520,8 +547,9 @@ allowlist, and allowlist entries added "temporarily" are how allowlists grow.
 | `uid` null | Option A is falsified. §12.4 is wrong and Option B wins by elimination. |
 | `function does not exist` | The SQL above has not been run. Not an answer. |
 
-**Then remove both**, in the same sitting — delete
-`app/api/admin/diagnostics/rpc-identity/route.ts` with its test, and run:
+**Then remove all of it**, in the same sitting — delete
+`app/api/admin/diagnostics/rpc-identity/route.ts` with its test,
+`scripts/probe-rpc-identity.mjs` and its `package.json` entry, and run:
 
 ```sql
 drop function if exists public.whoami_probe();
