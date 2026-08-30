@@ -62,22 +62,28 @@ export default function SetPasswordPage() {
      * Does this session have to prove a second factor before it may set a
      * password?
      *
-     * Asked of Supabase rather than inferred. `nextLevel` is "aal2" exactly
-     * when the account has a verified factor, which is every account the proxy
-     * has ever let into the admin area — and "aal1" for an invitation, which
-     * goes straight through as before.
+     * `listFactors()` is the whole answer, and it is asked of Supabase rather
+     * than inferred. Its `totp` array contains **only verified factors** — see
+     * `_listFactors` in @supabase/auth-js, which filters on `status ===
+     * 'verified'` — and a verified factor is exactly the condition under which
+     * GoTrue refuses `updateUser({ password })` from an aal1 session. One
+     * question, one call.
      *
-     * A failure here is deliberately not fatal: the person still sees the form,
-     * and if the factor really was needed the update returns Supabase's own
-     * message rather than this screen inventing one.
+     * The first version also required
+     * `getAuthenticatorAssuranceLevel().nextLevel === "aal2"`, which looked
+     * like belt and braces and was not. That call derives `nextLevel` from the
+     * **stored session object's** `user.factors` rather than from the network,
+     * so the two can disagree — and joined by `&&`, any disagreement resolves
+     * to "no factor needed", which is the failing direction. Extra conditions
+     * on a guard are not free; each one is another way for it to say no.
+     *
+     * A failure here is not fatal. `save()` catches the refusal and asks for
+     * the code then, so the page recovers even if this returns nothing at all.
      */
     const resolveFactor = async () => {
-      const [{ data: aal }, { data: factors }] = await Promise.all([
-        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
-        supabase.auth.mfa.listFactors(),
-      ]);
-      const totp = factors?.totp?.find((f) => f.status === "verified") ?? factors?.totp?.[0];
-      if (aal?.nextLevel === "aal2" && totp) setFactorId(totp.id);
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const totp = factors?.totp?.[0];
+      if (totp) setFactorId(totp.id);
     };
 
     // The tokens are read out of the fragment and handed to the client
@@ -162,6 +168,24 @@ export default function SetPasswordPage() {
 
     const { error: updateError } = await supabase.auth.updateUser({ password });
     if (updateError) {
+      // Last line of defence, and the reason this page can no longer get stuck.
+      //
+      // If detection above missed the factor for any reason — a Supabase change,
+      // a session shape nobody anticipated — GoTrue still refuses with this
+      // message, and refusing is itself proof that a factor exists. So the
+      // refusal becomes the prompt: show the code field and let the person try
+      // again, rather than printing a message about assurance levels at
+      // somebody who wants their password back.
+      if (/aal2/i.test(updateError.message)) {
+        const { data: factors } = await supabase.auth.mfa.listFactors();
+        const totp = factors?.totp?.[0];
+        if (totp) {
+          setFactorId(totp.id);
+          setError("Enter the code from your authenticator app to confirm this change.");
+          setStatus("ready");
+          return;
+        }
+      }
       setError(updateError.message);
       setStatus("ready");
       return;

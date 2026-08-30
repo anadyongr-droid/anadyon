@@ -41,10 +41,20 @@ function code(src: string): string {
 const body = code(page);
 
 describe("the set-password screen and an enrolled second factor", () => {
-  it("asks Supabase what assurance level the session needs", () => {
-    // Without this the page cannot tell an invitation from a reset, which is
-    // the whole defect.
-    expect(body).toMatch(/getAuthenticatorAssuranceLevel\(\)/);
+  it("decides from listFactors, and from nothing else", () => {
+    // listFactors().totp contains only verified factors — @supabase/auth-js
+    // filters on status === 'verified' — and a verified factor is exactly when
+    // GoTrue refuses the password change. One question, one call.
+    expect(body).toMatch(/mfa\.listFactors\(\)/);
+
+    // getAuthenticatorAssuranceLevel derives nextLevel from the *stored session
+    // object* rather than the network, so it can disagree with listFactors.
+    // Joined by &&, any disagreement resolved to "no factor needed" — the
+    // failing direction, and what reached production on 30 August.
+    expect(
+      body,
+      "an extra condition on this guard is another way for it to wrongly say no"
+    ).not.toMatch(/getAuthenticatorAssuranceLevel/);
   });
 
   it("challenges and verifies the factor before changing the password", () => {
@@ -60,9 +70,22 @@ describe("the set-password screen and an enrolled second factor", () => {
   });
 
   it("still lets an invited person through with no factor at all", () => {
-    // The case the page was built for. An invitation has nextLevel "aal1" and
-    // no factor, and must not be asked for a code it cannot produce.
-    expect(body).toMatch(/nextLevel\s*===\s*["']aal2["']/);
+    // The case the page was built for. An invitation has no factor, so
+    // listFactors returns an empty totp array, factorId stays null, and no
+    // code is ever asked for.
+    expect(body).toMatch(/if \(totp\) setFactorId\(totp\.id\)/);
+  });
+
+  it("recovers when detection misses the factor entirely", () => {
+    // The property that stops this page getting stuck again. GoTrue refusing
+    // for aal2 is itself proof a factor exists, so the refusal becomes the
+    // prompt rather than a message about assurance levels shown to someone who
+    // just wants their password back.
+    expect(body).toMatch(/aal2/i);
+    const refusal = body.indexOf("updateUser(");
+    const recovery = body.search(/\/aal2\/i\.test/);
+    expect(recovery, "no fallback on the refusal").toBeGreaterThan(-1);
+    expect(recovery).toBeGreaterThan(refusal);
   });
 
   it("tells the person what went wrong rather than showing a raw error", () => {
