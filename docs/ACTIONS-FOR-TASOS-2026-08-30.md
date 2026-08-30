@@ -47,6 +47,19 @@ covers.
 Doing it the other way round — creating the new one first — is rejected with a
 name conflict, which is confusing enough to look like a permissions problem.
 
+**A second wrinkle on `NEXT_PUBLIC_SUPABASE_URL`.** Vercel refuses to store a
+`NEXT_PUBLIC_`-prefixed variable as a sensitive value — *"Remove the public
+framework prefix to keep this value private… If that's safe, change the variable
+to Config."* Change it to **Config**. That is the correct classification, not a
+workaround: `NEXT_PUBLIC_` is Next.js's marker for "compile this into the browser
+bundle", so the value is public by definition, and the Production entry of the
+same name will already be Config.
+
+**Do not carry that over to `SUPABASE_SERVICE_ROLE_KEY`.** It has no
+`NEXT_PUBLIC_` prefix, never reaches the browser, and must stay in the sensitive
+category. The rule for everything on this page: `NEXT_PUBLIC_*` is Config,
+everything else is sensitive.
+
 **B. The anon key — already split.** Nothing to split. **Edit the existing
 Preview entry in place** and replace its value. Do not add a third entry.
 
