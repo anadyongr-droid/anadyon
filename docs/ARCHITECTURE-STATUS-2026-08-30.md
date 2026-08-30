@@ -381,7 +381,13 @@ There is no environment between a developer and the business. Concretely:
   bypasses row-level security by design, against the live database.
 
   **Closed the same day** by splitting `SUPABASE_SERVICE_ROLE_KEY` and giving
-  Preview a placeholder value. The two `NEXT_PUBLIC_` variables were left as
+  Preview a placeholder value — though the closure is confirmed only at the
+  settings level. The preview still builds (Vercel reported Ready after the
+  change), but that it now serves *no data* is reasoned from migration 019's
+  note that everything the site serves goes through the service role, not
+  observed: the build container cannot reach `*.vercel.app`. Opening the preview
+  URL settles it, and a preview still showing real data would mean the scoping
+  did not take. The two `NEXT_PUBLIC_` variables were left as
   they are — neither is a credential in any useful sense, and both are blocked
   by a pre-existing type misconfiguration; see
   `docs/ACTIONS-FOR-TASOS-2026-08-30.md` §2, which also records the residual:

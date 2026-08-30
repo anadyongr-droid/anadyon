@@ -77,11 +77,24 @@ just its data access — `.github/workflows/ci.yml` documents exactly this and
 works around it the same way. Placeholders give the identical security property
 with a preview that still compiles.
 
-**What to expect afterwards, so it does not look like a fault.** Preview
-deployments will build and render, and show **no data at all** — not a subset.
-Migration 019's own comment is the reason: *"everything the site serves goes
-through the service role"*, so with a placeholder key every data-backed page and
-route comes back empty or errors. That is the change working, not breaking.
+**What to expect afterwards — and please confirm it, because half of this is
+reasoned rather than observed.**
+
+*Observed:* the preview **builds and deploys**. Vercel reported the deployment
+for this branch Ready at 18:19 on 30 August, after the placeholder was in place.
+That is the half that justified placeholders over unset values.
+
+*Reasoned, not observed:* that the preview then shows **no data at all** — not a
+subset. Migration 019's own comment is the basis — *"everything the site serves
+goes through the service role"* — so with a placeholder key every data-backed
+page and route should come back empty or error. The build container cannot reach
+`*.vercel.app` (egress proxy), so nobody has actually looked.
+
+**Open the preview URL and check.** If it renders but shows no vehicles or
+prices, the change is working as intended. **If it still shows real data, the
+scoping did not take effect** — the exposure is open and it needs looking at
+again. One click either way, and it is worth the click.
+
 Redeploy a preview branch for the variables to take effect.
 
 ## 2b. Rotating the service-role key — **optional, and lower priority than first written**
