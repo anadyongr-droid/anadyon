@@ -4,7 +4,7 @@
 **Base:** `3927b10`  
 **Hosted databases touched:** none
 
-## Result
+## Initial result
 
 `npm run check:migration-replay` applies the tracked migrations in filename
 order to one empty PGlite database. The check passed migrations 001–016 and
@@ -37,31 +37,30 @@ Postgres database therefore cannot apply migration 017 after migration 001.
 The migration's own commentary explains the divergence: production had a
 hand-created legacy `name` column that was never represented in the baseline.
 
-## Decision required before staging work continues
+## Architect decision and verified repair
 
-The implementation handover says to stop and return this failure to the
-architect rather than repair migration history inside the staging branch. The
-architect needs to choose and record how fresh databases represent the legacy
-production-only column. The principal options are:
+The architect recorded the decision in `docs/RENTAL-SYSTEM-BLUEPRINT.md` §10:
+migration 017 must make itself self-contained by adding the production-only
+legacy column when it is absent:
 
-1. amend the historical baseline/replay path so the legacy column exists when
-   migration 017 runs;
-2. make migration 017 conditional when the legacy column is absent;
-3. introduce a reviewed, squashed bootstrap baseline for new environments and
-   retain the historical chain only as the production audit trail.
+```sql
+alter table customers add column if not exists name text;
+```
 
-Each option changes the meaning of already-applied migration history, so this
-branch deliberately chooses none of them.
+This is a no-op for production, where the column already exists. On a fresh
+database it lets the rest of migration 017 install the same nullable `text`
+column and compatibility trigger that production has.
 
-## Work paused by this result
+After implementing that decision, the permanent replay check passed all 37
+migrations and queried the final catalogue to verify:
 
-Per `docs/HANDOVER-TEST-ENVIRONMENT.md` §3.1, implementation is paused before:
+- `public.customers.name` exists exactly once;
+- its type is `text` and it is nullable;
+- `customers_sync_legacy_name_trg` is attached to `public.customers`.
 
-- Sentry/error-tracking integration;
-- staging Supabase provisioning, schema application, or seeding;
-- Vercel Preview environment wiring;
-- the end-to-end CI job.
+No hosted database was touched. The full test-environment implementation is now
+unblocked.
 
-The replay script remains useful whichever repair is selected: the accepted
-repair must make all tracked migrations pass without adding a fake
-`customers.name` column to the compatibility harness.
+The replay script remains a permanent gate: every future migration is included
+automatically, and no fake `customers.name` column exists in the compatibility
+harness.

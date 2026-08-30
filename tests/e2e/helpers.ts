@@ -15,7 +15,7 @@ export const anon = createClient(
 
 /** Every row this suite creates carries this marker so cleanup can be exact. */
 export const MARK = "ZZTEST";
-export const TEST_EMAIL = "a.maroudas@gmail.com";
+export const TEST_EMAIL = "automated.zztest@example.invalid";
 
 /**
  * Test bookings sit a year out. A date in the live season could collide with a

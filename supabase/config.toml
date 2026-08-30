@@ -1,0 +1,5 @@
+project_id = "anadyon-staging"
+
+[db.seed]
+enabled = true
+sql_paths = ["./seeds/staging.sql"]

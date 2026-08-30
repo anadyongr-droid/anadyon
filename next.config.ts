@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 import { RECAPTCHA_TEST_SITE_KEY, isLiveSite } from "./lib/recaptchaKeys";
+import { sentryIngestOriginFromDsn } from "./lib/sentryPrivacy";
 
 /**
  * Refuses to build a production bundle carrying Google's reCAPTCHA test key.
@@ -41,6 +43,12 @@ assertRecaptchaKeyIsNotTheTestOne();
 const SCRIPT_SOURCES =
   "'self' https://www.google.com https://www.gstatic.com https://www.googletagmanager.com https://www.google-analytics.com https://www.recaptcha.net";
 
+const BASE_CONNECT_SOURCES =
+  "'self' https://*.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com";
+const SENTRY_INGEST_ORIGIN = sentryIngestOriginFromDsn(
+  process.env.NEXT_PUBLIC_SENTRY_DSN,
+);
+
 /** Directives shared by the enforced and the report-only policy. */
 const BASE_CSP = [
   "default-src 'self'",
@@ -67,7 +75,7 @@ const BASE_CSP = [
   // adding those pre-emptively in case Ads is linked later; we do not run Ads,
   // and a policy is only worth having if it stays as narrow as the site's
   // actual behaviour. Link Google Ads and this needs revisiting.
-  "connect-src 'self' https://*.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com",
+  `connect-src ${BASE_CONNECT_SOURCES}${SENTRY_INGEST_ORIGIN ? ` ${SENTRY_INGEST_ORIGIN}` : ""}`,
   "frame-src https://www.google.com https://www.recaptcha.net",
   "frame-ancestors 'none'",
   "object-src 'none'",
@@ -213,4 +221,30 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN?.trim();
+
+const sentryBuild = sentryAuthToken ? withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG?.trim() || undefined,
+  project: process.env.SENTRY_PROJECT?.trim() || undefined,
+  authToken: sentryAuthToken || undefined,
+  silent: true,
+  telemetry: false,
+  // Local and unconfigured preview builds must remain reproducible. Source
+  // maps are uploaded only when the dedicated build credential is present,
+  // then removed from the client artifact rather than published to visitors.
+  sourcemaps: {
+    disable: !sentryAuthToken,
+    deleteSourcemapsAfterUpload: true,
+  },
+  // These apply to the Turbopack production build as well as webpack. Tracing
+  // is disabled in runtime options and removed here; Replay is never added.
+  bundleSizeOptimizations: {
+    excludeDebugStatements: true,
+    excludeTracing: true,
+  },
+}) : nextConfig;
+
+// Runtime reporting does not depend on the build plugin. Without its secret
+// token, export the untouched Next config: this skips source-map upload and its
+// Turbopack loaders entirely instead of making an unconfigured build fail.
+export default sentryBuild;

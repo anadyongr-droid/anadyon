@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 /**
  * The generated XML, checked against the published schema rather than by
@@ -22,8 +22,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * Treat a green run here as saying nothing about whether AADE will accept a DCL
  * submission. The sandbox is what settles that.
  */
-
-vi.mock("@/lib/supabase", () => ({ supabaseAdmin: {} }));
 
 /** InvoiceSummaryType, in schema order. All eight are minOccurs=1. */
 const SUMMARY_ORDER = [
@@ -56,7 +54,7 @@ beforeEach(() => {
 
 describe("the invoice summary the schema demands", () => {
   it("emits all eight mandatory elements", async () => {
-    const { buildInvoiceXml } = await import("@/app/api/admin/invoices/submit/route");
+    const { buildInvoiceXml } = await import("@/lib/aadeXml");
     const xml = buildInvoiceXml(reservation() as never, "A", 1);
     for (const field of SUMMARY_ORDER) {
       expect(xml, `${field} is missing — AADE rejects the whole document`)
@@ -67,7 +65,7 @@ describe("the invoice summary the schema demands", () => {
   it("emits them in the schema's order", async () => {
     // xs:sequence is positional. Right fields, wrong order is still rejected,
     // and is the kind of thing a presence-only check waves through.
-    const { buildInvoiceXml } = await import("@/app/api/admin/invoices/submit/route");
+    const { buildInvoiceXml } = await import("@/lib/aadeXml");
     const xml = buildInvoiceXml(reservation() as never, "A", 1);
     const summary = xml.slice(xml.indexOf("<invoiceSummary>"), xml.indexOf("</invoiceSummary>"));
     const seen = [...summary.matchAll(/<(total[A-Za-z]+)>/g)].map((m) => m[1]);
@@ -77,7 +75,7 @@ describe("the invoice summary the schema demands", () => {
   it("sends zero rather than omitting what does not apply", async () => {
     // A rental has no withholding, fees, stamp duty, other taxes or deductions.
     // "None" is 0.00 in a mandatory field, not an absent element.
-    const { buildInvoiceXml } = await import("@/app/api/admin/invoices/submit/route");
+    const { buildInvoiceXml } = await import("@/lib/aadeXml");
     const xml = buildInvoiceXml(reservation() as never, "A", 1);
     for (const f of ["totalWithheldAmount", "totalFeesAmount", "totalStampDutyAmount",
                      "totalOtherTaxesAmount", "totalDeductionsAmount"]) {
@@ -88,13 +86,13 @@ describe("the invoice summary the schema demands", () => {
 
 describe("the document type", () => {
   it("issues ΑΠΥ (11.2) to a private customer", async () => {
-    const { buildInvoiceXml } = await import("@/app/api/admin/invoices/submit/route");
+    const { buildInvoiceXml } = await import("@/lib/aadeXml");
     const xml = buildInvoiceXml(reservation() as never, "A", 1);
     expect(xml).toContain("<invoiceType>11.2</invoiceType>");
   });
 
   it("issues ΤΠΥ (2.1) to a business, with a counterpart", async () => {
-    const { buildInvoiceXml } = await import("@/app/api/admin/invoices/submit/route");
+    const { buildInvoiceXml } = await import("@/lib/aadeXml");
     const xml = buildInvoiceXml(
       reservation({ customers: { first_name: "A", last_name: "B", country: "Germany", vat_number: "DE123" } }) as never,
       "A", 1
@@ -107,7 +105,7 @@ describe("the document type", () => {
 
 describe("arithmetic that ends up on a tax return", () => {
   it("splits gross into net and VAT at 24%", async () => {
-    const { buildInvoiceXml } = await import("@/app/api/admin/invoices/submit/route");
+    const { buildInvoiceXml } = await import("@/lib/aadeXml");
     const xml = buildInvoiceXml(reservation({ total: 372, discount_amount: 0 }) as never, "A", 1);
     // 372 / 1.24 = 300.00 net, 72.00 VAT.
     expect(xml).toContain("<totalNetValue>300.00</totalNetValue>");
@@ -118,7 +116,7 @@ describe("arithmetic that ends up on a tax return", () => {
   it("net and VAT add back to gross exactly", async () => {
     // Rounding each half independently can leave them a cent apart from the
     // total, which is the sort of thing an auditor notices and nobody else does.
-    const { buildInvoiceXml } = await import("@/app/api/admin/invoices/submit/route");
+    const { buildInvoiceXml } = await import("@/lib/aadeXml");
     for (const total of [372, 100, 99.99, 55.55, 0.03, 1234.56]) {
       const xml = buildInvoiceXml(reservation({ total, discount_amount: 0 }) as never, "A", 1);
       const num = (tag: string) => Number(xml.match(new RegExp(`<${tag}>([\\d.]+)</${tag}>`))![1]);
@@ -130,7 +128,7 @@ describe("arithmetic that ends up on a tax return", () => {
   });
 
   it("takes the discount off before splitting", async () => {
-    const { buildInvoiceXml } = await import("@/app/api/admin/invoices/submit/route");
+    const { buildInvoiceXml } = await import("@/lib/aadeXml");
     const xml = buildInvoiceXml(reservation({ total: 472, discount_amount: 100 }) as never, "A", 1);
     expect(xml).toContain("<totalGrossValue>372.00</totalGrossValue>");
   });
@@ -138,7 +136,7 @@ describe("arithmetic that ends up on a tax return", () => {
 
 describe("refusing rather than filing something false", () => {
   it("refuses a business customer whose country cannot be resolved", async () => {
-    const { buildInvoiceXml } = await import("@/app/api/admin/invoices/submit/route");
+    const { buildInvoiceXml } = await import("@/lib/aadeXml");
     expect(() =>
       buildInvoiceXml(
         reservation({ customers: { first_name: "A", last_name: "B", country: "Narnia", vat_number: "X1" } }) as never,
@@ -149,14 +147,14 @@ describe("refusing rather than filing something false", () => {
 
   it("refuses a client-list entry with an unresolvable country", async () => {
     // "British" is a demonym. The old code filed it, and fell back to "GR".
-    const { buildDclXml } = await import("@/app/api/admin/aade/submit/route");
+    const { buildDclXml } = await import("@/lib/aadeXml");
     expect(() =>
       buildDclXml(reservation({ customers: { first_name: "J", last_name: "S", country: "British" } }) as never)
     ).toThrow(/country/i);
   });
 
   it("files a resolvable country as its code", async () => {
-    const { buildDclXml } = await import("@/app/api/admin/aade/submit/route");
+    const { buildDclXml } = await import("@/lib/aadeXml");
     const xml = buildDclXml(reservation() as never);
     expect(xml).toContain("<counterpartCountry>GB</counterpartCountry>");
     expect(xml, "the display name reached the filing").not.toContain("United Kingdom");
@@ -165,7 +163,7 @@ describe("refusing rather than filing something false", () => {
 
 describe("XML escaping", () => {
   it("escapes a name that would otherwise break the document", async () => {
-    const { buildDclXml } = await import("@/app/api/admin/aade/submit/route");
+    const { buildDclXml } = await import("@/lib/aadeXml");
     const xml = buildDclXml(
       reservation({ customers: { first_name: "Ben & Co", last_name: "<script>", country: "Greece" } }) as never
     );

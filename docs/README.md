@@ -24,6 +24,7 @@ built sound?* Keep them apart; they go stale at different rates.
 | [`HANDOVER-ADMIN-FROZEN-PANES.md`](HANDOVER-ADMIN-FROZEN-PANES.md) | **Open defect** — table headers and first column will not freeze on iPad; three attempts and what disproved each |
 | [`OPEN-QUESTION-RPC-STAFF-IDENTITY.md`](OPEN-QUESTION-RPC-STAFF-IDENTITY.md) | **Open question, blocking blueprint §4.2** — every RPC call uses the service role, so `auth.uid()` is NULL and the specified staff-identity gateway cannot work. Written to be read cold by an outside reviewer |
 | [`RESTORE.md`](RESTORE.md) | Recovery procedure |
+| [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md) | How to create, reset and verify isolated staging, wire Preview and CI, and validate privacy-safe Sentry |
 
 ## Handovers
 
@@ -48,3 +49,10 @@ inferred from a green local suite.
 **Measurement.** Methods that have produced confident false readings on this
 project are listed in [`audits/README.md`](audits/README.md). Read them before
 running a sweep; two of them have each cost a wrong finding more than once.
+
+**Staging resets.** Hosted staging is disposable and contains synthetic data
+only. `npm run staging:reset` is its only supported schema reset: it verifies
+the target three ways, replays migrations, reseeds, and checks grants/schema.
+Never fix staging by hand, never copy a production dump, and never apply a
+migration from an automated agent. The exact operator procedure is in the
+[staging runbook](STAGING-AND-OBSERVABILITY-RUNBOOK.md).
