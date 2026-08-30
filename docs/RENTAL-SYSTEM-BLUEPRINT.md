@@ -1791,6 +1791,76 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 30 August 2026 — environments: there is only production
+
+*Architect entry. Nothing here is built. The build brief is
+`docs/HANDOVER-TEST-ENVIRONMENT.md`; the reviewable status of the whole
+architecture is `docs/ARCHITECTURE-STATUS-2026-08-30.md`.*
+
+**The finding, and a correction owed to the record.** `docs/HANDOFF-H1.md` §6
+has said since it was written that *"There is no staging database. A real
+booking creates real rows."* That is still true, and it means every "check it on
+the Vercel preview" issued during this month's work was pointing at production
+data. Preview deployments get their own hostname and their own build; they do
+not get their own database.
+
+Three gaps follow from it, and they were prioritised in this order:
+
+**1. Error tracking — first, and not because it is the biggest.** There is none:
+no entry in `package.json`, and the only production signals are the 05:00
+Telegram briefing and the four-hour email watchdog, both of which report
+business state rather than that a request threw. The argument for putting it
+ahead of everything is `docs/INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md`: three hours
+of the owner locked out of `/admin`, every hypothesis disproved, **cause never
+established** — and that document's §6 names the exact evidence that would have
+settled it, a `[proxy]` log line that was emitted and lost because nothing
+collected it. Two hours of work makes the recurrence diagnosable. Staging would
+not have helped with that incident at all.
+
+**2. The end-to-end suite into CI.** `tests/e2e/` already holds nine files
+covering quote → conversion → lifecycle → guards → operations → security →
+readiness, with the mail transport stubbed at the floor in `setup.ts` rather
+than left to each test to remember. It runs by hand only, because it writes to
+the live database. Almost all the work is already done; what is missing is
+somewhere safe to point it.
+
+**3. The staging Supabase project.** The keystone — item 2 cannot run without
+it — but third, because it is the only one of the three with an unknown in its
+estimate. Half a day if the 37 migrations replay cleanly into an empty database,
+one to two days if they do not, and an hour with PGlite (already a dependency,
+already used by the `lib/*Migration.test.ts` family) settles which before
+anything is committed to.
+
+**What staging is worth, stated narrowly.** The strongest argument is not
+"previews stop writing to production" — it is the vendor sandboxes. AADE, Stripe
+and NBG can only be exercised against real request/response cycles somewhere
+that is not the live business, and §5.3 of the status document is the evidence:
+the AADE work is finished and has never been sent anywhere. The invoice XML was
+checked against the published schema; the client-list declaration could not be,
+because `aade.gr` is unreachable from the build container.
+
+**And what it is not worth.** Neither production defect found on 28 August — the
+turnaround applied to one end of a rental, the Calendar drawing a booking a day
+early — would have been caught by any of this. Both produced plausible output,
+so an end-to-end run would have exercised them and reported success. That
+entry's own conclusion holds: the tests *"asserted the predicate as written
+rather than the behaviour it was meant to produce."* No environment fixes that.
+
+**The design constraint that decides whether it is worth having at all.**
+Staging's failure mode is drift, and a stale staging is worse than none because
+it gets believed. So: one command resets it, and nothing in it is ever fixed by
+hand — a schema change arrives as a migration or it does not arrive. Seed data
+is synthetic and never a production dump; `customers` holds passport numbers,
+licence numbers and dates of birth of people who consented to renting a car, not
+to their documents being copied into a system with looser access.
+
+**Open, for the architect rather than the branch:** whether staging is its own
+Vercel project (stable URL, easier Stripe and Resend webhook registration) or
+rides preview deployments of the existing one; whether the e2e job runs on every
+pull request; whether the database resets on a schedule; and the retention
+setting on whatever error tracker is chosen, given it receives stack traces from
+routes that handle identity documents.
+
 ### 30 August 2026 — four eyes on the fleet record
 
 Tasos asked for the fleet screen to be opened to staff **and** made editable,
