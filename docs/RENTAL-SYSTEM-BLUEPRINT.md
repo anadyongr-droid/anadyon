@@ -1791,6 +1791,140 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 30 August 2026 — four eyes on the fleet record
+
+Tasos asked for the fleet screen to be opened to staff **and** made editable,
+with an administrator approving what staff enter.
+
+**The design in one line: the refusal becomes a proposal.**
+
+`app/api/admin/vehicles/[id]` already computed a `refused` list — the fields a
+staff session may not write — and answered 403 naming them. `STAFF_WRITABLE` is
+`status`, `odometer_km`, `vehicle_notes`, chosen as counter tasks. So a staff
+member noticing a KTEO certificate expires next week had no way to record it
+except to tell somebody.
+
+Rather than widen what staff may write, that same refused set now becomes a
+`vehicle_change_requests` row, and an administrator turns it into a change.
+**Nothing here lets staff write a column they could not write before.** The
+property is pinned by `lib/fourEyes.test.ts`, which asserts the writable set is
+unchanged and that the request block never touches `vehicles`.
+
+*Migration `20260830120000` + paste `038` — **applied to production, 30 August**.*
+Verified rather than assumed: the table and function exist, RLS is on, three
+indexes (the primary key's included — an earlier count of two forgot it), and
+`has_function_privilege('service_role', …)` is true. That last check is the one
+worth repeating on any future `SECURITY DEFINER` function: this blueprint records
+revoking a function from `service_role` and leaving it uncallable **twice**, and
+the symptom both times was a feature that looked installed and failed on use.
+
+**A mixed edit does both, and says so.** The odometer saves at once; the
+statutory dates in the same form go to the queue. Refusing the whole submission
+because one field needs review would discard a reading somebody just took off
+the dashboard. The response carries `_requested`, the modal names the fields
+that went for approval, and it treats **202 as success** — `res.ok` is false for
+202, so the obvious check would show "Could not save" over a proposal recorded
+perfectly.
+
+**No approval for status, odometer or notes**, deliberately. Putting a review
+between a staff member and "this vehicle is in maintenance" would delay the one
+action that protects a customer. Slow in the wrong direction.
+
+**Two things the SQL has to get right, both executed against a real Postgres in
+`lib/vehicleChangeRequestsMigration.test.ts` rather than reasoned about.**
+
+1. *Approval and application are one act.* Separate statements can be
+   interrupted between them, leaving a request reading "approved" over a vehicle
+   that never changed. `apply_vehicle_change_request` does both under a row
+   lock, so two administrators pressing Approve cannot both apply.
+
+2. *Approving must not undo somebody's work.* Staff propose `kteo_expiry` on
+   Monday. An administrator fixes that field by hand on Tuesday. Approving the
+   stale request on Wednesday would silently revert Tuesday. Every column named
+   in `before` is compared against the vehicle now, and a mismatch refuses the
+   **whole** request — surfaced as a 409 naming the field, not a 500, because
+   nothing is broken and re-reading is the fix. An unrelated field moving (an
+   odometer reading at handover) does not invalidate a pending KTEO correction.
+
+**The key is interpolated as an identifier inside a `SECURITY DEFINER`
+function**, so it is validated against `information_schema.columns` and against
+an explicit `id`/`created_at` denylist rather than trusted from the application.
+`jsonb_populate_record` against the `vehicles` type does the conversion, so a
+date arrives as a date and not as text that happens to look like one.
+
+**What is still not four-eyed, and should be said plainly.** An administrator
+editing the fleet directly is unchanged — one pair of eyes, as before. This
+covers *staff* input, which is what was asked. If the intent is that no single
+person can alter a statutory date unreviewed, that is a larger change: it would
+mean an administrator's own edits also entering the queue, and a second
+administrator to clear them. Anadyon has one administrator today, so that would
+deadlock. Worth deciding explicitly rather than discovering.
+
+### 30 August 2026 — major damage takes a vehicle off the road
+
+Tasos's decision, after the visibility work raised it: recording **unrepaired
+major damage bars the vehicle immediately**, and only an administrator puts it
+back. He chose that over "bar once you approve" — the safe direction, since a
+wrecked car bookable in the gap costs more than a good car idle for an hour.
+
+**It is a `vehicle_blocks` row, not a new kind of bar, and that is the whole
+design.** The instinct is to teach `rentalBar()` about damage. That would have
+been decoration: `rentalBar()` renders a warning on three screens, while the
+thing that actually refuses to allocate a vehicle is the SQL allocator in
+`20260828120000_vehicle_blocks.sql`. A TypeScript-only bar would have shown a
+red line on the fleet screen while the website carried on taking bookings —
+this codebase's recurring failure, one more time.
+
+Going through §7.4 means everything else already existed:
+
+| Requirement | Where it comes from |
+|---|---|
+| Refuses the booking, online and in the office | the SQL allocator reading `vehicle_blocks` |
+| Only a person puts it back | `released_at` / `released_by` |
+| Chases if it drags | `blockChase()`, remind at 2 days, escalate at 4 |
+| Shows on Fleet and Today | the existing "out of fleet" rendering |
+
+The `reason` check constraint has permitted `'damage'` since the table was
+created. This is the caller it was waiting for.
+
+**One documented decision was deliberately narrowed.** `blocks/route.ts` says
+staff may release a block, because "a release that only an admin can perform is
+a release that waits" — right for a van back from the mechanic, which is an
+operational fact. Releasing a *damage* block is not that. It is a judgement that
+a vehicle carrying unrepaired major damage is fit to hand to a customer, and
+that belongs to whoever carries the liability. Damage only; every other reason
+keeps the old behaviour. Narrowing a written decision rather than contradicting
+it silently, with the reasoning beside the old reasoning.
+
+**Two guards worth keeping.** `repaired_on` stops a back-filled historic repair
+from taking a good car off the road — the ledger allows entering a June dent
+fixed in July, and barring for that would be absurd. And a second major damage
+on an already-blocked vehicle reuses the open block, because two would each need
+releasing separately.
+
+**A failed block never loses the damage record.** The operator typed the damage;
+that is the part worth keeping. The response carries `_block_error` and the modal
+says loudly that the vehicle is *still bookable*, rather than failing the whole
+request and teaching people not to log damage.
+
+**The briefing lists damage holds from day one**, separately, under
+"ΜΟΝΟ ΔΙΑΧΕΙΡΙΣΤΗΣ". `blockChase()` stays quiet for two days, which is right for
+a workshop estimate and wrong for something only one person can clear: the
+reminder there is not "this is late", it is "this needs you".
+
+**Risk this was weighed against, and why it is smaller than it looked.** The
+objection to a hard bar was a car marked `major` in haste becoming unbookable in
+August. But `refuseNonAdmin` gates the ledger POST — **only an administrator can
+record a damage at all.** The person who can create the bar is the person who
+can lift it. That should be revisited if damage logging is ever opened to staff.
+
+**Still open: staff cannot see any of this.** `/admin/fleet` is `adminOnly` in
+the nav *and* absent from `STAFF_PAGES` in `proxy.ts`, so the damage line added
+earlier today renders on a screen staff cannot reach. The endpoint is open to
+them and nothing shows it. Tasos asked for the fleet screen to show every
+vehicle state, which it now does — but the staff-facing surface is unbuilt and
+undecided.
+
 ### 30 August 2026 — AADE, checked against the published schema
 
 **The invoice module would have been rejected on every single filing.** Checked

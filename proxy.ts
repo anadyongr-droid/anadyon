@@ -12,6 +12,13 @@ const STAFF_PAGES = [
   "/admin/quotes",
   "/admin/customers",
   "/admin/inbox",
+  // The fleet record. Staff may read it and may write the three counter fields
+  // (status, odometer, notes); everything else they submit becomes a change
+  // request for an administrator to approve, rather than a 403 telling them to
+  // go and find one. app/api/admin/vehicles/[id] holds that line, and the
+  // vehicle ledger inside the modal stays administrator-only — costs, purchase
+  // price and margin are not part of this.
+  "/admin/fleet",
   // Reference. Both render read-only for staff — see the `readOnly` prop each
   // page takes. The API enforces it regardless of what the page shows.
   "/admin/rates",

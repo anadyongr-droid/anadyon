@@ -13,7 +13,7 @@ const allNav = [
   { href: "/admin/reservations",  label: "Reservations", icon: LayoutGrid,   adminOnly: false },
   { href: "/admin/quotes",        label: "Quotes",       icon: FileText,     adminOnly: false },
   { href: "/admin/customers",     label: "Customers",    icon: Users,        adminOnly: false },
-  { href: "/admin/fleet",         label: "Fleet",        icon: Car,          adminOnly: true  },
+  { href: "/admin/fleet",         label: "Fleet",        icon: Car,          adminOnly: false },
   { href: "/admin/rates",         label: "Rates",        icon: Settings,     adminOnly: false },
   { href: "/admin/promo-codes",   label: "Promo Codes",  icon: Tag,          adminOnly: true  },
   { href: "/admin/discount-rules",label: "Discounts",    icon: Percent,      adminOnly: true  },

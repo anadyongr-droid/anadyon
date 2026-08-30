@@ -210,6 +210,22 @@ export async function GET(req: NextRequest) {
     msg += "\n";
   }
 
+  // Damage blocks are separated out because only an administrator can lift one.
+  // A van at the mechanic is somebody's errand; a car held for major damage is
+  // a decision waiting on one person, and it will sit there until that person
+  // sees it. Listed from day one rather than at the chase threshold — the
+  // reminder is not "this is late", it is "this needs you".
+  const damageHeldAll = (openBlocks ?? []).filter((b) => b.reason === "damage");
+  if (damageHeldAll.length) {
+    msg += `⛔ <b>ΑΚΙΝΗΤΟΠΟΙΗΜΕΝΑ ΛΟΓΩ ΖΗΜΙΑΣ — ΜΟΝΟ ΔΙΑΧΕΙΡΙΣΤΗΣ (${damageHeldAll.length}):</b>\n`;
+    for (const b of damageHeldAll) {
+      const v = b.vehicles as { name?: string; plate?: string | null } | null;
+      const days = blockChase(b).daysOut;
+      msg += `  • ${v?.name ?? "?"}${v?.plate ? ` (${v.plate})` : ""} — ${days === 1 ? "1 ημέρα" : `${days} ημέρες`}${b.note ? ` | ${b.note}` : ""}\n`;
+    }
+    msg += "\n";
+  }
+
   // Below the escalated blocks and above the day's movements. A car out of the
   // fleet for four days needs action today; damage needs to be remembered, and
   // the difference in urgency is the order they appear in.

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase";
+import { releaseNeedsAdmin } from "@/lib/damageBlock";
 
 /**
  * Taking a vehicle out of the active fleet, and putting it back.
@@ -14,6 +15,10 @@ import { supabaseAdmin } from "@/lib/supabase";
  * The rule this route exists to hold: **an expected return ends nothing.** A
  * block is closed by a person, through PATCH, and never by a date arriving.
  */
+
+// Set by proxy.ts, which deletes any client-supplied copy first, so it can be
+// trusted. Same header the vehicle ledger checks.
+const ROLE_HEADER = "x-anadyon-role";
 
 const REASONS = ["maintenance", "statutory", "damage", "hold", "other"] as const;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -142,11 +147,37 @@ export async function PATCH(req: NextRequest) {
 
   const { data: existing, error: readError } = await supabaseAdmin
     .from("vehicle_blocks")
-    .select("id, released_at")
+    .select("id, reason, released_at")
     .eq("id", id)
     .maybeSingle();
   if (readError) return NextResponse.json({ error: readError.message }, { status: 500 });
   if (!existing) return NextResponse.json({ error: "That block no longer exists." }, { status: 404 });
+
+  /*
+   * A damage block is the one an administrator has to lift.
+   *
+   * This narrows the rule stated at the top of this file, and the narrowing is
+   * deliberate rather than a contradiction. "A release that only an admin can
+   * perform is a release that waits" is right for a van back from the mechanic:
+   * that is an operational fact, and staff should record it.
+   *
+   * Releasing a damage block is a different act. It is a judgement that a
+   * vehicle carrying unrepaired major damage is fit to hand to a customer, and
+   * that is a liability decision belonging to whoever carries the liability.
+   * Every other reason keeps the old behaviour — see lib/damageBlock.ts.
+   */
+  if (releaseNeedsAdmin(existing.reason) && req.headers.get(ROLE_HEADER) !== "admin") {
+    return NextResponse.json(
+      {
+        error:
+          "This vehicle is off the road for major damage. Only an administrator " +
+          "can put it back into the fleet — ask one to release it, or record the " +
+          "damage as repaired first.",
+      },
+      { status: 403 },
+    );
+  }
+
   if (existing.released_at) {
     // Not an error worth failing on — two people pressing the same button is
     // the expected way this gets used.
