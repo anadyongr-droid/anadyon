@@ -120,7 +120,30 @@ describe("the category mapping opens read-only too", () => {
   it("offers Edit mapping, then Save and Cancel", () => {
     expect(market).toContain("Edit mapping");
     expect(market).toContain("Save mapping");
-    expect(market).toContain("Cancel mapping");
+    // The mapping button's own visible label, anchored to its handler.
+    //
+    // Two earlier versions of this line passed for the wrong reason. The first
+    // asserted the string "Cancel mapping", which survived the rename because
+    // aria-label="Cancel mapping changes" still contains it. The second matched
+    // `> Cancel` anywhere in the file — and the rate editor's Cancel satisfied
+    // it, so deleting the mapping button's label entirely still passed. Reading
+    // from `cancelMappingEdit` to its `</button>` is what makes it this button.
+    expect(market).toMatch(
+      /onClick=\{cancelMappingEdit\}[\s\S]{0,600}?<X size=\{15\} \/> Cancel\s*\n\s*<\/button>/
+    );
+  });
+
+  it("the two Cancels are distinguishable to a screen reader", () => {
+    // Both read "Cancel" on screen, and the rate editor's Cancel and the
+    // mapping's can be open at the same time. Same visible word is fine; the
+    // same accessible name is not.
+    expect(market).toContain('aria-label="Cancel mapping changes"');
+    expect(market).toContain('aria-label="Cancel rate changes"');
+    // WCAG 2.5.3: the accessible name must contain the visible label, so a
+    // voice user saying "click Cancel" still matches.
+    for (const label of ["Cancel mapping changes", "Cancel rate changes"]) {
+      expect(label.startsWith("Cancel"), `${label} does not start with its visible label`).toBe(true);
+    }
   });
 
   it("Cancel restores the mapping last loaded or saved", () => {

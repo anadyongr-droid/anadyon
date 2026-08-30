@@ -4,6 +4,7 @@ import { statusClass } from "../lib/statusColors";
 import { AlertTriangle, Clock } from "lucide-react";
 import VehicleModal, { type FleetVehicle } from "../components/VehicleModal";
 import { worstSeverity, rentalBar, vehicleDateStatuses, type Severity } from "@/lib/fleetStatus";
+import { damageLabel, type VehicleDamageSummary } from "@/lib/openDamage";
 
 const STATUS_OPTIONS = ["available", "maintenance", "retired"];
 
@@ -42,16 +43,33 @@ export default function FleetPage() {
    */
   const [outOfFleet, setOutOfFleet] = useState<Record<string, { starts_on: string; reason: string; expected_return: string | null }>>({});
 
+  /**
+   * Unrepaired damage, per vehicle.
+   *
+   * The count existed only inside one vehicle's Damages tab, so the fleet-wide
+   * question needed twenty-nine modals. It carries no repair cost — see
+   * lib/openDamage.ts for why that stops at the ledger.
+   */
+  const [damage, setDamage] = useState<Record<string, VehicleDamageSummary>>({});
+
   const load = useCallback(async () => {
-    const [vehiclesRes, blocksRes] = await Promise.all([
+    // Three independent reads. Awaiting them in turn would show the list, then
+    // the blocks, then the damage, and a row that says "available" before its
+    // damage line arrives is the same lie the block line was added to stop.
+    const [vehiclesRes, blocksRes, damageRes] = await Promise.all([
       fetch("/api/admin/vehicles"),
       fetch("/api/admin/vehicles/blocks?open=1"),
+      fetch("/api/admin/vehicles/damages"),
     ]);
     if (vehiclesRes.ok) setVehicles(await vehiclesRes.json());
     if (blocksRes.ok) {
       const rows: Array<{ vehicle_id: string; starts_on: string; reason: string; expected_return: string | null }> =
         await blocksRes.json();
       setOutOfFleet(Object.fromEntries(rows.map(b => [b.vehicle_id, b])));
+    }
+    if (damageRes.ok) {
+      const rows: VehicleDamageSummary[] = await damageRes.json();
+      setDamage(Object.fromEntries(rows.map(d => [d.vehicle_id, d])));
     }
   }, []);
 
@@ -147,6 +165,15 @@ export default function FleetPage() {
                           </div>
                         )}
                         {b.barred && <div className="text-xs text-red-600 mt-0.5">{b.reason}</div>}
+                        {damage[v.id] && (
+                          // Amber, not red: this is a fact to weigh, not a bar
+                          // on renting. Red is reserved for the two statutory
+                          // expiries that genuinely void cover.
+                          <div className="text-xs text-amber-700 mt-0.5">
+                            {damageLabel(damage[v.id])}
+                            {damage[v.id].daysOpen > 0 && ` — open ${damage[v.id].daysOpen} day${damage[v.id].daysOpen === 1 ? "" : "s"}`}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-3 text-gray-500 text-xs font-mono">{v.plate || "—"}</td>
                       <td className="px-3 py-3">

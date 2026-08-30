@@ -230,6 +230,7 @@ export default function MarketPage() {
                 type="button"
                 onClick={() => { setEditingRates(false); setRateNote(null); }}
                 disabled={rateSaving}
+                aria-label="Cancel rate changes"
                 className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
               >
                 <X size={15} /> Cancel
@@ -375,13 +376,20 @@ export default function MarketPage() {
               </span>
             ) : editingMapping ? (
               <>
+                {/* Both Cancels read "Cancel", which is what you want on screen —
+                    but the rate editor above has its own and both can be open at
+                    once. Two buttons sharing an accessible name is ambiguous when
+                    you navigate by button list, so each aria-label says which one
+                    it is. Each still starts with the visible word, as WCAG 2.5.3
+                    (Label in Name) requires. */}
                 <button
                   type="button"
                   onClick={cancelMappingEdit}
                   disabled={saving}
+                  aria-label="Cancel mapping changes"
                   className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
                 >
-                  <X size={15} /> Cancel mapping
+                  <X size={15} /> Cancel
                 </button>
                 <button
                   type="button"
