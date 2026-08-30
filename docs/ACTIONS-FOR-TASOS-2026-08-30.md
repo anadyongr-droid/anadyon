@@ -84,23 +84,44 @@ through the service role"*, so with a placeholder key every data-backed page and
 route comes back empty or errors. That is the change working, not breaking.
 Redeploy a preview branch for the variables to take effect.
 
-## 2b. Then rotate the service-role key — the part that is easy to skip
+## 2b. Rotating the service-role key — **optional, and lower priority than first written**
 
-Scoping closes the door. It does not ask whether anyone walked through it.
+*Downgraded 30 August. The first version of this item recommended rotation as
+"the part that is easy to skip", which implied it mattered more than it does.
+Tasos asked what had actually been exposed and why it needed changing, and the
+answer did not survive the question.*
 
-That key has been sitting in the build environment of every branch built this
-month. The realistic exposure is to people who already have repository access,
-so this is precautionary rather than an incident — but the correct response to a
-credential that was somewhere it should not have been is to replace it, not to
-move it.
+**Two risks were run together, and only one of them was real here.**
 
-**Order matters:** scope first (item 2), then rotate, then update the new value
-in three places — Vercel **Production**, your local `.env.local`, and the
-`SUPABASE_SERVICE_ROLE_KEY` GitHub Actions secret if you have set one for the
-schema-drift step. Rotating before scoping just puts a fresh key on every
-preview.
+**Misuse by unreviewed code — real, and already fixed.** A preview deployment
+runs whatever is on that branch, at a publicly reachable URL. A branch with a
+broken `proxy.ts`, a leaking route, or an agent-written bug ran against
+*production data*. Item 2 closed this, and it is the reason the work was urgent.
 
-Supabase → Project Settings → API → service_role → rotate.
+**Disclosure of the key itself — no evidence, and rotation is the only thing
+that would help.** The plausible paths are Vercel dashboard access, build logs,
+and a malicious dependency executing during a build. **All three apply to
+production builds identically**, so the preview scoping never widened them and
+removing it never narrows them. The key has never been in git, never in a
+browser, and the only person with Vercel access is the owner.
+
+So rotation defends against a disclosure with no sign of having happened, by a
+route that scoping does not affect either way. **Recommendation: leave it.**
+
+If you want it anyway, do it on a quiet morning, and check which mechanism your
+dashboard offers first — the two differ sharply:
+
+- **Individually revocable secret keys** — rotate that one key, update Vercel
+  Production, `.env.local`, and the GitHub secret if set, redeploy. Contained.
+- **JWT-secret regeneration only** — `anon` and `service_role` are both signed
+  by the project JWT secret, so this changes **both**, and invalidates every
+  issued JWT: everyone is signed out, you included, and the site stays broken
+  until both values are updated in Vercel Production.
+
+The second is worth weighing against
+`docs/INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md`: three hours locked out of `/admin`
+in August, cause never established. Deliberately invalidating your own session
+is not a thing to do casually, for a benefit this thin.
 
 ---
 

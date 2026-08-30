@@ -364,13 +364,18 @@ There is no environment between a developer and the business. Concretely:
   previews still point at the production project, so a future anon-readable
   table would silently restore read access, with nothing watching for it.
 
-  One consequence remains, and it is easy to miss. And **the key should be rotated afterwards, not
-  only re-scoped**: it has been present in the build environment of every branch
-  built this month, so scoping alone closes the door without asking whether
-  anyone walked through it. This is precautionary — the exposure is to people
-  who already had repository access — but the ordering matters: scope first,
-  then rotate, then update the value in Vercel Production, `.env.local`, and the
-  `SUPABASE_SERVICE_ROLE_KEY` GitHub secret if one is set.
+  **A note on rotation, because this document first got it wrong.** The earlier
+  version recommended rotating the key afterwards, on the reasoning that scoping
+  closes the door without asking whether anyone walked through it. That
+  conflates two risks. The real one was *unreviewed code running with the key* —
+  a preview deployment runs whatever is on its branch, at a public URL, against
+  production data — and scoping fixed exactly that. The other is *disclosure of
+  the key*, which rotation addresses; but its plausible routes (Vercel dashboard
+  access, build logs, a malicious dependency executing during a build) apply to
+  production builds identically, so preview scoping neither widened nor narrows
+  them. There is no evidence of any of them, and the key has never been in git
+  or in a browser. Rotation is therefore **optional and low priority**, not the
+  second half of the fix. See `docs/ACTIONS-FOR-TASOS-2026-08-30.md` §2b.
 - **There is no error tracking.** Nothing in `package.json`. The only production
   signals are the 05:00 Telegram briefing and the four-hour email watchdog, and
   both report on *business* state — neither reports that a request threw.
@@ -442,9 +447,14 @@ Second, and genuinely useful but secondary:
 
 **What is *not* an argument for staging, though the first draft of this section
 said it was:** the vendor sandboxes. Exercising AADE needs credentials and any
-non-production place to point them — a local script driving `lib/aadeXml.ts` and
-the submit call with fixture data would do it, and needs no database at all.
-Stripe test mode is the same. The DCL schema needs one human download. None of
+non-production place to point them — not a staging database. One caveat found
+while checking this: the XML is built **inline inside**
+`app/api/admin/invoices/submit/route.ts` and `app/api/admin/aade/submit/route.ts`,
+not in a module, so there is nothing for a script to import yet. Extracting the
+builder is a small refactor and worth doing anyway — `lib/aadeXml.test.ts`
+currently has to read route source to assert on it — after which a script can
+file fixture data against the sandbox with no database at all. Stripe test mode
+is the same. The DCL schema needs one human download. None of
 that should wait on a staging project, and treating it as the headline reason
 delayed work that could start the day the credentials arrive. That was a
 confusion in this document, not a change of position.

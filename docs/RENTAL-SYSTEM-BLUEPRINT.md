@@ -1823,14 +1823,31 @@ way. Previews then build and render with no data at all, which is correct:
 migration 019's own comment records that *"everything the site serves goes
 through the service role"*, so there is no partial mode to fall back to.
 
-**And then the key is rotated.** Scoping closes the door; it does not establish
-that nobody walked through. The credential has been present in the build
-environment of every branch built this month, so the response to it having been
-somewhere it should not have been is to replace it. Precautionary — the
-realistic exposure is to people who already hold repository access — but the
-order is load-bearing: scope, then rotate, then update Vercel Production,
-`.env.local` and the GitHub Actions secret. Rotating first only distributes a
-fresh key to every preview.
+**Rotation was recommended here, and then withdrawn the same day.** The first
+version of this entry said the key should be rotated as well as re-scoped, on
+the reasoning that scoping closes the door without establishing that nobody
+walked through it. Tasos asked which key had been exposed and why it needed
+changing, and the reasoning did not survive the question.
+
+It conflated two risks. The one that was real is **unreviewed code running with
+the key**: a preview deployment serves whatever is on its branch, at a publicly
+reachable URL, against production data — so a broken `proxy.ts`, a leaking
+route, or an agent-written bug had the whole database behind it. Scoping fixed
+precisely that, and it is why the work was urgent.
+
+The other is **disclosure of the key itself**, which only rotation addresses.
+Its plausible routes — Vercel dashboard access, build logs, a dependency
+executing during a build — apply to production builds identically. Preview
+scoping never widened them and removing it does not narrow them. Nothing
+suggests any of them occurred, and the value has never been in git or in a
+browser.
+
+So rotation is optional and low priority rather than the second half of the fix.
+Recorded because the withdrawal is the useful part: *"rotate after any
+exposure"* is a good reflex that produces a bad answer when the exposure was
+misuse rather than disclosure, and the distinction is worth having next time.
+Where it does apply — the Make.com credential in §9a — the key was rotated and
+the scenarios retired, which is the shape of a real disclosure response.
 
 ### 30 August 2026 — outside review, and the two places this document was wrong
 

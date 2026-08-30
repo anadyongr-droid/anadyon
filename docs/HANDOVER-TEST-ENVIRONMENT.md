@@ -30,9 +30,12 @@ Three changes to the brief below, from a review recorded in
    the preview *build*. This is under an hour and closes a standing exposure
    that the rest of the work only closes at the end.
 2. **Do not wait on staging to exercise the AADE sandbox.** §3 is not a
-   prerequisite for it. The day credentials arrive, drive `lib/aadeXml.ts` and
-   the submit path from a script with fixture data. The same goes for Stripe
-   test mode. The first version of this brief implied otherwise.
+   prerequisite for it; the first version of this brief implied otherwise. The
+   day credentials arrive, file fixture data against the sandbox from a script.
+   One thing to do first: the XML is built **inline in the two route handlers**,
+   not in a module, so there is nothing to import. Extract the builder into
+   `lib/aadeXml.ts` — worth doing regardless, since `lib/aadeXml.test.ts` has to
+   read route source to assert on it today. Same for Stripe test mode.
 3. **Make `scripts/check-schema-drift.mjs` bidirectional before standing staging
    up**, and run it against production. Today it only reports columns the
    migrations declare that the database lacks; `customers.name` was the reverse,
