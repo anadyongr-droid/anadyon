@@ -123,6 +123,66 @@ describe("schema-qualified names", () => {
   });
 });
 
+describe("one ALTER TABLE with several clauses", () => {
+  /**
+   * The second and third parser gaps, both found by running the check against
+   * production on 30 August — and both on `vehicle_blocks`, the table the
+   * availability allocator reads.
+   *
+   * 20260829090000_vehicle_block_release.sql renames `ends_on` to
+   * `expected_return` and adds `released_at, released_by` in one statement. The
+   * parser read neither shape: only the first ADD COLUMN follows the words
+   * "ALTER TABLE", so `released_by` was never declared, and RENAME COLUMN was
+   * not read at all, so it went on believing in `ends_on` and had never heard
+   * of `expected_return`. Three false findings from two gaps.
+   *
+   * Nothing was wrong with the database or the code in any of it. That is the
+   * point worth keeping: a checker that cries wolf is on its way to being
+   * switched off.
+   */
+  it("reads every ADD COLUMN in one statement, not just the first", () => {
+    const dir = fixture({
+      "001_a.sql": "create table public.widgets (\n  id uuid primary key\n);",
+      "002_b.sql": "alter table public.widgets\n  add column if not exists a text,\n  add column if not exists b uuid;",
+    });
+    const cols = declaredColumns(dir).get("widgets");
+    expect(cols.has("a")).toBe(true);
+    expect(cols.has("b"), "the second ADD COLUMN was dropped").toBe(true);
+  });
+
+  it("follows a RENAME COLUMN, both halves of it", () => {
+    const dir = fixture({
+      "001_a.sql": "create table public.widgets (\n  id uuid primary key,\n  old_name date\n);",
+      "002_b.sql": "alter table public.widgets rename column old_name to new_name;",
+    });
+    const cols = declaredColumns(dir).get("widgets");
+    expect(cols.has("new_name"), "the new name was never declared").toBe(true);
+    expect(cols.has("old_name"), "the old name is still declared, so it reads as missing from the database").toBe(false);
+  });
+
+  it("applies clauses in source order", () => {
+    // Added, then renamed, in one file. Handling all the adds before all the
+    // renames would leave both names declared.
+    const dir = fixture({
+      "001_a.sql": "create table public.widgets (\n  id uuid primary key\n);",
+      "002_b.sql": "alter table public.widgets add column if not exists tmp text;\n"
+                 + "alter table public.widgets rename column tmp to final;",
+    });
+    expect([...declaredColumns(dir).get("widgets")].sort()).toEqual(["final", "id"]);
+  });
+
+  it("matches what production actually holds for vehicle_blocks", () => {
+    // The real table, named column by column, because this is the one the
+    // allocator consults before letting a vehicle out.
+    const cols = declaredColumns(REAL).get("vehicle_blocks");
+    expect([...cols].sort()).toEqual([
+      "created_at", "created_by", "expected_return", "id", "note",
+      "reason", "released_at", "released_by", "starts_on", "vehicle_id",
+    ]);
+    expect(cols.has("ends_on"), "ends_on was renamed away by 20260829090000").toBe(false);
+  });
+});
+
 describe("views", () => {
   it("finds them, so the reverse check can skip them", () => {
     // A view's columns come from a SELECT list, which this parser cannot read.

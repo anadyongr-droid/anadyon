@@ -331,7 +331,17 @@ when the timestamped convention started, so this was never one missed column:
 `vehicle_change_requests` from migration 038. The forward direction — the half
 that has existed for weeks — was reporting success for tables it had never
 looked at, which is precisely what `.github/workflows/ci.yml` warns about in its
-own schema-drift step. Fixed, with six tests that fail against the old parser.
+own schema-drift step. Fixed — and fixing it let the check see `vehicle_blocks` for the first time,
+which immediately produced three more false findings from two further gaps: only
+the first `ADD COLUMN` in a multi-clause `ALTER TABLE` was read, and `RENAME
+COLUMN` was not read at all, so the parser still believed in `ends_on` and had
+never heard of `expected_return`. Nothing was wrong with the database or the
+code in any of it.
+
+Ten tests now cover the parser, each watched failing against the version before
+it. The lesson is about the tool rather than the schema: **a checker that cries
+wolf is on its way to being switched off**, so a false finding in it is as
+serious as a missed one.
 
 **And the claim that `customers.name` is the only column of its class was
 a one-off, not a check** — which is exactly why this was worth building. It was established by comparing the five

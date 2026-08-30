@@ -87,19 +87,53 @@ export function declaredColumns(migrationsDir) {
       }
     }
 
-    // `ONLY` is accepted because Postgres allows it and at least one migration
-    // uses it; it changes inheritance behaviour, not which column is added.
-    const addColumn = new RegExp(
-      String.raw`ALTER TABLE\s+(?:ONLY\s+)?${TABLE}\s+ADD COLUMN(?:\s+IF NOT EXISTS)?\s+([a-z_][a-z0-9_]*)`, "gi");
-    for (const m of sql.matchAll(addColumn)) {
-      add(m[1], m[2]);
-    }
+    // One ALTER TABLE can carry several clauses, and they must be applied in
+    // source order. Reading each clause with its own top-level regex missed
+    // both of the shapes that migration 20260829090000 actually uses:
+    //
+    //   alter table public.vehicle_blocks
+    //     add column if not exists released_at timestamptz,
+    //     add column if not exists released_by uuid;
+    //
+    // — where only the first ADD COLUMN follows the words "ALTER TABLE", so
+    // `released_by` was never declared; and
+    //
+    //   alter table public.vehicle_blocks rename column ends_on to expected_return;
+    //
+    // — which was not read at all, so the parser went on believing `ends_on`
+    // existed and had never heard of `expected_return`. Between them those two
+    // gaps produced three false findings against production on the first run
+    // that could see this table.
+    //
+    // `ONLY` is accepted because Postgres allows it; it changes inheritance
+    // behaviour, not which column is affected.
+    //
+    // The statement is taken up to its first semicolon. A check constraint
+    // containing one inside a string literal would truncate it — no migration
+    // here does that, and the failure would be a missed column rather than a
+    // wrong one.
+    const alterStatement = new RegExp(
+      String.raw`ALTER TABLE\s+(?:ONLY\s+)?${TABLE}\s+([\s\S]*?);`, "gi");
+    const clause = new RegExp(
+      String.raw`ADD COLUMN(?:\s+IF NOT EXISTS)?\s+([a-z_][a-z0-9_]*)` +
+      String.raw`|DROP COLUMN(?:\s+IF EXISTS)?\s+([a-z_][a-z0-9_]*)` +
+      String.raw`|RENAME COLUMN\s+([a-z_][a-z0-9_]*)\s+TO\s+([a-z_][a-z0-9_]*)`, "gi");
 
-    // A column dropped later is no longer expected.
-    const dropColumn = new RegExp(
-      String.raw`ALTER TABLE\s+(?:ONLY\s+)?${TABLE}\s+DROP COLUMN(?:\s+IF EXISTS)?\s+([a-z_][a-z0-9_]*)`, "gi");
-    for (const m of sql.matchAll(dropColumn)) {
-      tables.get(m[1])?.delete(m[2]);
+    for (const statement of sql.matchAll(alterStatement)) {
+      const table = statement[1];
+      for (const c of statement[2].matchAll(clause)) {
+        const [, added, dropped, renamedFrom, renamedTo] = c;
+        if (added) add(table, added);
+        else if (dropped) tables.get(table)?.delete(dropped);
+        else if (renamedTo) {
+          // The old name stops being declared and the new one starts. Both
+          // halves matter: without the delete the check reports the old name
+          // missing from the database, and without the add it reports the new
+          // one as undeclared.
+          tables.get(table)?.delete(renamedFrom);
+          add(table, renamedTo);
+        }
+      }
     }
   }
 
