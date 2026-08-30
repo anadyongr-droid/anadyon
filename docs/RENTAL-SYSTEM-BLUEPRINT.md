@@ -1791,6 +1791,65 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 30 August 2026
+
+**Open damage was recorded faithfully and surfaced nowhere.** `vehicle_damages`
+has carried severity, repair cost, `repaired_on` and a recharged flag since
+migration 011 — and 011 built a partial index for precisely the fleet-wide
+query, `vehicle_damages_open_idx ON vehicle_damages (vehicle_id) WHERE
+repaired_on IS NULL`. Nothing ever ran it. The only place an open-damage count
+rendered was the Damages tab inside one vehicle's modal, so the question staff
+actually ask — *which cars are damaged right now?* — could only be answered by
+opening all twenty-nine in turn.
+
+This is the same shape as the licence gate before it: the data was right, the
+schema anticipated the question, and no screen ever asked it. Worth naming as a
+class, because it is cheap to create — a column added for a form, an index added
+for a query nobody wrote yet — and invisible until someone needs the answer in a
+hurry.
+
+Now on the fleet list beside the out-of-fleet line, and in the morning briefing
+below the escalated blocks. That order is deliberate: a car out of the fleet for
+four days needs action today, damage needs remembering, and the briefing is read
+top-down.
+
+**Two things it deliberately does not do.**
+
+- *It does not bar a rental.* A scuffed bumper is not a KTEO expiry.
+  `lib/fleetStatus.ts` reserves `blocksRental` for the two expiries that
+  genuinely void insurance cover, and the fleet row uses amber rather than the
+  red that means "this vehicle must not leave the yard". Whether major damage
+  should stop a hand-over is a decision for Tasos; an implementer inventing it
+  as a default is how a rule nobody agreed to ends up in production.
+- *It carries no money.* `repair_cost` and `charged_to_customer` stop at the
+  per-vehicle ledger, which is administrator-only.
+
+That second point needed real care, and the reasoning belongs here. The ledger's
+own comment records the trap: **`proxy.ts` admits staff to `/api/admin/vehicles`
+by prefix, so every route beneath that path is inside staff reach by default**,
+and the ledger opts out with an explicit role check at the point of use. The new
+fleet-wide endpoint stays open to staff *on purpose* — they are the ones handing
+over the car, and putting the fact furthest from the person holding the keys
+would defeat it — which means its `select` list is the only thing holding the
+financial columns back. `lib/damageVisibility.test.ts` pins that, and pins it by
+reading the *column lists of each `.select()`* rather than the raw file: the
+first version failed on the endpoint's own comment saying the column is
+excluded, because a text search cannot tell a query from a note about a query.
+Verified by swapping in `select("*")` and watching it fail.
+
+**`wholeDays` now has a home.** `lib/vehicleBlocks.ts` had it privately; it moves
+to `lib/wholeDays.ts` so anything asking "how long has this been open" agrees.
+`lib/fleetStatus.ts` keeps its own `daysBetween`, which floors to *local*
+midnight where `wholeDays` uses UTC. The two agree for most of the day and
+disagree near it. That divergence is recorded rather than reconciled: unifying
+them changes when statutory warnings appear, which is a decision and not a
+tidy-up.
+
+**Also:** the mapping editor's "Cancel mapping" is now just "Cancel", at Tasos's
+request. Both Cancels on that screen keep distinct `aria-label`s — the rate
+editor has its own and both can be open at once — each starting with the visible
+word, as WCAG 2.5.3 (Label in Name) requires.
+
 ### 29 August 2026
 
 **A class of UI defect, not three separate ones.** Tasos asked for the category
@@ -2147,7 +2206,18 @@ record to settle it with.
 - **AADE Digital Client List** — columns present, Vercel environment variables
   and Supabase columns still to be set. `⚠️` in §2 remains accurate.
 - **NBG hosted checkout** — built, gated behind an open PR.
-- **Damage log** — schema only, still no UI. Phase 1 in §7.
+- **Damage log** — **done, and this line was wrong for weeks.** A full Damages
+  tab has existed in `VehicleModal` (add, remove, severity, repair cost,
+  recharged flag) behind `/api/admin/vehicles/[id]/ledger`; as of 30 August it
+  is also visible fleet-wide. Left uncorrected, this entry was an invitation to
+  rebuild what was already built — the §9 failure exactly. Checked against the
+  code, not against this list, before being rewritten.
+
+  *The other two entries above were checked the same way and are accurate.* The
+  AADE columns really are present — they are named `dcl_status` and `dcl_mark`
+  in `001_baseline.sql`, with `claim_dcl_submission()` and a unique index on the
+  mark, so a search for "aade" in the migrations finds nothing and proves
+  nothing. Only the environment variables remain outstanding.
 
 ---
 
