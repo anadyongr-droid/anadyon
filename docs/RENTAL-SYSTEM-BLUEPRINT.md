@@ -1880,16 +1880,27 @@ evening, so it is now done. Nineteen controls in total.
 touch target without touching the design is to leave the control its size and
 extend the hit area invisibly. Applied blindly that is worse than the bug. The
 edit and delete buttons on Discount Rules are 13px icons **8px apart**, so
-their centres are 21px apart: give each a 44px invisible area and they overlap
-by **23px**. Delete paints last and wins the overlap, so Edit keeps 21px of the
-44px it appears to have, and Delete sits under nearly half of where Edit looks
-like it is — with nothing on screen showing where the boundary went. A data-loss
-bug wearing an accessibility fix as a disguise.
+their centres are only 21px apart: give each a 44px invisible area and the two
+overlap by **23px** — wide enough to swallow Edit's own centre. Delete is later
+in the DOM, so it paints on top and wins every pixel they share. Asking the
+browser `elementFromPoint` on the middle of the edit icon returns **the delete
+button**. A tap aimed squarely at Edit deletes the rule, and nothing on screen
+shows where the boundary went. A data-loss bug wearing an accessibility fix as
+a disguise.
 
-That 23px is measured, not estimated: `tests/browser/touch-targets.spec.ts`
-takes it in Chromium against the built page. An earlier draft of this entry
-reasoned it out by hand and said "roughly 35px", which was simply wrong
-arithmetic — and is the reason the number is now a test rather than a sentence.
+That is measured, not estimated: `tests/browser/touch-targets.spec.ts` asks the
+browser what a thumb would hit. An earlier draft of this entry reasoned the
+overlap out by hand and said "roughly 35px" — wrong arithmetic, and the reason
+it is now a test rather than a sentence.
+
+The spec asks `elementFromPoint` rather than reading
+`getComputedStyle(el, "::after").width`, for two reasons. Hit testing *is* the
+claim; a computed width is only a proxy, and it is the half that varies between
+engines — the suite runs in Firefox as well as Chromium, and this container has
+no Firefox to check against. And "the centre of Edit belongs to Delete" is
+evidence anyone can act on, where "23px" needs working out. The correctly-spaced
+pair is asserted alongside as the control, so the hazard test cannot be passing
+for some unrelated reason.
 The same spec confirms `.touch-target` does what it claims (a 38×38 button gets
 a centred 44×44 hit area, overhanging 3px a side) and that the pair as shipped —
 two real 44px boxes 8px apart — overlaps by exactly zero.
