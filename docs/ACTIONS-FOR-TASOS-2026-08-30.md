@@ -125,6 +125,36 @@ is not a thing to do casually, for a benefit this thin.
 
 ---
 
+## 2c. A staff member who forgot their password could not get back in — **fixed, needs deploying**
+
+Found while you were trying to log in as staff for item 4. Not a problem with
+the account: `app/admin/set-password/page.tsx` served both the invitation link
+and the forgotten-password link, and called `updateUser({ password })` straight
+away. That works for an invitation. For a reset the account already has a second
+factor — `proxy.ts` makes every account enrol before it opens the admin area —
+and Supabase refuses:
+
+> AAL2 session is required to update email or password when MFA is enabled.
+
+So **no established staff member could recover a forgotten password.** The
+page's own comment explained the invitation case correctly and the reset case
+was never exercised — the same shape as the turnaround applied to one end of a
+rental.
+
+Fixed on this branch: the page now asks Supabase what the session needs, and
+when the answer is `aal2` it collects and verifies the code before changing the
+password. An invitation reports `aal1` and goes through untouched. Seven tests,
+watched failing against the old page first.
+
+**Still missing, and deliberately not built while you were away:** nothing in
+the Users screen can remove a second factor. It shows `mfaEnrolled` and offers
+invite, change role, send a password link, and delete — so an account whose
+*authenticator* is lost still has no route back through any UI. That needs a new
+admin-only endpoint, which is a privileged capability rather than a repair, and
+it is your call. Until then the service-role script is the recovery path.
+
+---
+
 ## 3. Apply migration 039 — **before** the current branch is merged
 
 `supabase/migrations/paste/039_vehicle_open_damage_view_paste.sql`, into the
