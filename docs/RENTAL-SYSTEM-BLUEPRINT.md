@@ -1791,6 +1791,47 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 30 August 2026 — confirmed: preview deployments carry the production service-role key
+
+*Verified, not inferred. Tasos read the Vercel settings the same day the
+question was raised.*
+
+`SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` are all enabled for **Production and Preview**.
+So every preview deployment — every pull-request branch, unreviewed and
+half-finished ones included — has run with the production service-role key
+against the live database. That key bypasses row-level security by design, and
+the database it reaches holds passport numbers, driving licence numbers and
+dates of birth.
+
+This is the finding that turns the staging work from a testing convenience into
+a data-protection obligation, and it is why the argument in the status document
+was rewritten on the same day: vendor sandboxes were never the case for staging;
+this is.
+
+**It also retires a piece of advice given repeatedly this month.** "Check it on
+the Vercel preview" was, every time, an instruction to check against production.
+`HANDOFF-H1.md` §6 had said so all along — *"There is no staging database. A real
+booking creates real rows."* — and it was not read.
+
+**The immediate fix is not the staging build.** Preview-scoped **placeholder**
+values close it in under an hour, and placeholders rather than unset values
+because `lib/supabase.ts` constructs its clients at module scope, so an unset
+variable fails the preview *build* rather than only its data access —
+`.github/workflows/ci.yml` already documents that and works around it the same
+way. Previews then build and render with no data at all, which is correct:
+migration 019's own comment records that *"everything the site serves goes
+through the service role"*, so there is no partial mode to fall back to.
+
+**And then the key is rotated.** Scoping closes the door; it does not establish
+that nobody walked through. The credential has been present in the build
+environment of every branch built this month, so the response to it having been
+somewhere it should not have been is to replace it. Precautionary — the
+realistic exposure is to people who already hold repository access — but the
+order is load-bearing: scope, then rotate, then update Vercel Production,
+`.env.local` and the GitHub Actions secret. Rotating first only distributes a
+fresh key to every preview.
+
 ### 30 August 2026 — outside review, and the two places this document was wrong
 
 *Fable reviewed `docs/ARCHITECTURE-STATUS-2026-08-30.md` cold, from that file

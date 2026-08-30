@@ -7,32 +7,32 @@ mostly waiting.
 
 ---
 
-## 1. Check what Vercel actually gives a preview deployment — 2 minutes, do this first
+## 1. ~~Check what Vercel gives a preview deployment~~ — **DONE, 30 August. It is what it looked like.**
 
-**Vercel → your project → Settings → Environment Variables.** Look at
-`SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL` and
-`NEXT_PUBLIC_SUPABASE_ANON_KEY`, and note which environments each is ticked for.
+All three are enabled for **Production and Preview**:
 
-**Why:** `docs/ARCHITECTURE-STATUS-2026-08-30.md` §6.1 says preview deployments
-run with production credentials. That is **inferred, not verified** — inferred
-from Vercel applying a variable to every environment unless scoped, and from
-`docs/PREVIEW-RECAPTCHA-TEST-KEYS.md` recording its own preview variables as
-*"not yet set"*. If the inference is right, every pull-request branch — including
-unreviewed and half-finished ones — has unrestricted write access to a
-`customers` table holding passport numbers, licence numbers and dates of birth,
-because the service role bypasses row-level security by design.
+| Variable | Environments |
+|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | Production **and Preview** |
+| `NEXT_PUBLIC_SUPABASE_URL` | Production **and Preview** |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production and Preview, already split into per-environment entries |
 
-**Tell me which it is.** If they are already scoped to Production, the exposure
-does not exist and the staging work drops down the priority list. If they are
-not, item 2 closes it today rather than at the end of a two-day build.
+So every preview deployment carries the **production service-role key**, which
+bypasses row-level security by design, pointed at the live database. Every
+pull-request branch — unreviewed, half-finished, whatever — has had unrestricted
+read and write access to a `customers` table holding passport numbers, driving
+licence numbers and dates of birth.
+
+The anon key already having split entries is useful news: it means the
+per-environment mechanism is set up and understood on this project, so item 2 is
+the same operation you have already done once.
 
 ---
 
-## 2. If item 1 shows they are unscoped: add Preview-scoped placeholders — under an hour
+## 2. Scope the Preview values to placeholders — **do this next**, under an hour
 
-Not "remove the variables". **Add a second, Preview-scoped value** for each —
-Vercel allows the same name to hold different values per environment, which is
-the same mechanism `PREVIEW-RECAPTCHA-TEST-KEYS.md` describes.
+For each of the three, **add a second value scoped to Preview only** — do not
+edit or delete the Production one:
 
 | Name | Preview value |
 |---|---|
@@ -44,10 +44,32 @@ the same mechanism `PREVIEW-RECAPTCHA-TEST-KEYS.md` describes.
 clients at module scope, so an *unset* variable fails the preview **build**, not
 just its data access — `.github/workflows/ci.yml` documents exactly this and
 works around it the same way. Placeholders give the identical security property
-with a preview that still compiles and serves its static pages.
+with a preview that still compiles.
 
-**What this costs:** previews stop being able to show real data until staging
-exists. Given that "real data" here means production, that is the point.
+**What to expect afterwards, so it does not look like a fault.** Preview
+deployments will build and render, and show **no data at all** — not a subset.
+Migration 019's own comment is the reason: *"everything the site serves goes
+through the service role"*, so with a placeholder key every data-backed page and
+route comes back empty or errors. That is the change working, not breaking.
+Redeploy a preview branch for the variables to take effect.
+
+## 2b. Then rotate the service-role key — the part that is easy to skip
+
+Scoping closes the door. It does not ask whether anyone walked through it.
+
+That key has been sitting in the build environment of every branch built this
+month. The realistic exposure is to people who already have repository access,
+so this is precautionary rather than an incident — but the correct response to a
+credential that was somewhere it should not have been is to replace it, not to
+move it.
+
+**Order matters:** scope first (item 2), then rotate, then update the new value
+in three places — Vercel **Production**, your local `.env.local`, and the
+`SUPABASE_SERVICE_ROLE_KEY` GitHub Actions secret if you have set one for the
+schema-drift step. Rotating before scoping just puts a fresh key on every
+preview.
+
+Supabase → Project Settings → API → service_role → rotate.
 
 ---
 

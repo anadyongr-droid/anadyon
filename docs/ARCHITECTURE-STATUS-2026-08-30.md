@@ -349,13 +349,21 @@ There is no environment between a developer and the business. Concretely:
   preview" issued during this month's work was therefore an instruction to check
   against live customer data. That is a correction owed to the record.
 
-  **One part of this is inferred, not verified, and it is the load-bearing
-  part:** nobody has opened Vercel → Settings → Environment Variables and
-  confirmed the scoping. Vercel applies a variable to every environment unless
-  it is scoped, and `docs/PREVIEW-RECAPTCHA-TEST-KEYS.md` records that the
-  preview-scoped variables it needs are *"not yet set"* — so the default is the
-  likely state. Likely is not checked. This is a one-click confirmation and it
-  decides how urgent §6.2's item 3 is; it should be the first thing done.
+  **Verified 30 August, and it is what it looked like.** Tasos read the Vercel
+  settings: `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL` and
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` are all enabled for **Production and Preview**.
+  So every preview deployment — every pull-request branch, including unreviewed
+  and half-finished ones — carries the production service-role key, which
+  bypasses row-level security by design, against the live database.
+
+  Two consequences follow, and the second is easy to miss. **Closing it is now
+  urgent rather than tidy.** And **the key should be rotated afterwards, not
+  only re-scoped**: it has been present in the build environment of every branch
+  built this month, so scoping alone closes the door without asking whether
+  anyone walked through it. This is precautionary — the exposure is to people
+  who already had repository access — but the ordering matters: scope first,
+  then rotate, then update the value in Vercel Production, `.env.local`, and the
+  `SUPABASE_SERVICE_ROLE_KEY` GitHub secret if one is set.
 - **There is no error tracking.** Nothing in `package.json`. The only production
   signals are the 05:00 Telegram briefing and the four-hour email watchdog, and
   both report on *business* state — neither reports that a request threw.
@@ -408,8 +416,8 @@ migration tests — answers it before anything is committed to.
 *Rewritten 30 August after outside review. The first version led with vendor
 sandboxes and was wrong to — see the note at the end.*
 
-**The case is a data-protection one, not a testing one.** If the scoping in §6.1
-is what it appears to be, then every preview deployment — that is, every pull
+**The case is a data-protection one, not a testing one.** The scoping in §6.1 is
+confirmed, so this is a finding rather than a risk: every preview deployment — that is, every pull
 request branch, including unreviewed and half-finished ones — runs with the
 production service-role key against a `customers` table holding passport
 numbers, driving licence numbers, dates of birth and addresses. The service role
