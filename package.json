@@ -16,6 +16,7 @@
     "check:a11y": "node scripts/check-a11y.mjs",
     "test:seo": "vitest run --config vitest.build.config.ts",
     "test:browser": "playwright test",
+    "test:frozen-panes": "playwright test tests/browser/frozen-panes.spec.ts --config playwright.frozen-panes.config.ts",
     "backup": "node scripts/backup.mjs",
     "check:grants": "node scripts/check-grants.mjs",
     "test:browser:all": "playwright test --config playwright.crossbrowser.config.ts",
