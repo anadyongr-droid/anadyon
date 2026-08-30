@@ -14,9 +14,15 @@ import { describe, expect, it } from "vitest";
  * administrator check, because proxy.ts admits staff to "/api/admin/vehicles"
  * by prefix and every route beneath it is in staff reach by default. The
  * fleet-wide endpoint is deliberately open to staff — they are the ones handing
- * over the car — which means its `select` is the only thing keeping the
- * financial columns out of a staff response. A later `select("*")` for
- * convenience would silently undo that, so it is pinned here.
+ * over the car.
+ *
+ * **The `select` list is no longer what holds the money back.** It was, until
+ * 30 August, and outside review found that too thin: a refactor to `select("*")`
+ * would update the failing pin in the same commit. The guard is now the
+ * `vehicle_open_damage` view, which does not contain the columns —
+ * lib/openDamageView.test.ts proves that by executing the migration. What
+ * remains here is the second line, and the assertions below are worth keeping
+ * for the same reason the endpoint still names its columns.
  */
 const root = new URL("../", import.meta.url).pathname;
 const read = (p: string) => readFileSync(join(root, p), "utf8");
@@ -41,8 +47,10 @@ describe("the fleet-wide damage endpoint", () => {
   it("asks only for unrepaired rows, in SQL", () => {
     // Migration 011 built `vehicle_damages_open_idx ... WHERE repaired_on IS
     // NULL` for this. Filtering in JavaScript would read every damage ever
-    // recorded and leave the index unused.
-    expect(endpoint).toMatch(/\.is\("repaired_on", null\)/);
+    // recorded and leave the index unused. The predicate now lives in the view,
+    // so every caller gets the index rather than the ones that remember it.
+    expect(endpoint).toMatch(/\.from\("vehicle_open_damage"\)/);
+    expect(endpoint).not.toMatch(/\.from\("vehicle_damages"\)/);
   });
 
   it("never selects a financial column", () => {

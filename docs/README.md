@@ -25,6 +25,7 @@ built sound?* Keep them apart; they go stale at different rates.
 | [`OPEN-QUESTION-RPC-STAFF-IDENTITY.md`](OPEN-QUESTION-RPC-STAFF-IDENTITY.md) | **Open question, blocking blueprint §4.2** — every RPC call uses the service role, so `auth.uid()` is NULL and the specified staff-identity gateway cannot work. Written to be read cold by an outside reviewer |
 | [`ARCHITECTURE-STATUS-2026-08-30.md`](ARCHITECTURE-STATUS-2026-08-30.md) | **Current status of the whole architecture, written to be read cold by an outside reviewer** — what is built, what is open and blocked on what, the decisions most likely to be wrong, and what a review is being asked to comment on |
 | [`HANDOVER-TEST-ENVIRONMENT.md`](HANDOVER-TEST-ENVIRONMENT.md) | **Build brief** — error tracking, the end-to-end suite in CI, and a staging Supabase project. Written for an implementer to work from without asking questions |
+| [`ACTIONS-FOR-TASOS-2026-08-30.md`](ACTIONS-FOR-TASOS-2026-08-30.md) | **Open actions that need a human** — a Vercel dashboard, a SQL editor, a vendor email or a logged-in browser. Ordered by urgency |
 | [`RESTORE.md`](RESTORE.md) | Recovery procedure |
 
 ## Handovers
