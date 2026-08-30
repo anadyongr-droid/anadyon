@@ -191,6 +191,68 @@ Nineteen remote branches besides `main` carry unmerged work, including
 `codex/incident-admin-middleware-timeout`, which has never had a pull request opened. Open pull
 requests: #16 (gated NBG payments) and #31 (incident closure).
 
+### 5.6 Build versus buy the counter — decided, reviewed, and the one place the two agents disagreed
+
+Recorded here because a reviewer should not spend time re-deriving an argument
+that has already been had. `docs/RENTAL-SYSTEM-BLUEPRINT.md` §1.8 carries all
+three rounds in full; this is the shape of them.
+
+**The decision (architect, 26 August):** build the counter in Anadyon; do not
+replace or dual-enter. The reasoning that carried it was not cost — it was that
+a bought counter which cannot exchange reservation IDs, vehicle allocation,
+status and evidence is not the same product as one that can, so the $129/month
+subscription was never the relevant number; the API tier is $399. Reopening is
+gated on five conditions demonstrated in a trial rather than claimed.
+
+**The review (Claude, same day):** the decision stands, with three amendments
+and one correction accepted. The substantive disagreement was **amendment 1 —
+the third option is missing.** The decision was framed as build-everything
+against replace-everything, and §1.5 already recorded a middle class: capture-
+only tools that hold no reservation, no allocation and no status, and write
+photographs and a reference back. The decision's central objection — two sources
+of truth "at the point where a mistake releases a vehicle or loses evidence" —
+is materially weaker against a tool that owns no operational state. The review
+asked for that option to be dismissed with a reason or recorded as open.
+
+**The adjudication (architect, same day):** *"right to raise capture sourcing
+and wrong to leave it open."* `AGENTS.md` asks the architect for a section that
+can be built from without asking questions, and "either dismiss it or record it
+as open" is the opposite of that. It resolved rather than deferred: Anadyon
+remains the system of record and always ingests its own durable copy of the
+original evidence, never depending on an expiring vendor URL; a capture provider
+may later act as an **input adapter** only; and one bounded evaluation — two
+business days, Record360 only, inside Gate 0 — must produce pricing, DPA and
+retention terms, media export terms, API access terms, and proof that cars,
+scooters and bicycles can carry different inspection templates. If any is
+unavailable, native capture proceeds.
+
+It also corrected two things in the review's own reasoning, and both corrections
+were right. "A file and an ID" understated the adapter: it still needs vehicle
+mapping, task creation, outbound reservation context, webhook authentication and
+replay handling, lifecycle and status mapping, media retrieval and retention,
+template version mapping, and GDPR export and deletion. And the three vendors
+named in §1.5 are not interchangeable — ProovStation and Self-Inspection sell
+AI-assisted damage analysis, which §8 declines, so only Record360 fits the
+adapter shape.
+
+**What is still open.** Two things, and neither is a disagreement:
+
+- **The Record360 evaluation has not been run.** It sits inside Gate 0, and
+  Gate 0 is not cleared because audit area 5 is ungraded (§5.2). So the
+  build-versus-buy decision is currently resting on an evaluation that is
+  scheduled and unperformed.
+- **Neither side is costed.** The adjudication declined to insert a speculative
+  figure and instead required Gate 0 to produce a work breakdown and a
+  three-year native-build-against-capture-vendor total. Without it the decision
+  cannot be checked afterwards against what the build actually cost, which is
+  the only way the reopening gates ever get exercised honestly.
+
+**Why this is worth a reviewer's attention.** The process worked — a decision
+was reviewed, the review found a real gap, and the adjudication resolved it
+rather than parking it. But the resolution's whole weight now rests on a
+two-day evaluation nobody has done, behind a gate nobody has opened, with no
+cost estimate on either side. That is a decision that *looks* settled.
+
 ## 6. The new part — environments, and why this discussion happened
 
 This is the section written this weekend, and the one §8 asks about.
@@ -337,10 +399,16 @@ is a good pattern or a clever one is a fair question.
    two days on, given §6.5 admits it would have caught neither of this month's
    real bugs. Is the vendor-sandbox argument enough on its own?
 3. **§7, all of it.** These are the decisions with the least review behind them.
-4. **§5.1 — the identity question.** It has been open since 28 August and blocks
+4. **§5.6 — build versus buy the counter.** The one topic where the two agents
+   disagreed. The exchange is in `docs/RENTAL-SYSTEM-BLUEPRINT.md` §1.8 in full.
+   Was the adjudication's resolution — capture vendors admitted as input
+   adapters only, behind one bounded Gate 0 evaluation — the right answer to the
+   review's amendment, or did it settle the question more firmly than an
+   unperformed evaluation and an absent cost estimate can support?
+5. **§5.1 — the identity question.** It has been open since 28 August and blocks
    the largest remaining phase. `docs/OPEN-QUESTION-RPC-STAFF-IDENTITY.md` is
    written to be read cold and is the place to start.
-5. **Anything in §3 that looks like it is load-bearing without being defended.**
+6. **Anything in §3 that looks like it is load-bearing without being defended.**
    The prefix-matching authorisation in `proxy.ts` is the candidate: it is a
    deliberate design with an edge that has to be remembered at every new route
    beneath an admitted prefix, and "has to be remembered" is how this project
