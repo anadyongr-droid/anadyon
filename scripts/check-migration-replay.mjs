@@ -1,27 +1,14 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
+import { SUPABASE_COMPATIBILITY_STUBS } from "./pgliteSupabaseStubs.mjs";
 
 const migrationsDirectory = join(process.cwd(), "supabase", "migrations");
 const stagingSeedFile = join(process.cwd(), "supabase", "seeds", "staging.sql");
 
-const supabaseCompatibilityStubs = `
-  create role anon nologin;
-  create role authenticated nologin;
-  create role service_role nologin;
-
-  create schema storage;
-  create table storage.buckets (
-    id text primary key,
-    name text not null unique,
-    owner uuid,
-    public boolean not null default false,
-    file_size_limit bigint,
-    allowed_mime_types text[],
-    created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now()
-  );
-`;
+// Shared with the tests, so a migration cannot replay against one fixture and
+// break against the other. See scripts/pgliteSupabaseStubs.mjs.
+const supabaseCompatibilityStubs = SUPABASE_COMPATIBILITY_STUBS;
 
 const migrationFiles = (await readdir(migrationsDirectory))
   .filter((filename) => filename.endsWith(".sql"))
@@ -45,7 +32,7 @@ try {
     } catch (error) {
       console.error(`\nMigration replay failed at ${filename}.`);
       console.error(
-        "PGlite compatibility stubs: roles anon/authenticated/service_role and storage.buckets."
+        "PGlite compatibility stubs: roles anon/authenticated/service_role, storage.buckets, and the auth schema (auth.users, auth.uid). See scripts/pgliteSupabaseStubs.mjs."
       );
       throw error;
     }
@@ -111,7 +98,7 @@ try {
   console.log("Verified customers.name is nullable text with its compatibility trigger attached.");
   console.log("Verified the synthetic staging seed is idempotent: 29 vehicles, 5 customers, 6 reservations, an open damage and the private documents bucket.");
   console.log(
-    "PGlite compatibility stubs: roles anon/authenticated/service_role and storage.buckets."
+    "PGlite compatibility stubs: roles anon/authenticated/service_role, storage.buckets, and the auth schema (auth.users, auth.uid). See scripts/pgliteSupabaseStubs.mjs."
   );
 } finally {
   await database.close();

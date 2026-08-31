@@ -1852,6 +1852,78 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 31 August 2026 — phase 2 starts moving: check-out finalisation
+
+**Decision.** Migration 041 implements §4.2 rules 1 and 2 — the transaction that
+decides whether a car may leave the yard. Check-in (rule 3) and correction and
+voiding (rule 4) are separate migrations, so each is small enough to be read.
+
+**The two layers, and which one is switched on.** `finalise_check_out_impl` does
+the work and is granted to `service_role`, with the actor passed as an argument
+— the interim position migrations 038 and 040 already record. `finalise_check_out`
+is the identity-verifying gateway, written and **granted to nobody**, because
+`OPEN-QUESTION-RPC-STAFF-IDENTITY.md` §13.4 says no gateway gets EXECUTE in
+production until diagnostic 10c has run. A test asserts the absence of that
+grant, so it cannot be added by a well-meaning later edit. The cost, stated
+rather than buried: until 10c, the actor on a check-out is what the application
+claims, not what the database verified — today's position everywhere else here,
+and one line away from the design.
+
+**Membership comes from `auth.users.raw_app_meta_data`,** read in exactly one
+function (`handover_actor_role`). §2 requires database-held membership rather
+than a JWT claim, because a claim minted at sign-in outlives a withdrawal for
+the life of the token. No staff table is invented; a mirror would need a sync
+that can drift. One thing is unverified and cheap to add to 10c: that the
+function owner can select from `auth.users` on the live project. No migration
+here has read that table before, and the failure is a clean permission error.
+
+**Refusals are collected, not raised one at a time.** Staff are standing next to
+a car with a customer waiting; three round trips to discover three problems is
+three conversations. Every unmet precondition is accumulated and reported
+together.
+
+**Two real defects, both found by executing rather than reading.**
+
+1. **The block predicate was wrong in the exact way migration 20260829090000
+   exists to prevent.** The first draft treated `expected_return` as an end
+   date. It is not one — that migration renamed `ends_on` precisely because "the
+   mechanic says the 15th, does not deliver, the block lapses on its own, and a
+   car still in pieces becomes bookable with nobody asked." The predicate is now
+   copied from `find_available_eligible_vehicle` rather than re-derived: open
+   while `released_at` is null, biting if it starts on or before the return
+   date.
+2. **`text[] || <literal>` raised `malformed array literal` instead of the
+   refusal.** PostgreSQL resolves the operator to `anyarray || anyarray` and
+   tries to parse the message as an array. Single-reason cases happened to pick
+   the other overload and passed; the test that damages three preconditions at
+   once did not. Every append is now `array_append`.
+
+Neither would have been caught by review, and neither would have been caught by
+a hand-built fixture schema — the first because a stub would have carried
+whichever column name the author believed in. **So the test replays the entire
+migration chain**, and the PGlite compatibility stubs now live in one file
+(`scripts/pgliteSupabaseStubs.mjs`) shared with `check:migration-replay`, so a
+migration cannot pass against one fixture and fail against the other. The stubs
+gained an `auth` schema, which the chain had not needed until now.
+
+**Mutation-checked, per the fail-first rule.** Treating `expected_return` as an
+end date fails 2; ignoring the `required` flag on template views fails 8; moving
+the idempotency branch after validation fails 3; granting the gateway to
+`authenticated` fails 1.
+
+**One thing deliberately not tested here, and it is on §4.2's acceptance list.**
+Two finalisations racing. PGlite is a single connection, so a test shaped like a
+race would be two sequential calls wearing a costume — the class of reproduction
+this project has already been burned by. What holds without depending on timing
+is structural and is asserted: the partial unique index permits one live
+handover per reservation and direction, and the row locks are taken in a fixed
+order. The race belongs in the hosted staging suite.
+
+**Statutory cover mirrors the allocator rather than improving on it.** Both test
+the pickup date, so a KTEO expiring mid-rental stops neither. Tightening only
+the counter would make a car the system allocated impossible to release — a
+support call, not a fix. Tightening both is its own migration.
+
 ### 31 August 2026 — hosted staging activated, and the gate proved it can fail
 
 The isolated Supabase project was reset twice from the migration chain and
