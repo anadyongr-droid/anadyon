@@ -212,7 +212,14 @@ assertion, then remove the break.
 - [ ] Synthetic admin and staff can log in and enrol MFA.
 - [ ] Staff is refused administrator-only actions.
 - [ ] Browser booking succeeds: quote → reservation → redirected email.
-- [ ] Document upload and signed download work in `reservation-documents`.
+- [x] Document upload and signed download work in `reservation-documents`
+  (31 August 2026). Six hosted checks prove the bucket is private with its
+  10 MB/image-and-PDF contract, a signed upload accepts a synthetic PDF,
+  anonymous download is refused, the admin list returns it, a five-minute
+  signed URL returns the exact bytes, and deletion invalidates access and
+  leaves no object behind. The first run failed because the list exposed the
+  internal timestamped object key as the staff-facing filename; that display
+  defect was fixed before the acceptance item was closed.
 - [ ] Stripe test-mode webhook and payment flow work on the stable branch alias.
 - [ ] AADE sandbox flow is tested when sandbox credentials exist.
 - [ ] Manual morning briefing returns successfully without reaching production Telegram.
@@ -306,5 +313,8 @@ hosted project it passed 78/78 locally, then GitHub run `33413251647` passed the
 same credentialled staging job after its normal build gate. Together with the
 15-failure report from run `33398661882`, this records both sides of the gate
 without manufacturing an artificial failure. Preview scoping, browser MFA,
-documents, Stripe, AADE, the morning briefing and Sentry remain separate hosted
-acceptance items; none is implied complete by the database or CI evidence above.
+Stripe, AADE, the morning briefing and Sentry remain separate hosted acceptance
+items; none is implied complete by the database or CI evidence above. The
+private reservation-document lifecycle was subsequently closed on 31 August by
+six destructive-but-self-cleaning checks against synthetic staging data; no
+production object or customer record was read or written.
