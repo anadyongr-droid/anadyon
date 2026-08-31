@@ -67,9 +67,13 @@ harness.
 
 ## Reverification after current main — 31 August 2026
 
-After merging `origin/main` at `02c6795`, the permanent check replayed all **38**
-current migrations, including `20260830160000_vehicle_open_damage_view.sql`,
-and applied the synthetic seed twice with the same final counts. The newer
+After first merging `origin/main` at `02c6795`, the permanent check replayed all
+**38** migrations then present, including
+`20260830160000_vehicle_open_damage_view.sql`, and applied the synthetic seed
+twice with the same final counts. The newer
 bidirectional schema-declaration test initially failed because it still expected
 `customers.name` to be undeclared and allowlisted. That obsolete exception was
 removed; the test now requires migration 017 to declare the column.
+
+After the branch was refreshed again to `origin/main` at `05f866d`, the same
+check passed **39/39**, including the new rental-handover migration.

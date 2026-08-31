@@ -253,15 +253,16 @@ until those results are recorded.
 
 ## 10. Main reconciliation — 31 August 2026
 
-The branch was merged with `origin/main` at `02c6795` before further work. The
-current replay is 38/38 migrations and 822/822 unit tests. The merge exposed and
-closed the obsolete `customers.name` schema-declaration exception described in
-the replay result document.
+The branch was first merged with `origin/main` at `02c6795`, then refreshed to
+`05f866d` after the Gate 0 and first legally independent counter-schema work
+landed. The current replay is 39/39 migrations and the suite is 846/846 unit
+tests. The first merge exposed and closed the obsolete `customers.name`
+schema-declaration exception described in the replay result document.
 
 Final local verification against that reconciled state:
 
 - TypeScript passed and ESLint reported zero errors with 22 existing warnings;
-- the webpack production build compiled and generated all 93 routes (GitHub CI
+- the webpack production build compiled and generated all 94 routes (GitHub CI
   remains the independent default-Turbopack gate);
 - translation passed 14/14 pages, static accessibility passed 28/28 pages and
   SEO passed 60/60 assertions;
