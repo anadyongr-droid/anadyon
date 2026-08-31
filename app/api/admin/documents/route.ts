@@ -5,6 +5,7 @@ import {
   safeFileName,
   isAllowedMime,
   parseDocumentPath,
+  documentDisplayName,
   ALLOWED_MIME,
 } from "@/lib/documentPaths";
 
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
   }
 
   const files = (data ?? []).map((f) => ({
-    name: f.name,
+    name: documentDisplayName(f.name),
     size: f.metadata?.size,
     created_at: f.created_at,
     path: `${reservationId}/${f.name}`,
