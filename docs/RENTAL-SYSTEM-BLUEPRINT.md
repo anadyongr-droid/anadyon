@@ -1883,10 +1883,29 @@ intended to.
 written. Both migrations are additive; neither alters or drops anything that
 existed.
 
-**Still outstanding on these two:** whether the function owner can select from
-`auth.users`, which `handover_actor_role()` needs. Creation succeeding does not
-prove it — PostgreSQL checks that a relation *exists* when a SQL function body
-is parsed, and checks *permission* only at execution. So it takes one call.
+**And the one unverified assumption in 041 is now settled.** `handover_actor_role()`
+reads `auth.users`, which no migration here had done before, and creation
+succeeding does not prove the owner may read it — PostgreSQL checks that a
+relation *exists* when a SQL function body is parsed, and checks *permission*
+only at execution. Calling it in the SQL Editor returned one row, `null`:
+
+```
+| role_lookup |
+| ----------- |
+| null        |
+```
+
+**Null is the pass, and the absence of an error is the whole result.** The SQL
+Editor carries no end-user JWT, so `auth.uid()` is null and there is no user to
+look up; what the call establishes is that the function *executed* rather than
+raising `permission denied for table users`. Membership can be read from
+`auth.users`, and no fallback source is needed.
+
+**It does not answer diagnostic 10c**, and the two should not be confused. 10c
+asks whether PostgREST populates `request.jwt.claims` for a request bearing a
+user's access token — a question about Supabase's request path, which the SQL
+Editor does not exercise at all. This settles only the privilege sub-question
+that migration 041 added on top of it.
 
 ### 31 August 2026 — the private document path was run, not inferred
 
