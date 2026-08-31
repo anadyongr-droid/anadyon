@@ -1861,9 +1861,9 @@ measurement is taken against live customer rows.
 **Why it is not the security hole it looks like.** Three independent conditions
 must all hold, and no two of them are enough:
 
-1. `NODE_ENV === "development"`. `next build` sets it to `production`, so in a
-   deployed bundle this is a compile-time constant and the branch is absent
-   rather than merely unreached.
+1. `NODE_ENV === "development"`. `next build` sets it to `production` and Next
+   replaces the literal read, so the comparison is decided at build time and no
+   runtime environment variable can change it.
 2. `VERCEL` unset. Vercel sets it in every environment, at build and at runtime.
    This is the condition that survives the realistic accident — somebody setting
    `NODE_ENV=development` in project settings.
@@ -1884,6 +1884,18 @@ is the same reason given there: *the boundary that holds is credentials and
 environment separation*. This grants a role header and grants no database access
 whatsoever. A container holding no Supabase credentials still reaches no data,
 whatever proxy.ts decides about its role.
+
+**One claim in the first draft of this entry was wrong, and the build says so.**
+"The branch is absent rather than merely unreached" was an embellishment. Reading
+the emitted chunk of a real `next build` shows
+`{nodeEnv:"production",vercel:process.env.VERCEL,role:process.env.ANADYON_DEV_AUTH_ROLE}`
+— the first value frozen at build time, the other two still live reads — but the
+surrounding `if` block is *still in the output*, because Turbopack did not fold
+`"development" !== "production"` and drop it. So the guarantee is that the
+decision is fixed at build time, not that the code is gone. That is enough, and
+it is a different sentence. The build had to be run with placeholder credentials
+to get that far; without them it fails at `supabaseUrl is required`, which is
+unrelated to this change.
 
 **Verified by running it, not by reading it.** `next dev` with the switch on
 returns 200 and ~33KB of real page for `/admin/fleet`, with the shell and

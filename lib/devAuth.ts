@@ -44,10 +44,20 @@
  * good reason and reached for a bad one, this is not one flag. Three
  * independent conditions must all hold, and no combination of two is enough:
  *
- *   1. `NODE_ENV === "development"`. `next build` sets it to "production", so
- *      in any deployed bundle this comparison is a compile-time constant and
- *      the branch is dead code — not merely unreached, but absent. Under
- *      vitest it is "test", which is why these tests stub it explicitly.
+ *   1. `NODE_ENV === "development"`. `next build` sets it to "production", and
+ *      Next replaces the literal read, so the comparison is decided at build
+ *      time and no runtime environment variable can change it. Verified in the
+ *      emitted chunk of a real `next build`, which contains
+ *      `{nodeEnv:"production",vercel:process.env.VERCEL,role:process.env.ANADYON_DEV_AUTH_ROLE}`
+ *      — the first frozen, the other two still live reads.
+ *
+ *      Note what that is *not*. Turbopack leaves the surrounding block in the
+ *      output rather than folding `"development" !== "production"` and dropping
+ *      it, so the bypass's code and its warning string are present in a
+ *      production bundle. Unreachable, not absent. An earlier draft of this
+ *      comment claimed absent; reading the artifact is what corrected it.
+ *
+ *      Under vitest NODE_ENV is "test", which is why these tests stub it.
  *   2. `VERCEL` is unset. Vercel sets it in every environment, at build and at
  *      runtime, preview and production alike. This is the condition that
  *      survives someone setting NODE_ENV=development in project settings —
@@ -73,11 +83,12 @@ export type Role = "admin" | "staff";
  * Just the variables that matter, read one by one rather than handed the whole
  * `process.env`.
  *
- * That shape is deliberate. Next.js statically replaces direct
- * `process.env.NODE_ENV` reads at build time; passing the environment object
- * around instead would turn the replacement off and leave the branch live in a
- * production bundle. So the caller reads each name literally, and this
- * function only decides.
+ * That shape is deliberate, and the build output shows it working. Next.js
+ * statically replaces direct `process.env.NODE_ENV` reads; passing the
+ * environment object around instead would turn the replacement off and leave
+ * the condition genuinely live in a production bundle, decided by whatever
+ * NODE_ENV happened to be set to at runtime. So the caller reads each name
+ * literally, and this function only decides.
  */
 export interface DevAuthEnv {
   nodeEnv: string | undefined;
