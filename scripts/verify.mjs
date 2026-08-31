@@ -8,6 +8,9 @@ const root = new URL("../", import.meta.url);
 // accidental external request fails against an inert host or placeholder key.
 const safeEnvironment = {
   ...process.env,
+  // Next's build launches its own TypeScript worker. The current generated
+  // route graph can exceed Node's 2 GB default in constrained local runners.
+  NODE_OPTIONS: "--max-old-space-size=4096",
   NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co",
   NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key",
   NEXT_PUBLIC_RECAPTCHA_SITE_KEY: "placeholder",

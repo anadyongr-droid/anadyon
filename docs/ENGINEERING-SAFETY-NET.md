@@ -44,7 +44,10 @@ not reproduce elsewhere. Sequential execution simply gives both agents and a
 human reviewer one stable, documented handoff command.
 
 The full local command uses `next build --webpack`; GitHub CI continues to run
-the ordinary `next build` and is the independent production-builder gate.
+the ordinary `next build` and is the independent production-builder gate. The
+verifier gives Node and Next's TypeScript worker a 4 GB heap ceiling because the
+current generated route graph exceeds Node's 2 GB default on the constrained
+local runner.
 
 ### Optional pre-push verification
 
@@ -78,8 +81,8 @@ detect the defect. This repository has already had tests that encoded the bug
 and passed. The stronger rule is unchanged: a new regression test must be seen
 failing against the unfixed implementation before the fix is trusted.
 
-The first bounded diagnostic on 31 August passed 84 files / 834 tests and
-reported 35.46% statements, 35.62% branches, 35.87% functions and 37.36% lines.
+The final bounded diagnostic on 31 August passed 87 files / 846 tests and
+reported 35.66% statements, 35.81% branches, 36.36% functions and 37.53% lines.
 Those figures are a map of currently unexercised code, not a target or a quality
 grade; they must not be turned into a ratchet without a separate decision.
 
