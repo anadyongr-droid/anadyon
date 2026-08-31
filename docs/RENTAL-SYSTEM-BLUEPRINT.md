@@ -1852,6 +1852,66 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 1 September 2026 — check-in, and the asymmetry that shapes it
+
+**Decision.** Migration 042 implements §4.2 rule 3, and rule 8 — which is
+enforceable here or nowhere. Correction and voiding (rule 4) remain a separate
+migration.
+
+**Check-in is deliberately less willing to refuse than check-out, and the reason
+is worth stating.** Check-out decides whether a car *may leave*, so almost
+everything it checks is a reason to say no. Check-in records what *came back*,
+and the car is already back. It does not re-check the licence, the agreement,
+vehicle blocks or statutory cover: refusing on those prevents nothing — it only
+loses the record of what staff saw, which is the one thing a later dispute
+needs. Four tests assert exactly that: a rental whose licence expired mid-hire,
+a vehicle since blocked, a vehicle marked out of service, and a cleared
+agreement record all check in normally.
+
+**What it does refuse is a contradiction**, where accepting both facts as true
+is worse than stopping: a reservation that is not active, a rental with no
+completed check-out, an inbound handover on a different template or a different
+vehicle from the outbound one, and an odometer reading lower than the one taken
+at check-out. That last is not a reading; either a digit was mistyped or this is
+not the same car, and both need a person.
+
+**Measured, never charged.** Distance and fuel difference are computed and
+written into the audit event, not into columns and not into money.
+`reservation_adjustments` still does not exist, and a test in this suite asserts
+its absence so the area-5 deferral cannot be quietly undone. §4.2 anticipated
+this exact position: *"check-in can record that a car came back three eighths
+down on fuel and cannot yet raise a charge for it."* The differences live in the
+event because that is where the adjustment's `calculation_snapshot` will read
+them from, and a fact recorded once cannot drift from a copy.
+
+**Null, not zero, when there is no instrument.** A bicycle did not travel 0 km;
+it travelled an unrecorded distance. §4.2's *"do not write invented zero readings
+to satisfy a form"* applies to what is derived from readings too.
+
+**The fleet odometer is set from the check-in reading, not raised to it.**
+`greatest()` would quietly preserve a larger number typed by hand mid-rental —
+the value more likely to be wrong — while the check-in reading has photographs
+attached. A reading below the check-out figure is refused earlier, so the one
+direction that must never happen cannot reach the update.
+
+**A finding from writing the tests, recorded because rule 4 will hit it.**
+`rental_handovers_completed_together` asserts
+`(status = 'completed') = (completed_at is not null)`, so **a completed handover
+cannot be voided by flipping its status** — the void must clear `completed_at`
+in the same statement. The obvious one-line implementation of rule 4 does not,
+and would fail in production rather than in review. Pinned by a test in
+`lib/checkInFinalisation.test.ts` so the next migration meets it here.
+
+**Mutation-checked.** Dropping rule 8 fails 1; allowing the odometer to go
+backwards fails 2; using `greatest()` for the fleet odometer fails 1; reporting
+zero instead of null fails 1; dropping the completed-check-out requirement
+fails 2.
+
+**The fixture runs a real check-out** rather than inserting a row shaped like
+one, so the state check-in is measured against is state the system actually
+produced. As in 041, the gateway is written and granted to nobody until
+diagnostic 10c has run.
+
 ### 31 August 2026 — migrations 040 and 041 are applied to production
 
 Tasos applied both through the SQL Editor, 040 first. Recorded here because
