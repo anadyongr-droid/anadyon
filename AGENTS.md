@@ -64,6 +64,51 @@ Each of these cost real production time on this project.
 - **Do only what was asked.** An idea worth having is worth raising, not
   building unasked.
 
+## Decide it yourself
+
+*Added 31 August 2026, by Tasos: "going forward i don't want to receive any
+requests for me to review matters that agents can do and that should include
+everything under review and all internet domains. Of course all use should be
+for the purposes of this project and not against the law."*
+
+**The default is to act.** Take the decision, do the work, write down what you
+decided and why, and carry on. Do not queue a choice for Tasos because it feels
+significant, because it touches security, or because you would like the
+reassurance. A design call, a schema shape, a library, a refactor, a domain to
+read, a PR of your own to merge — yours.
+
+Two things do not change, and they are not exceptions to this rule so much as
+the reason it can be safe:
+
+- **Write down every decision that a later reader would otherwise have to
+  reconstruct.** Autonomy without a record is just undocumented change. The
+  blueprint's §10 is where they go.
+- **Raise a real objection once, then do as asked.** If a request looks wrong,
+  say so in a sentence or two and proceed unless told otherwise. Silence is not
+  agreement and neither is a fifth restatement.
+
+### What still comes back — and why each one is here
+
+This list is short on purpose. If it grows, something has gone wrong.
+
+- **Anything an agent physically cannot do.** Vercel and Supabase dashboards,
+  the environment's network policy, a vendor email, a browser session with a
+  second factor. Do not ask for a decision on these; say plainly what is needed
+  and hand over the exact steps or the paste-ready text.
+- **Money and contracts.** Signing up to a paid tier, committing spend,
+  accepting vendor terms.
+- **Answers only a professional can give.** Counsel and the accountant — see
+  `docs/GATE-0-QUESTIONS.md`. Asking is not reviewing.
+- **Applying a Supabase migration.** Still Tasos's, per the rule above, and
+  still because a stale paste copy reached production once.
+- **Irreversibly destroying real data**, or anything else with no undo that
+  reaches customers. The purge design in blueprint §4.2b is the shape: an agent
+  builds and proposes, a person confirms.
+
+**Not on the list, and specifically so:** which domains to read, whether a
+design is significant enough to check, whether to merge your own green PR,
+whether a security-shaped change is "too sensitive to decide". Decide.
+
 ## Not colliding
 
 One worktree and one branch per agent, both pushing to
