@@ -109,6 +109,36 @@ This list is short on purpose. If it grows, something has gone wrong.
 design is significant enough to check, whether to merge your own green PR,
 whether a security-shaped change is "too sensitive to decide". Decide.
 
+## What `.claude/settings.json` does, and what it does not
+
+*Added 31 August 2026, after Gemini suggested a permission-rule set and the
+suggestion was half right.*
+
+`.claude/settings.json` is checked in, so it applies to both agents and changes
+are reviewable in a diff rather than living in somebody's home directory. It
+does two useful things:
+
+- **`allow`** removes prompting for the commands this project runs constantly —
+  read-only git, `npm test`, `npm run *`, `tsc`, `vitest`, `playwright`. Fewer
+  prompts on safe work means the ones that remain are worth reading.
+- **`deny` on `Read(./.env*)`** is the one entry that is a real boundary. It is
+  a *tool-level path rule*, so it stops an agent pulling the service-role key
+  into its context and transcript — and `docs/HANDOFF-H1.md` §7 is the reason:
+  *"Never commit `.env.local`. It holds live secrets."*
+
+**Everything else in `deny` is a speed bump, and should be read as one.**
+Blocking `Bash(git push --force*)` does not stop `git push --force-with-lease`
+spelled differently, a shell alias, or a two-line script. Blocking
+`supabase db reset` does not stop the equivalent SQL through the API. A rule
+that matches command *strings* is a reminder to the agent that wrote the
+command, not a control on what the process can do.
+
+**The boundary that actually holds is credentials and environment separation.**
+An agent that cannot reach production cannot damage it, whatever it types. That
+is why the Vercel preview scoping mattered on 30 August, why the staging project
+is on the list at all, and why a `deny` list is not a substitute for either.
+Adding rules here is cheap and worth doing; believing them is not.
+
 ## Not colliding
 
 One worktree and one branch per agent, both pushing to
