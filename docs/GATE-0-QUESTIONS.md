@@ -39,17 +39,28 @@ Two things to say plainly:
    the system at all — the invoice module takes a reservation and files for a
    rental. Selling a vehicle is done outside this software today, so nothing
    here can file the wrong type for it.
-2. **The myDATA type it needs has not been verified, and this document will not
-   guess it.** `aade.gr` is unreachable from the build environment, so the
-   published type list could not be consulted. The plausible reading is that a
-   fixed-asset disposal is a sales invoice whose *fixed-asset* nature is carried
-   by the income classification rather than by a distinct invoice type — but
-   that is reasoning, not a citation, and it is exactly the kind of claim this
-   project's rules say to label unverified.
+2. **Now verified, having first been recorded as unverifiable.** The earlier
+   version of this entry said `aade.gr` was unreachable so the type list could
+   not be consulted. That was true of direct HTTP from the build container and
+   false as a conclusion: web search runs outside it and answers the question
+   fine. The failure was reaching for the wrong tool and then writing the limit
+   into a document, which is worse than not answering.
 
-**For the accountant, therefore:** if fleet disposals are ever to be filed
-through this system, which myDATA invoice type and income classification apply?
-Not urgent — no code depends on the answer.
+   **A fixed-asset disposal is not a distinct invoice type.** It is filed as
+   **`1.1` Τιμολόγιο Πώλησης**, and its fixed-asset nature is carried by the
+   **income classification** — category `category1_4` with E3 code
+   **`E3_880_001`** for a domestic sale. So the original reasoning was right;
+   it is now sourced rather than guessed.
+
+**For the accountant, therefore:** please confirm `1.1` with `category1_4` /
+`E3_880_001` is right for a fleet disposal, and say whether the E3 code differs
+for an intra-EU or third-country buyer. **Not urgent — no code depends on it**,
+because nothing in this system sells a vehicle.
+
+*Sources: [ΑΑΔΕ myDATA technical specifications](https://www.aade.gr/en/mydata/technical-specifications-versions-mydata) ·
+[Είδη παραστατικών, InvoiceMaker](https://docs.invoicemaker.gr/appendix/invoice-types) ·
+[Χαρακτηρισμοί εσόδων, InvoiceMaker](https://docs.invoicemaker.gr/appendix/income-classifications) ·
+[Πώς διαβιβάζονται τα τιμολόγια πώλησης παγίων, OnlineData Wiki](https://wiki.onlinedata.gr/mydata/%CF%80%CE%B1%CF%81%CE%B1%CE%B4%CE%B5%CE%AF%CE%B3%CE%BC%CE%B1%CF%84%CE%B1-%CF%80%CE%B1%CF%81%CE%B1%CE%BC%CE%B5%CF%84%CF%81%CE%BF%CF%80%CE%BF%CE%B9%CE%AE%CF%83%CE%B5%CF%89%CE%BD/%CF%80%CF%8E%CF%82-%CE%B4%CE%B9%CE%B1%CE%B2%CE%B9%CE%B2%CE%AC%CE%B6%CE%BF%CE%BD%CF%84%CE%B1%CE%B9-%CF%84%CE%B1-%CF%84%CE%B9%CE%BC%CE%BF%CE%BB%CF%8C%CE%B3%CE%B9%CE%B1-%CF%80%CF%8E%CE%BB%CE%B7%CF%83/)*
 
 ### A2. The client list — **not what the question assumed, and there is a larger gap behind it**
 
