@@ -1,7 +1,7 @@
 # Migration replay result — 30 August 2026
 
-**Branch:** `codex/test-environment-foundation`  
-**Base:** `3927b10`  
+**Branch:** `codex/test-environment-foundation`
+**Base:** `3927b10`
 **Hosted databases touched:** none
 
 ## Initial result
@@ -64,3 +64,12 @@ unblocked.
 The replay script remains a permanent gate: every future migration is included
 automatically, and no fake `customers.name` column exists in the compatibility
 harness.
+
+## Reverification after current main — 31 August 2026
+
+After merging `origin/main` at `02c6795`, the permanent check replayed all **38**
+current migrations, including `20260830160000_vehicle_open_damage_view.sql`,
+and applied the synthetic seed twice with the same final counts. The newer
+bidirectional schema-declaration test initially failed because it still expected
+`customers.name` to be undeclared and allowlisted. That obsolete exception was
+removed; the test now requires migration 017 to declare the column.

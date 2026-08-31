@@ -250,3 +250,10 @@ owner must create the staging project, run the reset twice, compare schemas,
 configure Preview and GitHub secrets, inspect Sentry's raw event, and exercise
 the real staging browser/vendor flows. The implementation PR must remain draft
 until those results are recorded.
+
+## 10. Main reconciliation — 31 August 2026
+
+The branch was merged with `origin/main` at `02c6795` before further work. The
+current replay is 38/38 migrations and 822/822 unit tests. The merge exposed and
+closed the obsolete `customers.name` schema-declaration exception described in
+the replay result document.
