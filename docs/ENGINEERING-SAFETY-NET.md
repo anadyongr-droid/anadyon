@@ -35,8 +35,7 @@ time; the workflows themselves nevertheless use reviewed full SHAs.
 `npm run verify` then adds migration replay, a production build, translation,
 static accessibility, SEO and browser tests. It forces inert placeholder values
 instead of inheriting usable production credentials. The replay implementation
-comes from independent foundation draft PR #66, so this safety-net PR is stacked
-on that branch until the foundation merges.
+arrived through independent foundation PR #66.
 
 This does not imply that the repository's tests are defective when run in
 parallel. A prior timeout was specific to one managed local environment and did
@@ -81,8 +80,8 @@ detect the defect. This repository has already had tests that encoded the bug
 and passed. The stronger rule is unchanged: a new regression test must be seen
 failing against the unfixed implementation before the fix is trusted.
 
-The final bounded diagnostic on 31 August passed 87 files / 846 tests and
-reported 35.66% statements, 35.81% branches, 36.36% functions and 37.53% lines.
+The final bounded diagnostic on 31 August passed 88 files / 866 tests and
+reported 36.52% statements, 36.71% branches, 37.54% functions and 38.35% lines.
 Those figures are a map of currently unexercised code, not a target or a quality
 grade; they must not be turned into a ratchet without a separate decision.
 

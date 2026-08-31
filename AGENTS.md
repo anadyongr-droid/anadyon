@@ -181,8 +181,7 @@ different command list in each session:
   complete unit suite, run sequentially.
 - `npm run verify` adds the migration replay preflight, a production build,
   translation, static accessibility, SEO and Chromium/Firefox browser tests.
-  The replay implementation comes from foundation draft PR #66; this safety-net
-  change is reviewed as a stacked PR until that independent foundation merges.
+  The replay implementation arrived through foundation PR #66.
 
 The sequential command is a reproducibility aid, not a claim that parallel test
 execution is broken. GitHub CI remains the independent merge gate and uses the
