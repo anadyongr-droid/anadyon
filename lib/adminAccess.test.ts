@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
+import { NextRequest } from "next/server";
 
 /**
  * Guards the rule that decides who reaches the admin area.
@@ -17,10 +18,20 @@ import { readFileSync } from "node:fs";
  * address, enrol your own authenticator at the setup page the proxy redirects
  * you to, and inherit staff.
  *
- * These assertions read the source rather than exercising the proxy, which
- * needs a live Supabase session to run. They are deliberately about the shape
- * of the decision: that the fallback is empty, that an unknown role is refused,
- * and that the refusal cannot be reordered after the code which trusts it.
+ * Most of these assertions read the source rather than exercising the proxy.
+ * That used to be the only option — the note here said so — and it is no longer
+ * true: lib/proxyAuthTimeout.test.ts and lib/devAuth.test.ts both drive the
+ * middleware against a mocked Supabase. The static checks are kept because they
+ * are about the *shape* of the decision, which a single request cannot show:
+ * that the fallback is empty, that an unknown role is refused, and that the
+ * refusal cannot be reordered after the code which trusts it.
+ *
+ * The ordering rule now also has a behavioural test at the bottom of this file,
+ * added on 31 August after extracting `staffRestriction()` moved the source
+ * text of the staff check above the denial while leaving the executed order
+ * unchanged. The static assertion failed, correctly reporting that its anchor
+ * had moved and, on its own, unable to say whether the rule had. A test that
+ * can only detect a rename is not enough for a rule this one guards.
  */
 const proxy = readFileSync(new URL("../proxy.ts", import.meta.url), "utf8");
 
@@ -57,14 +68,21 @@ describe("admin access control", () => {
     // If the roleless check ran after the staff-path check, an unknown user
     // would already have been handed the staff pages by the time it fired.
     //
-    // Anchored on the staff API check wherever it now lives. It was
-    // `matchesAny(pathname, STAFF_API)` until that list became method-aware
-    // and the call became `staffMayCall`; the rule being guarded is unchanged,
-    // and the assertion failing on the rename is the check working.
+    // Anchored on the staff check wherever it now lives, and it has moved
+    // twice. It was `matchesAny(pathname, STAFF_API)` until that list became
+    // method-aware and the call became `staffMayCall`; on 31 August both were
+    // lifted into `staffRestriction()`, which is *declared* near the top of the
+    // file and *called* at the end. So the anchor is the call site in the
+    // request flow — `role`, not `devRole`, which distinguishes it from the
+    // development path's own call above.
+    //
+    // The rule being guarded is unchanged, and the assertion failing on a
+    // rename is the check working. It cannot tell a rename from a regression,
+    // which is why the behavioural test below exists as well.
     const denial = proxy.indexOf('refusing admin access');
-    const staffPathCheck = proxy.indexOf('staffMayCall(pathname, req.method)');
+    const staffPathCheck = proxy.indexOf('staffRestriction(req, pathname, role)');
     expect(denial, "roleless denial not found").toBeGreaterThan(-1);
-    expect(staffPathCheck, "staff API check not found").toBeGreaterThan(-1);
+    expect(staffPathCheck, "staff restriction call not found").toBeGreaterThan(-1);
     expect(denial).toBeLessThan(staffPathCheck);
   });
 
@@ -130,5 +148,82 @@ describe("user management API", () => {
   it("writes the role to app_metadata, which the account holder cannot edit", () => {
     expect(route).toContain("app_metadata: { role }");
     expect(route).not.toContain("user_metadata: { role }");
+  });
+});
+
+/**
+ * The ordering rule, proved by running it rather than by reading it.
+ *
+ * The static check above can only notice that its anchor moved. This one asks
+ * the question the rule is actually about: a signed-in account carrying no role
+ * at all, requesting the pages and APIs that staff are allowed — is it refused,
+ * or is it handed the customer database?
+ */
+const mocks = vi.hoisted(() => ({
+  getUser: vi.fn(),
+  getAal: vi.fn(),
+  listFactors: vi.fn(),
+  getUserById: vi.fn(),
+}));
+
+vi.mock("@supabase/ssr", () => ({
+  createServerClient: () => ({
+    auth: {
+      getUser: mocks.getUser,
+      mfa: {
+        getAuthenticatorAssuranceLevel: mocks.getAal,
+        listFactors: mocks.listFactors,
+      },
+    },
+  }),
+}));
+
+vi.mock("@/lib/supabase", () => ({
+  supabaseAdmin: { auth: { admin: { getUserById: mocks.getUserById } } },
+  supabase: {},
+}));
+
+const { proxy: middleware } = await import("@/proxy");
+
+const request = (path: string) =>
+  new NextRequest(new Request(`https://anadyon.gr${path}`));
+
+describe("a signed-in account with no role", () => {
+  beforeEach(() => {
+    // Everything else about this account is in order: confirmed address,
+    // enrolled and verified authenticator, MFA satisfied. The account is the
+    // one the file docstring describes — self-signed-up, carrying no role.
+    mocks.getUser.mockResolvedValue({
+      data: { id: "u-nobody", user: { id: "u-nobody", email: "stranger@example.com", app_metadata: {} } },
+    });
+    mocks.getUserById.mockResolvedValue({ data: { user: { app_metadata: {} } }, error: null });
+    mocks.getAal.mockResolvedValue({ data: { currentLevel: "aal2", nextLevel: "aal2" } });
+    mocks.listFactors.mockResolvedValue({ data: { totp: [{ id: "f1" }] } });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("is refused the staff pages, not redirected within them", async () => {
+    // /admin/reservations is on the staff allowlist, and is where the staff
+    // redirect sends people. If the roleless denial ever ran after the staff
+    // check, this is the request that would quietly succeed.
+    const res = await middleware(request("/admin/reservations"));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/admin/login");
+    expect(res.headers.get("location")).toContain("denied=1");
+  });
+
+  it("is refused the staff APIs with 403", async () => {
+    const res = await middleware(request("/api/admin/customers"));
+    expect(res.status).toBe(403);
+  });
+
+  it("never has a role handed to the application", async () => {
+    const res = await middleware(request("/admin/reservations"));
+    expect(res.headers.get("x-middleware-request-x-anadyon-role")).toBeNull();
   });
 });

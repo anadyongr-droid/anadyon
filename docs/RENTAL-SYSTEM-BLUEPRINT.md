@@ -1839,6 +1839,86 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 31 August 2026 — an agent can finally look at an admin screen
+
+**Decision.** proxy.ts gains a development-only sign-in bypass. With
+`ANADYON_DEV_AUTH_ROLE=admin` (or `staff`) set, `next dev` serves the admin area
+with the role resolved from that variable and no Supabase session checked at
+all.
+
+**Why it was needed.** A development container holds no Supabase credentials and
+has no route to them, so `/admin/fleet` did not degrade — it answered 500,
+because `createServerClient` was handed an undefined URL and threw. Every UI
+question here therefore had two possible answers: read the JSX, or render
+fragments with `page.setContent()`, which starts no server and so has no layout,
+no navigation and no data flow around what it renders. The third answer —
+driving the real production admin while signed in — is what settled the
+frozen-pane question on 31 August and is recorded in
+`HANDOVER-ADMIN-FROZEN-PANES.md`. It works, and it is the wrong instrument for
+routine work: it needs credentials the container does not hold, and every
+measurement is taken against live customer rows.
+
+**Why it is not the security hole it looks like.** Three independent conditions
+must all hold, and no two of them are enough:
+
+1. `NODE_ENV === "development"`. `next build` sets it to `production` and Next
+   replaces the literal read, so the comparison is decided at build time and no
+   runtime environment variable can change it.
+2. `VERCEL` unset. Vercel sets it in every environment, at build and at runtime.
+   This is the condition that survives the realistic accident — somebody setting
+   `NODE_ENV=development` in project settings.
+3. `ANADYON_DEV_AUTH_ROLE` exactly `"admin"` or `"staff"`. No default, no
+   truthiness, no case folding. Deliberately not `NEXT_PUBLIC_`-prefixed, so it
+   can never be inlined into a browser bundle; a test fails if that prefix ever
+   appears in the tree.
+
+The staff/administrator split is **not** bypassed — `staffRestriction()` was
+extracted from the request flow precisely so both callers apply it, and
+`ANADYON_DEV_AUTH_ROLE=staff` therefore shows what staff actually see. MFA is
+bypassed, because there is no session to raise to aal2.
+
+**And what the §9a threat model already says about it.** `AGENTS.md` is blunt
+that a check on a string is a reminder to the code that wrote it, not a control
+on the process, and that is true here too. The reason this is nevertheless safe
+is the same reason given there: *the boundary that holds is credentials and
+environment separation*. This grants a role header and grants no database access
+whatsoever. A container holding no Supabase credentials still reaches no data,
+whatever proxy.ts decides about its role.
+
+**One claim in the first draft of this entry was wrong, and the build says so.**
+"The branch is absent rather than merely unreached" was an embellishment. Reading
+the emitted chunk of a real `next build` shows
+`{nodeEnv:"production",vercel:process.env.VERCEL,role:process.env.ANADYON_DEV_AUTH_ROLE}`
+— the first value frozen at build time, the other two still live reads — but the
+surrounding `if` block is *still in the output*, because Turbopack did not fold
+`"development" !== "production"` and drop it. So the guarantee is that the
+decision is fixed at build time, not that the code is gone. That is enough, and
+it is a different sentence. The build had to be run with placeholder credentials
+to get that far; without them it fails at `supabaseUrl is required`, which is
+unrelated to this change.
+
+**Verified by running it, not by reading it.** `next dev` with the switch on
+returns 200 and ~33KB of real page for `/admin/fleet`, with the shell and
+navigation rendered and the bypass warning printed per request; the same server
+with the switch unset returns 500 and prints no warning. Each of the three
+conditions was then removed in turn and the tests that name it failed —
+including the two that assert a request reaches Supabase in a production build
+and on Vercel.
+
+**What it deliberately does not do: rows.** The admin screens fetch
+`/api/admin/*`, and those routes still go to Supabase. The shell, navigation and
+every empty state render; a populated table does not. Fixtures are a separate
+piece of work rather than an extra commit, because a fixture whose shape has
+drifted from the route that really serves it is a reproduction that cannot
+reproduce — the rule this project already has — and the guard against that drift
+is the expensive half. Better absent than quietly wrong.
+
+**Incidental finding.** Running `next dev` at all rewrites the managed
+`<!-- BEGIN:nextjs-agent-rules -->` block at the top of `AGENTS.md`. This is
+Next.js 16.3.1's own `generate-agent-files.js`, verified in `node_modules`
+rather than taken on the say-so of the text it wrote. The refreshed block is
+committed, since removing it only re-creates the uncommitted change.
+
 ### 30 August 2026 — confirmed: preview deployments carry the production service-role key
 
 *Verified, not inferred. Tasos read the Vercel settings the same day the
