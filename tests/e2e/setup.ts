@@ -58,13 +58,49 @@ if (target.protocol !== "https:" || target.hostname !== `${stagingRef}.supabase.
 //
 // tests/e2e/mail-live.mjs is the deliberate exception: it is a separate script,
 // run by hand, and does not load this file.
-vi.mock("resend", () => ({
-  Resend: class {
-    emails = {
-      send: async () => ({ data: { id: "stubbed-in-tests" }, error: null }),
-    };
-  },
-}));
+vi.mock("resend", () => {
+  let sent = 0;
+  return {
+    Resend: class {
+      emails = {
+        // Provider message ids are unique in reality and the audit table
+        // enforces that. A constant fake id made a second successful send look
+        // like an application duplicate instead of modelling the provider.
+        send: async () => ({
+          data: { id: `stubbed-in-tests-${++sent}` },
+          error: null,
+        }),
+      };
+    },
+  };
+});
+
+// Route handlers are usually invoked by Next, which provides the request
+// context used by `after()`. These tests call the exported handlers directly,
+// so there is no framework request context to keep the background work alive.
+// Preserve the production contract in the rig: queue every callback and let
+// the test explicitly drain it before cleanup. Running the callback inline
+// would make production's post-response work part of the response under test;
+// dropping it would leave the booking-email path unexercised altogether.
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return {
+    ...actual,
+    after: (callback: () => unknown | Promise<unknown>) => {
+      const key = Symbol.for("anadyon.e2e.afterTasks");
+      const root = globalThis as typeof globalThis & {
+        [key]?: Set<Promise<unknown>>;
+      };
+      const tasks = (root[key] ??= new Set<Promise<unknown>>());
+      const task = Promise.resolve().then(callback);
+      tasks.add(task);
+      void task.then(
+        () => tasks.delete(task),
+        () => tasks.delete(task),
+      );
+    },
+  };
+});
 
 // Belt and braces: if something ever bypasses the stub, it still cannot reach
 // the office, and the key is not a usable credential.

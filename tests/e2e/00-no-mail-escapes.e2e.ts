@@ -20,8 +20,13 @@ describe("phase 0 — no mail can escape the suite", () => {
       subject: "escape probe",
       html: "<p>If this arrives in a real inbox, this test is broken.</p>",
     });
-    // The stub returns this id. A real Resend response never would.
-    expect((result as { data?: { id?: string } })?.data?.id).toBe("stubbed-in-tests");
+    // The mailer normalises Resend's response. The provider id proves the
+    // transport stub handled this call; a real Resend response cannot carry it.
+    expect(result).toMatchObject({
+      ok: true,
+      queued: false,
+    });
+    expect(result.providerMessageId).toMatch(/^stubbed-in-tests-\d+$/);
   });
 
   it("holds no usable Resend credential", async () => {

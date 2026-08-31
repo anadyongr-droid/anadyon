@@ -27,6 +27,14 @@ describe("hosted staging reset safety", () => {
     })).toThrow(/does not name/);
   });
 
+  it("refuses a connection string whose database password was never replaced", () => {
+    expect(() => validateStagingTarget({
+      ...valid,
+      STAGING_SUPABASE_DB_URL:
+        `postgresql://postgres.${ref}:[YOUR-PASSWORD]@aws-0-eu-central-1.pooler.supabase.com:5432/postgres`,
+    })).toThrow(/password placeholder/);
+  });
+
   it("refuses any staging credential that equals production", () => {
     expect(() => validateStagingTarget(valid, {
       SUPABASE_SERVICE_ROLE_KEY: "staging-service",

@@ -51,6 +51,15 @@ export function validateStagingTarget(env, production = {}) {
   if (!/^postgres(?:ql)?:$/.test(database.protocol)) {
     throw new Error("STAGING_SUPABASE_DB_URL must be a PostgreSQL connection URL");
   }
+  let databasePassword;
+  try {
+    databasePassword = decodeURIComponent(database.password);
+  } catch {
+    throw new Error("The staging database password must be percent-encoded in STAGING_SUPABASE_DB_URL");
+  }
+  if (!databasePassword || /REPLACE_WITH_|\[YOUR-PASSWORD\]/i.test(databasePassword)) {
+    throw new Error("Replace the database-password placeholder in STAGING_SUPABASE_DB_URL");
+  }
   const databaseNamesRef =
     database.hostname === `db.${ref}.supabase.co` ||
     decodeURIComponent(database.username).endsWith(`.${ref}`);
