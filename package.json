@@ -23,7 +23,8 @@
     "check:schema:parity": "node scripts/check-schema-parity.mjs",
     "staging:reset": "node scripts/reset-staging.mjs",
     "staging:seed-auth": "node scripts/seed-staging-auth.mjs",
-    "test:browser:all": "playwright test --config playwright.crossbrowser.config.ts"
+    "test:browser:all": "playwright test --config playwright.crossbrowser.config.ts",
+    "probe:rpc-identity": "node scripts/probe-rpc-identity.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
