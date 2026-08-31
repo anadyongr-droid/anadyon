@@ -19,49 +19,85 @@ blocker to sit still.
 Two questions, both small, both blocking live AADE filing. The code is written
 and has never been sent anywhere.
 
-### A1. Is `11.2` the right document type for a rental receipt to a private customer?
+### A1. Document type — **ANSWERED 30 August: services only.** ✅
 
-myDATA distinguishes:
+Tasos: *"It should be only services, we don't sell any goods."*
 
-- **`11.1` — ΑΛΠ**, retail receipt for **goods**
-- **`11.2` — ΑΠΥ**, retail receipt for **services**
-- **`2.1` — ΤΠΥ**, service invoice to a **business** counterparty
+Verified against the code: the invoice module emits **`2.1`** where a VAT number
+is present and **`11.2`** otherwise, and nothing else. `11.1` survives only in
+comments and test names describing the defect that was fixed — `grep` over
+`app/` and `lib/` confirms it is not reachable.
 
-The system filed `11.1` until 30 August. That was wrong — a vehicle rental is a
-service, not a sale of goods — and it now files `11.2` for a private customer
-and `2.1` where a VAT number is present.
+**Open sub-question, and it is not about rentals.** Tasos raised the one case
+where Anadyon *does* sell goods: disposing of a fleet vehicle, which he expects
+needs **τιμολόγιο παγίων** (a fixed-asset invoice) and asked to have
+double-checked.
 
-**Please confirm both.** A filing AADE *accepts* with the wrong type is a wrong
-statutory record that nobody notices, which is the failure mode worth paying to
-avoid.
+Two things to say plainly:
 
-*Source: `app/api/admin/invoices/submit/route.ts`; blueprint §10, 30 August.*
+1. **It is out of scope for anything built.** There is no vehicle-sale path in
+   the system at all — the invoice module takes a reservation and files for a
+   rental. Selling a vehicle is done outside this software today, so nothing
+   here can file the wrong type for it.
+2. **The myDATA type it needs has not been verified, and this document will not
+   guess it.** `aade.gr` is unreachable from the build environment, so the
+   published type list could not be consulted. The plausible reading is that a
+   fixed-asset disposal is a sales invoice whose *fixed-asset* nature is carried
+   by the income classification rather than by a distinct invoice type — but
+   that is reasoning, not a citation, and it is exactly the kind of claim this
+   project's rules say to label unverified.
 
-### A2. Is the Digital Client List's `nonIssueInvoice = true` consistent with also filing an invoice?
+**For the accountant, therefore:** if fleet disposals are ever to be filed
+through this system, which myDATA invoice type and income classification apply?
+Not urgent — no code depends on the answer.
 
-The declaration (DCL) currently hardcodes `nonIssueInvoice = true` for every
-rental, while the invoice module separately files an invoice for the same
-rental. Those two statements may contradict each other.
+### A2. The client list — **not what the question assumed, and there is a larger gap behind it**
 
-**Please tell us which is correct**, and if the flag should vary, on what.
+Tasos asked *"which client is on the nonIssueInvoice list?"* — a fair reading of
+how it was written, and the brief was wrong to imply a list. Corrected:
 
-*Source: `app/api/admin/aade/submit/route.ts`.*
+**`nonIssueInvoice` is a boolean on each entry, not a list of clients.** It sits
+inside the `<client>` block of the Ψηφιακό Πελατολόγιο declaration and is
+hardcoded `true` for every rental. Read literally it asserts *"no invoice was
+issued for this rental"*.
 
-### A3. Retention — the accounting half only
+**And the declaration is filed once, at the start.** `movementPurpose` is
+hardcoded `1`, and `grep` finds no second filing anywhere in the codebase.
 
-Greek tax and commercial obligations set the clock for **invoices and accounting
-entries**. Anadyon's published privacy policy already commits to **five years
-from the rental date** for booking and contract data.
+That changes the question, and probably makes the flag the smaller half of it:
 
-**Please confirm five years is right for the accounting record**, and say what
-it applies to precisely — invoice, agreement, payment record, or all three.
+- At the moment of filing, no invoice exists yet, so `true` may be **correct at
+  that instant**.
+- Nothing ever revisits it. Once the rental ends and the invoice module files an
+  invoice, the declaration still says none was issued, and **no closing entry is
+  ever sent**.
 
-Please answer only for the accounting record. The identity documents and
-photographs are a separate clock and a legal question, not an accounting one;
-that is B3 below, and conflating the two is the specific mistake §4.2e was
-written to prevent.
+**So the two questions for the accountant are:**
 
-*Source: blueprint §4.2b, §4.2e; `lib/i18n/content/legal.ts`.*
+1. **Is a closing or completion declaration required at the end of a rental?**
+   Nothing files one. If one is required, this is a live compliance gap on every
+   rental, not a flag to flip.
+2. **If so, should `nonIssueInvoice` then be `false`**, and does the closing
+   entry need to carry the invoice's MARK?
+
+*Source: `app/api/admin/aade/submit/route.ts` lines 78–88.*
+
+### A3. Retention of the accounting record — **ANSWERED 30 August.** ✅
+
+Tasos: **five years, covering all three — invoice, agreement and payment
+record.**
+
+That matches what `lib/i18n/content/legal.ts` already publishes, so the public
+promise and the accounting position agree and no versioned change to the privacy
+policy is needed on this point.
+
+It does **not** extend to identity images or damage evidence, which are a
+separate clock and a legal question — see B3. Keeping those apart is the
+distinction §4.2e exists to protect.
+
+**What this unblocks:** the retention class for accounting records can be built
+now. The purge job still needs B3 before it can run, because a purge that knows
+one class and not the others cannot safely delete anything.
 
 ---
 
@@ -214,9 +250,17 @@ Lower urgency than B1–B5 and included so the area-5 list is complete.
 | **B1** | one age policy generated into the pages, the form and the emails |
 | **B2** | the rewritten privacy notice |
 | **B5** | the versioned agreement, which is phase 3 |
-| **A1, A2** | live AADE filing — the code is written and has never been sent |
+| ~~**A1**~~ | **answered** — services only, and the code already does that |
+| **A2** | live AADE filing, and possibly a compliance gap: the client list is opened and never closed |
+| ~~**A3**~~ | **answered** — five years, all three record types |
 
 **A note on sequencing, since it is easy to lose:** B4 is the only one holding up
 code being written this week. B3 is the one that most changes *what gets built*.
 B1 and B2 are live compliance exposure on a site already taking bookings, and
 have been since 18 August.
+
+**And A2 moved up while being answered.** What began as a question about a
+boolean turned into: the Digital Client List is opened at the start of every
+rental and never closed. If a closing declaration is required, that is a live
+statutory gap on every rental to date — which would put it alongside B1 and B2
+rather than at the bottom of Part A.
