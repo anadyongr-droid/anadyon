@@ -28,6 +28,8 @@ built sound?* Keep them apart; they go stale at different rates.
 | [`ACTIONS-FOR-TASOS-2026-08-30.md`](ACTIONS-FOR-TASOS-2026-08-30.md) | **Open actions that need a human** — a Vercel dashboard, a SQL editor, a vendor email or a logged-in browser. Ordered by urgency |
 | [`GATE-0-QUESTIONS.md`](GATE-0-QUESTIONS.md) | **The blocker, as two forwardable briefs** — what is waiting on the accountant and on Greek/EU counsel, with the source of each question |
 | [`RESTORE.md`](RESTORE.md) | Recovery procedure |
+| [`ENGINEERING-SAFETY-NET.md`](ENGINEERING-SAFETY-NET.md) | Local verification, dependency automation, optional coverage and the controls that still require human or hosted evidence |
+| [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md) | How to create, reset and verify isolated staging, wire Preview and CI, and validate privacy-safe Sentry |
 
 ## Handovers
 
@@ -52,3 +54,10 @@ inferred from a green local suite.
 **Measurement.** Methods that have produced confident false readings on this
 project are listed in [`audits/README.md`](audits/README.md). Read them before
 running a sweep; two of them have each cost a wrong finding more than once.
+
+**Staging resets.** Hosted staging is disposable and contains synthetic data
+only. `npm run staging:reset` is its only supported schema reset: it verifies
+the target three ways, replays migrations, reseeds, and checks grants/schema.
+Never fix staging by hand, never copy a production dump, and never apply a
+migration from an automated agent. The exact operator procedure is in the
+[staging runbook](STAGING-AND-OBSERVABILITY-RUNBOOK.md).

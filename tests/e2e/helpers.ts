@@ -15,7 +15,7 @@ export const anon = createClient(
 
 /** Every row this suite creates carries this marker so cleanup can be exact. */
 export const MARK = "ZZTEST";
-export const TEST_EMAIL = "a.maroudas@gmail.com";
+export const TEST_EMAIL = "automated.zztest@example.invalid";
 
 /**
  * Test bookings sit a year out. A date in the live season could collide with a
@@ -48,6 +48,16 @@ export function req(url: string, method: string, body?: unknown, ip = "203.0.113
 }
 
 export const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
+
+/** Waits for work registered through the test implementation of Next `after`. */
+export async function flushAfterTasks() {
+  const key = Symbol.for("anadyon.e2e.afterTasks");
+  const tasks = (globalThis as typeof globalThis & {
+    [key]?: Set<Promise<unknown>>;
+  })[key];
+  if (!tasks?.size) return;
+  await Promise.all([...tasks]);
+}
 
 /** Removes every row this suite created, in dependency order. */
 export async function cleanup() {

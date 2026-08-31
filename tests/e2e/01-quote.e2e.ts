@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import { db, req, MARK, TEST_EMAIL, futureDates, cleanup } from "./helpers";
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from "vitest";
+import { db, req, MARK, TEST_EMAIL, futureDates, cleanup, flushAfterTasks } from "./helpers";
 
 // The limiter buckets by IP. Sharing one across the phase made every case after
 // the tenth fail with 429 — the limiter working, not the endpoint failing.
@@ -51,6 +51,7 @@ describe("phase 1 — public quote funnel", () => {
   // This phase creates quotes and a customer; without this they accumulate and
   // the next run collides with them.
   afterAll(async () => { await cleanup(); });
+  afterEach(async () => { await flushAfterTasks(); });
 
   beforeAll(async () => {
     // What the server will independently arrive at, from the live rate card.
@@ -157,17 +158,25 @@ describe("phase 1 — public quote funnel", () => {
     expect(Number(data!.total)).toBeGreaterThan(0);
   });
 
-  it("creates two separate records for two submissions, so the UI must not send twice", async () => {
-    // There is no server-side deduplication, and there should not be: a customer
-    // may legitimately ask for two quotes. Which is exactly why the form guards
-    // the double-click itself — this test pins the server behaviour that makes
-    // that guard necessary.
+  it("replays an identical submission idempotently", async () => {
+    // The atomic booking RPC fingerprints an identical rapid replay. This is
+    // the server-side floor beneath the form's double-click guard: the customer
+    // gets the same reference and neither the rows nor the email are doubled.
     const ip = nextIp();
     const a = await POST(req("/api/quote", "POST", { ...base, lastName: `Twice ${MARK}` }, ip));
     const b = await POST(req("/api/quote", "POST", { ...base, lastName: `Twice ${MARK}` }, ip));
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
     const refA = (await a.json()).ref;
     const refB = (await b.json()).ref;
-    expect(refA).not.toBe(refB);
+    expect(refA).toBe(refB);
+
+    const { data: quotes } = await db.from("quotes").select("id").eq("ref", refA);
+    expect(quotes).toHaveLength(1);
+    const { data: reservations } = await db.from("reservations")
+      .select("id")
+      .eq("quote_id", quotes![0].id);
+    expect(reservations).toHaveLength(1);
   });
 
   it("blocks a customer flagged do-not-rent", async () => {

@@ -2,8 +2,9 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { db, req, MARK, TEST_EMAIL, futureDates, cleanup } from "./helpers";
 
 vi.mock("@/lib/mailer", () => ({
-  sendMail: async () => ({ data: null, error: null }),
+  sendMail: async () => ({ ok: true, queued: false, providerMessageId: "stubbed-in-tests" }),
   mailIsRedirected: true,
+  mailRedirectTarget: "blackhole@example.invalid",
 }));
 
 const { POST } = await import("@/app/api/admin/reservations/route");

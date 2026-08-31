@@ -3,8 +3,12 @@ import { db, req, ctx, MARK, TEST_EMAIL, futureDates, cleanup, clockSkewMs } fro
 
 const sent: { subject: string; to: string | string[] }[] = [];
 vi.mock("@/lib/mailer", () => ({
-  sendMail: async (m: { subject: string; to: string | string[] }) => { sent.push(m); return { ok: true, queued: false }; },
+  sendMail: async (m: { subject: string; to: string | string[] }) => {
+    sent.push(m);
+    return { ok: true, queued: false, providerMessageId: "stubbed-in-tests" };
+  },
   mailIsRedirected: true,
+  mailRedirectTarget: "blackhole@example.invalid",
 }));
 
 const { POST } = await import("@/app/api/admin/reservations/route");
