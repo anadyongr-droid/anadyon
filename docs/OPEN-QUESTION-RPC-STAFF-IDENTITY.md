@@ -1,9 +1,11 @@
 # Open question: how does a database function know *which* staff member is calling?
 
-**Status: open. No decision taken.** Written 28 August 2026 for outside review.
-Nothing in this document has been implemented, and the blueprint section it
-concerns (`RENTAL-SYSTEM-BLUEPRINT.md` §4.2, the check-out / check-in counter)
-is marked OPEN and blocked on the answer.
+**Status: Option A adopted, 31 August 2026. One vendor behaviour left to
+confirm, and it fails closed.** Written 28 August 2026 for outside review; §§11–13
+record what the diagnostics found and §13 the decision taken on them. Read §13
+first if you only want the answer. Nothing here is implemented yet, and
+`RENTAL-SYSTEM-BLUEPRINT.md` §4.2's OPEN block is narrowed rather than deleted —
+see §13.4 for exactly what a builder may and may not now do.
 
 This is written to be read cold. It assumes no knowledge of the project.
 
@@ -598,3 +600,118 @@ is being edited for another reason anyway.
 
 Worth noting for its own sake: `assert_least_privilege`, the function that
 checks least privilege, is itself on the looser pattern.
+
+
+---
+
+## 13. The Postgres half, settled by execution — 31 August 2026
+
+§12.4 ended on a sentence that blocked everything:
+
+> **This rests on one assumption that has not been tested and must be before any
+> of it is built:** that `auth.uid()` resolves inside a `SECURITY DEFINER`
+> function when the call arrives from a user-scoped client. It should — …— but
+> "should" is what this whole document exists to stop relying on.
+
+That is two claims wearing one coat, and they have different owners.
+
+| | Claim | Whose behaviour | Testable here? |
+|---|---|---|---|
+| **(a)** | A request-scoped GUC survives the `SECURITY DEFINER` boundary, and `SET search_path = ''` does not disturb it | PostgreSQL | **Yes** |
+| **(b)** | PostgREST populates `request.jwt.claims` for a request bearing a user's access token | Supabase / PostgREST | No — needs the live project |
+
+Splitting them matters. If (a) were false the design would be dead and no
+production diagnostic would revive it. Settling it locally turns what remains
+from *"does this work at all"* into one narrow question about one vendor's
+documented behaviour.
+
+### 13.1 (a) is true, and it was executed rather than reasoned about
+
+`lib/rpcStaffIdentity.test.ts` builds a Supabase-shaped database in PGlite —
+which is a real PostgreSQL — with `auth.uid()` reproduced **exactly** from
+Supabase's own migration `20211202183645_update_auth_uid.up.sql`, a `fn_owner`
+role that owns the functions, and an `authenticated` role that calls them.
+
+Ten assertions. The three that carry the argument:
+
+- **Identity survives, privilege changes.** Called as `authenticated` with
+  claims carrying `sub`, a `SECURITY DEFINER` function with `SET search_path = ''`
+  returns that `sub` from `auth.uid()` *and* reports `current_user = fn_owner`.
+- **The privilege change is real, not a label.** The same call reads a table
+  `authenticated` cannot; a separate assertion confirms the direct read is
+  refused with `permission denied`. Without that second assertion the first
+  proves nothing.
+- **`SET search_path = ''` is not the culprit.** The identical function with and
+  without the clause returns the same subject. This was the obvious suspect,
+  being the one thing the project's pattern adds on top of a plain definer
+  function. It is ruled out.
+
+The gateway of §2 is then built and exercised end to end: it admits a staff
+member, refuses an authenticated stranger, refuses a member whose row was
+deactivated, and refuses a service-role call.
+
+**The tests were mutated to confirm they are not vacuous.** Making the function
+`SECURITY INVOKER` fails 2; removing the membership check fails 2; pointing
+`auth.uid()` at the `role` claim instead of `sub` fails 7.
+
+### 13.2 Two things found by the suite failing, both worth keeping
+
+**The refusal has two independent layers, and only one was designed.** With
+EXECUTE granted the way §4.2 rule 6 says to grant it — to the role that needs it
+and no other — a service-role call is refused *at the grant* and never reaches
+the identity check. That is a second closed door, and it is fragile in a
+specific way: a later `grant execute … to service_role`, added to make something
+else work, removes it silently and leaves only the identity check standing. Both
+layers are now asserted separately so neither can be mistaken for the other.
+
+**Supabase's `auth.uid()` raises on an *empty* claims GUC rather than returning
+NULL.** The definition ends in `::uuid` applied to
+`current_setting('request.jwt.claims', true)::jsonb ->> 'sub'`, and `''` is not
+valid JSON, so the result is `invalid input syntax for type json`. A custom GUC
+reverts to `''` — not to unset — once a transaction that set it ends, so this
+state is reachable on a pooled connection rather than hypothetical. It still
+fails closed, but as a 500 rather than a clean refusal. **A gateway that means
+to answer "not a staff member" should not answer "internal error" instead**, so
+one is written defensively: read the claim into a variable and treat any failure
+as no identity.
+
+### 13.3 What is left, and why it is safe to build against
+
+Only (b): that PostgREST sets `request.jwt.claims` for a user-scoped client.
+That is Supabase's documented contract and every RLS policy on the project
+already depends on it — `auth.uid()` in a policy has exactly the same
+requirement — so it is not a novel assumption, merely one this project has not
+watched with its own eyes.
+
+**And the failure direction is the benign one.** If (b) were false, `auth.uid()`
+would be NULL inside the gateway, the gateway would refuse, and the feature
+would not work. A wrong assumption here produces a locked door, not an open one.
+That inverts the usual caution about building on unverified ground: the cost of
+being wrong is a broken check-in screen found on the first test, not a data
+exposure found later.
+
+### 13.4 Decision
+
+**Option A is adopted.** Staff-initiated RPCs are called with a user-scoped
+client constructed from the staff member's access token; the gateway verifies
+`auth.uid()` against `staff_members` in the database, never against a JWT claim,
+per §2 and the §11 resolution. `app_metadata.role` may narrow, never grant.
+
+The blueprint's OPEN block is **narrowed, not deleted**. A builder may now:
+
+- write the finalisation function and its gateway against this pattern;
+- test them in PGlite, as this file does.
+
+A builder may **not**, until diagnostic 10c has been run against the live
+project by Tasos:
+
+- grant EXECUTE on a gateway to `authenticated` in production;
+- move any existing route off `supabaseAdmin`.
+
+10c is unchanged and is in §12.4. It is now a confirmation rather than a
+gate on the design.
+
+**Why an agent did not simply run 10c.** It creates a function in the live
+database, which is a migration, and `AGENTS.md` reserves applying one to Tasos
+after a stale paste copy reached production once. Splitting the assumption was
+the way to make progress without touching that rule — not a workaround for it.
