@@ -1897,6 +1897,80 @@ misuse rather than disclosure, and the distinction is worth having next time.
 Where it does apply — the Make.com credential in §9a — the key was rotated and
 the scenarios retired, which is the shape of a real disclosure response.
 
+### 30 August 2026 — phase 2 begins, and Gate 0 is deliberately not waited for
+
+*Implementer entry. Tasos: "let's go beyond gate 0 please. we need to press
+ahead." Recorded here because §7.2 says the opposite, and a decision that
+contradicts a standing rule should be findable later by whoever wonders why.*
+
+**§7.2's rule, and what it was protecting.** *"Area 5 — content and legal — is
+cleared before the phase-2 migration is written… Building those columns first
+would turn unreviewed assumptions into schema debt."* Area 5 is still ungraded.
+The rule stands as written; it has been overridden for this migration by the
+owner, knowingly.
+
+**The override costs less than it looks, because §4.2 already draws the line.**
+*"Raw facts and money are deliberately separate."* Everything in migration 040
+is a fact — an odometer reading, a fuel gauge in eighths, a photograph, an
+observation of what staff saw at a moment. None of it asserts a legal position,
+so none of it can encode a wrong one.
+
+**`reservation_adjustments` is therefore not in it.** That table is the other
+half: what may be charged, on whose authority, in what words. It is exactly what
+area 5 decides, and it waits. `lib/rentalHandoversMigration.test.ts` asserts its
+*absence*, so the deferral cannot be undone by accident without the decision
+being revisited.
+
+**The consequence to accept, stated plainly:** check-in can record that a car
+came back three eighths down on fuel, and cannot yet raise a charge for it. That
+is a smaller gap than a charge table built on guesses, and it is closed by one
+migration once counsel answers.
+
+**What migration 040 contains.** The seven tables of §4.2 minus that one:
+`inspection_templates`, `inspection_template_views`, `rental_handovers`,
+`handover_photos`, `handover_damage_observations`, `handover_damage_photos`,
+`rental_handover_events` — plus the private `handover-photos` bucket, created in
+the migration rather than in a comment. Migration 021 records what the
+alternative cost: a bucket requested in a comment, never created, and a document
+feature broken in production from launch.
+
+**Nothing in it was invented.** Where it could have been, it is not: no
+`signature_url` (§4.2 rejects it — signature is phase 3's versioned agreement,
+and a signed URL expires); no automatic fuel or mileage tariffs (§4.2: those
+need operator-approved capacities, rates and customer wording that do not
+exist); odometer and fuel both nullable, because a bicycle has neither and
+*"do not write invented zero readings to satisfy a form."*
+
+**Tested by execution, not by reading**, and that choice comes straight from
+§4.5, which records four defects in an earlier draft of §4.2 — three of them
+specifications that could not have been built, including composite foreign keys
+whose targets carried no unique constraint. A migration that is only read cannot
+catch that. Seventeen tests run it against real Postgres and then attempt the
+rows the design says are impossible: a second live handover for one direction, a
+photograph claiming a view from another template, damage evidence borrowed
+across handovers, a completion with no time, a void with no reason, a ninth
+eighth of fuel.
+
+Each constraint was then removed in turn to confirm the test noticed. The first
+attempt at that check was itself wrong — deleting a foreign key left a dangling
+comma, the migration failed to parse, and all seventeen tests "failed" for a
+reason that proved nothing. Re-run by weakening the composite key to a plain
+`photo_id` reference, which is the realistic wrong version and precisely the
+§4.5 defect, the intended test failed alone.
+
+**Identity.** `created_by` and `completed_by` follow migration 038's interim
+position: application-asserted, because every RPC here is called with the
+service role. Diagnostic 10a has since shown the staff JWT carries `sub`, so
+Option A can replace the claim with a verified identity **without a schema
+change** — the columns stay, only who fills them changes.
+
+**Not built here, and next:** the finalisation service. §4.2's rules 1–4 specify
+one short server-side transaction per direction, with the check-out
+preconditions (confirmed reservation, assigned eligible vehicle, no block, valid
+licence, required views, cleanliness, recorded agreement) and the check-in
+counterpart. That is the next piece, and it is where the identity answer starts
+to matter.
+
 ### 30 August 2026 — outside review, and the two places this document was wrong
 
 *Fable reviewed `docs/ARCHITECTURE-STATUS-2026-08-30.md` cold, from that file
