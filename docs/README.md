@@ -38,6 +38,38 @@ email delivery, customer fields, promo and seats. They are history, not current
 instruction. When a handover's content becomes a standing rule, move it into
 `DEFINING-STATEMENTS.md` or the blueprint; do not leave it to be rediscovered.
 
+## Running the two agents
+
+`scripts/agent-loop.mjs` alternates Claude and Codex between the architect and
+implementer roles defined in `../AGENTS.md`.
+
+```
+node scripts/agent-loop.mjs --turns 1 "add stop-sells to the fleet screen"
+```
+
+Read the branch it leaves, then run the next round on the same branch with the
+roles swapped:
+
+```
+node scripts/agent-loop.mjs --continue --turns 1
+```
+
+One turn at a time keeps a person between every pair of turns. `--continue`
+recovers the turn number, the goal and the previous architect from the branch's
+own commits, so the alternation carries across rounds instead of handing the
+same agent the same chair every time.
+
+**It does not sandbox the agents.** They inherit your environment and
+credentials, so nothing technically stops one pushing or reaching production —
+that is a prompt instruction, not a control. Run it in a disposable linked
+worktree, which it now requires, and read the branch before pushing.
+
+It refuses to start on a dirty tree, verifies both CLIs answer before looping,
+puts the architect's decision into `RENTAL-SYSTEM-BLUEPRINT.md` rather than a
+scratch file, gates every commit on the full suite — `tsc`, lint, tests, build —
+and never pushes. Each guard is there because of a specific failure; the header
+comment says which.
+
 ## Conventions that bite
 
 **Migrations.** Every migration is numbered and has a byte-identical copy under
