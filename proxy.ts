@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
+import { reportHandledError } from "@/lib/sentryReporting";
 
 // Pages staff can access (exact page, or a nested route beneath it).
 // Must mirror the `adminOnly: false` entries in app/admin/AdminLayoutClient.tsx.
@@ -166,15 +167,14 @@ async function withAuthTimeout<T>(
       const ms = Date.now() - started;
       // Timings and labels only — never a token, session or request body.
       console.error(`[proxy] auth call "${label}" did not answer within ${ms}ms; giving up`);
+      reportHandledError(new Error("Supabase Auth call timed out"), "proxy", label);
       return { ok: false, ms };
     }
     return { ok: true, value: result as T };
   } catch (err) {
     const ms = Date.now() - started;
-    console.error(
-      `[proxy] auth call "${label}" failed after ${ms}ms:`,
-      err instanceof Error ? err.message : err,
-    );
+    console.error(`[proxy] auth call "${label}" failed after ${ms}ms`);
+    reportHandledError(err, "proxy", label);
     return { ok: false, ms };
   } finally {
     if (timer) clearTimeout(timer);
@@ -275,9 +275,7 @@ export async function proxy(req: NextRequest) {
   // depends on a network lookup that can fail — and the failure mode was a
   // silent downgrade. Logged once per request, only when the fast path misses.
   if (!role) {
-    console.warn(
-      `[proxy] no role claim in token for ${user.email}; falling back to lookup`
-    );
+    console.warn("[proxy] no role claim in token; falling back to lookup");
   }
 
   // A session issued before a role change carries a stale (or absent) claim.
@@ -343,10 +341,8 @@ export async function proxy(req: NextRequest) {
       // The denial stands. It is now visible. A transient failure turning a
       // real admin away for one request is recoverable; resolving upward to a
       // role that reads customer data is not.
-      console.error(
-        `[proxy] role lookup failed for ${user.id}; denying:`,
-        err instanceof Error ? err.message : err
-      );
+      console.error("[proxy] role lookup failed; denying access");
+      reportHandledError(err, "proxy", "role-lookup");
       role = "";
     }
   }
@@ -355,7 +351,7 @@ export async function proxy(req: NextRequest) {
   // cannot be set by the account holder, so this cannot be satisfied by
   // signing up.
   if (role !== "admin" && role !== "staff") {
-    console.error(`[proxy] no role for ${user.id} (${user.email}); refusing admin access`);
+    console.error("[proxy] no authorised role; refusing admin access");
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

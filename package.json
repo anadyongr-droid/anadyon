@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "node --max-old-space-size=4096 node_modules/typescript/bin/tsc --noEmit",
+    "check:migration-replay": "node scripts/check-migration-replay.mjs",
     "check:schema": "node scripts/check-schema-drift.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage.enabled --maxWorkers=2",
@@ -22,6 +23,9 @@
     "test:frozen-panes": "playwright test tests/browser/frozen-panes.spec.ts --config playwright.frozen-panes.config.ts",
     "backup": "node scripts/backup.mjs",
     "check:grants": "node scripts/check-grants.mjs",
+    "check:schema:parity": "node scripts/check-schema-parity.mjs",
+    "staging:reset": "node scripts/reset-staging.mjs",
+    "staging:seed-auth": "node scripts/seed-staging-auth.mjs",
     "test:browser:all": "playwright test --config playwright.crossbrowser.config.ts",
     "probe:rpc-identity": "node scripts/probe-rpc-identity.mjs",
     "verify": "node scripts/verify.mjs",
@@ -30,6 +34,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
+    "@sentry/nextjs": "10.72.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.2",
     "@vercel/speed-insights": "^2.0.0",
@@ -64,6 +69,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "jsdom": "^30.0.1",
+    "supabase": "2.116.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.10"

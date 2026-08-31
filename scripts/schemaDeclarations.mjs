@@ -11,27 +11,11 @@ import { join } from "node:path";
 /**
  * Columns the deployed database is allowed to have that no migration declares.
  *
- * This list exists because of `customers.name`. `001_baseline.sql` uses
- * `CREATE TABLE IF NOT EXISTS` on tables the hand-made `supabase/schema.sql`
- * had already created, so in production the baseline was a no-op and that
- * table's original `name text NOT NULL` column survived underneath it. Nothing
- * in this repository could have found that: the drift check only ever compared
- * one way, and this is the other way.
- *
  * Every entry needs a reason and an exit. An allowlist without one is how a
- * check stops meaning anything.
+ * check stops meaning anything. This is intentionally empty: migration 017 now
+ * declares the one former exception, `customers.name`.
  */
-export const UNDECLARED_ALLOWLIST = new Map([
-  [
-    "customers.name",
-    "Legacy, predates the migration files — see 017_customers_legacy_name_column.sql. " +
-      "Kept nullable and auto-filled by trigger. This entry is expected to be SHORT-LIVED: the " +
-      "decided repair for the migration replay (blueprint 10, 30 August) prepends " +
-      "`ALTER TABLE customers ADD COLUMN IF NOT EXISTS name text` to 017, at which point the " +
-      "column becomes declared and this entry must be deleted. If it is still here after that " +
-      "lands, the allowlist is hiding something rather than explaining it.",
-  ],
-]);
+export const UNDECLARED_ALLOWLIST = new Map();
 
 /**
  * A table name, with the schema qualifier discarded if present.

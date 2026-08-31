@@ -29,6 +29,7 @@ const checks = [
 
 if (!fast) {
   checks.push(
+    ["Migration replay", "npm", ["run", "check:migration-replay"]],
     ["Production build (local webpack)", "npm", ["run", "build:verify"]],
     ["Translation", "npm", ["run", "check:translation"]],
     ["Static accessibility", "npm", ["run", "check:a11y"]],

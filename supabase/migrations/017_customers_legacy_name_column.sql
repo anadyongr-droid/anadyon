@@ -11,6 +11,11 @@
 -- the change is reversible. `name` is now unused and can be dropped in a later
 -- migration once that is confirmed against any external consumer.
 
+-- A fresh database starts from 001_baseline.sql, which never creates this
+-- production-only legacy column. Make this migration self-contained without
+-- changing the baseline or changing the final schema reached in production.
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS name text;
+
 ALTER TABLE customers ALTER COLUMN name DROP NOT NULL;
 
 -- Keeps the legacy column meaningful for anything reading the table directly

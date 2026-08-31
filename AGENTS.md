@@ -175,9 +175,10 @@ different command list in each session:
 
 - `npm run verify:fast` is the minimum local edit loop: typecheck, lint and the
   complete unit suite, run sequentially.
-- `npm run verify` adds a production build, translation, static accessibility,
-  SEO and Chromium/Firefox browser tests. The migration-replay preflight lives
-  in draft PR #66 and joins this command only after that independent PR merges.
+- `npm run verify` adds the migration replay preflight, a production build,
+  translation, static accessibility, SEO and Chromium/Firefox browser tests.
+  The replay implementation comes from foundation draft PR #66; this safety-net
+  change is reviewed as a stacked PR until that independent foundation merges.
 
 The sequential command is a reproducibility aid, not a claim that parallel test
 execution is broken. GitHub CI remains the independent merge gate and uses the

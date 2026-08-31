@@ -208,17 +208,12 @@ describe("views", () => {
 });
 
 describe("the defect the reverse direction exists for", () => {
-  it("confirms customers.name is still undeclared", () => {
-    // The finding itself, as a test rather than as a note. When the decided
-    // repair to migration 017 lands — prepending ADD COLUMN IF NOT EXISTS —
-    // this flips, and the allowlist entry below must be deleted with it.
-    expect(declaredColumns(REAL).get("customers").has("name")).toBe(false);
+  it("confirms migration 017 now declares customers.name", () => {
+    expect(declaredColumns(REAL).get("customers").has("name")).toBe(true);
   });
 
-  it("excuses it, with a reason and an exit", () => {
-    const reason = UNDECLARED_ALLOWLIST.get("customers.name");
-    expect(reason, "the one known survivor is not excused, so the check is red forever").toBeTruthy();
-    expect(reason).toMatch(/017/);
+  it("removes the obsolete customers.name exception", () => {
+    expect(UNDECLARED_ALLOWLIST.has("customers.name")).toBe(false);
   });
 
   it("keeps the allowlist small and explained", () => {

@@ -32,11 +32,11 @@ time; the workflows themselves nevertheless use reviewed full SHAs.
 ### One reproducible local verifier
 
 `npm run verify:fast` runs typecheck, lint and all unit tests sequentially.
-`npm run verify` then adds a production build, translation, static
-accessibility, SEO and browser tests. It forces inert placeholder values instead
-of inheriting usable production credentials. The migration-replay preflight is
-implemented in independent draft PR #66; once that PR merges, its
-`check:migration-replay` command should be inserted before the build here.
+`npm run verify` then adds migration replay, a production build, translation,
+static accessibility, SEO and browser tests. It forces inert placeholder values
+instead of inheriting usable production credentials. The replay implementation
+comes from independent foundation draft PR #66, so this safety-net PR is stacked
+on that branch until the foundation merges.
 
 This does not imply that the repository's tests are defective when run in
 parallel. A prior timeout was specific to one managed local environment and did
