@@ -1860,10 +1860,10 @@ payment attestation the live workflow requires.
 **Decision.** Repair the harness rather than weaken any live rule: emulate and
 drain post-response work, make fake provider ids unique, keep the global
 no-mail boundary, and assert atomic replay plus payment-gated confirmation.
-The corrected suite passes 78/78 against hosted staging locally. The GitHub gate
-is not recorded green until the correction itself runs there; Preview/vendor
-acceptance remains separate. Detailed evidence and remaining checkboxes are in
-`docs/STAGING-AND-OBSERVABILITY-RUNBOOK.md` §11.
+The corrected suite passed 78/78 against hosted staging locally and in GitHub
+run `33413251647`, after the ordinary build passed. The fail/green evidence is
+therefore closed; Preview/vendor acceptance remains separate. Detailed evidence
+and remaining checkboxes are in `docs/STAGING-AND-OBSERVABILITY-RUNBOOK.md` §11.
 
 ### 31 August 2026 — an agent can finally look at an admin screen
 

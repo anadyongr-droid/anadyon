@@ -217,7 +217,8 @@ assertion, then remove the break.
 - [ ] AADE sandbox flow is tested when sandbox credentials exist.
 - [ ] Manual morning briefing returns successfully without reaching production Telegram.
 - [ ] Sentry receives browser, server and proxy errors with raw-event privacy inspected.
-- [ ] Staging e2e CI passes and has been observed failing on a deliberate break.
+- [x] Staging e2e CI passes and has been observed failing on a known-bad prior
+  revision (runs `33413251647` and `33398661882`, 31 August 2026).
 
 No checkbox involving a hosted service is complete merely because the code for
 it exists. Record the date and evidence when the owner performs each one.
@@ -301,8 +302,9 @@ all readiness checks passed. The failures identified stale test contracts:
 
 The harness now queues and drains post-response work, models unique provider
 ids, and asserts the current booking/payment contracts. Against the isolated
-hosted project it passes 78/78 locally. The remaining §8 CI checkbox stays open
-until this correction lands on `main`, the GitHub staging job passes there, and
-the fail/green history is linked. Preview scoping, browser MFA, documents,
-Stripe, AADE, the morning briefing and Sentry remain separate hosted acceptance
-items; none is implied complete by the database or CI evidence above.
+hosted project it passed 78/78 locally, then GitHub run `33413251647` passed the
+same credentialled staging job after its normal build gate. Together with the
+15-failure report from run `33398661882`, this records both sides of the gate
+without manufacturing an artificial failure. Preview scoping, browser MFA,
+documents, Stripe, AADE, the morning briefing and Sentry remain separate hosted
+acceptance items; none is implied complete by the database or CI evidence above.
