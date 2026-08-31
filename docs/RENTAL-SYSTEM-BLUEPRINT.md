@@ -872,8 +872,56 @@ Required before phase 2 ships:
 - **A retention class on every table holding personal data** — not a global
   policy. Accounting records, agreements, identity documents and marketing
   consent expire on different clocks.
-- **A scheduled purge that runs and leaves a record that it ran.** A purge
-  nobody can prove executed is indistinguishable from one that never did.
+- **A scheduled purge that *proposes*, and a person who confirms.** *Amended 30
+  August, by Tasos: "the purge should not be automatic. The admin should get a
+  prompt and only after approving twice would the data be purged."*
+
+  This section originally said "a scheduled purge that runs". It now runs and
+  stops short of deleting. The reasoning for the change is sound and is the same
+  one behind `ON DELETE RESTRICT` on the handover tables: an irreversible
+  destruction driven by a date calculation is one arithmetic bug away from
+  destroying records that tax law requires be kept, and there is no undo.
+
+  **The mechanics, and one distinction that matters.** "Approving twice" here
+  means two deliberate confirmations by the same administrator — the
+  type-the-word-DELETE shape — **not** the four-eyes queue from migration 038.
+  With a single administrator, four eyes on their own action deadlocks, which
+  §7 already settled for fleet edits; the same reasoning applies and the same
+  trap is worth naming, because the queue exists and is the obvious thing to
+  reach for.
+
+  **The risk this introduces, which is not smaller than the one it removes.**
+  Retention is an obligation, not an option. A purge that nobody approves for
+  eighteen months is a breach of the published twelve-month promise — and a
+  worse breach than an automatic job failing, because the system generated a
+  prompt and a person did not act on it. Unattended negligence is bad;
+  *documented* negligence is what a regulator reads. This project's own record
+  is the argument: the audits sat ungraded for twelve days and the RPC
+  diagnostics sat unrun; a recurring approval is exactly the kind of task that
+  does not happen.
+
+  **So the design keeps the veto and refuses to let it be silent:**
+
+  1. the job runs on schedule and computes what is **due**, deleting nothing;
+  2. it records the proposal, so what was due and when is provable later;
+  3. an administrator reviews and confirms twice, and only then is anything
+     destroyed;
+  4. **an unapproved proposal escalates rather than waiting.** It appears in the
+     morning briefing, and overdue items are named with their age — the same
+     shape `blockChase()` already uses for a vehicle out of the fleet. A pending
+     purge is a compliance clock running, and it must look like one.
+
+  The record still matters as much as it did: a purge nobody can prove executed
+  is indistinguishable from one that never did — and now so is a purge nobody
+  can prove was *proposed*.
+
+- **Anonymisation is the part that should not need a prompt.** Where deletion is
+  forbidden but the data is no longer needed — a five-year tax record that does
+  not require the driver's passport number — the operation removes a field from
+  a row that survives. It is far less destructive than a purge, it is the
+  action GDPR most often actually requires, and putting it behind the same
+  confirmation would make the safe option as slow as the dangerous one. Proposed
+  as automatic; area 5 confirms.
 - **An erasure path** that satisfies a real Article 17 request: it deletes what
   it may, retains what it must, and returns to the requester which of the two
   applied to each category. "We deleted everything" is a lie whenever tax law
@@ -1848,6 +1896,80 @@ exposure"* is a good reflex that produces a bad answer when the exposure was
 misuse rather than disclosure, and the distinction is worth having next time.
 Where it does apply — the Make.com credential in §9a — the key was rotated and
 the scenarios retired, which is the shape of a real disclosure response.
+
+### 30 August 2026 — phase 2 begins, and Gate 0 is deliberately not waited for
+
+*Implementer entry. Tasos: "let's go beyond gate 0 please. we need to press
+ahead." Recorded here because §7.2 says the opposite, and a decision that
+contradicts a standing rule should be findable later by whoever wonders why.*
+
+**§7.2's rule, and what it was protecting.** *"Area 5 — content and legal — is
+cleared before the phase-2 migration is written… Building those columns first
+would turn unreviewed assumptions into schema debt."* Area 5 is still ungraded.
+The rule stands as written; it has been overridden for this migration by the
+owner, knowingly.
+
+**The override costs less than it looks, because §4.2 already draws the line.**
+*"Raw facts and money are deliberately separate."* Everything in migration 040
+is a fact — an odometer reading, a fuel gauge in eighths, a photograph, an
+observation of what staff saw at a moment. None of it asserts a legal position,
+so none of it can encode a wrong one.
+
+**`reservation_adjustments` is therefore not in it.** That table is the other
+half: what may be charged, on whose authority, in what words. It is exactly what
+area 5 decides, and it waits. `lib/rentalHandoversMigration.test.ts` asserts its
+*absence*, so the deferral cannot be undone by accident without the decision
+being revisited.
+
+**The consequence to accept, stated plainly:** check-in can record that a car
+came back three eighths down on fuel, and cannot yet raise a charge for it. That
+is a smaller gap than a charge table built on guesses, and it is closed by one
+migration once counsel answers.
+
+**What migration 040 contains.** The seven tables of §4.2 minus that one:
+`inspection_templates`, `inspection_template_views`, `rental_handovers`,
+`handover_photos`, `handover_damage_observations`, `handover_damage_photos`,
+`rental_handover_events` — plus the private `handover-photos` bucket, created in
+the migration rather than in a comment. Migration 021 records what the
+alternative cost: a bucket requested in a comment, never created, and a document
+feature broken in production from launch.
+
+**Nothing in it was invented.** Where it could have been, it is not: no
+`signature_url` (§4.2 rejects it — signature is phase 3's versioned agreement,
+and a signed URL expires); no automatic fuel or mileage tariffs (§4.2: those
+need operator-approved capacities, rates and customer wording that do not
+exist); odometer and fuel both nullable, because a bicycle has neither and
+*"do not write invented zero readings to satisfy a form."*
+
+**Tested by execution, not by reading**, and that choice comes straight from
+§4.5, which records four defects in an earlier draft of §4.2 — three of them
+specifications that could not have been built, including composite foreign keys
+whose targets carried no unique constraint. A migration that is only read cannot
+catch that. Seventeen tests run it against real Postgres and then attempt the
+rows the design says are impossible: a second live handover for one direction, a
+photograph claiming a view from another template, damage evidence borrowed
+across handovers, a completion with no time, a void with no reason, a ninth
+eighth of fuel.
+
+Each constraint was then removed in turn to confirm the test noticed. The first
+attempt at that check was itself wrong — deleting a foreign key left a dangling
+comma, the migration failed to parse, and all seventeen tests "failed" for a
+reason that proved nothing. Re-run by weakening the composite key to a plain
+`photo_id` reference, which is the realistic wrong version and precisely the
+§4.5 defect, the intended test failed alone.
+
+**Identity.** `created_by` and `completed_by` follow migration 038's interim
+position: application-asserted, because every RPC here is called with the
+service role. Diagnostic 10a has since shown the staff JWT carries `sub`, so
+Option A can replace the claim with a verified identity **without a schema
+change** — the columns stay, only who fills them changes.
+
+**Not built here, and next:** the finalisation service. §4.2's rules 1–4 specify
+one short server-side transaction per direction, with the check-out
+preconditions (confirmed reservation, assigned eligible vehicle, no block, valid
+licence, required views, cleanliness, recorded agreement) and the check-in
+counterpart. That is the next piece, and it is where the identity answer starts
+to matter.
 
 ### 30 August 2026 — outside review, and the two places this document was wrong
 
