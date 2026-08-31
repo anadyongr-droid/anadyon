@@ -1,7 +1,8 @@
 # Handover — admin table headers and first column will not freeze
 
-**Written:** 25 August 2026 · **Against:** `ed381a2`, live on anadyon.gr ·
-**Status:** unresolved after three attempts.
+**Written:** 25 August 2026 · **Last verified:** 31 August 2026 ·
+**Status:** the current implementation passes real authenticated Chromium and
+iPad WebKit emulation; the original physical-device report is not reproduced.
 
 Read [`README.md`](README.md) first, and
 [`RENTAL-SYSTEM-BLUEPRINT.md`](RENTAL-SYSTEM-BLUEPRINT.md) for why the admin is
@@ -249,6 +250,64 @@ execute on every push.
 
 ---
 
+## Fifth verification — 31 August 2026: real authenticated pages and iPad WebKit
+
+This closes both measurement gaps recorded above. It does **not** claim that a
+physical-device report was imaginary; it records what can and cannot now be
+reproduced so the next person does not manufacture a fourth CSS fix.
+
+### Real authenticated production pages
+
+The production admin was measured while signed in, using actual scroll gestures
+rather than assigning `scrollLeft`/`scrollTop` in the DOM:
+
+| Screen / viewport | Scroll range used | Result |
+|---|---:|---|
+| Reservations, 820×1024 | 300px horizontal | Ref header and first body cell stayed at the left edge |
+| Rates, 820×1024 | 260px vertical | The active category header stayed below the 56px mobile toolbar |
+| Calendar, 820×1024 | 280px horizontal + 150px vertical | Date header, vehicle cells and category label all stayed pinned |
+| Reservations, 412×915 | 350px horizontal | Ref header and first body cell stayed at the left edge |
+
+The production page is serving later stylesheet chunks than the one named in
+the original handover. Computed styles on the real cells are `position: sticky`,
+and the ancestor chain contains no unexpected transform, containment or clipping
+between each normal admin table and `<main>`.
+
+Calendar is intentionally different: its large grid uses its own bounded
+two-axis scroll box. Its ordinary vehicle cells pin to that box; category rows
+span the whole table, so their inner label is the sticky element. Both paths
+were measured after a diagonal gesture.
+
+### WebKit and iPad coverage
+
+The original fourth attempt said only Chromium was available. That limitation
+has now been removed. The same preconditioned instrument passed **32/32** across
+iPad WebKit emulation, Desktop Safari/WebKit, Firefox and Chromium:
+
+```sh
+npm run test:frozen-panes
+```
+
+`playwright.frozen-panes.config.ts` deliberately starts no application server:
+the spec uses `page.setContent()` and reads the real CSS from disk, so requiring
+a local production build made this focused check harder to repeat for no gain.
+
+### Decision
+
+No runtime CSS or component change is justified by the current evidence. A
+two-table split, transform-based scroll shim, or mobile card rewrite would add
+substantial behaviour and accessibility risk while every reproducible case is
+green. Do not deploy one merely to make the stylesheet hash change.
+
+If a physical iPad or Android device still fails, first fully close and reopen
+the admin tab (or clear the site data), then record the exact screen and whether
+the table (a) will not scroll, or (b) scrolls while the pane travels. That one
+distinction selects between a stale/clipping problem and an engine-specific
+sticky failure. A screenshot or short recording is more useful than another
+hand-written reproduction.
+
+---
+
 ## Files
 
 | Path | Role |
@@ -258,6 +317,8 @@ execute on every push.
 | `app/admin/*/page.tsx` | 13 tables, all carrying `admin-table` / `admin-table-wrap` |
 | `lib/adminMobileLayout.test.ts` | shell, drawer, modal caps, table clipping |
 | `lib/adminReadability.test.ts` | contrast, sticky rules, picker overrides |
+| `tests/browser/frozen-panes.spec.ts` | preconditioned structural and sticky-behaviour instrument |
+| `playwright.frozen-panes.config.ts` | server-free Chromium, Firefox, Desktop WebKit and iPad WebKit runner |
 
 ## Related work in the same thread
 

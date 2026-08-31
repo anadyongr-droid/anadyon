@@ -16,10 +16,28 @@ import { Loader2, ShieldCheck } from "lucide-react";
  * The same page serves a forgotten password, because Supabase delivers both as
  * the same kind of link and the person needs the same thing at the end of it.
  *
- * proxy.ts lets this through before its MFA gate. Someone arriving here has a
- * session but has not enrolled a second factor yet — they cannot, they do not
- * have a password. Enrolment happens straight afterwards, and the proxy
- * enforces it before anything else in the admin area opens.
+ * proxy.ts lets this through before its MFA gate. Someone arriving from an
+ * *invitation* has a session but has not enrolled a second factor yet — they
+ * cannot, they do not have a password. Enrolment happens straight afterwards,
+ * and the proxy enforces it before anything else in the admin area opens.
+ *
+ * ─── And the case that reasoning missed ───
+ *
+ * A *reset* is the other half, and there the person already has a factor,
+ * because the proxy made them enrol before it let them in. Supabase refuses a
+ * password change from the AAL1 session a recovery link produces:
+ *
+ *     AAL2 session is required to update email or password when MFA is enabled.
+ *
+ * So until 30 August no established staff member could recover a forgotten
+ * password — the one flow this page exists to serve for anyone who is not brand
+ * new. The comment above was right about invitations and was never checked
+ * against resets.
+ *
+ * The fix is to ask what the session needs rather than assume. When Supabase
+ * says the next level is aal2, the code is collected and verified first, which
+ * is the same challenge/verify pair app/admin/login/page.tsx already runs. An
+ * invitation reports aal1 and goes straight through, untouched.
  */
 export default function SetPasswordPage() {
   const router = useRouter();
@@ -28,12 +46,46 @@ export default function SetPasswordPage() {
   const [status, setStatus] = useState<"checking" | "ready" | "saving" | "expired">("checking");
   const [error, setError] = useState<string | null>(null);
 
+  // Set only when the session must reach aal2 before a password can be changed
+  // — a reset on an account that has already enrolled. Null for an invitation,
+  // which is the flow this page was originally written for.
+  const [factorId, setFactorId] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState("");
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
   useEffect(() => {
+    /**
+     * Does this session have to prove a second factor before it may set a
+     * password?
+     *
+     * `listFactors()` is the whole answer, and it is asked of Supabase rather
+     * than inferred. Its `totp` array contains **only verified factors** — see
+     * `_listFactors` in @supabase/auth-js, which filters on `status ===
+     * 'verified'` — and a verified factor is exactly the condition under which
+     * GoTrue refuses `updateUser({ password })` from an aal1 session. One
+     * question, one call.
+     *
+     * The first version also required
+     * `getAuthenticatorAssuranceLevel().nextLevel === "aal2"`, which looked
+     * like belt and braces and was not. That call derives `nextLevel` from the
+     * **stored session object's** `user.factors` rather than from the network,
+     * so the two can disagree — and joined by `&&`, any disagreement resolves
+     * to "no factor needed", which is the failing direction. Extra conditions
+     * on a guard are not free; each one is another way for it to say no.
+     *
+     * A failure here is not fatal. `save()` catches the refusal and asks for
+     * the code then, so the page recovers even if this returns nothing at all.
+     */
+    const resolveFactor = async () => {
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const totp = factors?.totp?.[0];
+      if (totp) setFactorId(totp.id);
+    };
+
     // The tokens are read out of the fragment and handed to the client
     // explicitly, rather than waiting for it to notice them.
     //
@@ -55,6 +107,7 @@ export default function SetPasswordPage() {
           // Clears the tokens from the address bar and from history once they
           // have been exchanged for a session. A recovery URL is a credential.
           window.history.replaceState(null, "", window.location.pathname);
+          await resolveFactor();
           setStatus("ready");
           return;
         }
@@ -63,6 +116,7 @@ export default function SetPasswordPage() {
       // No tokens, or they were refused: either the link was already used, or
       // the person arrived here directly.
       const { data } = await supabase.auth.getSession();
+      if (data.session) await resolveFactor();
       setStatus(data.session ? "ready" : "expired");
     };
 
@@ -83,9 +137,55 @@ export default function SetPasswordPage() {
       return;
     }
 
+    if (factorId && totpCode.replace(/\s/g, "").length < 6) {
+      setError("Enter the six-digit code from your authenticator app.");
+      return;
+    }
+
     setStatus("saving");
+
+    // Raise the session to aal2 first, or Supabase refuses the change outright.
+    // Verifying afterwards would be too late: the update is what gets rejected.
+    if (factorId) {
+      const { data: challenge, error: ce } = await supabase.auth.mfa.challenge({ factorId });
+      if (ce || !challenge) {
+        setError("Could not start verification. Please try again.");
+        setStatus("ready");
+        return;
+      }
+      const { error: ve } = await supabase.auth.mfa.verify({
+        factorId,
+        challengeId: challenge.id,
+        code: totpCode.replace(/\s/g, ""),
+      });
+      if (ve) {
+        setError("Incorrect code. Please try again.");
+        setTotpCode("");
+        setStatus("ready");
+        return;
+      }
+    }
+
     const { error: updateError } = await supabase.auth.updateUser({ password });
     if (updateError) {
+      // Last line of defence, and the reason this page can no longer get stuck.
+      //
+      // If detection above missed the factor for any reason — a Supabase change,
+      // a session shape nobody anticipated — GoTrue still refuses with this
+      // message, and refusing is itself proof that a factor exists. So the
+      // refusal becomes the prompt: show the code field and let the person try
+      // again, rather than printing a message about assurance levels at
+      // somebody who wants their password back.
+      if (/aal2/i.test(updateError.message)) {
+        const { data: factors } = await supabase.auth.mfa.listFactors();
+        const totp = factors?.totp?.[0];
+        if (totp) {
+          setFactorId(totp.id);
+          setError("Enter the code from your authenticator app to confirm this change.");
+          setStatus("ready");
+          return;
+        }
+      }
       setError(updateError.message);
       setStatus("ready");
       return;
@@ -127,8 +227,9 @@ export default function SetPasswordPage() {
           <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Choose a password</h1>
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Only you will know it. You will be asked to set up two-factor
-          authentication immediately after.
+          {factorId
+            ? "Only you will know it. Confirm the change with your authenticator app below."
+            : "Only you will know it. You will be asked to set up two-factor authentication immediately after."}
         </p>
 
         {error && (
@@ -165,6 +266,30 @@ export default function SetPasswordPage() {
           At least 12 characters. A few unrelated words are stronger and easier to
           remember than a short one with symbols in it.
         </p>
+
+        {/* Only for a reset on an account that has already enrolled. An
+            invitation never sees this, because there is no factor to prove. */}
+        {factorId && (
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Code from your authenticator app
+            </span>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              required
+              maxLength={7}
+              value={totpCode}
+              onChange={(e) => setTotpCode(e.target.value)}
+              className="mt-1 w-full min-h-11 px-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white tracking-widest"
+            />
+            <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+              Changing a password needs the second factor as well, so nobody with
+              only your email can take the account.
+            </span>
+          </label>
+        )}
 
         <button
           type="submit"
