@@ -257,3 +257,14 @@ The branch was merged with `origin/main` at `02c6795` before further work. The
 current replay is 38/38 migrations and 822/822 unit tests. The merge exposed and
 closed the obsolete `customers.name` schema-declaration exception described in
 the replay result document.
+
+Final local verification against that reconciled state:
+
+- TypeScript passed and ESLint reported zero errors with 22 existing warnings;
+- the webpack production build compiled and generated all 93 routes (GitHub CI
+  remains the independent default-Turbopack gate);
+- translation passed 14/14 pages, static accessibility passed 28/28 pages and
+  SEO passed 60/60 assertions;
+- Playwright passed 70 Chromium/Firefox checks, with four rate-dependent checks
+  skipped because the isolated build deliberately used placeholder Supabase
+  credentials.
