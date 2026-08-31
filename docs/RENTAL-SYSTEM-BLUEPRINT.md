@@ -1852,6 +1852,61 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 31 August 2026 — migrations 040 and 041 are applied to production
+
+Tasos applied both through the SQL Editor, 040 first. Recorded here because
+every other §10 entry about these two says "written and not applied", and a
+later reader has no other way to tell.
+
+**Verified by query, not by the editor's "Success. No rows returned"** — which
+is what both files return whether or not they did what they claim, since the
+Supabase SQL Editor does not surface `raise notice` in its results pane. The
+`REACHED THE END` markers in 040 and 041 are therefore invisible in that
+interface, and advice to watch for them was wrong.
+
+| Checked | Result |
+|---|---|
+| The seven tables of §4.2 | 7 of 7 |
+| `handover-photos` bucket | present and private |
+| `reservation_adjustments` still absent | yes |
+| The three functions of 041 | 3 of 3 |
+| Gateway reachable by anon, authenticated or service_role | **no** |
+| `finalise_check_out_impl` callable by service_role | yes |
+
+The fifth row is the one worth having asked. §13.4 of
+`OPEN-QUESTION-RPC-STAFF-IDENTITY.md` forbids granting a gateway EXECUTE in
+production before diagnostic 10c, and this is the production database
+confirming the migration honoured that rather than a test confirming the file
+intended to.
+
+**No behaviour changed.** Nothing calls either function — the API route is not
+written. Both migrations are additive; neither alters or drops anything that
+existed.
+
+**And the one unverified assumption in 041 is now settled.** `handover_actor_role()`
+reads `auth.users`, which no migration here had done before, and creation
+succeeding does not prove the owner may read it — PostgreSQL checks that a
+relation *exists* when a SQL function body is parsed, and checks *permission*
+only at execution. Calling it in the SQL Editor returned one row, `null`:
+
+```
+| role_lookup |
+| ----------- |
+| null        |
+```
+
+**Null is the pass, and the absence of an error is the whole result.** The SQL
+Editor carries no end-user JWT, so `auth.uid()` is null and there is no user to
+look up; what the call establishes is that the function *executed* rather than
+raising `permission denied for table users`. Membership can be read from
+`auth.users`, and no fallback source is needed.
+
+**It does not answer diagnostic 10c**, and the two should not be confused. 10c
+asks whether PostgREST populates `request.jwt.claims` for a request bearing a
+user's access token — a question about Supabase's request path, which the SQL
+Editor does not exercise at all. This settles only the privilege sub-question
+that migration 041 added on top of it.
+
 ### 31 August 2026 — the private document path was run, not inferred
 
 The hosted staging gate now uploads a synthetic PDF through the same signed
