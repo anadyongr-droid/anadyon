@@ -1839,6 +1839,32 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 31 August 2026 — hosted staging activated, and the gate proved it can fail
+
+The isolated Supabase project was reset twice from the migration chain and
+synthetic seed, then the four staging-only credentials were installed as
+encrypted GitHub Actions repository secrets. Production credentials and data
+were not used. Both resets produced the same fixtures, role claims, private
+bucket, zero residual grants and a 391-column/29-table schema match against the
+declared migration state.
+
+The first credentialled CI execution did not go green by ceremony: its main
+build passed and its staging phase failed 15/78 checks. The database and all 22
+security assertions held. What failed was the test contract after intervening
+application changes — Next `after()` had no request context in direct-handler
+tests, the mail mocks predated the audited delivery fields, a fake provider id
+was unrealistically constant, one assertion demanded duplicate rows where the
+atomic booking RPC now guarantees idempotency, and admin fixtures bypassed the
+payment attestation the live workflow requires.
+
+**Decision.** Repair the harness rather than weaken any live rule: emulate and
+drain post-response work, make fake provider ids unique, keep the global
+no-mail boundary, and assert atomic replay plus payment-gated confirmation.
+The corrected suite passes 78/78 against hosted staging locally. The GitHub gate
+is not recorded green until the correction itself runs there; Preview/vendor
+acceptance remains separate. Detailed evidence and remaining checkboxes are in
+`docs/STAGING-AND-OBSERVABILITY-RUNBOOK.md` §11.
+
 ### 31 August 2026 — an agent can finally look at an admin screen
 
 **Decision.** proxy.ts gains a development-only sign-in bypass. With

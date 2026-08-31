@@ -1,7 +1,9 @@
 # Staging and observability runbook
 
-**Status:** code and local replay tooling prepared; hosted setup still requires
-the owner. Codex must not run migrations against any hosted Supabase project.
+**Status:** the isolated Supabase project exists, has been reset twice by the
+owner, and the four staging-only GitHub Actions secrets are installed. Hosted
+Preview/vendor/Sentry acceptance remains open. Codex must not run migrations
+against any hosted Supabase project.
 
 This runbook creates an isolated test system. It never copies production data,
 never reuses production Supabase credentials, and never permits test mail to
@@ -204,8 +206,8 @@ assertion, then remove the break.
 
 ## 8. Final acceptance checklist
 
-- [ ] `npm run check:migration-replay` passes locally.
-- [ ] `npm run staging:reset` passes twice consecutively.
+- [x] `npm run check:migration-replay` passes locally (31 August 2026).
+- [x] `npm run staging:reset` passes twice consecutively (31 August 2026).
 - [ ] `npm run check:schema:parity` reports equality or every difference is documented.
 - [ ] Synthetic admin and staff can log in and enrol MFA.
 - [ ] Staff is refused administrator-only actions.
@@ -270,3 +272,37 @@ Final local verification against that reconciled state:
 - Playwright passed 70 Chromium/Firefox checks, with four rate-dependent checks
   skipped because the isolated build deliberately used placeholder Supabase
   credentials.
+
+## 11. Hosted staging activation — 31 August 2026
+
+The owner created staging project `fzycvstifmltxybffinq` and ran the guarded
+reset twice. Both runs replayed 39 migrations and finished with the same
+synthetic state: 29 vehicles, five customers and six reservations; both
+synthetic Auth roles verified; anonymous reads and writes to sensitive tables
+returned 401; public rates and extras remained read-only; residual grants were
+zero; the private document bucket existed; and the schema check matched 391
+columns across 29 tables in both directions against the declared migration
+state. No production data was copied.
+
+The four §7 values were then installed as encrypted repository secrets in
+`anadyongr-droid/anadyon`. Their values were not printed or committed. Rerunning
+Actions workflow `33398661882` proved the staging job was no longer skipped:
+the normal build stayed green and the hosted e2e phase failed 15 of 78 checks.
+That was useful evidence, not a database failure. All 22 security checks and
+all readiness checks passed. The failures identified stale test contracts:
+
+- direct route-handler tests had no Next.js request context for `after()`;
+- mail mocks predated the audited-mail recipient export and normalised result;
+- the fake Resend provider reused one message id, unlike the real provider;
+- one test expected atomic replay to duplicate a quote, contradicting the
+  deployed idempotency rule;
+- two admin tests tried to confirm bookings without the payment attestation the
+  current workflow deliberately requires.
+
+The harness now queues and drains post-response work, models unique provider
+ids, and asserts the current booking/payment contracts. Against the isolated
+hosted project it passes 78/78 locally. The remaining §8 CI checkbox stays open
+until this correction lands on `main`, the GitHub staging job passes there, and
+the fail/green history is linked. Preview scoping, browser MFA, documents,
+Stripe, AADE, the morning briefing and Sentry remain separate hosted acceptance
+items; none is implied complete by the database or CI evidence above.
