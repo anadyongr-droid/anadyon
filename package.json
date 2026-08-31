@@ -5,10 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:verify": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "node --max-old-space-size=4096 node_modules/typescript/bin/tsc --noEmit",
     "check:schema": "node scripts/check-schema-drift.mjs",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage.enabled --maxWorkers=2",
     "test:watch": "vitest",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:mail": "CONFIRM_LIVE_MAIL=yes node tests/e2e/mail-live.mjs",
@@ -20,7 +23,10 @@
     "backup": "node scripts/backup.mjs",
     "check:grants": "node scripts/check-grants.mjs",
     "test:browser:all": "playwright test --config playwright.crossbrowser.config.ts",
-    "probe:rpc-identity": "node scripts/probe-rpc-identity.mjs"
+    "probe:rpc-identity": "node scripts/probe-rpc-identity.mjs",
+    "verify": "node scripts/verify.mjs",
+    "verify:fast": "node scripts/verify.mjs --fast",
+    "hooks:install": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
@@ -53,6 +59,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-google-recaptcha": "^2.1.9",
+    "@vitest/coverage-v8": "4.1.10",
     "axe-core": "^4.13.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
