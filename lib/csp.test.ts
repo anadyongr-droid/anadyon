@@ -22,6 +22,11 @@ const config = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8
 
 /** Pulls one directive's value out of the shared BASE_CSP array. */
 function directive(name: string): string {
+  if (name === "connect-src") {
+    const base = config.match(/const BASE_CONNECT_SOURCES =\s*\n?\s*"([^"]+)"/);
+    if (!base) throw new Error("BASE_CONNECT_SOURCES not found in next.config.ts");
+    return base[1];
+  }
   const match = config.match(new RegExp(`"${name} ([^"]+)"`));
   if (!match) throw new Error(`CSP directive "${name}" not found in next.config.ts`);
   return match[1];
@@ -52,6 +57,12 @@ describe("Content-Security-Policy", () => {
     const connect = directive("connect-src");
     expect(connect).toMatch(/^'self'/);
     expect(connect).toContain("https://*.supabase.co");
+  });
+
+  it("adds only the validated Sentry ingest origin when a DSN is configured", () => {
+    expect(config).toContain("sentryIngestOriginFromDsn");
+    expect(config).toContain("SENTRY_INGEST_ORIGIN ? ` ${SENTRY_INGEST_ORIGIN}`");
+    expect(config).not.toContain("https://*.sentry.io");
   });
 
   it("does not silently acquire the advertising endpoints", () => {

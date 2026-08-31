@@ -16,6 +16,7 @@ import {
   seatsWithinLimit,
 } from "@/lib/rentalPolicy";
 import { resolveModel } from "@/lib/vehicleCatalogue";
+import { reportHandledError } from "@/lib/sentryReporting";
 
 const TOLERANCE = 0.02; // allow up to €0.02 rounding difference before flagging
 
@@ -296,6 +297,7 @@ export async function POST(req: NextRequest) {
   const serverRentalDays = calcRentalDays(pickupDate, dropoffDate, pickupTime, dropoffTime);
 
   if (!rates?.length || !extrasConfig) {
+    reportHandledError(new Error("Pricing configuration unavailable"), "quote", "load-pricing");
     return NextResponse.json({ error: "Unable to verify pricing. Please try again." }, { status: 503 });
   }
 
@@ -309,6 +311,7 @@ export async function POST(req: NextRequest) {
   // free rental. Refuse instead of storing a zero-priced quote.
   if (serverVehicleSubtotal <= 0) {
     console.error("[quote] no rate found", { model: catalogueModel.name, pricingGroup });
+    reportHandledError(new Error("No matching rate row"), "quote", "calculate-pricing");
     return NextResponse.json({ error: "Unable to verify pricing. Please try again." }, { status: 503 });
   }
   const serverDailyRate = serverVehicleSubtotal && serverRentalDays ? parseFloat((serverVehicleSubtotal / serverRentalDays).toFixed(2)) : 0;
@@ -329,6 +332,7 @@ export async function POST(req: NextRequest) {
     console.error("Quote pricing produced a non-finite value", {
       serverVehicleSubtotal, serverExtrasSubtotal, serverTotal, pricingGroup,
     });
+    reportHandledError(new Error("Non-finite server price"), "quote", "calculate-pricing");
     return NextResponse.json({ error: "Unable to verify pricing. Please try again." }, { status: 503 });
   }
 
@@ -505,6 +509,7 @@ export async function POST(req: NextRequest) {
   const booking = BookingResultSchema.safeParse(bookingData);
   if (bookingError) {
     console.error(`[quote] atomic booking failed for ${requestedRef}:`, bookingError.message);
+    reportHandledError(new Error("Atomic booking RPC failed"), "quote", "create-booking");
     return NextResponse.json(
       { error: "We could not save your request. Please try again, or call us on +30 26950 41878." },
       { status: 500 }
@@ -513,6 +518,7 @@ export async function POST(req: NextRequest) {
   if (!booking.success) {
     console.error(`[quote] atomic booking returned invalid data for ${requestedRef}:`,
       booking.error.issues[0]?.message ?? "invalid function response");
+    reportHandledError(new Error("Atomic booking RPC returned invalid data"), "quote", "parse-booking");
     return NextResponse.json(
       { error: "We could not save your request. Please try again, or call us on +30 26950 41878." },
       { status: 500 }
@@ -808,7 +814,8 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
       if (error) return false;
       return data ? data.vehicle_id === null : false;
-    } catch {
+    } catch (err) {
+      reportHandledError(err, "quote", "check-assignment");
       return false;
     }
   };

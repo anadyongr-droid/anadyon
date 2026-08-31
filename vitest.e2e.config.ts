@@ -1,8 +1,9 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 
-// End-to-end tests run the real route handlers against the real Supabase
-// project, so they are kept out of the default suite and run on demand.
+// End-to-end tests run real route handlers against the isolated staging
+// Supabase project. setup.ts refuses any URL that does not match the explicit
+// staging ref, so this suite can never fall back to production.
 export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("./", import.meta.url)) } },
   test: {

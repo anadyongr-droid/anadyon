@@ -11,16 +11,17 @@ import { describe, expect, it } from "vitest";
  * builders now refuse rather than default, and why the refusal is tested as
  * carefully as the success.
  *
- * The builders are not exported (they are internals of a route handler), so
- * these read the source. Weaker than calling them, but it pins the exact
- * literals a tax filing turns on — and those literals are the bugs that were
- * there: `11.1` instead of `11.2`, and `?? "GR"` swallowing an unknown country.
+ * The behavior-level suite calls the exported builders. These source checks
+ * complement it by pinning the route safeguards and the exact literals a tax
+ * filing turns on — the original bugs were `11.1` instead of `11.2`, and
+ * `?? "GR"` swallowing an unknown country.
  */
 const root = new URL("../", import.meta.url).pathname;
 const read = (p: string) => readFileSync(join(root, p), "utf8");
 
 const dcl = read("app/api/admin/aade/submit/route.ts");
 const invoices = read("app/api/admin/invoices/submit/route.ts");
+const xml = read("lib/aadeXml.ts");
 
 /**
  * The same file with its comments removed.
@@ -62,38 +63,35 @@ describe("myDATA invoice type", () => {
     // 11.2 is Απόδειξη Παροχής Υπηρεσιών — for *services*. Renting a vehicle
     // is a service, and nearly every Anadyon customer is a private individual,
     // so 11.1 would have mis-typed almost every receipt issued.
-    expect(invoices).toMatch(/hasCounterpart \? "2\.1" : "11\.2"/);
-    expect(code(invoices), "the goods-receipt code is back")
+    expect(xml).toMatch(/hasCounterpart \? "2\.1" : "11\.2"/);
+    expect(code(xml), "the goods-receipt code is back")
       .not.toMatch(/: "11\.1"/);
   });
 
   it("still issues ΤΠΥ (2.1) to a business", () => {
     // The B2B branch was always right, and is what showed 11.1 to be a slip:
     // it already knew this is a service.
-    expect(invoices).toMatch(/hasCounterpart \? "2\.1"/);
+    expect(xml).toMatch(/hasCounterpart \? "2\.1"/);
   });
 });
 
 describe("country codes", () => {
   it("both modules resolve rather than pass a name through", () => {
-    for (const [name, src] of [["dcl", dcl], ["invoices", invoices]] as const) {
-      expect(src, `${name} does not resolve the country`).toMatch(/toIsoCountry\(/);
-    }
+    expect(xml.match(/toIsoCountry\(/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
   });
 
   it("neither defaults an unknown country to Greece", () => {
     // The original `?? "GR"` in both. AADE accepts it silently, which is what
     // makes it worse than a rejection.
-    for (const [name, src] of [["dcl", dcl], ["invoices", invoices]] as const) {
-      expect(code(src), `${name} still defaults to GR`).not.toMatch(/\?\?\s*["']GR["']/);
-    }
+    expect(code(xml), "a filing still defaults an unknown country to GR")
+      .not.toMatch(/\?\?\s*["']GR["']/);
   });
 
   it("the client list reads country, not nationality", () => {
     // `nationality` is free text with the placeholder "e.g. British", and a
     // demonym is not a country. The column must also be selected, or it
     // resolves to null for every customer and nothing can ever be filed.
-    expect(dcl).toMatch(/toIsoCountry\(res\.customers\?\.country\)/);
+    expect(xml).toMatch(/toIsoCountry\(res\.customers\?\.country\)/);
     expect(dcl, "country is not in the select, so it is always undefined")
       .toMatch(/customers\([^)]*\bcountry\b[^)]*\)/);
   });
@@ -101,10 +99,8 @@ describe("country codes", () => {
 
 describe("refusing to file", () => {
   it("both raise rather than guess", () => {
-    for (const [name, src] of [["dcl", dcl], ["invoices", invoices]] as const) {
-      expect(src, `${name} has no refusal path`).toMatch(/class UnfilableError extends Error/);
-      expect(src).toMatch(/throw new UnfilableError\(/);
-    }
+    expect(xml).toMatch(/class UnfilableError extends Error/);
+    expect(xml.match(/throw new UnfilableError\(/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
   });
 
   it("a refusal releases the claim instead of wedging the reservation", () => {
