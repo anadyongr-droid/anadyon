@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "allow": [
+      "Read",
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git fetch*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git checkout*)",
+      "Bash(git merge*)",
+      "Bash(git push*)",
+      "Bash(npm test*)",
+      "Bash(npm run*)",
+      "Bash(npm ci*)",
+      "Bash(npm install*)",
+      "Bash(npx tsc*)",
+      "Bash(npx vitest*)",
+      "Bash(npx playwright*)",
+      "Bash(npx eslint*)",
+      "Bash(ls*)",
+      "Bash(wc*)",
+      "Bash(node --check*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./.env.*)",
+      "Read(./supabase/.env*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push*--force-with-lease*)",
+      "Bash(supabase db reset*)",
+      "Bash(supabase db push*)",
+      "Bash(vercel env rm*)",
+      "Bash(vercel --prod*)",
+      "Bash(vercel deploy --prod*)"
+    ]
+  }
+}
