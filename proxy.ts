@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
+import { devAuthRoleFromEnv, devAuthWarning } from "@/lib/devAuth";
 
 // Pages staff can access (exact page, or a nested route beneath it).
 // Must mirror the `adminOnly: false` entries in app/admin/AdminLayoutClient.tsx.
@@ -117,6 +118,46 @@ function staffMayCall(pathname: string, method: string): boolean {
 }
 
 /**
+ * The one refusal that depends on role rather than on identity, as a value.
+ *
+ * Pulled out of the request flow because two callers now need it and they
+ * arrive by different routes: the real path, which has just proved who someone
+ * is, and the development bypass, which has not proved anything and must still
+ * apply the same rule. A staff session that behaved like an administrator
+ * locally would make the local copy useless for the question it is there to
+ * answer — what staff actually see.
+ *
+ * Returns null when the request may proceed.
+ */
+function staffRestriction(
+  req: NextRequest,
+  pathname: string,
+  role: string,
+): NextResponse | null {
+  if (role === "admin") return null;
+
+  if (pathname.startsWith("/api/admin/")) {
+    if (!staffMayCall(pathname, req.method)) {
+      // Named, because "Forbidden" on a page a staff member can plainly see
+      // reads as a bug rather than a rule. The rate card is the case that
+      // matters: they are meant to look at it and not to change it.
+      return NextResponse.json(
+        { error: "Forbidden: this action requires an administrator." },
+        { status: 403 },
+      );
+    }
+    return null;
+  }
+
+  if (!matchesAny(pathname, STAFF_PAGES)) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/admin/reservations";
+    return NextResponse.redirect(url);
+  }
+  return null;
+}
+
+/**
  * How long any single Supabase Auth call may take before this middleware gives
  * up on it.
  *
@@ -225,6 +266,30 @@ export async function proxy(req: NextRequest) {
   // while answering 200 to the other makes the endpoint look broken to both.
   if (pathname === "/api/admin/rates" && (req.method === "GET" || req.method === "HEAD")) {
     return NextResponse.next();
+  }
+
+  // ─── Development container only: no Supabase, no session, a chosen role ───
+  //
+  // Placed after the public routes so those behave identically either way, and
+  // before the Supabase client is constructed — this container has no
+  // NEXT_PUBLIC_SUPABASE_URL to construct it with, which is the whole reason
+  // the bypass is needed. lib/devAuth.ts holds the three conditions and the
+  // argument for why they are enough; lib/devAuth.test.ts holds the tests that
+  // fail if any one of them stops being required.
+  //
+  // Note what this does NOT skip: the staff/administrator split below applies
+  // unchanged, so ANADYON_DEV_AUTH_ROLE=staff shows what staff see. What it
+  // does skip is MFA, because there is no session to raise to aal2.
+  const devRole = devAuthRoleFromEnv();
+  if (devRole) {
+    console.warn(devAuthWarning(devRole, pathname));
+    const devRefusal = staffRestriction(req, pathname, devRole);
+    if (devRefusal) return devRefusal;
+    const devHeaders = new Headers(req.headers);
+    // set(), not append(): this replaces every incoming value of the header,
+    // so a client cannot smuggle a second role past it.
+    devHeaders.set(ROLE_HEADER, devRole);
+    return NextResponse.next({ request: { headers: devHeaders } });
   }
 
   // Build a response we can attach cookie refreshes to
@@ -406,23 +471,8 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (role !== "admin") {
-    if (pathname.startsWith("/api/admin/")) {
-      if (!staffMayCall(pathname, req.method)) {
-        // Named, because "Forbidden" on a page a staff member can plainly see
-        // reads as a bug rather than a rule. The rate card is the case that
-        // matters: they are meant to look at it and not to change it.
-        return NextResponse.json(
-          { error: "Forbidden: this action requires an administrator." },
-          { status: 403 },
-        );
-      }
-    } else if (!matchesAny(pathname, STAFF_PAGES)) {
-      const url = req.nextUrl.clone();
-      url.pathname = "/admin/reservations";
-      return NextResponse.redirect(url);
-    }
-  }
+  const refused = staffRestriction(req, pathname, role);
+  if (refused) return refused;
 
   // Hand the resolved role to server components. The proxy is the only place
   // that can refresh auth cookies, so it is the authoritative resolver.
