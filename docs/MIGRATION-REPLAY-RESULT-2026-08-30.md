@@ -75,5 +75,5 @@ bidirectional schema-declaration test initially failed because it still expected
 `customers.name` to be undeclared and allowlisted. That obsolete exception was
 removed; the test now requires migration 017 to declare the column.
 
-After the branch was refreshed again to `origin/main` at `05f866d`, the same
+After the branch was refreshed again to `origin/main` at `858152b`, the same
 check passed **39/39**, including the new rental-handover migration.
