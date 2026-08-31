@@ -96,8 +96,15 @@ separate clock and a legal question — see B3. Keeping those apart is the
 distinction §4.2e exists to protect.
 
 **What this unblocks:** the retention class for accounting records can be built
-now. The purge job still needs B3 before it can run, because a purge that knows
-one class and not the others cannot safely delete anything.
+now. The purge still needs B3 before it can *delete* anything, because one that
+knows one class and not the others cannot safely act.
+
+**And a design decision taken alongside it, 30 August:** the purge will not be
+automatic. It computes what is due and an administrator confirms twice before
+anything is destroyed — see blueprint §4.2b, which also records the risk that
+introduces and how it is contained. Worth mentioning to counsel in passing: the
+control is deliberate, and an unapproved purge escalates rather than waiting
+silently, so a missed confirmation cannot quietly become a retention breach.
 
 ---
 
