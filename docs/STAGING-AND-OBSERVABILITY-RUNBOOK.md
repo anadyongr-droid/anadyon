@@ -254,9 +254,9 @@ until those results are recorded.
 ## 10. Main reconciliation — 31 August 2026
 
 The branch was first merged with `origin/main` at `02c6795`, then refreshed to
-`858152b` after the Gate 0, first legally independent counter-schema work, and
-checked-in agent permission rules
-landed. The current replay is 39/39 migrations and the suite is 846/846 unit
+`5e95861` after the Gate 0, first legally independent counter-schema work,
+checked-in agent permission rules and development-only admin-view access
+landed. The current replay is 39/39 migrations and the suite is 866/866 unit
 tests. The first merge exposed and closed the obsolete `customers.name`
 schema-declaration exception described in the replay result document.
 
