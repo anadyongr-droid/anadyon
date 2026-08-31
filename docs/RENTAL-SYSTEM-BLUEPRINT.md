@@ -1852,6 +1852,42 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 31 August 2026 — migrations 040 and 041 are applied to production
+
+Tasos applied both through the SQL Editor, 040 first. Recorded here because
+every other §10 entry about these two says "written and not applied", and a
+later reader has no other way to tell.
+
+**Verified by query, not by the editor's "Success. No rows returned"** — which
+is what both files return whether or not they did what they claim, since the
+Supabase SQL Editor does not surface `raise notice` in its results pane. The
+`REACHED THE END` markers in 040 and 041 are therefore invisible in that
+interface, and advice to watch for them was wrong.
+
+| Checked | Result |
+|---|---|
+| The seven tables of §4.2 | 7 of 7 |
+| `handover-photos` bucket | present and private |
+| `reservation_adjustments` still absent | yes |
+| The three functions of 041 | 3 of 3 |
+| Gateway reachable by anon, authenticated or service_role | **no** |
+| `finalise_check_out_impl` callable by service_role | yes |
+
+The fifth row is the one worth having asked. §13.4 of
+`OPEN-QUESTION-RPC-STAFF-IDENTITY.md` forbids granting a gateway EXECUTE in
+production before diagnostic 10c, and this is the production database
+confirming the migration honoured that rather than a test confirming the file
+intended to.
+
+**No behaviour changed.** Nothing calls either function — the API route is not
+written. Both migrations are additive; neither alters or drops anything that
+existed.
+
+**Still outstanding on these two:** whether the function owner can select from
+`auth.users`, which `handover_actor_role()` needs. Creation succeeding does not
+prove it — PostgreSQL checks that a relation *exists* when a SQL function body
+is parsed, and checks *permission* only at execution. So it takes one call.
+
 ### 31 August 2026 — the private document path was run, not inferred
 
 The hosted staging gate now uploads a synthetic PDF through the same signed
