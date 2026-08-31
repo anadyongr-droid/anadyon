@@ -171,4 +171,26 @@ existing convention and stays, whichever agent is working.
 
 Before starting any of it, check whether the blueprint already answers the
 question. It usually does.
+
+## Verification before handoff
+
+Use one of the repository-owned verification commands instead of assembling a
+different command list in each session:
+
+- `npm run verify:fast` is the minimum local edit loop: typecheck, lint and the
+  complete unit suite, run sequentially.
+- `npm run verify` adds the migration replay preflight, a production build,
+  translation, static accessibility, SEO and Chromium/Firefox browser tests.
+  The replay implementation arrived through foundation PR #66.
+
+The sequential command is a reproducibility aid, not a claim that parallel test
+execution is broken. GitHub CI remains the independent merge gate and uses the
+normal Next.js builder; the local full verifier uses webpack because the managed
+Codex sandbox cannot bind Turbopack's helper port.
+
+If a hosted or credential-dependent check is skipped, record it as **not run**,
+never as passed. Coverage is available on demand with `npm run test:coverage`,
+but is intentionally not a threshold or merge gate: executing a line does not
+prove that a regression test detects the defect. The fail-first regression rule
+above remains mandatory.
 <!-- END:anadyon-agent-roles -->

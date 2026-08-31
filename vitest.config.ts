@@ -20,5 +20,24 @@ export default defineConfig({
     // previous build had left the directory populated. It has its own step in
     // the workflow, after the build; `npm run test:seo` runs it by hand.
     exclude: ["node_modules/**", ".next/**", "lib/seo.test.ts"],
+    // Coverage is an on-demand diagnostic, not a merge gate. A percentage
+    // cannot establish that a regression test would fail against the broken
+    // implementation; the fail-first rule in AGENTS.md remains the standard.
+    coverage: {
+      provider: "v8",
+      include: [
+        "app/api/**/*.ts",
+        "lib/**/*.ts",
+        "proxy.ts",
+        "instrumentation.ts",
+        "instrumentation-client.ts",
+      ],
+      exclude: [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "lib/i18n/content/**",
+      ],
+      reporter: ["text", "json-summary", "lcov"],
+    },
   },
 });
