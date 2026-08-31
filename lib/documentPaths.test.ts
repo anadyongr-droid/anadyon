@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { isReservationId, safeFileName, parseDocumentPath, isAllowedMime } from "@/lib/documentPaths";
+import {
+  documentDisplayName,
+  isAllowedMime,
+  isReservationId,
+  parseDocumentPath,
+  safeFileName,
+} from "@/lib/documentPaths";
 
 /**
  * These rules guard a bucket of customers' driving licences and identity
@@ -52,5 +58,14 @@ describe("document paths", () => {
     expect(isAllowedMime("image/svg+xml")).toBe(false);
     expect(isAllowedMime("text/html")).toBe(false);
     expect(isAllowedMime("application/zip")).toBe(false);
+  });
+
+  it("keeps the storage timestamp out of the staff-facing filename", () => {
+    expect(documentDisplayName("1788198882523-driving licence.pdf"))
+      .toBe("driving licence.pdf");
+    // Only the exact Date.now()-prefix shape is internal. A genuine filename
+    // starting with another number remains untouched.
+    expect(documentDisplayName("2026-rental-agreement.pdf"))
+      .toBe("2026-rental-agreement.pdf");
   });
 });

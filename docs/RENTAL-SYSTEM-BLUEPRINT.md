@@ -1852,6 +1852,25 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 31 August 2026 — the private document path was run, not inferred
+
+The hosted staging gate now uploads a synthetic PDF through the same signed
+upload contract used by the reservation modal, proves the private bucket
+refuses anonymous download, lists the object through the admin route, fetches
+the exact bytes through a five-minute signed URL, deletes it, proves the stale
+URL no longer works, and removes interrupted-run residue on the next pass.
+Bucket privacy, the 10 MB limit and the MIME allowlist are asserted as hosted
+state rather than inferred from migration 021.
+
+The fail-first run found one real defect: after closing and reopening a
+reservation, staff saw the internal `<timestamp>-<filename>` object key rather
+than the filename they uploaded. **Decision:** keep the timestamp in the
+immutable private object path for collision resistance, but strip only the
+exact 13-digit `Date.now()` prefix in the listing response. Storage identity
+and staff presentation are different fields; changing the visible name must
+not rename the object or invalidate links. The six-check flow then passed
+against isolated staging and left no object behind. Production was untouched.
+
 ### 31 August 2026 — hosted staging activated, and the gate proved it can fail
 
 The isolated Supabase project was reset twice from the migration chain and
