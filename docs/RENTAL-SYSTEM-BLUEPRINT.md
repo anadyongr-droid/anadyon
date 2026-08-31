@@ -872,8 +872,56 @@ Required before phase 2 ships:
 - **A retention class on every table holding personal data** — not a global
   policy. Accounting records, agreements, identity documents and marketing
   consent expire on different clocks.
-- **A scheduled purge that runs and leaves a record that it ran.** A purge
-  nobody can prove executed is indistinguishable from one that never did.
+- **A scheduled purge that *proposes*, and a person who confirms.** *Amended 30
+  August, by Tasos: "the purge should not be automatic. The admin should get a
+  prompt and only after approving twice would the data be purged."*
+
+  This section originally said "a scheduled purge that runs". It now runs and
+  stops short of deleting. The reasoning for the change is sound and is the same
+  one behind `ON DELETE RESTRICT` on the handover tables: an irreversible
+  destruction driven by a date calculation is one arithmetic bug away from
+  destroying records that tax law requires be kept, and there is no undo.
+
+  **The mechanics, and one distinction that matters.** "Approving twice" here
+  means two deliberate confirmations by the same administrator — the
+  type-the-word-DELETE shape — **not** the four-eyes queue from migration 038.
+  With a single administrator, four eyes on their own action deadlocks, which
+  §7 already settled for fleet edits; the same reasoning applies and the same
+  trap is worth naming, because the queue exists and is the obvious thing to
+  reach for.
+
+  **The risk this introduces, which is not smaller than the one it removes.**
+  Retention is an obligation, not an option. A purge that nobody approves for
+  eighteen months is a breach of the published twelve-month promise — and a
+  worse breach than an automatic job failing, because the system generated a
+  prompt and a person did not act on it. Unattended negligence is bad;
+  *documented* negligence is what a regulator reads. This project's own record
+  is the argument: the audits sat ungraded for twelve days and the RPC
+  diagnostics sat unrun; a recurring approval is exactly the kind of task that
+  does not happen.
+
+  **So the design keeps the veto and refuses to let it be silent:**
+
+  1. the job runs on schedule and computes what is **due**, deleting nothing;
+  2. it records the proposal, so what was due and when is provable later;
+  3. an administrator reviews and confirms twice, and only then is anything
+     destroyed;
+  4. **an unapproved proposal escalates rather than waiting.** It appears in the
+     morning briefing, and overdue items are named with their age — the same
+     shape `blockChase()` already uses for a vehicle out of the fleet. A pending
+     purge is a compliance clock running, and it must look like one.
+
+  The record still matters as much as it did: a purge nobody can prove executed
+  is indistinguishable from one that never did — and now so is a purge nobody
+  can prove was *proposed*.
+
+- **Anonymisation is the part that should not need a prompt.** Where deletion is
+  forbidden but the data is no longer needed — a five-year tax record that does
+  not require the driver's passport number — the operation removes a field from
+  a row that survives. It is far less destructive than a purge, it is the
+  action GDPR most often actually requires, and putting it behind the same
+  confirmation would make the safe option as slow as the dangerous one. Proposed
+  as automatic; area 5 confirms.
 - **An erasure path** that satisfies a real Article 17 request: it deletes what
   it may, retains what it must, and returns to the requester which of the two
   applied to each category. "We deleted everything" is a lie whenever tax law
