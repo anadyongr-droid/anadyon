@@ -715,9 +715,22 @@ reason are written to the event log; device time alone is not legal evidence.
    - EXECUTE revoked from `PUBLIC` and `anon`, granted only to the role that
      needs it.
 
-   > **OPEN — this gateway cannot work as written, and the fix is not decided.**
-   > *Raised 28 August. Do not implement §4.2's finalisation against this
-   > pattern until it is resolved.*
+   > **NARROWED, 31 August — the pattern is decided; one vendor behaviour is
+   > left to confirm, and it fails closed.** *Raised 28 August. Option A is
+   > adopted: staff-initiated RPCs are called with a user-scoped client built
+   > from the staff member's access token, and the gateway verifies
+   > `auth.uid()` against `staff_members` in the database, never against a JWT
+   > claim.*
+   >
+   > *You **may** now write the finalisation function and its gateway against
+   > this pattern and test them in PGlite. You **may not** grant EXECUTE on a
+   > gateway to `authenticated` in production, or move any existing route off
+   > `supabaseAdmin`, until diagnostic 10c has been run against the live
+   > project. See `docs/OPEN-QUESTION-RPC-STAFF-IDENTITY.md` §13, and
+   > `lib/rpcStaffIdentity.test.ts` for the executed evidence.*
+   >
+   > *The original objection, kept because it is still the reason the pattern
+   > looks the way it does:*
    >
    > Every non-test `.rpc()` call site in the repository uses `supabaseAdmin` —
    > the service role. Under a service-role key **`auth.uid()` returns NULL**,
@@ -1838,6 +1851,57 @@ currently unowned.
 
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
+
+### 31 August 2026 — the identity question, split in two and half of it closed
+
+**Decision.** Option A is adopted for staff-initiated RPCs, and §4.2 rule 6's
+OPEN block is narrowed from *"do not implement"* to *"implement, but do not
+grant in production yet"*.
+
+**What unblocked it.** §12.4 of `OPEN-QUESTION-RPC-STAFF-IDENTITY.md` left
+everything resting on one untested sentence — that `auth.uid()` resolves inside
+a `SECURITY DEFINER` function when the call comes from a user-scoped client.
+That is two claims wearing one coat: **(a)** a request-scoped GUC survives the
+definer boundary and `SET search_path = ''` does not disturb it, which is
+PostgreSQL's behaviour, and **(b)** PostgREST populates those claims for a
+user's token, which is Supabase's.
+
+(a) is now executed rather than assumed. `lib/rpcStaffIdentity.test.ts` builds a
+Supabase-shaped database in PGlite with `auth.uid()` reproduced exactly from
+Supabase's own migration, and shows identity surviving the boundary while
+privilege changes — the definer function returns the caller's `sub` *and* runs
+as its owner, reading a table the caller is separately proved unable to read.
+The §2 gateway is then exercised end to end: admits a member, refuses a
+stranger, refuses a deactivated member, refuses a service-role call. Mutating
+the fixture — `SECURITY INVOKER`, no membership check, `auth.uid()` reading
+`role` instead of `sub` — fails 2, 2 and 7 tests respectively, so the suite is
+not vacuous.
+
+**Why this is not the third mechanism specified without testing.** §4.2 has
+twice named something that could not be built — a private schema unreachable
+through the Data API, then a gateway that cannot see `auth.uid()` under the
+service role. The difference here is that the mechanism was run before being
+written down, and the half that could not be run locally is named as such
+rather than absorbed into the claim.
+
+**Two findings from the suite failing, both kept.** The refusal has two
+independent layers and only one was designed: with EXECUTE granted narrowly, a
+service-role call is refused *at the grant* and never reaches the identity
+check — a second closed door that a later broad grant would silently remove.
+And Supabase's `auth.uid()` **raises** on an empty claims GUC rather than
+returning NULL, because `''::jsonb` is invalid; a custom GUC reverts to `''`
+rather than to unset after a transaction, so a gateway meaning to answer "not a
+staff member" would answer "internal error". Both are now pinned by assertions.
+
+**What is left, and why building is safe.** Only (b), which every RLS policy on
+this project already depends on — `auth.uid()` in a policy has the identical
+requirement — so it is not a novel assumption. And the failure direction is
+benign: if (b) were false the gateway refuses and the feature does not work. A
+wrong assumption here is a locked door found on the first test, not an exposure
+found later.
+
+**Why an agent did not just run 10c.** It creates a function in the live
+database, which is a migration, and that stays with Tasos.
 
 ### 31 August 2026 — an agent can finally look at an admin screen
 
