@@ -1852,6 +1852,83 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 1 September 2026 — the counter's HTTP surface
+
+**Decision.** Five routes under `/api/admin/handovers` carry a tablet's request
+to migrations 041–043 and its answer back: open or resume a draft, read one,
+record what is on the car, finalise, void, correct.
+
+**They decide as little as possible.** Anything a route validated *instead of*
+the database would be a second copy of a rule, and the copy without the lock is
+the one that will be wrong — it can pass on state that has changed by the time
+the transaction runs. So the routes check shape (is this a whole number of
+kilometres, is this a valid time) and leave meaning (is this odometer below the
+check-out reading) to the functions, which hold the reservation lock while they
+ask.
+
+**Three things the routes do decide, and why each is theirs:**
+
+- **The direction comes from the row, never from the request.** A tablet that
+  could name the direction could finalise a check-in through the check-out path.
+  Migration 042 refuses that; there is no reason to let it be attempted.
+- **The vehicle comes from the reservation, never from the request.** A tablet
+  that could name its own vehicle could file a handover against a car it never
+  saw.
+- **An inbound handover copies the completed outbound one's template**, rather
+  than looking up today's active template — which may have been superseded
+  during the rental. Migration 042 refuses the mismatch; this is what stops it
+  arising.
+
+**`client_operation_id` is required, not generated.** If the server invented
+one, every retry would be a new operation and the idempotency it exists for
+would be gone: the tablet has to be the thing that remembers. A resubmit is
+answered with the same handover, and a genuine race — two taps, both inserting
+— is answered with the row that won rather than with the collision.
+
+**The draft update is scoped to drafts in the statement itself**, not by reading
+first and writing after. A read-then-write leaves a window in which a
+finalisation lands between the two, and the update would then quietly edit a
+completed record — an unaudited correction wearing the wrong verb. A colleague
+who finalised it while somebody was still typing gets *"this handover is
+completed, reload"*, which is a different sentence from *"not found"* and a
+different problem.
+
+**Correction opts out of the staff allowlist at the point of use.** proxy.ts now
+lists `/api/admin/handovers` in `STAFF_API`, which prefix-matches every
+sub-path including `/correct`. That is the same shape as the vehicle ledger
+under `/api/admin/vehicles`: the broad entry is the operational default, and the
+one exception refuses where it is implemented rather than being carved out of a
+list a later sub-path would silently rejoin. Voiding stays with staff, because
+the wrong car on a handover is a counter mistake and a fix only an administrator
+can perform is a fix that waits with a customer standing there.
+
+**`lib/handoverErrors.ts` maps refusals to HTTP, in one place.** A deliberate
+refusal reaches the tablet in the database's own words, because those words say
+what to fix — *"vehicle is marked maintenance; 2 required photograph(s) are
+missing"*. Anything unrecognised does not: a Postgres error can carry a
+constraint name, a column list or a fragment of a query, and none of that
+belongs on a screen at a rental counter. A test asserts that property against
+several shapes rather than one.
+
+**What the route tests are, and are not.** They mock the database, so they prove
+the seams — direction from the row, actor from the session, refusal passed
+through, administrator required — and prove nothing about the rules. The rules
+are settled against real Postgres in the three migration suites. The mock
+records `update` filters rather than swallowing them, because a mock that
+ignored them would let the draft-scoping be deleted and every test still pass;
+removing `.eq("status", "draft")` fails a test now.
+
+**Mutation-checked.** Taking the direction from the request fails 1; dropping
+the administrator check fails 2; unscoping the draft update fails 1; passing
+unrecognised database errors to the screen fails 1.
+
+**Not here: photographs.** Upload is a saga against Storage — create or reuse
+the draft, upload each object, persist verified metadata, finalise only when the
+required objects exist — and it is its own piece of work. Until it lands,
+finalisation will refuse every handover with *"n required photograph(s) are
+missing"*, which is the correct answer to a counter that cannot yet take a
+picture.
+
 ### 1 September 2026 — correction and voiding, and what a void does to the reservation
 
 **Decision.** Migration 043 implements §4.2 rule 4. Phase 2's counter is now

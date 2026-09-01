@@ -58,6 +58,18 @@ const STAFF_API: StaffRoute[] = [
   { path: "/api/admin/emails" },
   { path: "/api/admin/documents" },
 
+  // The counter — opening a handover, recording what is on the car, finalising
+  // it, voiding a wrong one. All of it is the work of a rental and none of it
+  // decides what anything costs.
+  //
+  // Prefix-matched, so it also admits staff to /api/admin/handovers/<id>/correct
+  // — which is NOT staff work, and which refuses at the point of use from this
+  // same role header. Same shape as the vehicle ledger under
+  // /api/admin/vehicles: the broad entry is the operational default and the one
+  // exception opts out where it is implemented, rather than being carved out of
+  // a list here that a later sub-path would silently rejoin.
+  { path: "/api/admin/handovers" },
+
   // ─── Taking payment, and telling the customer about it ───
   // Both create a link for a booking that already has its price; neither can
   // change what is owed.
