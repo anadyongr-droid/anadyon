@@ -3,9 +3,11 @@
 **Status:** the isolated Supabase project exists, has been reset twice by the
 owner, the four staging-only GitHub Actions secrets are installed, and the
 credentialled commercial-path suite passes 84/84. Staging has migration 040
-but not 041, so parity and final sign-off remain open. Hosted Preview/vendor/
-Sentry acceptance also remains open. Codex must not run migrations against any
-hosted Supabase project.
+but not 041. Migration 042 subsequently entered `main`, after the last hosted
+reset, so staging does not have that migration either. Repository-schema parity
+and final sign-off therefore remain open. Hosted Preview/vendor/Sentry
+acceptance also remains open. Codex must not run migrations against any hosted
+Supabase project.
 
 This runbook creates an isolated test system. It never copies production data,
 never reuses production Supabase credentials, and never permits test mail to
@@ -336,12 +338,15 @@ address, so no message left the test process.
 
 Two read-only RPC presence calls then established that migration 041 is not yet
 on staging: both `handover_actor_role` and `finalise_check_out_impl` returned
-`PGRST202`. Migration 040's seven tables are present. This explains why a full
-production-versus-staging schema comparison cannot pass yet and is now the
-first remaining database action: apply 041 through the owner-only paste
-workflow, or rerun the guarded staging reset after refreshing the checkout.
+`PGRST202`. Migration 040's seven tables are present. Migration 042 entered
+`main` later, in PR #93, so it is necessarily absent from the project last reset
+before that merge as well. This explains why repository-schema parity cannot
+pass yet and makes a guarded reset from current `main` the preferred owner-only
+database action: it applies 041 and 042 in order and reruns all fixture, grant,
+bucket, role and drift checks. Applying both paste files manually is the
+fallback, not an action for Codex.
 
-Vercel reports the latest `main` production deployment at commit `c52273b` as
+Vercel reports the latest `main` production deployment at commit `e2f13a3` as
 `READY`. Preview runtime logs contain no error or fatal entries in the latest
 24-hour window. Environment-variable scopes were not marked verified: the
 available Vercel API does not expose them, and the browser session was not
