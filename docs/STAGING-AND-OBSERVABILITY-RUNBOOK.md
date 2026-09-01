@@ -5,9 +5,10 @@ owner, the four staging-only GitHub Actions secrets are installed, and the
 credentialled commercial-path suite passes 84/84. Staging has migration 040
 but not 041. Migration 042 subsequently entered `main`, after the last hosted
 reset, so staging does not have that migration either. Repository-schema parity
-and final sign-off therefore remain open. Hosted Preview/vendor/Sentry
-acceptance also remains open. Codex must not run migrations against any hosted
-Supabase project.
+and final sign-off therefore remain open. The permanent `staging` branch and
+its Vercel-authenticated stable alias now exist; Preview variable scoping,
+hosted vendor acceptance and Sentry acceptance remain open. Codex must not run
+migrations against any hosted Supabase project.
 
 This runbook creates an isolated test system. It never copies production data,
 never reuses production Supabase credentials, and never permits test mail to
@@ -346,12 +347,17 @@ database action: it applies 041 and 042 in order and reruns all fixture, grant,
 bucket, role and drift checks. Applying both paste files manually is the
 fallback, not an action for Codex.
 
-Vercel reports the latest `main` production deployment at commit `e2f13a3` as
-`READY`. Preview runtime logs contain no error or fatal entries in the latest
-24-hour window. Environment-variable scopes were not marked verified: the
-available Vercel API does not expose them, and the browser session was not
-signed in. There is also no dedicated stable staging branch alias recorded
-yet, so vendor webhooks must not be pointed at an arbitrary PR deployment.
+Vercel reports the `main` production deployment at commit `93ee45a` as `READY`.
+Preview runtime logs contain no error or fatal entries in the latest 24-hour
+window. Environment-variable scopes were not marked verified: the available
+Vercel API does not expose them, and the browser session was not signed in.
+
+The permanent `staging` branch was created from `93ee45a`; an empty marker
+commit (`c6082a2`) triggered its first deployment. Vercel reports that deployment
+as `READY`, with no alias error, at the protected stable branch alias
+`anadyon-git-staging-anadyon.vercel.app`. Vendor test callbacks may use that
+alias after Preview variables have been inspected and confirmed to target only
+the staging vendors and database.
 
 Production observability exposed a separate operational issue, not a staging
 failure: the morning briefing logged `invalid_grant` for Gmail reply detection
