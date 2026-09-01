@@ -473,14 +473,8 @@ What changes hands is *identity*, not *privilege*. So the cost reduces to:
 2. the gateway verifying membership against the database, per §2;
 3. the §5 separation, which query 4 above now supplies as a list.
 
-**This rests on one assumption that has not been tested and must be before any
-of it is built:** that `auth.uid()` resolves inside a `SECURITY DEFINER`
-function when the call arrives from a user-scoped client. It should — PostgREST
-sets the JWT claims per request and `auth.uid()` reads them, independently of
-which role the function body executes as — but "should" is what this whole
-document exists to stop relying on.
-
-**Diagnostic 10c, to be run before anything is built:**
+**Closed 1 September 2026.** Diagnostic 10c was run through the production
+PostgREST path and then removed. The temporary function used this shape:
 
 ```sql
 create or replace function public.whoami_probe()
@@ -492,72 +486,33 @@ as $$ select auth.uid(),
              current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'role',
              current_user::text $$;
 
-grant execute on function public.whoami_probe() to authenticated;
+grant execute on function public.whoami_probe() to authenticated, service_role;
 ```
 
-### The short way — a script, no browser
+The cookie-backed application client returned a non-null user ID and the
+administrator application role. The independently executed service-role
+control returned a null user ID and a null JWT role. Both calls reported
+`current_user = postgres`, which is correct for a `SECURITY DEFINER` function:
+the earlier result table expecting `authenticated` confused the invoker's
+PostgREST role with the function execution role.
 
-Sign in with a password and you get a JWT carrying `sub` at `aal1`; MFA raises
-the assurance level, it does not add the subject. A JWT reaching PostgREST is
-the whole mechanism under test, so no browser, no cookies and no authenticator
-are needed:
+That pair is the answer. PostgREST supplies the user's request claims to the
+definer function, while a service-role request has no end-user identity.
+Option A works as designed and the production grant gate is cleared.
 
-```
-PROBE_EMAIL=you@example.com PROBE_PASSWORD='…' npm run probe:rpc-identity
-```
+The original command-line diagnostic had a separate measurement defect. Its
+SQL granted only `authenticated`, although the script also called as
+`service_role`, and the script normalised any non-successful service-role call
+to a null result. A permission refusal could therefore masquerade as the
+required null control. The completed diagnostic explicitly granted both roles
+for the duration of the test and observed the service-role result, so the
+conclusion does not depend on that script.
 
-**It calls the function twice, and the control is the point.** Once with the
-user's token, once with the service role. The service-role call is expected to
-return a NULL `uid` — that is the defect this document is about. Both null means
-something else is wrong and neither result should be believed; both non-null
-means the probe is not measuring what it claims. Only `uid` under the user and
-NULL under the service role proves anything.
-
-The password is read from the environment and written nowhere.
-
-### The long way — the route, in a browser
-
-Kept because it exercises the real production path: a cookie-backed
-`createServerClient`, which is what the application would actually use. The
-script proves the mechanism; this proves the mechanism *as the app builds it*.
-If the script answers cleanly, this is optional.
-
-Signed in to `/admin` **as an administrator**, open:
-
-```
-/api/admin/diagnostics/rpc-identity
-```
-
-That route is built for this and nothing else. It constructs a per-request
-client from the session cookies — the Option A pattern, borrowed from
-`app/api/admin/users/route.ts` — and calls the probe through it, **not** through
-`supabaseAdmin`. `lib/rpcIdentityProbe.test.ts` asserts it never reaches for the
-service role, because swapping the client would leave the route returning 200
-and proving nothing.
-
-**An administrator session is enough**, and the earlier draft of this section
-was wrong to ask for staff. What is under test is whether JWT claims reach the
-function at all, which does not depend on which role the claim carries. Running
-it as staff would mean adding a throwaway diagnostic to `proxy.ts`'s `STAFF_API`
-allowlist, and allowlist entries added "temporarily" are how allowlists grow.
-
-**Reading it:**
-
-| Result | Meaning |
-|---|---|
-| `uid` non-null, `pg_role` = `authenticated` | Option A works. §12.4 stands, and the build can start. |
-| `uid` null | Option A is falsified. §12.4 is wrong and Option B wins by elimination. |
-| `function does not exist` | The SQL above has not been run. Not an answer. |
-
-**Then remove all of it**, in the same sitting — delete
-`app/api/admin/diagnostics/rpc-identity/route.ts` with its test,
-`scripts/probe-rpc-identity.mjs` and its `package.json` entry, and run:
-
-```sql
-drop function if exists public.whoami_probe();
-```
-
-A diagnostic left in place becomes an endpoint nobody remembers adding.
+Cleanup was completed in the same sitting: the database probe was dropped and
+confirmed absent. The temporary route, script, package command and route-only
+regression test were removed immediately afterwards. The reusable PGlite
+identity tests remain; they test the permanent architecture rather than a live
+diagnostic endpoint.
 
 ### 12.5 A separate finding, not about identity
 
@@ -694,24 +649,15 @@ exposure found later.
 
 **Option A is adopted.** Staff-initiated RPCs are called with a user-scoped
 client constructed from the staff member's access token; the gateway verifies
-`auth.uid()` against `staff_members` in the database, never against a JWT claim,
-per §2 and the §11 resolution. `app_metadata.role` may narrow, never grant.
+`auth.uid()` against the server-owned membership in
+`auth.users.raw_app_meta_data`, never against a JWT claim, per §2, the §11
+resolution and migration 041. `app_metadata.role` may narrow, never grant.
 
-The blueprint's OPEN block is **narrowed, not deleted**. A builder may now:
+The blueprint's former OPEN block is **closed**. A builder may now:
 
-- write the finalisation function and its gateway against this pattern;
-- test them in PGlite, as this file does.
+- grant a staff gateway to `authenticated` in a reviewed follow-up migration;
+- call that gateway with a user-scoped server client;
+- keep implementation functions private to `service_role` where required.
 
-A builder may **not**, until diagnostic 10c has been run against the live
-project by Tasos:
-
-- grant EXECUTE on a gateway to `authenticated` in production;
-- move any existing route off `supabaseAdmin`.
-
-10c is unchanged and is in §12.4. It is now a confirmation rather than a
-gate on the design.
-
-**Why an agent did not simply run 10c.** It creates a function in the live
-database, which is a migration, and `AGENTS.md` reserves applying one to Tasos
-after a stale paste copy reached production once. Splitting the assumption was
-the way to make progress without touching that rule — not a workaround for it.
+The migration rule is unchanged: an agent may write the follow-up migration
+and its paste copy, but Tasos applies it to a hosted project.

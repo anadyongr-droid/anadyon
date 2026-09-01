@@ -715,19 +715,20 @@ reason are written to the event log; device time alone is not legal evidence.
    - EXECUTE revoked from `PUBLIC` and `anon`, granted only to the role that
      needs it.
 
-   > **NARROWED, 31 August — the pattern is decided; one vendor behaviour is
-   > left to confirm, and it fails closed.** *Raised 28 August. Option A is
+   > **CLOSED, 1 September — the pattern is decided and observed through the
+   > production request path.** *Raised 28 August. Option A is
    > adopted: staff-initiated RPCs are called with a user-scoped client built
    > from the staff member's access token, and the gateway verifies
-   > `auth.uid()` against `staff_members` in the database, never against a JWT
-   > claim.*
+   > `auth.uid()` against server-owned membership in
+   > `auth.users.raw_app_meta_data`, never against a JWT claim.*
    >
-   > *You **may** now write the finalisation function and its gateway against
-   > this pattern and test them in PGlite. You **may not** grant EXECUTE on a
-   > gateway to `authenticated` in production, or move any existing route off
-   > `supabaseAdmin`, until diagnostic 10c has been run against the live
-   > project. See `docs/OPEN-QUESTION-RPC-STAFF-IDENTITY.md` §13, and
-   > `lib/rpcStaffIdentity.test.ts` for the executed evidence.*
+   > *Diagnostic 10c returned a non-null user ID through the application's
+   > cookie-backed user client and a null user ID through an explicitly
+   > callable service-role control. Both ran as the definer (`postgres`), as
+   > expected. The temporary database function and application route were then
+   > removed. A reviewed follow-up migration may now grant a staff gateway to
+   > `authenticated`. See `docs/OPEN-QUESTION-RPC-STAFF-IDENTITY.md` §12.4 and
+   > §13, and `lib/rpcStaffIdentity.test.ts` for the permanent local evidence.*
    >
    > *The original objection, kept because it is still the reason the pattern
    > looks the way it does:*
@@ -1911,6 +1912,28 @@ fails 2.
 one, so the state check-in is measured against is state the system actually
 produced. As in 041, the gateway is written and granted to nobody until
 diagnostic 10c has run.
+### 1 September 2026 — diagnostic 10c passed and its temporary surface was removed
+
+The production PostgREST check settled the remaining staff-identity question.
+Through the application's cookie-backed, user-scoped Supabase client, the
+definer probe saw a non-null `auth.uid()` and the administrator application
+role. Through a separately executable service-role control, it saw a null user
+ID and null JWT role. Both calls reported `current_user = postgres`; that is the
+function owner and therefore the correct execution role for `SECURITY
+DEFINER`, not evidence that the user's claims were lost.
+
+The original command-line probe could have false-passed its negative control:
+its documented SQL did not grant `service_role`, while the script converted a
+non-successful service-role call into the same null shape it expected. The live
+run avoided that ambiguity by granting both test callers temporarily and
+observing both results. The database function was dropped and confirmed absent
+immediately afterwards. The temporary API route, command-line script, package
+entry and route-only test were then deleted; the reusable PGlite architecture
+tests remain.
+
+**Decision.** The §4.2 identity block is closed. A follow-up migration may grant
+the thin gateway to `authenticated`, and the route that calls it must use the
+user-scoped server client. The migration still requires Tasos to apply it.
 
 ### 31 August 2026 — migrations 040 and 041 are applied to production
 
