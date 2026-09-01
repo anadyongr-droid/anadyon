@@ -152,6 +152,13 @@ One worktree and one branch per agent, both pushing to
 Branch names are prefixed by task, not by agent: `codex/<what-it-does>` is the
 existing convention and stays, whichever agent is working.
 
+**Separate worktrees also mean separate disks.** Neither agent can free space in
+the other's sandbox, and the repository is not what fills one — `.git` is 17 MB
+and the largest tracked file is under half a megabyte. `docs/SANDBOX-DISK.md`
+has what actually uses the space, what is safe to delete, the one directory that
+is not, and why `df` misleads when the limit is a per-session allowance rather
+than a full volume.
+
 ## Where the remaining work is defined
 
 - `docs/RENTAL-SYSTEM-BLUEPRINT.md` §7 — the build order, phases 1-6, in
