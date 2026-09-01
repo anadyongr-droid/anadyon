@@ -27,7 +27,6 @@
     "staging:reset": "node scripts/reset-staging.mjs",
     "staging:seed-auth": "node scripts/seed-staging-auth.mjs",
     "test:browser:all": "playwright test --config playwright.crossbrowser.config.ts",
-    "probe:rpc-identity": "node scripts/probe-rpc-identity.mjs",
     "verify": "node scripts/verify.mjs",
     "verify:fast": "node scripts/verify.mjs --fast",
     "hooks:install": "git config core.hooksPath .githooks"
