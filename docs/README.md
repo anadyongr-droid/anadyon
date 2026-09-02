@@ -132,6 +132,7 @@ built sound?* Keep them apart; they go stale at different rates.
 | [`GATE-0-QUESTIONS.md`](GATE-0-QUESTIONS.md) | **The blocker, as two forwardable briefs** — what is waiting on the accountant and on Greek/EU counsel, with the source of each question |
 | [`INSURANCE-COVER-AND-RESTRICTIONS.md`](INSURANCE-COVER-AND-RESTRICTIONS.md) | **What the fleet is actually insured for**, read from the three policy certificates — and what it is not: no collision own-damage cover behind the Full Damage Waiver, no theft, no glass, no assistance on 50cc. `DEFINING-STATEMENTS.md` §10 makes this the reference that published wording and product decisions follow |
 | [`DRIVER-AGE-MARKET.md`](DRIVER-AGE-MARKET.md) | Competitor age limits, the Greek licence-category minimums the law already sets, and what a young-driver surcharge looks like in this market |
+| [`WORKLOG.md`](WORKLOG.md) | **What happened each day** — actions, decisions, things discussed and set aside, and what was left open. Written at the close of every working day per `DEFINING-STATEMENTS.md` §11. Read the most recent entry before starting |
 | [`RESTORE.md`](RESTORE.md) | Recovery procedure |
 | [`ENGINEERING-SAFETY-NET.md`](ENGINEERING-SAFETY-NET.md) | Local verification, dependency automation, optional coverage and the controls that still require human or hosted evidence |
 | [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md) | How to create, reset and verify isolated staging, wire Preview and CI, and validate privacy-safe Sentry |

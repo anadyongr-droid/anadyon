@@ -188,3 +188,51 @@ And the same standard as §8 applies to the contracts themselves: a certificate
 says what is covered; the terms booklet says what is excluded. Where only the
 certificate has been read, conclusions about exclusions are labelled unverified
 rather than assumed favourable.
+
+## 11. Every working day ends with the documentation updated
+
+*Added 2 September 2026, by Tasos: at the end of each day, each agent updates
+the project documentation with all actions taken and plans made or discussed
+during the day.*
+
+Work that exists only in a chat log is work the next agent cannot use. Two
+agents swap roles on this project and the handover is the document, not the
+conversation — so a day that ends with the code pushed and nothing written down
+has produced half of what it looked like it produced.
+
+**The close-of-day pass, in order.** Do these before the session ends, not as an
+afterthought when context is nearly gone.
+
+1. **Update the living documents first.** The day's findings go into the
+   document that owns the subject — the blueprint for decisions, the audit
+   files for review results, the subject document for everything else — and the
+   status section at the top of `docs/README.md` is brought level with reality.
+   This is where the value is. Per §9, one document per subject that stays
+   current beats a series of dated snapshots.
+2. **Then append the day's entry to [`docs/WORKLOG.md`](docs/WORKLOG.md).** One
+   dated section: what was done, what was decided, what was discussed but not
+   decided, and what is left open. It records the day and points at the
+   documents changed; it does not restate them.
+3. **Commit both with the work**, so the record and the change carry the same
+   date and the same reasoning.
+
+**What must appear, because it is what goes missing.**
+
+- **Plans discussed but not built.** An idea raised and set aside is a decision,
+  and an undocumented one gets re-proposed and re-argued weeks later. Record
+  what was considered and why it was not done.
+- **Things that turned out to be already done.** The most expensive failure on
+  this project is re-deriving settled facts (§9). When a day establishes that
+  something was already handled, that belongs in the settled list, not just in
+  the day's entry.
+- **What was left broken or unverified.** A skipped hosted check is recorded as
+  not run, never as passed (§8). A known-failing branch, a stale certificate, an
+  unanswered question to a third party — all of it, by name.
+- **What needs a person.** Anything on the short list in `AGENTS.md` that came
+  up during the day, with the exact steps or paste-ready text.
+
+**The test is the same as §9's.** If the next agent — or the same agent in six
+months with no memory of today — reads the worklog entry and the documents it
+points at, they should be able to continue without asking a question that was
+already answered. If they would have to reconstruct the day from a chat
+transcript, the close-of-day pass did not happen.

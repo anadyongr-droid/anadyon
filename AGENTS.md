@@ -172,6 +172,16 @@ existing convention and stays, whichever agent is working.
 Before starting any of it, check whether the blueprint already answers the
 question. It usually does.
 
+## Ending the day
+
+`DEFINING-STATEMENTS.md` §11: before the session ends, update the document that
+owns each subject you touched, bring the status section at the top of
+`docs/README.md` level with reality, and append the day's entry to
+`docs/WORKLOG.md` — what was done, what was decided, what was discussed and not
+decided, and what is left open or unverified. Commit it with the work.
+
+Do it while there is still context to do it with, not in the last exchange.
+
 ## Verification before handoff
 
 Use one of the repository-owned verification commands instead of assembling a
