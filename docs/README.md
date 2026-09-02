@@ -5,6 +5,8 @@ machine or a six-month gap.
 
 ## Where things stand — 2 September 2026
 
+**Last verified:** 2 September 2026, Claude.
+
 **Read this section before opening anything else, and before researching
 anything.** It exists because an agent spent a working session re-deriving
 facts that were already settled in this repository — re-running a competitor
@@ -145,6 +147,14 @@ instruction. When a handover's content becomes a standing rule, move it into
 `DEFINING-STATEMENTS.md` or the blueprint; do not leave it to be rediscovered.
 
 ## Conventions that bite
+
+**Freshness.** Every document here carries a `Last verified:` line — a date and
+who checked it. `DEFINING-STATEMENTS.md` §11 requires it to be refreshed as part
+of the close-of-day pass for any subject the day touched. It is adopted from the
+practice in *Software Engineering at Google* ch. 10 of giving documentation
+owners and expiry dates, and it exists because a stale index line in this file
+described a closed question as open and blocking for two days, and cost a
+session's work. An old date is not a failure; an absent one means nobody knows.
 
 **Migrations.** Every migration is numbered and has a byte-identical copy under
 `supabase/migrations/paste/` for the Supabase SQL Editor. Edit the migration and

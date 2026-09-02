@@ -17,6 +17,9 @@ wrong place.
 
 ## 2 September 2026 — Claude, implementer
 
+**Last verified:** 2 September 2026, Claude.
+
+
 ### Done
 
 - **Under-23 insurance surcharge, built and pushed.** €5/day for every driver
@@ -63,6 +66,20 @@ wrong place.
   (AM 16, A1 18, A2 20) — recommended in
   [`DRIVER-AGE-MARKET.md`](DRIVER-AGE-MARKET.md) §7, not acted on. The
   certificates do not block it; the terms booklets decide.
+
+### Researched
+
+- **What top software houses actually do about written records**, at Tasos's
+  question. Recorded as the "Why this shape" subsection of
+  `DEFINING-STATEMENTS.md` §11 with its sources, so it is not researched again.
+  Short version: documentation quality is measurable and predicts delivery
+  performance (DORA 2021: 2.4×, and only ~25% of teams manage it); the
+  established artifacts are organised by **subject and decision, not by date**
+  (ADRs, handbook-first, docs-as-code); and where dated records exist they are
+  **event-driven** — a release, an incident — never a calendar day.
+- **Adopted from Google's practice:** every document under `docs/` carries a
+  `Last verified:` line. We had no staleness signal, and a stale line in
+  `docs/README.md` cost a session.
 
 ### Findings that change the product
 

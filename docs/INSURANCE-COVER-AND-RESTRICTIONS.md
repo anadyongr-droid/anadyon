@@ -5,6 +5,8 @@ supplied by Tasos, covering one car and two motorbikes across two insurers.
 This document is the reference for what may be offered, promised and published.
 `DEFINING-STATEMENTS.md` §10 makes that binding.
 
+**Last verified:** 2 September 2026, Claude.
+
 **Scope caveat, stated once and applying throughout.** All three documents are
 **certificates** — the schedule of what is covered, for how much, at what
 premium. None of them is the terms. Each defers its exclusions to an attached

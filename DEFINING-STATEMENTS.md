@@ -236,3 +236,48 @@ months with no memory of today — reads the worklog entry and the documents it
 points at, they should be able to continue without asking a question that was
 already answered. If they would have to reconstruct the day from a chat
 transcript, the close-of-day pass did not happen.
+
+### Why this shape, and not a daily log
+
+The order above — living documents first, dated entry second — is deliberate,
+and it follows what the industry has converged on rather than a preference.
+
+**Documentation quality is measurable and it predicts delivery performance.**
+DORA's 2021 *State of DevOps* report assessed internal documentation across
+eight attributes including clarity, findability and reliability. Teams with
+high-quality documentation were **2.4× more likely** to show better software
+delivery and operational performance, **3.8× more likely** to implement
+security practices, and **2.5× more likely** to use the cloud fully — and only
+about **25%** of respondents had documentation that qualified. DORA's framing is
+that documentation quality drives the implementation of every technical practice
+they studied.
+
+**The established practices are organised by subject and decision, not by
+date.** Architecture Decision Records (Michael Nygard, November 2011; moved to
+*Adopt* on the ThoughtWorks Technology Radar around 2018) are numbered and
+immutable — a changed decision gets a new record that supersedes the old, never
+an edit. GitLab's handbook-first rule is to **document the solution first, then
+announce it**, so the written artifact is primary and the dated message points
+at it. *Software Engineering at Google* chapter 10 keeps documentation under
+source control, peer-reviewed, with named owners and freshness dates. Keep a
+Changelog exists to stop the opposite habit, and says so: *"Don't let your
+friends dump git logs into changelogs."*
+
+Where the industry does keep dated records, they are **event-driven, not
+calendar-driven** — changelogs fire on a release, postmortems on an incident.
+Neither fires because a day ended.
+
+So `WORKLOG.md` is the dated announcement, not the source of truth. An entry
+that carries a finding no document owns has been written in the wrong place, and
+a day whose findings reached only the worklog has failed §9 while appearing to
+satisfy §11.
+
+**One consequence we adopt from Google: staleness must announce itself.** A
+document nobody has confirmed is still true is a document that will eventually
+mislead — `docs/README.md` described the staff-identity question as open and
+blocking for two days after it was closed, and that stale line alone cost a
+session's work. So every document under `docs/` carries a **`Last verified:`
+line with a date and the person or agent who checked it**, and confirming that a
+document is still correct is part of the close-of-day pass for any subject the
+day touched. Re-confirming costs a minute; the alternative has now cost days
+twice.

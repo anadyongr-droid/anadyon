@@ -4,6 +4,8 @@
 lower the age limits, buy additional insurance, and charge a surcharge to
 younger drivers.
 
+**Last verified:** 2 September 2026, Claude.
+
 ---
 
 ## 0. How reliable this is — read before quoting any of it
