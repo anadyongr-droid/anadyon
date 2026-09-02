@@ -15,20 +15,28 @@ it needs a person, and the item says exactly what is needed.
 
 ---
 
-## ⏱ Dated — check against the calendar
+## 📋 Fleet records — the system is built and waiting for this data
 
-These do not announce themselves. A date that has passed is escalated, not
-carried forward quietly.
+| # | Item | Owner |
+|---|---|---|
+| F1 | **Record insurance contracts, KTEO and kilometrage in the system for every active vehicle.** Insurer, policy number, insurance expiry, KTEO expiry and odometer, for all 29 vehicles. | **Tasos** |
 
-| # | Item | Date | Owner |
-|---|---|---|---|
-| D1 | **50cc motorbike ΗΒΙ 1560 — insurance expires.** No automatic renewal; the policy lapses with no notice if the premium is late. In season. | **11 Sep 2026** | Tasos |
-| D2 | **Car ΙΟΖ4176 — insurance expires.** Same no-renewal terms. | **4 Oct 2026** | Tasos |
-| D3 | **125 motorbike ΖΒΒ 0565 — the certificate supplied expired 23 Sep 2025.** Almost certainly a stale copy, but it is the only evidence held and it does not show current cover. Get the current certificate. | **overdue** | Tasos |
+**Nothing has to be built first — and that is the point.** Migration 011 already
+added `insurance_provider`, `insurance_policy_no`, `insurance_expiry`,
+`kteo_expiry` and `odometer_km` to `vehicles`; the admin vehicle modal already
+has an input for each; `lib/fleetStatus.ts` already warns 30 days ahead; and
+`/api/admin/vehicles/availability` already refuses to rent a vehicle whose KTEO
+or insurance has lapsed — measured against the **pick-up date**, so a booking
+taken in March for August is judged on August. `fleetStatus.ts` is explicit that
+an expired KTEO voids insurance cover and is an absolute bar, not a warning.
 
-Detail: [`INSURANCE-COVER-AND-RESTRICTIONS.md`](INSURANCE-COVER-AND-RESTRICTIONS.md) §1.
+**But it is all inert until the dates are entered.** `rentalBar` bars only on
+severity `expired`, and a date that has never been recorded is severity
+`unknown` — which does not bar. So a vehicle with no insurance date on file
+rents today with **no statutory check at all**. Entering the data is what
+switches on protection that already exists and is already tested.
 
----
+Verified against the code 2 September 2026, not assumed.
 
 ## 🚧 Blocking — work cannot proceed correctly until these are answered
 
@@ -61,7 +69,6 @@ under `supabase/migrations/paste/`.
 |---|---|---|
 | W1 | **Photo upload saga** — the last piece of phase 2. Not started. Blueprint §7. | Agent |
 | W2 | **Content correctness against the insurance policies.** The site may currently imply cover that does not exist: theft is uncovered, glass is uncovered, 50cc has no roadside assistance, and FDW has no own-damage policy behind it. `DEFINING-STATEMENTS.md` §10 makes this binding. [`INSURANCE-COVER-AND-RESTRICTIONS.md`](INSURANCE-COVER-AND-RESTRICTIONS.md) §5 items 1–3. | Agent |
-| W3 | **Insurance expiry in the vehicle record, with stop-sell.** Policies run 1–3 months with no auto-renewal. A fleet tracking expiry on paper will eventually rent an uninsured vehicle. §10, and §5 item 6. | Agent |
 | W4 | **`discount_rules` `age_surcharge` is broken.** Charges per rental not per day; parses the band's *lower* bound so a threshold of 22 also charges a 24-year-old; the public quote route never calls it. Found 2 Sep and deliberately not fixed — it was not what was asked. | Agent |
 | W5 | **Admin frozen panes** — open UI defect, three theories disproved and recorded. [`HANDOVER-ADMIN-FROZEN-PANES.md`](HANDOVER-ADMIN-FROZEN-PANES.md). | Agent |
 | W6 | **Pin the `app/admin/login/page.tsx` lint warning** with a disable comment. The hard navigation is deliberate — it forces the browser to send refreshed cookies to the middleware after MFA — and "fixing" it would break login. | Agent |
@@ -112,3 +119,5 @@ Kept briefly so a closed item is not reopened by someone who remembers it as ope
 | Driver-age contradiction between terms, modal and FAQ (audit B1) | before 2 Sep | `lib/rentalPolicy.ts` single-sources all three. The audit file still reads as open. |
 | Document upload verified against staging | 31 Aug 2026 | Verified. |
 | Young-driver surcharge published but never charged | 2 Sep 2026 | Built at €5/day under 23, `claude/insurance-surcharge`. Migration 044 still to apply — see M3. |
+| **Insurance renewals — car, 125 and 50cc** | 2 Sep 2026 | Tasos is handling the renewals directly. The 125 (ΖΒΒ 0565) certificate was the stale copy it looked like: the current policy is **217443636**, 11 Jun → **11 Sep 2026**. Both motorbikes now expire on the same day. Superseded by F1, which is what puts the dates where the system can act on them. |
+| **Insurance expiry in the vehicle record, with stop-sell** | already built | Found on 2 Sep to exist already — migration 011 columns, the admin modal inputs, `lib/fleetStatus.ts` 30-day warnings, and a hard bar in the availability route measured against the pick-up date. Was listed as open build work in error. What remains is the data, not the code: F1. |

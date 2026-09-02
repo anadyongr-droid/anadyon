@@ -37,6 +37,7 @@ because it is believed.
 | What do competitors charge, and what are the legal age floors? | **Researched 1 Sept, committed.** Greek law sets motorbike minimums by licence category (AM 16, A1 18, A2 20, A 24), so our blanket 21 sits *above* the legal floor. Do not re-run this search. | `DRIVER-AGE-MARKET.md` |
 | Why does `df` say the sandbox disk is full when little is used? | Fixed per-session allowance, not a broken machine. Never delete `/opt/pw-browsers`. | `SANDBOX-DISK.md` (PR #98) |
 | Do the insurance policies restrict driver age? | **No — none of the three certificates carries an age or licence-tenure condition.** Our 21 is a commercial choice. But the certificates defer exclusions to terms booklets not yet supplied, so this is "not on the certificate", not "does not exist". | `INSURANCE-COVER-AND-RESTRICTIONS.md` §2 |
+| Does the system already track KTEO and insurance expiry, and stop-sell on them? | **Yes — built and tested.** Migration 011 columns, admin modal inputs, 30-day warnings in `lib/fleetStatus.ts`, and a hard bar in the availability route measured against the pick-up date. It is **inert until the dates are entered**, because an unrecorded date reads as `unknown` and `unknown` does not bar. Open item F1. | `lib/fleetStatus.ts` |
 | Is the Full Damage Waiver backed by insurance? | **No.** No collision own-damage cover on any of the three vehicles, across two insurers. FDW at €12/day is self-insured. | `INSURANCE-COVER-AND-RESTRICTIONS.md` §4.1 |
 
 ### Phase 2, the counter — the live workstream

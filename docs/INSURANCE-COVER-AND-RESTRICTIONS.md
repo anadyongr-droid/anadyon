@@ -5,7 +5,7 @@ supplied by Tasos, covering one car and two motorbikes across two insurers.
 This document is the reference for what may be offered, promised and published.
 `DEFINING-STATEMENTS.md` §10 makes that binding.
 
-**Last verified:** 2 September 2026, Claude.
+**Last verified:** 2 September 2026, Claude — including the renewed 125 certificate.
 
 **Scope caveat, stated once and applying throughout.** All three documents are
 **certificates** — the schedule of what is covered, for how much, at what
@@ -25,24 +25,28 @@ restriction is absent, that means absent *from the certificate*.
 | **Plate** | ΙΟΖ4176 | ΖΒΒ 0565 | ΗΒΙ 1560 |
 | **Vehicle** | Hyundai i20, 2010 | KYMCO Agility City 125, 2023 | Changzhou/Kwang 50cc, 2023 |
 | **Insurer** | **Euroins** Α.Ε. (Greek branch) | **Intersalonica** Α.Ε.Γ.Α. | **Intersalonica** Α.Ε.Γ.Α. |
-| **Policy no.** | 9190600829 | 216929749 | 217444452 |
+| **Policy no.** | 9190600829 | **217443636** | 217444452 |
 | **Broker** | K. Express Μ. ΕΠΕ (ΖΑΚ/93) | K. Express / Brokers Union | K. Express / Brokers Union |
 | **Use class** | Ε.Ι.Χ. ΕΝ. PROMO | 970 — ΕΙΧ ΜΟΤ/ΤΑ **ΕΝΟΙΚΙΑΖ** | 830 — ΕΙΧ ΜΟΤ/ΤΟ **ΕΝΟΙΚΙΑ** |
-| **Cover from** | 04/07/2026 | 23/08/2025 | 11/06/2026 |
-| **Cover to** | **04/10/2026** | **23/09/2025** ⚠️ | **11/09/2026** ⚠️ |
-| **Term** | 3 months | 1 month | 3 months |
-| **Premium** | €82.76 | €18.00 | €41.00 |
+| **Cover from** | 04/07/2026 | **11/06/2026** | 11/06/2026 |
+| **Cover to** | **04/10/2026** | **11/09/2026** | **11/09/2026** |
+| **Term** | 3 months | 3 months | 3 months |
+| **Premium** | €82.76 | €54.00 | €41.00 |
 
 Insured party is **ΑΝΑΔΥΩΝ Ι.Κ.Ε**, ΑΦΜ 800569811, on all three.
 
-### ⚠️ Two dates that need checking today
+### Renewals
 
-- **The 50cc expires 11 September 2026** — nine days from the date this was
-  written, in season.
-- **The 125 certificate supplied expired 23 September 2025**, nearly a year ago.
-  That is almost certainly a stale copy rather than an uninsured bike, but it
-  is the only evidence available and it does not show current cover. Get the
-  current certificate.
+Tasos confirmed on 2 September 2026 that he handles the renewals directly, and
+supplied the current 125 certificate — policy **217443636**, replacing the
+September 2025 copy that had been the only evidence held. It was a stale copy,
+not an uninsured bike.
+
+**Both motorbikes now expire on the same day, 11 September 2026**, and the car
+three weeks later. Expiry is no longer tracked in this document: it belongs in
+the vehicle record, where `lib/fleetStatus.ts` warns 30 days ahead and the
+availability check refuses to rent a lapsed vehicle. See open item **F1** —
+the machinery exists and is inert until the dates are entered.
 
 All three carry the same statutory warning: under Law 4261/2014 art. 169 there
 is **no automatic renewal**, the premium must be paid **before** expiry, and
@@ -188,7 +192,7 @@ Concrete, checkable consequences. Each is a task, not an observation.
 | 3 | 50cc has no roadside assistance | Any unqualified roadside-assistance promise is wrong for 50cc. Qualify it by category or remove it. |
 | 4 | No insurer age rule found | Age limits are ours to set commercially. The under-23 surcharge stands, but not as a pass-through. |
 | 5 | No licence-tenure rule found | Either adopt one deliberately (the market standard is one year) or record that we deliberately have none. |
-| 6 | Policies are 1–3 months, no auto-renewal | Expiry is an operational risk, not a filing matter. Worth a vehicle-level insurance-expiry field and a stop-sell when it lapses — see blueprint §7. |
+| 6 | Policies are 1–3 months, no auto-renewal | **The code for this already exists** — `vehicles.insurance_expiry` and `kteo_expiry`, 30-day warnings, and a hard bar in the availability check measured against the pick-up date. It does nothing until the dates are recorded, because an unrecorded date reads as `unknown` and `unknown` does not bar. Open item F1. |
 | 7 | Renters as unnamed drivers unconfirmed | Blocking question for the broker. |
 
 Items 1, 2 and 3 are **content correctness** problems: the site may currently
@@ -204,19 +208,19 @@ promise things the policies do not deliver. Item 6 is a **functionality** gap.
 3. **Send the terms booklets** — Euroins *Βιβλίο Όρων Ασφάλισης* and the
    Intersalonica Γενικοί/Ειδικοί/Προαιρετικών Καλύψεων. Every age, tenure and
    exclusion question is in them.
-4. **Is the 125 (ΖΒΒ 0565) currently insured?** The certificate supplied expired
-   23/09/2025. (§1)
-5. **The 50cc (ΗΒΙ 1560) expires 11/09/2026** — is renewal in hand? (§1)
-6. Is theft cover available on the fleet, and at what premium? (§4.2)
-7. If we rent motorbikes to the age the licence permits (A1 at 18, AM at 16),
+4. Is theft cover available on the fleet, and at what premium? (§4.2)
+5. If we rent motorbikes to the age the licence permits (A1 at 18, AM at 16),
    does cover follow the licence category or a flat age?
+
+Renewal questions have been dropped from this list: Tasos handles renewals
+directly and confirmed so on 2 September.
 
 ---
 
 ## Sources
 
 The three certificates supplied by Tasos on 2 September 2026: Euroins
-9190600829 (ΙΟΖ4176), Intersalonica 216929749 (ΖΒΒ 0565) and Intersalonica
+9190600829 (ΙΟΖ4176), Intersalonica 217443636 (ΖΒΒ 0565, replacing the expired 216929749 copy) and Intersalonica
 217444452 (ΗΒΙ 1560). Read directly, not summarised from search. Related:
 [`DRIVER-AGE-MARKET.md`](DRIVER-AGE-MARKET.md) for what competitors do and what
 Greek law requires.
