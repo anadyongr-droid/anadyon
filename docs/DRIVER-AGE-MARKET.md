@@ -118,19 +118,23 @@ the two.
 
 ## 5. The question this research cannot answer
 
-> **Partly answered, 2 September 2026.** Tasos supplied the Euroins policy
-> certificate; it is read in full in
-> [`INSURANCE-POLICY-EUROINS-2026.md`](INSURANCE-POLICY-EUROINS-2026.md).
-> Short version: **it contains no age restriction and no licence-tenure rule** —
-> but it is the certificate, not the terms, and it defers exclusions to a terms
-> booklet that was not supplied. So question 1 below is *not answered*; it is
-> narrowed to "ask for the booklet".
+> **Partly answered, 2 September 2026.** Tasos supplied three policy
+> certificates — the car and both motorbikes. They are read in full in
+> [`INSURANCE-COVER-AND-RESTRICTIONS.md`](INSURANCE-COVER-AND-RESTRICTIONS.md),
+> which is now the reference `DEFINING-STATEMENTS.md` §10 requires published
+> wording to follow.
 >
-> Reading it turned up three things that outrank the age question: the policy is
-> **liability-only, with no own-damage cover**, which is what our €12/day Full
-> Damage Waiver is sold against; it **expires on 4 October 2026** with no
-> automatic renewal; and its roadside assistance **excludes 50cc scooters**.
-> Those are in §2 of that document.
+> **On age: none of the three carries an age restriction, and none carries a
+> minimum licence-holding period.** So our 21 is a commercial choice, not an
+> insurer's condition, and the §6 tenure gap below is real. Caveat: these are
+> certificates, not terms; each defers its exclusions to a booklet not yet
+> supplied, so this is "not on the certificate" rather than "does not exist".
+>
+> Reading them turned up findings that outrank the age question: **no collision
+> own-damage cover on any vehicle, across two insurers**, which is what our
+> €12/day Full Damage Waiver is sold against; **no theft cover**; **no roadside
+> assistance for 50cc**; and policy terms of one to three months with no
+> automatic renewal — the 50cc expires 11 September 2026.
 
 **What Anadyon's own insurer charges, and what it requires.** That is the
 binding constraint on all of the above and it is not on any public page. Nobody

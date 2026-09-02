@@ -26,6 +26,8 @@ because it is believed.
 | Is document upload verified against staging? | **Yes**, 31 Aug. | `STAGING-AND-OBSERVABILITY-RUNBOOK.md` |
 | What do competitors charge, and what are the legal age floors? | **Researched 1 Sept, committed.** Greek law sets motorbike minimums by licence category (AM 16, A1 18, A2 20, A 24), so our blanket 21 sits *above* the legal floor. Do not re-run this search. | `DRIVER-AGE-MARKET.md` |
 | Why does `df` say the sandbox disk is full when little is used? | Fixed per-session allowance, not a broken machine. Never delete `/opt/pw-browsers`. | `SANDBOX-DISK.md` (PR #98) |
+| Do the insurance policies restrict driver age? | **No — none of the three certificates carries an age or licence-tenure condition.** Our 21 is a commercial choice. But the certificates defer exclusions to terms booklets not yet supplied, so this is "not on the certificate", not "does not exist". | `INSURANCE-COVER-AND-RESTRICTIONS.md` §2 |
+| Is the Full Damage Waiver backed by insurance? | **No.** No collision own-damage cover on any of the three vehicles, across two insurers. FDW at €12/day is self-insured. | `INSURANCE-COVER-AND-RESTRICTIONS.md` §4.1 |
 
 ### Phase 2, the counter — the live workstream
 
@@ -128,6 +130,8 @@ built sound?* Keep them apart; they go stale at different rates.
 | [`HANDOVER-TEST-ENVIRONMENT.md`](HANDOVER-TEST-ENVIRONMENT.md) | **Build brief** — error tracking, the end-to-end suite in CI, and a staging Supabase project. Written for an implementer to work from without asking questions |
 | [`ACTIONS-FOR-TASOS-2026-08-30.md`](ACTIONS-FOR-TASOS-2026-08-30.md) | **Open actions that need a human** — a Vercel dashboard, a SQL editor, a vendor email or a logged-in browser. Ordered by urgency |
 | [`GATE-0-QUESTIONS.md`](GATE-0-QUESTIONS.md) | **The blocker, as two forwardable briefs** — what is waiting on the accountant and on Greek/EU counsel, with the source of each question |
+| [`INSURANCE-COVER-AND-RESTRICTIONS.md`](INSURANCE-COVER-AND-RESTRICTIONS.md) | **What the fleet is actually insured for**, read from the three policy certificates — and what it is not: no collision own-damage cover behind the Full Damage Waiver, no theft, no glass, no assistance on 50cc. `DEFINING-STATEMENTS.md` §10 makes this the reference that published wording and product decisions follow |
+| [`DRIVER-AGE-MARKET.md`](DRIVER-AGE-MARKET.md) | Competitor age limits, the Greek licence-category minimums the law already sets, and what a young-driver surcharge looks like in this market |
 | [`RESTORE.md`](RESTORE.md) | Recovery procedure |
 | [`ENGINEERING-SAFETY-NET.md`](ENGINEERING-SAFETY-NET.md) | Local verification, dependency automation, optional coverage and the controls that still require human or hosted evidence |
 | [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md) | How to create, reset and verify isolated staging, wire Preview and CI, and validate privacy-safe Sentry |

@@ -140,3 +140,51 @@ Three consequences follow:
 
 The test: if the same question is asked in six months, the answer should be
 found by reading, not by researching again.
+
+## 10. What we publish and what we build follow the insurance contracts
+
+*Added 2 September 2026, by Tasos, on reading the fleet's policies: the project
+is to be driven, in both its text content and its functionality, by what the
+actual insurance contracts say.*
+
+The policies are the ground truth about what Anadyon can promise. Not the rate
+card, not the competition, not what a rental site is expected to say. If a page,
+a term, an email or a product implies cover that the contracts do not provide,
+the page is wrong — the contract is not negotiable and the customer's
+expectation was created by us.
+
+`docs/INSURANCE-COVER-AND-RESTRICTIONS.md` is that reference, read from the
+certificates themselves. It is the document to check against, and to extend when
+a policy changes.
+
+**Three rules follow.**
+
+**Publish only what is covered.** Before writing or changing any customer-facing
+statement about damage, theft, breakdown, assistance, injury or liability, check
+it against that document. Where cover is absent, the wording says so plainly
+rather than going quiet: a customer who discovers at the roadside that a 50cc
+has no assistance, or after a fall that the damage waiver they bought was ours
+to honour and not an insurer's, has been misled by omission.
+
+**A product with no policy behind it must be labelled as what it is.** The Full
+Damage Waiver is the live example. It is sold at €12 a day against no
+own-damage cover on any vehicle inspected, across two insurers — so it is
+Anadyon's own promise, not an insurance product. That may be a perfectly good
+commercial decision. It is not one that may be made silently, priced by
+accident, or described to a customer as insurance.
+
+**Cover has dates, so the system needs to know them.** These policies run one to
+three months with no automatic renewal, and lapse without notice if the premium
+is late. A fleet where cover expiry is tracked on paper will eventually rent an
+uninsured vehicle. Expiry belongs in the vehicle record, beside the MOT and the
+service interval, with the same stop-sell behaviour.
+
+**What this does not license.** It is a rule about not over-promising, not a
+mandate to reprint the policy schedules on the website. Customers need to know
+what they are and are not covered for, in plain language, at the moment it
+matters to them — not a translated certificate.
+
+And the same standard as §8 applies to the contracts themselves: a certificate
+says what is covered; the terms booklet says what is excluded. Where only the
+certificate has been read, conclusions about exclusions are labelled unverified
+rather than assumed favourable.
