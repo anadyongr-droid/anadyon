@@ -306,6 +306,38 @@ What the attempt did produce is the likely Intersalonica document and its exact
 URL, linked in §6 question 2 — so downloading it is now one click for anyone on
 an unrestricted connection, rather than a search.
 
+**The block is not specific to insurers.** Probing showed `en.wikipedia.org`,
+`dora.dev`, `cognitect.com` and `www.lawspot.gr` all refused identically, while
+`github.com` and `code.claude.com` connected. The environment runs at the
+**Trusted** access level — package registries, GitHub and cloud SDKs only.
+
+**If that is to change** (open item B0), the recommendation is **Custom** with an
+explicit list, not **Full**. `AGENTS.md` states that the boundary which actually
+holds is credentials and environment separation; an agent that reads untrusted
+third-party documents and runs with repository access is exactly the process for
+which unrestricted egress is worth not granting. A named list gets the same work
+done. A starting list for this project:
+
+```text
+euroins.gr
+*.euroins.gr
+intersalonica.gr
+*.intersalonica.gr
+*.frame.claudeusercontent.com
+supabase.com
+*.supabase.com
+nextjs.org
+docs.stripe.com
+developer.mozilla.org
+www.lawspot.gr
+nomikovima.dsa.gr
+www.areiospagos.gr
+```
+
+`*.frame.claudeusercontent.com` is not optional if agents are to read published
+artifacts — the docs are explicit that artifact content is fetched from that
+host, and omitting it silently breaks it.
+
 The Euroins booklet is referenced from
 `euroins.gr/individual-clients/view/passenger-cars`, per the footer of the car
 certificate itself.
