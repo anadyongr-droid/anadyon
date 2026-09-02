@@ -5,7 +5,7 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { verifyRecaptcha } from "@/lib/recaptcha";
 import { supabaseAdmin } from "@/lib/supabase";
 import { checkRateLimit } from "@/lib/rateLimit";
-import { calcVehicleSubtotal, calcRentalDays, DEPOSIT_RATE, type Rate, type ExtrasConfig } from "@/lib/pricing";
+import { calcVehicleSubtotal, calcRentalDays, calcInsuranceSurchargeLine, DEPOSIT_RATE, type Rate, type ExtrasConfig } from "@/lib/pricing";
 import { z } from "zod";
 import {
   DRIVER_AGE_BANDS,
@@ -315,11 +315,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unable to verify pricing. Please try again." }, { status: 503 });
   }
   const serverDailyRate = serverVehicleSubtotal && serverRentalDays ? parseFloat((serverVehicleSubtotal / serverRentalDays).toFixed(2)) : 0;
+  // Derived from the age computed above, never from anything in the request
+  // body. The customer chooses seats and drivers; they do not choose whether
+  // their insurance costs us more. Null when no date of birth was supplied —
+  // see `insuranceSurchargeApplies` for why that resolves to no charge.
+  const insuranceSurcharge = calcInsuranceSurchargeLine(
+    extrasConfig as ExtrasConfig[], ageAtPickup, serverRentalDays,
+  );
+
   const serverExtrasSubtotal = parseFloat((
     (fdw ? xRate("fdw") : 0) * serverRentalDays +
     Number(babySeat) * xRate("baby_seat") * serverRentalDays +
     Number(childSeat) * xRate("child_seat") * serverRentalDays +
-    Number(additionalDrivers) * xRate("additional_drivers") * serverRentalDays
+    Number(additionalDrivers) * xRate("additional_drivers") * serverRentalDays +
+    (insuranceSurcharge?.total ?? 0)
   ).toFixed(2));
   const serverTotal = parseFloat((serverVehicleSubtotal + serverExtrasSubtotal).toFixed(2));
   const serverDeposit = parseFloat((serverTotal * DEPOSIT_RATE).toFixed(2));
@@ -547,6 +556,10 @@ export async function POST(req: NextRequest) {
     Number(babySeat) > 0 ? `<tr><td>Baby Seat ×${babySeat} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("baby_seat").toFixed(2)}</td><td align="right">€${(xRate("baby_seat") * Number(babySeat) * rentalDays).toFixed(2)}</td></tr>` : "",
     Number(childSeat) > 0 ? `<tr><td>Child Seat ×${childSeat} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("child_seat").toFixed(2)}</td><td align="right">€${(xRate("child_seat") * Number(childSeat) * rentalDays).toFixed(2)}</td></tr>` : "",
     Number(additionalDrivers) > 0 ? `<tr><td>Additional Driver ×${additionalDrivers} — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${xRate("additional_drivers").toFixed(2)}</td><td align="right">€${(xRate("additional_drivers") * Number(additionalDrivers) * rentalDays).toFixed(2)}</td></tr>` : "",
+    // Named on its own line rather than folded into the total. A charge the
+    // customer did not tick is the one they will ring up about, and the desk
+    // needs to see the same line the customer is holding.
+    insuranceSurcharge ? `<tr><td>Insurance surcharge (driver aged ${ageAtPickup}) — ${rentalDays} day${rentalDays > 1 ? "s" : ""} × €${insuranceSurcharge.dailyRate.toFixed(2)}</td><td align="right">€${insuranceSurcharge.total.toFixed(2)}</td></tr>` : "",
   ].filter(Boolean).join("\n        ");
 
   const customerExtrasRows = locale === "el" ? [
@@ -554,6 +567,7 @@ export async function POST(req: NextRequest) {
     Number(babySeat) > 0 ? `<tr><td>Παιδικό Κάθισμα (0–9 μηνών) ×${babySeat} — ${rentalDays} ${rentalDays === 1 ? "ημέρα" : "ημέρες"} × €${xRate("baby_seat").toFixed(2)}</td><td align="right">€${(xRate("baby_seat") * Number(babySeat) * rentalDays).toFixed(2)}</td></tr>` : "",
     Number(childSeat) > 0 ? `<tr><td>Παιδικό Κάθισμα (9+ μηνών) ×${childSeat} — ${rentalDays} ${rentalDays === 1 ? "ημέρα" : "ημέρες"} × €${xRate("child_seat").toFixed(2)}</td><td align="right">€${(xRate("child_seat") * Number(childSeat) * rentalDays).toFixed(2)}</td></tr>` : "",
     Number(additionalDrivers) > 0 ? `<tr><td>Πρόσθετοι Οδηγοί ×${additionalDrivers} — ${rentalDays} ${rentalDays === 1 ? "ημέρα" : "ημέρες"} × €${xRate("additional_drivers").toFixed(2)}</td><td align="right">€${(xRate("additional_drivers") * Number(additionalDrivers) * rentalDays).toFixed(2)}</td></tr>` : "",
+    insuranceSurcharge ? `<tr><td>Ασφαλιστική επιβάρυνση (οδηγός ${ageAtPickup} ετών) — ${rentalDays} ${rentalDays === 1 ? "ημέρα" : "ημέρες"} × €${insuranceSurcharge.dailyRate.toFixed(2)}</td><td align="right">€${insuranceSurcharge.total.toFixed(2)}</td></tr>` : "",
   ].filter(Boolean).join("\n        ") : serverExtrasRows;
 
   // A Greek customer gets the Greek page; anyone else the English one.

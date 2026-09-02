@@ -1,11 +1,11 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { DRIVER_AGE_POLICY, DRIVER_AGE_POLICY_EL, DRIVER_AGE_BANDS, MAX_CHILD_SEATS_TOTAL, driverAgeBandForDob } from "@/lib/rentalPolicy";
+import { DRIVER_AGE_POLICY, DRIVER_AGE_POLICY_EL, DRIVER_AGE_BANDS, MAX_CHILD_SEATS_TOTAL, driverAgeBandForDob, ageOnDate } from "@/lib/rentalPolicy";
 import { termsCopy } from "@/lib/i18n/content/legal";
 import LegalSections from "./LegalSections";
 import ReCAPTCHA from "react-google-recaptcha";
 import { recaptchaSiteKey } from "@/lib/recaptchaKeys";
-import { calcPromoDiscount, calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, DEPOSIT_RATE } from "@/lib/pricing";
+import { calcPromoDiscount, calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, calcInsuranceSurchargeLine, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup, PromoType, RateSegment } from "@/lib/pricing";
 import DateRangePicker from "./DateRangePicker";
 import DobWheelPicker from "./DobWheelPicker";
@@ -292,12 +292,22 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
     : 0;
   const xRate = (key: string, fallback: number) =>
     extrasConfig.find(e => e.key === key)?.daily_rate ?? fallback;
+  // The insurance surcharge, shown here for the same reason the server charges
+  // it: so the two agree. The server recomputes every price independently and
+  // emails the office a manipulation warning when the customer's total differs
+  // from its own — so a surcharge added on one side only would raise a fraud
+  // alarm on every single under-23 booking. Same rule, same rate row, both ends.
+  const ageAtPickup = dob && pickupDate ? ageOnDate(dob, pickupDate) : null;
+  const insuranceSurcharge = rentalDays
+    ? calcInsuranceSurchargeLine(extrasConfig, ageAtPickup, rentalDays)
+    : null;
   const extrasSubtotal = rentalDays
     ? parseFloat((
         (fdw ? xRate("fdw", 5) : 0) * rentalDays +
         Number(babySeat) * xRate("baby_seat", 3) * rentalDays +
         Number(childSeat) * xRate("child_seat", 3) * rentalDays +
-        Number(additionalDrivers) * xRate("additional_drivers", 2.5) * rentalDays
+        Number(additionalDrivers) * xRate("additional_drivers", 2.5) * rentalDays +
+        (insuranceSurcharge?.total ?? 0)
       ).toFixed(2))
     : 0;
   // Baby and child seats share one back seat, so each dropdown offers only what
@@ -427,6 +437,7 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
           ...(Number(babySeat) > 0 ? [{ label: `${tr("extra.babySeat")} ×${babySeat} — ${rentalDays} ${tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €${xRate("baby_seat", 3).toFixed(2)}`, amount: (xRate("baby_seat", 3) * Number(babySeat) * rentalDays).toFixed(2) }] : []),
           ...(Number(childSeat) > 0 ? [{ label: `${tr("extra.childSeat")} ×${childSeat} — ${rentalDays} ${tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €${xRate("child_seat", 3).toFixed(2)}`, amount: (xRate("child_seat", 3) * Number(childSeat) * rentalDays).toFixed(2) }] : []),
           ...(Number(additionalDrivers) > 0 ? [{ label: `${tr("extra.additionalDrivers")} ×${additionalDrivers} — ${rentalDays} ${tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €${xRate("additional_drivers", 2.5).toFixed(2)}`, amount: (xRate("additional_drivers", 2.5) * Number(additionalDrivers) * rentalDays).toFixed(2) }] : []),
+          ...(insuranceSurcharge ? [{ label: `${tr("extra.insuranceSurcharge")} — ${rentalDays} ${tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €${insuranceSurcharge.dailyRate.toFixed(2)}`, amount: insuranceSurcharge.total.toFixed(2) }] : []),
         ],
         title,
         firstName,
@@ -728,6 +739,12 @@ export default function BookingForm({ vehicleType, models, initialModel, modelPr
                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
                       <span>{tr("extra.additionalDrivers")} ×{additionalDrivers} — {rentalDays} {tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €{xRate("additional_drivers", 2.5).toFixed(2)}</span>
                       <span>€{(xRate("additional_drivers", 2.5) * Number(additionalDrivers) * rentalDays).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {insuranceSurcharge && (
+                    <div className="flex justify-between text-gray-600 dark:text-gray-400" data-testid="insurance-surcharge-line">
+                      <span>{tr("extra.insuranceSurcharge")} — {rentalDays} {tr(rentalDays === 1 ? "quote.day" : "quote.days")} × €{insuranceSurcharge.dailyRate.toFixed(2)}</span>
+                      <span>€{insuranceSurcharge.total.toFixed(2)}</span>
                     </div>
                   )}
                   {promoDiscount > 0 && (

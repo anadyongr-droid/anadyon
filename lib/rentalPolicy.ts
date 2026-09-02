@@ -13,6 +13,15 @@
  */
 
 export const MIN_DRIVER_AGE = 21;
+
+/**
+ * The booking band the youngest drivers fall into.
+ *
+ * No longer used in the published age copy: the insurance surcharge starts
+ * below 23, which is inside this band rather than equal to it, so the wording
+ * quotes `INSURANCE_SURCHARGE_AGES` instead. Kept because the band is still
+ * what the form offers and what `quotes.driver_age` stores.
+ */
 export const YOUNG_DRIVER_BAND = "21–25";
 
 /**
@@ -69,6 +78,55 @@ export function driverAgeBandForDob(dob: string, pickupDate: string): DriverAgeB
 }
 
 /**
+ * The insurance surcharge for young drivers.
+ *
+ * Our insurer loads the premium for the youngest drivers, so the rental carries
+ * a daily surcharge below this age. Requested by Tasos on 2 September 2026 at
+ * €5 per day for everyone under 23; see docs/DRIVER-AGE-MARKET.md §4 for what
+ * the rest of the market charges (€8–€30/day, so this is at the gentle end).
+ *
+ * Deliberately *not* expressed through `YOUNG_DRIVER_BAND`. The bands are the
+ * dropdown the customer picks from and a text column on `quotes` and
+ * `reservations`; the surcharge boundary is an underwriting fact that falls in
+ * the middle of the `21–25` band. Tying the two together would mean a schema
+ * migration every time the insurer moved the line.
+ */
+export const INSURANCE_SURCHARGE_BELOW_AGE = 23;
+
+/** The `extras_config.key` the daily amount is read from. */
+export const INSURANCE_SURCHARGE_KEY = "insurance_surcharge";
+
+/** The ages that actually pay it, for published copy. Derived, never typed twice. */
+export const INSURANCE_SURCHARGE_AGES =
+  `${MIN_DRIVER_AGE}–${INSURANCE_SURCHARGE_BELOW_AGE - 1}`;
+
+/**
+ * Whether the surcharge applies to a driver of this age on the pick-up date.
+ *
+ * A null age means we could not work one out — no date of birth was supplied,
+ * or it was unparseable. That resolves to *no surcharge*, on the grounds that
+ * charging a fee we cannot justify from a stated fact is worse than missing
+ * one: the counter verifies age against the licence before the keys move, and
+ * an undercharge found there can still be collected. The reverse — an
+ * unexplained €5 a day on a 40-year-old's quote — cannot be undone.
+ */
+export function insuranceSurchargeApplies(ageAtPickup: number | null | undefined): boolean {
+  return typeof ageAtPickup === "number"
+    && Number.isFinite(ageAtPickup)
+    && ageAtPickup >= 0
+    && ageAtPickup < INSURANCE_SURCHARGE_BELOW_AGE;
+}
+
+/** The same question asked from a date of birth, for callers that hold one. */
+export function insuranceSurchargeAppliesForDob(
+  dob: string | null | undefined,
+  pickupDate: string | null | undefined,
+): boolean {
+  if (!dob || !pickupDate) return false;
+  return insuranceSurchargeApplies(ageOnDate(dob, pickupDate));
+}
+
+/**
  * Baby seats and child seats occupy the same back seat, so the limit applies to
  * the two together rather than to each. Enforced in the public form, the public
  * API, both admin reservation routes and finally as a check constraint on
@@ -90,18 +148,28 @@ export function seatsWithinLimit(babySeat: number, childSeat: number): boolean {
 export const SEATS_LIMIT_MESSAGE =
   `A maximum of ${MAX_CHILD_SEATS_TOTAL} child seats in total (baby and child seats combined) can be fitted to one vehicle.`;
 
-/** The single approved sentence. Used verbatim in the terms, the booking modal and the FAQ. */
+/**
+ * The single approved sentence. Used verbatim in the terms, the booking modal
+ * and the FAQ.
+ *
+ * It names the ages but deliberately not the euro amount. The amount is a rate
+ * row the office edits from the Rates screen, so a figure typed into the terms
+ * page would go stale the first time it changed — silently, and in the one
+ * document a customer could hold us to. The exact amount instead appears as its
+ * own priced line on the quote and in the confirmation email, before anyone
+ * pays anything.
+ */
 export const DRIVER_AGE_POLICY =
-  `Minimum driver's age is ${MIN_DRIVER_AGE} years. A young driver surcharge may apply for drivers aged ${YOUNG_DRIVER_BAND}.`;
+  `Minimum driver's age is ${MIN_DRIVER_AGE} years. Drivers aged ${INSURANCE_SURCHARGE_AGES} pay a daily insurance surcharge, shown in full on your quote before you book.`;
 
 /** The same rule in Greek, for the Greek terms page. */
 export const DRIVER_AGE_POLICY_EL =
-  `Το ελάχιστο όριο ηλικίας οδηγού είναι ${MIN_DRIVER_AGE} ετών. Για οδηγούς ηλικίας ${YOUNG_DRIVER_BAND} ενδέχεται να ισχύει επιβάρυνση νεαρού οδηγού.`;
+  `Το ελάχιστο όριο ηλικίας οδηγού είναι ${MIN_DRIVER_AGE} ετών. Οι οδηγοί ηλικίας ${INSURANCE_SURCHARGE_AGES} επιβαρύνονται με ημερήσια ασφαλιστική επιβάρυνση, η οποία εμφανίζεται αναλυτικά στην προσφορά σας πριν από την κράτηση.`;
 
 /** FAQ phrasing — same rule, answered as a question. */
 export const DRIVER_AGE_FAQ =
-  `Minimum driver's age is ${MIN_DRIVER_AGE} years for all our vehicles. A young driver surcharge may apply for drivers aged ${YOUNG_DRIVER_BAND}.`;
+  `Minimum driver's age is ${MIN_DRIVER_AGE} years for all our vehicles. Drivers aged ${INSURANCE_SURCHARGE_AGES} pay a daily insurance surcharge, because our insurer charges more to cover them. The exact amount is shown on your quote before you book.`;
 
 /** Greek rendering of the same rule. Kept beside it so the two cannot diverge. */
 export const DRIVER_AGE_FAQ_EL =
-  `Το ελάχιστο όριο ηλικίας οδηγού είναι ${MIN_DRIVER_AGE} ετών για όλα τα οχήματά μας. Ενδέχεται να ισχύει επιβάρυνση νέου οδηγού για οδηγούς ηλικίας ${YOUNG_DRIVER_BAND}.`;
+  `Το ελάχιστο όριο ηλικίας οδηγού είναι ${MIN_DRIVER_AGE} ετών για όλα τα οχήματά μας. Οι οδηγοί ηλικίας ${INSURANCE_SURCHARGE_AGES} επιβαρύνονται με ημερήσια ασφαλιστική επιβάρυνση, καθώς η ασφαλιστική μας εταιρεία χρεώνει επιπλέον για την κάλυψή τους. Το ακριβές ποσό εμφανίζεται στην προσφορά σας πριν από την κράτηση.`;

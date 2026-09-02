@@ -1,3 +1,5 @@
+import { INSURANCE_SURCHARGE_KEY, insuranceSurchargeApplies } from "./rentalPolicy";
+
 export type PricingGroup = "car_a" | "car_b" | "car_c" | "motorbike_a" | "motorbike_b" | "bike";
 
 export const DEPOSIT_RATE = 0.3;
@@ -196,6 +198,71 @@ export function calcExtrasTotal(
       .reduce((sum, line) => sum + line.total, 0)
       .toFixed(2)
   );
+}
+
+/**
+ * The young-driver insurance surcharge, priced as its own line.
+ *
+ * ─── Why this is not an extra ───
+ *
+ * It is charged per day from a rate row like every other extra, and it appears
+ * beside them on the quote, so the obvious move is to add `insurance_surcharge`
+ * to `ExtrasSelection` and let `calcExtrasLines` handle it. That would be a
+ * hole. `ExtrasSelection` is the customer's own answers — the seats they want,
+ * the drivers they are adding — and every quantity in it arrives from the
+ * browser. A surcharge the payer can set to zero is not a surcharge.
+ *
+ * So it is derived here instead, from the driver's age on the pick-up date,
+ * which comes from the date of birth they supplied and cannot be asserted
+ * separately. The public quote route recomputes the age server-side before
+ * calling this; nothing in the request body reaches it.
+ *
+ * Returns null rather than a zero line when it does not apply, so callers
+ * cannot accidentally render "Insurance surcharge €0.00" on a 40-year-old's
+ * quote. A missing or disabled rate row also returns null: an operator who
+ * switches the row off has switched the charge off, and inventing a default
+ * would charge money nobody configured.
+ */
+export interface InsuranceSurchargeLine {
+  key: typeof INSURANCE_SURCHARGE_KEY;
+  label: string;
+  dailyRate: number;
+  rentalDays: number;
+  total: number;
+}
+
+export function calcInsuranceSurchargeLine(
+  extras: ExtrasConfig[],
+  ageAtPickup: number | null | undefined,
+  rentalDays: number
+): InsuranceSurchargeLine | null {
+  if (!insuranceSurchargeApplies(ageAtPickup)) return null;
+  if (!Number.isInteger(rentalDays) || rentalDays < 1) return null;
+
+  const config = extras.find((extra) => extra.key === INSURANCE_SURCHARGE_KEY);
+  // `enabled === false` is the operator turning it off. An absent flag is
+  // treated as on, matching how the other extras read their own rows.
+  if (!config || config.enabled === false) return null;
+
+  const dailyRate = Number(config.daily_rate);
+  if (!Number.isFinite(dailyRate) || dailyRate <= 0) return null;
+
+  return {
+    key: INSURANCE_SURCHARGE_KEY,
+    label: config.label,
+    dailyRate,
+    rentalDays,
+    total: parseFloat((dailyRate * rentalDays).toFixed(2)),
+  };
+}
+
+/** The surcharge as a number, for callers that only need to add it to a subtotal. */
+export function calcInsuranceSurchargeTotal(
+  extras: ExtrasConfig[],
+  ageAtPickup: number | null | undefined,
+  rentalDays: number
+): number {
+  return calcInsuranceSurchargeLine(extras, ageAtPickup, rentalDays)?.total ?? 0;
 }
 
 /** What a promo code is, rather than what it was once worth. */

@@ -34,7 +34,8 @@ values
   ('fdw', 'Full damage waiver', 12, true),
   ('baby_seat', 'Baby seat', 4, true),
   ('child_seat', 'Child seat', 4, true),
-  ('additional_drivers', 'Additional driver', 5, true)
+  ('additional_drivers', 'Additional driver', 5, true),
+  ('insurance_surcharge', 'Insurance surcharge (drivers under 23)', 5, true)
 on conflict (key) do update set
   label = excluded.label,
   daily_rate = excluded.daily_rate,
