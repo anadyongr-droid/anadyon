@@ -118,6 +118,20 @@ the two.
 
 ## 5. The question this research cannot answer
 
+> **Partly answered, 2 September 2026.** Tasos supplied the Euroins policy
+> certificate; it is read in full in
+> [`INSURANCE-POLICY-EUROINS-2026.md`](INSURANCE-POLICY-EUROINS-2026.md).
+> Short version: **it contains no age restriction and no licence-tenure rule** —
+> but it is the certificate, not the terms, and it defers exclusions to a terms
+> booklet that was not supplied. So question 1 below is *not answered*; it is
+> narrowed to "ask for the booklet".
+>
+> Reading it turned up three things that outrank the age question: the policy is
+> **liability-only, with no own-damage cover**, which is what our €12/day Full
+> Damage Waiver is sold against; it **expires on 4 October 2026** with no
+> automatic renewal; and its roadside assistance **excludes 50cc scooters**.
+> Those are in §2 of that document.
+
 **What Anadyon's own insurer charges, and what it requires.** That is the
 binding constraint on all of the above and it is not on any public page. Nobody
 can research it; it takes a call or an email to the broker.
