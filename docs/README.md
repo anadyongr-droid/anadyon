@@ -3,6 +3,107 @@
 Start here. Everything below is committed, so it survives a lost folder, a new
 machine or a six-month gap.
 
+## Where things stand — 2 September 2026
+
+**Read this section before opening anything else, and before researching
+anything.** It exists because an agent spent a working session re-deriving
+facts that were already settled in this repository — re-running a competitor
+benchmark that was already committed, and repeating a stale audit finding about
+the driver-age rule four times after `lib/rentalPolicy.ts` had already fixed it.
+That is the failure `DEFINING-STATEMENTS.md` §9 warns about, and it is expensive
+in a way that is invisible until someone checks.
+
+If you change the state of any line below, edit this table in the same commit.
+A status section that is only updated when someone remembers is worse than none,
+because it is believed.
+
+### Settled — do not re-investigate
+
+| Question | Answer | Where |
+|---|---|---|
+| How does an RPC know which staff member is calling? | **Closed.** Option A adopted 31 Aug; the diagnostic ran, confirmed the behaviour, and was removed. The production grant gate is cleared. | `OPEN-QUESTION-RPC-STAFF-IDENTITY.md` §13 |
+| Do the terms, the booking modal and the FAQ disagree on driver age? | **No — fixed.** `lib/rentalPolicy.ts` single-sources all three. The August audit finding B1 is closed; it still reads as open in the audit file. | `lib/rentalPolicy.ts` |
+| Is document upload verified against staging? | **Yes**, 31 Aug. | `STAGING-AND-OBSERVABILITY-RUNBOOK.md` |
+| What do competitors charge, and what are the legal age floors? | **Researched 1 Sept, committed.** Greek law sets motorbike minimums by licence category (AM 16, A1 18, A2 20, A 24), so our blanket 21 sits *above* the legal floor. Do not re-run this search. | `DRIVER-AGE-MARKET.md` |
+| Why does `df` say the sandbox disk is full when little is used? | Fixed per-session allowance, not a broken machine. Never delete `/opt/pw-browsers`. | `SANDBOX-DISK.md` (PR #98) |
+
+### Phase 2, the counter — the live workstream
+
+Build order is `RENTAL-SYSTEM-BLUEPRINT.md` §7. Migrations are numbered; the
+number in brackets is the migration, and **applied** means Tasos has run it
+against production.
+
+| Piece | Migration | State |
+|---|---|---|
+| `rental_handovers` table | 040 | **Applied** |
+| Check-out finalisation | 041 | **Applied** |
+| Check-in finalisation | 042 | Merged (#93). **Not applied** |
+| Correction and voiding, plus the five HTTP routes | 043 | Open in **PR #95** |
+| Insurance surcharge for under-23 drivers | 044 | **In progress** — see below |
+| Photo upload saga | — | Not started. Last piece of phase 2 |
+
+**The gateways are granted to nobody.** `finalise_check_out`,
+`finalise_check_in`, `correct_handover` and `void_handover` all exist with no
+EXECUTE grant, because they were written while the identity question was open.
+That question is now closed, so a one-line follow-up migration can grant them.
+Until it does, the counter routes cannot work against production.
+
+### Insurance surcharge — in progress, 2 September
+
+Requested by Tasos: a daily insurance surcharge of **€5 for every driver under
+23**. Decisions taken while building, so they are not re-litigated:
+
+- **Age is derivable.** Date of birth is collected and required on the booking
+  form, and `app/api/quote/route.ts` already computes exact age on the pick-up
+  date. No change to the `21–25` / `26–65` / `66+` bands is needed, and no
+  schema migration for them.
+- **The €5 lives in `extras_config`**, so it is editable from the Rates screen
+  rather than compiled in. But it is **derived from age, never selectable** —
+  putting it in `ExtrasSelection` would let a crafted request set it to zero.
+- **It must land in the browser's price display and the server's calculation in
+  the same commit.** The two are computed independently and a mismatch emails
+  the office a "possible price manipulation" warning; server-side only would
+  fire that alarm on every under-23 booking.
+- **No date of birth means no surcharge.** Charging a fee we cannot justify from
+  a stated fact is worse than missing one; the counter checks the licence.
+- **The published wording names the age band but not the euro figure**, because
+  the figure is operator-editable and a number hardcoded into the terms page
+  would go stale silently. The exact amount appears as a priced line on the
+  quote and in the confirmation email before the customer pays.
+
+The existing `discount_rules` `age_surcharge` mechanism **cannot do this and has
+a bug**: it charges per rental rather than per day, it parses the band's *lower*
+bound (`"21–25".split("–")[0]` → 21) so a threshold of 22 would also charge a
+24-year-old, and the public quote route never calls it — it is admin-only.
+Recorded here rather than fixed, because fixing it was not what was asked.
+
+### Open pull requests
+
+| PR | What | Waiting on |
+|---|---|---|
+| **#95** | Phase 2 correction and voiding, plus the HTTP surface | Review/merge |
+| **#96** | Dependabot production group, 11 updates | CI. Needed a Stripe `apiVersion` fix, pushed |
+| **#98** | Sandbox disk runbook | Review/merge |
+| **#99** | Driver age market research | Review/merge |
+| #83, #78–#81 | GitHub Actions and CodeQL majors | Take one at a time |
+| #85, #86, #87 | `@types/node` 26, googleapis 176, TypeScript 7 | TypeScript 7 last — it is the one likely to break |
+| #16, #31, #58, #71 | Stale, three of them drafts, oldest from 22 August | A decision to finish or close them |
+
+`codex/incident-admin-middleware-timeout` has never been merged and has no PR.
+
+### Waiting on a human
+
+Per `AGENTS.md`, agents decide everything else themselves. These genuinely
+cannot be done from here — the full list with steps is in
+`ACTIONS-FOR-TASOS-2026-08-30.md`.
+
+- Applying migrations 042 and 044 (and 043 once #95 merges)
+- The Sentry project, and a staging reset from main
+- **The insurer's answers** — `DRIVER-AGE-MARKET.md` §5 is five questions to the
+  broker, and they decide whether any age limit can actually move. The surcharge
+  being built does not depend on them; lowering the age limits does.
+- Counsel and the accountant — `GATE-0-QUESTIONS.md`
+
 ## Read first
 
 | Document | Answers |
@@ -22,7 +123,7 @@ built sound?* Keep them apart; they go stale at different rates.
 | [`PREVIEW-RECAPTCHA-TEST-KEYS.md`](PREVIEW-RECAPTCHA-TEST-KEYS.md) | Why Preview uses Google's reCAPTCHA test pair, and the build-time guard that keeps it out of production |
 | [`INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md`](INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md) | The admin lockout that self-resolved with no cause established |
 | [`HANDOVER-ADMIN-FROZEN-PANES.md`](HANDOVER-ADMIN-FROZEN-PANES.md) | **Open defect** — table headers and first column will not freeze on iPad; three attempts and what disproved each |
-| [`OPEN-QUESTION-RPC-STAFF-IDENTITY.md`](OPEN-QUESTION-RPC-STAFF-IDENTITY.md) | **Open question, blocking blueprint §4.2** — every RPC call uses the service role, so `auth.uid()` is NULL and the specified staff-identity gateway cannot work. Written to be read cold by an outside reviewer |
+| [`OPEN-QUESTION-RPC-STAFF-IDENTITY.md`](OPEN-QUESTION-RPC-STAFF-IDENTITY.md) | **Answered, 31 August 2026 — kept for its reasoning, not as an open item.** How a database function identifies the staff member calling it, why the service role made `auth.uid()` NULL, and the Option A gateway adopted instead. §13 is the decision; read it before §§1–12. Written to be read cold by an outside reviewer |
 | [`ARCHITECTURE-STATUS-2026-08-30.md`](ARCHITECTURE-STATUS-2026-08-30.md) | **Current status of the whole architecture, written to be read cold by an outside reviewer** — what is built, what is open and blocked on what, the decisions most likely to be wrong, and what a review is being asked to comment on |
 | [`HANDOVER-TEST-ENVIRONMENT.md`](HANDOVER-TEST-ENVIRONMENT.md) | **Build brief** — error tracking, the end-to-end suite in CI, and a staging Supabase project. Written for an implementer to work from without asking questions |
 | [`ACTIONS-FOR-TASOS-2026-08-30.md`](ACTIONS-FOR-TASOS-2026-08-30.md) | **Open actions that need a human** — a Vercel dashboard, a SQL editor, a vendor email or a logged-in browser. Ordered by urgency |
