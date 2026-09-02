@@ -42,12 +42,9 @@ Verified against the code 2 September 2026, not assumed.
 
 | # | Item | Owner |
 |---|---|---|
-| B1 | **Are renters covered as unnamed drivers?** All three certificates have named-driver slots with only the owner filled in. Both bikes are on rental use classes so almost certainly yes — but if not, no rental is covered at all. One written confirmation from the broker closes it. | Tasos |
-| B2 | **The terms booklets have not been supplied** — Euroins *Βιβλίο Όρων Ασφάλισης* and the Intersalonica Γενικοί/Ειδικοί/Προαιρετικών Καλύψεων. Every conclusion about *exclusions* — age, licence tenure, anything — is unverified until these are read. | Tasos |
-| B3 | **Is there any own-damage cover on the fleet not yet shown?** If not, Full Damage Waiver at €12/day is confirmed self-insured and needs a product decision. | Tasos |
-| B4 | **Gate 0 — counsel and the accountant.** See [`GATE-0-QUESTIONS.md`](GATE-0-QUESTIONS.md). Two forwardable briefs, already written. | Tasos |
-
----
+| B2 | **Obtain the two terms booklets.** Euroins *Βιβλίο Όρων Ασφάλισης*, and for Intersalonica the [ΕΙΔΙΚΕΣ ΔΙΑΤΑΞΕΙΣ, έκδοση ΙΖ, in force 10/07/2024](https://www.intersalonica.gr/media/m2lluzgn/%CE%AD%CE%BA%CE%B4%CE%BF%CF%83%CE%B7-%CE%B9z-%CE%BC%CE%B5-%CE%B9%CF%83%CF%87%CF%8D-%CE%B1%CF%80%CF%8C-10072024.pdf). **Attempted 2 Sep and blocked** — both insurer domains return 403 at this session's egress proxy, to `curl` and to the fetch tool alike. Not worked around. One click for anyone on an unrestricted connection. Per §2b the booklets can only add exclusions to the **optional** covers, but that is exactly where an age condition would sit. | Tasos, or an agent on an unblocked connection |
+| B5 | **Obtain the own-damage policy.** Confirmed to exist on 2 Sep, never seen here. Needed answers: which policy carries it, what it covers, **what excess it leaves**, and whether the excess changes for a young driver. **The €12/day Full Damage Waiver is sold against terms nobody here has read**, so W2 is blocked on this document rather than on drafting. | Tasos |
+| B4 | **Gate 0 — counsel and the accountant.** Two forwardable briefs, already written. **Now carrying one more question:** article 6β of PD 237/1986 is written as an exclusion, but the compulsory scheme also protects the injured third party — does an excluded claim mean the insurer refuses to pay, or pays the victim and then recovers from us (δικαίωμα αναγωγής)? The difference is whether an excluded claim is a loss borne elsewhere or a debt owed by Anadyon. | Tasos |
 
 ## 🗄 Migrations written and awaiting application
 
@@ -68,7 +65,8 @@ under `supabase/migrations/paste/`.
 | # | Item | Owner |
 |---|---|---|
 | W1 | **Photo upload saga** — the last piece of phase 2. Not started. Blueprint §7. | Agent |
-| W2 | **Content correctness against the insurance policies.** The site may currently imply cover that does not exist: theft is uncovered, glass is uncovered, 50cc has no roadside assistance, and FDW has no own-damage policy behind it. `DEFINING-STATEMENTS.md` §10 makes this binding. [`INSURANCE-COVER-AND-RESTRICTIONS.md`](INSURANCE-COVER-AND-RESTRICTIONS.md) §5 items 1–3. | Agent |
+| W2 | **Content correctness against the insurance policies.** The site may currently imply cover that does not exist: theft is uncovered, glass is uncovered, and 50cc has no roadside assistance. `DEFINING-STATEMENTS.md` §10 makes this binding. **Partly blocked on B5** — the FDW wording cannot be written until the own-damage policy's terms and excess are known. The theft, glass and 50cc-assistance corrections are not blocked and can proceed now. | Agent |
+| W7 | **Licence category is a condition of cover, not counter etiquette.** Article 6β of PD 237/1986 excludes from compulsory cover any damage caused by a driver lacking the licence required for that category — and the Supreme Court has held the article's three exclusions exhaustive. So a renter on a 125 with only an AM licence voids cover by statute. Check what the check-out flow verifies today, and make the licence category vs machine an explicit gate. See `INSURANCE-COVER-AND-RESTRICTIONS.md` §2b. | Agent |
 | W4 | **`discount_rules` `age_surcharge` is broken.** Charges per rental not per day; parses the band's *lower* bound so a threshold of 22 also charges a 24-year-old; the public quote route never calls it. Found 2 Sep and deliberately not fixed — it was not what was asked. | Agent |
 | W5 | **Admin frozen panes** — open UI defect, three theories disproved and recorded. [`HANDOVER-ADMIN-FROZEN-PANES.md`](HANDOVER-ADMIN-FROZEN-PANES.md). | Agent |
 | W6 | **Pin the `app/admin/login/page.tsx` lint warning** with a disable comment. The hard navigation is deliberate — it forces the browser to send refreshed cookies to the middleware after MFA — and "fixing" it would break login. | Agent |
@@ -120,4 +118,6 @@ Kept briefly so a closed item is not reopened by someone who remembers it as ope
 | Document upload verified against staging | 31 Aug 2026 | Verified. |
 | Young-driver surcharge published but never charged | 2 Sep 2026 | Built at €5/day under 23, `claude/insurance-surcharge`. Migration 044 still to apply — see M3. |
 | **Insurance renewals — car, 125 and 50cc** | 2 Sep 2026 | Tasos is handling the renewals directly. The 125 (ΖΒΒ 0565) certificate was the stale copy it looked like: the current policy is **217443636**, 11 Jun → **11 Sep 2026**. Both motorbikes now expire on the same day. Superseded by F1, which is what puts the dates where the system can act on them. |
+| **B1 — are renters covered as unnamed drivers?** | 2 Sep 2026 | **Yes**, confirmed by Tasos. The single largest risk in the insurance reading, closed. |
+| **B3 — is there own-damage cover we have not been shown?** | 2 Sep 2026 | **Yes**, confirmed by Tasos. The earlier conclusion that FDW was entirely self-insured is **withdrawn**. Replaced by B5: the cover exists, its terms and excess have not been seen, and the waiver's wording depends on them. |
 | **Insurance expiry in the vehicle record, with stop-sell** | already built | Found on 2 Sep to exist already — migration 011 columns, the admin modal inputs, `lib/fleetStatus.ts` 30-day warnings, and a hard bar in the availability route measured against the pick-up date. Was listed as open build work in error. What remains is the data, not the code: F1. |
