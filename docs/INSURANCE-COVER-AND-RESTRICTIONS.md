@@ -5,7 +5,7 @@ supplied by Tasos, covering one car and two motorbikes across two insurers.
 This document is the reference for what may be offered, promised and published.
 `DEFINING-STATEMENTS.md` §10 makes that binding.
 
-**Last verified:** 2 September 2026, Claude — including the renewed 125 certificate.
+**Last verified:** 2 September 2026, Claude — certificates, the renewed 125, and the Intersalonica terms booklet (§2c). The Euroins booklet is still unread.
 
 **Scope caveat, stated once and applying throughout.** All three documents are
 **certificates** — the schedule of what is covered, for how much, at what
@@ -75,10 +75,11 @@ Nothing in any document.
   records that Greek law already sets motorbike minimums by licence category
   (AM 16, A1 18, A2 20, A 24), so the blanket 21 sits above the legal floor for
   the two categories we most likely rent.
-- **The under-23 insurance surcharge is a commercial charge, not a pass-through.**
-  No young-driver loading appears anywhere in these documents. It must not be
-  described internally or publicly as recovering an insurer's charge until the
-  terms booklet or the broker confirms one exists.
+- ~~**The under-23 insurance surcharge is a commercial charge, not a
+  pass-through.**~~ **Withdrawn 2 September** — the Intersalonica booklet's
+  Article 18 charges 60% of premium for an undeclared under-23 driver on a
+  private licence. There *is* a young-driver loading; it simply was not on the
+  certificate. See §2c.
 - **The absence of a licence-tenure rule cuts the other way from the market.**
   `DRIVER-AGE-MARKET.md` §6 found nearly every competitor requires the licence
   to have been held a year, commonly as an insurance condition. Ours do not
@@ -162,6 +163,121 @@ Anadyon rather than a loss borne by the victim.
 Recorded as unverified and added to the questions for counsel in
 [`GATE-0-QUESTIONS.md`](GATE-0-QUESTIONS.md). Do not act on either reading until
 it is answered.
+
+---
+
+## 2c. The Intersalonica terms, read in full
+
+**Read 2 September 2026** from *ΙΖ΄ Έκδοση όρων πακέτου ασφάλισης αυτοκινήτου*,
+in force 10/07/2024, 58 pages — the booklet governing **both motorbikes**. The
+Euroins booklet is still unread: their site returns `502 Bad Gateway` from their
+own Azure gateway, so that half of the answer covers the car only when it is up.
+
+This section supersedes the "no age restriction" reading of §2, which was correct
+about the certificates and wrong about the contract.
+
+### Article 18 — there IS an under-23 driver clause, and it is severe
+
+> **ΑΡΘΡΟ 18 — Επασφάλιστρο οδηγού κάτω των 23 ετών.** […] σε περίπτωση
+> ατυχήματος […] οδηγείται από οδηγό ηλικίας κατώτερης των 23 ετών
+> (υπολογιζόμενης της ηλικίας από 1η Ιανουαρίου του έτους γεννήσεως), **χωρίς να
+> έχει δηλωθεί η ηλικία αυτή και καταβληθεί** κατά τη σύναψη της ασφαλίσεως το
+> προβλεπόμενο επασφάλιστρο […] **η Εταιρία ουδεμία ευθύνη αποζημιώσεως φέρει**,
+> εκτός εάν ο ασφαλιζόμενος καταβάλει αμέσως με Πρόσθετη Πράξη επασφάλιστρο
+> **60%** εφόσον ο οδηγός κατέχει ερασιτεχνική άδεια, ή **30%** εφόσον
+> επαγγελματική […] για ολόκληρη τη διάρκεια της ισχύος του ασφαλιστηρίου.
+
+Three things follow, in ascending order of cost.
+
+**1. The threshold is exactly 23.** Tasos set the customer surcharge at under-23
+independently, before this document was read. The numbers agree.
+
+**2. So the surcharge IS a pass-through after all.** §2 previously said no
+young-driver loading appeared anywhere and that the €5/day must not be described
+as recovering an insurer's charge. **That is now wrong and is withdrawn.** The
+insurer's loading is 60% of premium for a private licence, 30% for a
+professional one, applied to the whole policy period, subject to a floor of
+€14.67.
+
+**3. The insurer's age is not our age.** Article 18 computes age **"from 1st
+January of the year of birth"** — calendar-year age, `pickupYear − birthYear`,
+not age on the day. `lib/rentalPolicy.ts` computes true age on the pick-up date.
+
+Insurer age is always ≥ true age, so the sets relate cleanly: **anyone the
+insurer counts as under 23, we already charge.** We never undercharge. But we do
+charge some customers whose birthday falls later in the year and whom the
+insurer already treats as 23. Recorded as open item **W8** — a decision about
+whose definition to follow, not a defect.
+
+### The exposure Article 18 actually creates for a rental fleet
+
+The clause does not merely price a young driver. It says that if the age was not
+**declared and paid for at inception**, the Company bears **no liability to
+indemnify** — remedied only by an immediate endorsement at 60% or 30%.
+
+A rental company cannot know its renters at inception. So either the rental use
+class (970 / 830, ΕΝΟΙΚΙΑΖΟΜΕΝΟ) displaces Article 18's declaration
+requirement, or every under-23 rental needs a Πρόσθετη Πράξη before the keys
+move. **That is now the single most urgent question for the broker** — open item
+**B6** — and it is not answered by B1, which established only that renters are
+covered as unnamed drivers.
+
+### The licence-category exclusion is harder than the statute
+
+The statutory exclusion of §2b is restated contractually and tightened:
+
+> **στ)** Από οδηγό που δεν έχει την άδεια οδήγησης που προβλέπει ο νόμος για
+> την κατηγορία του οχήματος που οδηγεί. **Άδεια οδήγησης για άλλους τύπους
+> οχημάτων δεν ισχύει. Η εξαίρεση ισχύει και αν ακόμη η έλλειψη δε συντέλεσε
+> στην πρόκληση του ατυχήματος και αν ακόμη ο οδηγός γνώριζε να οδηγεί.**
+
+A licence for other vehicle types **does not count**, and the exclusion bites
+**even where the missing licence played no part in the accident and even if the
+driver knew how to ride**. There is no causation defence and no competence
+defence. A renter on a 125 holding only AM is uninsured, full stop.
+
+This makes open item **W7** — gating check-out on licence category against the
+machine — a cover condition rather than good practice.
+
+### The finding that answers the question raised for counsel
+
+§2b flagged an unresolved question: does an excluded claim mean the insurer
+refuses to pay, or pays the victim and then recovers from us? For a rental fleet
+the booklet answers it directly:
+
+> Αν το αυτοκίνητο όχημα που εμπλέκεται στο ατύχημα ανήκει κατά κυριότητα σε
+> **επιχείρηση εκμίσθωσης** επιβατικών αυτοκινήτων οχημάτων, το **δικαίωμα
+> αναγωγής του ασφαλιστή ασκείται μόνο κατά του οδηγού** του ζημιογόνου
+> αυτοκινήτου οχήματος, **εφόσον υφίσταται έγκυρο μισθωτικό έγγραφο**.
+
+Where the vehicle belongs to a **rental business**, the insurer's right of
+recourse is exercised **only against the driver** — **provided a valid rental
+agreement exists.**
+
+**So the signed rental agreement is the document that stands between Anadyon and
+the insurer's recourse.** Without it, that protection is not available and the
+recourse runs to the owner. This is no longer a compliance nicety: it is the
+control that decides who pays after an excluded claim.
+
+The check-out finalisation in migration **041 already refuses to release a
+vehicle without a signed agreement**, which turns out to be load-bearing for a
+reason nobody had written down. That blocker must never be softened into a
+warning, and the reason is now recorded here.
+
+### Also noted
+
+**Article 20** sells an optional cover that, by derogation from art. 6β(1α),
+extends third-party **property damage only** to a driver whose licence has
+**expired** — distinct from never having held the category. Neither motorbike
+certificate lists it. Worth knowing it exists before assuming an expired licence
+is always fatal.
+
+**Accident care and roadside assistance** (p. 41) explicitly name
+*Ενοικιαζόμενα Ε.Ι.Χ.* and *Ενοικιαζόμενες Μοτοσυκλέτες* among eligible
+vehicles, with dimensional limits and no engine-size floor stated in this
+booklet. That does **not** overturn §4.5: the ≤50cc assistance exclusion found
+earlier is on the **Euroins car** certificate, a different insurer and product.
+Which rule binds each vehicle depends on the cover that vehicle actually carries.
 
 ---
 
