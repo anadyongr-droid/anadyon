@@ -192,12 +192,73 @@ Three things follow, in ascending order of cost.
 **1. The threshold is exactly 23.** Tasos set the customer surcharge at under-23
 independently, before this document was read. The numbers agree.
 
-**2. So the surcharge IS a pass-through after all.** §2 previously said no
-young-driver loading appeared anywhere and that the €5/day must not be described
-as recovering an insurer's charge. **That is now wrong and is withdrawn.** The
-insurer's loading is 60% of premium for a private licence, 30% for a
-professional one, applied to the whole policy period, subject to a floor of
-€14.67.
+**2. So a young-driver loading does exist**, and §2's statement that none
+appears anywhere is withdrawn. It is **60%** of premium where the driver holds a
+private (ερασιτεχνική) licence and **30%** where professional, applied to the
+tariff premiums for the covered risks **for the whole policy period**.
+
+> **Correction, same day.** An earlier draft of this section put a **€14.67
+> floor** on Article 18. That was wrong: the floor belongs to **Article 19**,
+> read below. Article 18 states no minimum.
+
+### What that actually costs — computed from our own certificates
+
+The base is "the tariff premiums for the covered risks", which on these
+certificates is the **net premium** (καθαρά ασφάλιστρα) — the sum of the
+per-cover figures, not the gross payable. Both current motorbike policies run
+11 June to 11 September 2026, **92 days**.
+
+| | Net premium | Art. 18 at 60% | at 30% | Per day, at 60% |
+|---|---:|---:|---:|---:|
+| **50cc** ΗΒΙ 1560 | €27.48 | **€16.49** | €8.24 | €0.18 |
+| **125** ΖΒΒ 0565 | €35.98 | **€21.59** | €10.79 | €0.23 |
+
+Article 19 adds "πλέον των εκάστοτε ισχυόντων δικαιωμάτων, φόρων", so the
+endorsement almost certainly attracts the same duties and taxes as the premium.
+On these certificates gross is about **1.5×** net, which would put the real cost
+nearer **€25** and **€32** respectively.
+
+**The comparison worth understanding.** The insurer's charge is **per policy**,
+not per rental: paid once, it covers every under-23 driver for the whole term.
+Ours is **€5 per day, per customer**. So a loading exists — but at roughly
+**€0.20 a day per vehicle** against **€5 a day per customer**, the €5 is not
+sized to recover it. It is a commercial charge that happens to sit above a real
+cost, and it should be described that way rather than as cost recovery.
+
+**Labelled computed, not quoted.** These figures are this project's arithmetic
+on the certificates. The insurer states the base as its own tariff; ask the
+broker to confirm the amount rather than pricing against this table.
+
+### Article 19 — a licence-tenure loading, which answers N4
+
+Immediately after Article 18, and previously missed:
+
+> **ΑΡΘΡΟ 19 — Επασφάλιστρο νέου οδηγού.** […] οδηγείται από οδηγό που έχει
+> λάβει **για πρώτη φορά άδεια** ικανότητας οδηγού εκδοθείσα **εντός του
+> τελευταίου […] δωδεκαμήνου**, χωρίς να έχει καταβληθεί […] το […]
+> επασφάλιστρο, **ο Ασφαλιστής ουδεμία ευθύνη αποζημιώσεως φέρει** εκτός εάν
+> […] καταβάλει αμέσως […] επασφάλιστρο **60%**, ανεξαρτήτως του εάν ο οδηγός
+> κατέχει ερασιτεχνική ή επαγγελματική άδεια […] **δε δύναται […] να είναι
+> κατώτερο των 14,67 €** πλέον […] δικαιωμάτων, φόρων.
+
+A driver whose **first** licence was issued within the twelve months before the
+accident carries a **60% loading regardless of licence type**, with the €14.67
+floor, and the same consequence if it was not paid: **no liability to
+indemnify**.
+
+**This settles open item N4.** `DRIVER-AGE-MARKET.md` §6 observed that nearly
+every competitor requires a licence held for at least one year, and asked whether
+we should adopt one deliberately. We should: **our own insurer prices exactly
+that twelve-month line**, and treats an undeclared new driver the same way it
+treats an undeclared under-23 one.
+
+**Articles 18 and 19 are separate clauses with separate triggers**, so a
+twenty-year-old who passed their test last month appears to engage both. Whether
+the loadings compound is not stated — one for the broker.
+
+**Neither loading appears on either certificate**, which is what makes B6 urgent:
+if the rental use class does not displace the declaration duty, both articles are
+live and unpaid.
 
 **3. The insurer's age is not our age.** Article 18 computes age **"from 1st
 January of the year of birth"** — calendar-year age, `pickupYear − birthYear`,
