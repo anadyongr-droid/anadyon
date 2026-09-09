@@ -1,7 +1,10 @@
 # The printed terms, transcribed
 
 **Last verified:** 9 September 2026, Claude.
-**Source:** `rental-agreement-back-terms.jpg`, the English column. The form
+**Source:** `rental-agreement-back-terms.jpg`, the English column. Read twice,
+from two independent photographs — a completed contract and a blank form —
+which agree word for word on articles 6.1 and 8, the two that carry the most
+weight. The form
 carries the same eighteen articles in Greek alongside; **article 15 provides
 that the Greek version prevails**, so the Greek column is the operative text and
 this English transcription is a working reference, not the contract.
