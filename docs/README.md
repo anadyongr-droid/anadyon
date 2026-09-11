@@ -9,6 +9,7 @@ machine or a six-month gap.
 |---|---|
 | [`OPEN-ITEMS.md`](OPEN-ITEMS.md) | **Obligatory at the start of every day** (`DEFINING-STATEMENTS.md` §12) — everything outstanding, with an owner on each item and a dated section to check against the calendar |
 | The status section below | Where the project actually is today |
+| [`EMAIL-DELIVERABILITY.md`](EMAIL-DELIVERABILITY.md) | **The two separate sending paths** — Resend for the booking system, the host's relay for the office mailbox — the live DNS behind each, and how to tell which one a bounce belongs to |
 | [`CONTRACT-VS-WEBSITE.md`](CONTRACT-VS-WEBSITE.md) | **Where the signed contract, the website terms and the insurance policies disagree** — nine mismatches, including a website that advertises theft and collision cover nothing provides |
 | [`contract/`](contract/) | The paper rental agreement: the scanned terms page, a full transcription, and a blank printable template |
 | [`WORKLOG.md`](WORKLOG.md) | The most recent day's entry |
