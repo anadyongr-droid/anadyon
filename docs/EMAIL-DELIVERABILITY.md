@@ -66,6 +66,32 @@ Open item **E5**.
 
 **Booking confirmations were unaffected**, because they never touch that relay.
 
+## The Plesk certificate, 12 September 2026
+
+Papaki reported Let's Encrypt renewal failing for `Lets Encrypt anadyon.gr`,
+covering `anadyon.gr` and `*.anadyon.gr`, 29 days to expiry.
+
+**Vercel is not involved and needs nothing.** `anadyon.gr` and `www` resolve to
+`76.76.21.21`, and Vercel issues and renews that certificate itself.
+
+**The Plesk certificate is the Papaki server's**, and its wildcard is what
+secures `mail.anadyon.gr` — staff IMAP, SMTP and webmail. That part matters.
+
+**Why it fails, inferred from DNS rather than observed:** Let's Encrypt validates
+`anadyon.gr` over HTTP-01, and that request now lands on Vercel, so Plesk can
+never satisfy it. The site moved; the certificate request did not. The wildcard
+half needs DNS-01 and an `_acme-challenge` TXT record, which is absent — though
+that record only exists transiently during validation, so its absence is not
+proof on its own.
+
+**The fix** is to reissue in Plesk for only the hostnames still on that server —
+`mail.anadyon.gr` and the webmail/panel host — dropping `anadyon.gr` and the
+wildcard. Open item **E6**.
+
+**Not verifiable from this environment.** The egress proxy re-terminates TLS, so
+`openssl s_client` returns the proxy's own certificate for any host, not the
+real one. Confirming what that certificate is bound to takes one look at Plesk.
+
 ## Before diagnosing the next bounce
 
 1. **Which path?** A bounce naming `grserver.gr` is the office mailbox. A
@@ -74,5 +100,9 @@ Open item **E5**.
    a delay notice, not a failure.
 3. **A `421 … ip blocked` is never an SPF or DKIM problem.** It happens before
    either is presented.
-4. DNS can be read from here without `dig`, which is not installed:
+4. **A health check now watches the SPF record**, including whether it
+   authorises the services that actually send — `spfProblems()` in
+   `lib/healthChecks.ts`, reported in the daily briefing. It exists because its
+   predecessor passed while Resend was unauthorised.
+5. DNS can be read from here without `dig`, which is not installed:
    `curl -sS -H "accept: application/dns-json" "https://dns.google/resolve?name=anadyon.gr&type=TXT"`

@@ -1,6 +1,6 @@
 # Open items
 
-**Last verified:** 11 September 2026, Claude — after tracing the two email paths.
+**Last verified:** 12 September 2026, Claude.
 
 **Read this first, every day.** [`DEFINING-STATEMENTS.md` §12](../DEFINING-STATEMENTS.md)
 makes it obligatory for every agent, before picking up a task.
@@ -113,6 +113,7 @@ under `supabase/migrations/paste/`.
 
 | # | Item | Owner |
 |---|---|---|
+| E6 | **Reissue the Plesk certificate for only the hosts still on that server.** Papaki reports Let's Encrypt renewal failing for `anadyon.gr` and `*.anadyon.gr`, **29 days to expiry**. Cause, inferred from DNS: `anadyon.gr` and `www` now resolve to **76.76.21.21 (Vercel)**, so the HTTP-01 challenge no longer reaches Plesk and can never succeed. Vercel issues and renews the website's certificate itself — nothing needed there. But the wildcard is what secures **`mail.anadyon.gr`** (213.158.90.117, Papaki), so staff mail clients start warning if it lapses. **Fix in Plesk:** reissue for `mail.anadyon.gr` and the webmail/panel host only, dropping `anadyon.gr` and the wildcard. Booking confirmations unaffected — they go via Resend. Which hostnames that certificate is actually bound to could not be verified from here; the session's egress proxy re-terminates TLS, so `openssl` returns the proxy's certificate, not the real one. `EMAIL-DELIVERABILITY.md`. | **Tasos** |
 | E4 | **Add Resend to the root SPF record.** `anadyon.gr` publishes `v=spf1 +mx include:_spf.fastmail.gr -all` — no Resend, no `amazonses.com` — while the app sends booking confirmations **from the root domain** via Resend. Every one hard-fails SPF and passes DMARC on DKIM alone, with no fallback. One DNS edit at the registrar: `v=spf1 +mx include:_spf.fastmail.gr include:amazonses.com -all`. While there, either finish `send.anadyon.gr` (it has SPF and an SES feedback MX but **no DKIM key**) or remove it — nothing sends from it. `EMAIL-DELIVERABILITY.md`. | **Tasos** |
 | E5 | **Naver has blocked the office mail relay.** `relay12.grserver.gr` (`88.99.38.195`, shared, Hetzner range) is refused by `mx4.mail.naver.com` with `421 4.3.2 Your ip blocked`, ref `VPdBxVRJReWvU4oJvox9JA`. **Nothing is misconfigured on our side** — the IP is correctly in SPF and its reverse DNS is right; it is shared-IP reputation, refused before authentication is offered. Only grserver can request delisting. Booking confirmations are unaffected, as they go via Resend. | **Tasos** |
 | E1 | **Sentry project** — needs a dashboard. [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md). | Tasos |
