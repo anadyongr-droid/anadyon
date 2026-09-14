@@ -1,6 +1,6 @@
 # Open items
 
-**Last verified:** 12 September 2026, Claude.
+**Last verified:** 14 September 2026, Claude.
 
 **Read this first, every day.** [`DEFINING-STATEMENTS.md` §12](../DEFINING-STATEMENTS.md)
 makes it obligatory for every agent, before picking up a task.
