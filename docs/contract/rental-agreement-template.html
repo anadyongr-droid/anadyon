@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Anadyon Rental Agreement — blank template</title>
+<style>
+  @page { size: A4; margin: 8mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 7.4pt; color: #111; margin: 0; }
+  .sheet { width: 194mm; min-height: 281mm; padding: 0; page-break-after: always; position: relative; }
+  .sheet:last-child { page-break-after: auto; }
+
+  /* ---- masthead ---- */
+  .top { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; align-items: start; border-bottom: 1.6pt solid #C8452A; padding-bottom: 2mm; }
+  .brand { font-size: 21pt; font-weight: 800; letter-spacing: .04em; color: #333; line-height: 1; }
+  .brand span { color: #C8452A; }
+  .brand small { display: block; font-size: 8pt; letter-spacing: .42em; font-weight: 600; color: #C8452A; margin-top: 1mm; }
+  .co { font-size: 7pt; line-height: 1.5; text-align: right; color: #333; }
+  .co b { color: #C8452A; }
+
+  /* ---- generic field grid ---- */
+  table { width: 100%; border-collapse: collapse; }
+  td, th { border: .5pt solid #999; padding: 1mm 1.2mm; vertical-align: top; }
+  .lab { font-size: 5.6pt; line-height: 1.25; color: #444; display: block; }
+  .lab i { font-style: normal; color: #777; }
+  .fill { height: 6.2mm; }
+  .fill.tall { height: 9mm; }
+  .sec { background: #F0EDE9; font-weight: 700; font-size: 6.4pt; letter-spacing: .06em; text-transform: uppercase; padding: 1mm 1.2mm; border: .5pt solid #999; }
+  .nb { border: none; }
+
+  .cols { display: grid; grid-template-columns: 1fr 78mm; gap: 2.5mm; margin-top: 2mm; }
+  .diagram { border: .5pt solid #999; padding: 1.5mm; text-align: center; }
+  .diagram svg { width: 100%; height: auto; }
+  .gauge { display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 26mm; font-size: 6pt; }
+  .gauge .bar { width: 4mm; height: 18mm; border: .7pt solid #C8452A; border-radius: 2mm; }
+
+  .charges td { padding: .7mm 1.2mm; font-size: 6.2pt; }
+  .charges .amt { width: 17mm; }
+  .charges .tot td { font-weight: 700; background: #F0EDE9; }
+
+  .ack { border: .6pt solid #333; padding: 1.6mm; margin-top: 2mm; font-size: 5.9pt; line-height: 1.35; }
+  .ack strong { text-transform: uppercase; }
+  .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; margin-top: 6mm; }
+  .sign div { border-top: .6pt solid #333; padding-top: 1mm; font-size: 6pt; text-align: center; }
+
+  /* ---- terms page ---- */
+  .terms { column-count: 2; column-gap: 5mm; font-size: 6pt; line-height: 1.34; text-align: justify; margin-top: 2mm; }
+  .terms h3 { font-size: 6.4pt; margin: 2mm 0 .8mm; text-transform: uppercase; letter-spacing: .02em; break-after: avoid; }
+  .terms p { margin: 0 0 1.2mm; }
+  .terms .art { font-weight: 700; }
+  .note { border-left: 2pt solid #C8452A; background: #FBF3F1; padding: 1.5mm 2mm; margin: 2mm 0; font-size: 6pt; line-height: 1.4; }
+  .note b { color: #A8321C; }
+  h2.pt { font-size: 10pt; margin: 0 0 1mm; letter-spacing: .06em; }
+</style>
+</head>
+<body>
+
+<!-- ============ PAGE 1 — FRONT ============ -->
+<section class="sheet">
+  <div class="top">
+    <div class="brand">ANAD<span>Y</span>ON<small>R E N T A L S</small></div>
+    <div class="co">
+      <b>ΑΝΑΔΥΩΝ Ι.Κ.Ε.</b><br>
+      Κ. Λομβάρδου 20, 29100 Ζάκυνθος<br>
+      +30 26950 41878 · +30 6988 010 188<br>
+      Α.Φ.Μ.: 800569811 · Δ.Ο.Υ.: Ζακύνθου<br>
+      www.anadyon.gr · customerservice@anadyon.gr
+    </div>
+  </div>
+
+  <table style="margin-top:2mm">
+    <tr>
+      <td style="width:32%"><span class="lab">Form type — <i>Είδος παραστατικού</i></span><div class="fill"></div></td>
+      <td style="width:22%"><span class="lab">To be paid by — <i>Πληρωτέο από</i></span><div class="fill"></div></td>
+      <td style="width:11%"><span class="lab">Serial No — <i>Σειρά</i></span><div class="fill"></div></td>
+      <td style="width:12%"><span class="lab">Number — <i>Αριθμός</i></span><div class="fill"></div></td>
+      <td style="width:11%"><span class="lab">Date — <i>Ημερομηνία</i></span><div class="fill"></div></td>
+      <td><span class="lab">Road assistance — <i>Οδική βοήθεια</i></span><div class="fill"></div></td>
+    </tr>
+  </table>
+
+  <table style="margin-top:1.2mm">
+    <tr><td colspan="4" class="sec">Vehicle — Όχημα</td></tr>
+    <tr>
+      <td style="width:26%"><span class="lab">Registration No — <i>Αρ. κυκλοφορίας</i></span><div class="fill"></div></td>
+      <td style="width:32%"><span class="lab">Brand and type of vehicle — <i>Μάρκα και τύπος οχήματος</i></span><div class="fill"></div></td>
+      <td style="width:24%"><span class="lab">Date and time out — <i>Ημ/νία και ώρα αναχώρησης</i></span><div class="fill"></div></td>
+      <td><span class="lab">Station — <i>Σταθμός</i></span><div class="fill"></div></td>
+    </tr>
+    <tr>
+      <td><span class="lab">Extension to — <i>Παρατάθηκε έως</i></span><div class="fill"></div></td>
+      <td><span class="lab">Delivery — <i>Παράδοση</i></span><div class="fill"></div></td>
+      <td><span class="lab">Date and time in — <i>Ημ/νία και ώρα επιστροφής</i></span><div class="fill"></div></td>
+      <td><span class="lab">Station — <i>Σταθμός</i></span><div class="fill"></div></td>
+    </tr>
+  </table>
+
+  <table style="margin-top:1.2mm">
+    <tr><td colspan="4" class="sec">Renter — Μισθωτής</td></tr>
+    <tr>
+      <td colspan="2"><span class="lab">Driver's full name — <i>Ονοματεπώνυμο οδηγού</i></span><div class="fill"></div></td>
+      <td><span class="lab">Date of birth — <i>Ημ/νία γεννήσεως</i></span><div class="fill"></div></td>
+      <td><span class="lab">Collection — <i>Παραλαβή</i></span><div class="fill"></div></td>
+    </tr>
+    <tr>
+      <td colspan="2"><span class="lab">Local address — <i>Τοπική διεύθυνση</i></span><div class="fill"></div></td>
+      <td><span class="lab">Tel. — <i>Τηλ.</i></span><div class="fill"></div></td>
+      <td><span class="lab">Email</span><div class="fill"></div></td>
+    </tr>
+    <tr>
+      <td colspan="2"><span class="lab">Permanent address — <i>Μόνιμη διεύθυνση</i></span><div class="fill"></div></td>
+      <td><span class="lab">Country — <i>Χώρα</i></span><div class="fill"></div></td>
+      <td><span class="lab">Credit card No / exp. — <i>Αρ. πιστ. κάρτας / λήξη</i></span><div class="fill"></div></td>
+    </tr>
+    <tr>
+      <td><span class="lab">Passport No — <i>Αρ. διαβατηρίου</i></span><div class="fill"></div></td>
+      <td><span class="lab">Country — <i>Χώρα</i></span><div class="fill"></div></td>
+      <td><span class="lab">Date of issue — <i>Ημ/νία έκδοσης</i></span><div class="fill"></div></td>
+      <td><span class="lab">Exp. date — <i>Ημ/νία λήξης</i></span><div class="fill"></div></td>
+    </tr>
+    <tr>
+      <td><span class="lab">Driver's lic. No — <i>Αρ. άδειας οδηγού</i></span><div class="fill"></div></td>
+      <td><span class="lab">Country — <i>Χώρα</i></span><div class="fill"></div></td>
+      <td><span class="lab">Date of issue — <i>Ημ/νία έκδοσης</i></span><div class="fill"></div></td>
+      <td><span class="lab">Exp. date — <i>Ημ/νία λήξης</i></span><div class="fill"></div></td>
+    </tr>
+    <tr><td colspan="4" class="sec">Additional driver — Επιπλέον οδηγός</td></tr>
+    <tr>
+      <td colspan="2"><span class="lab">Full name — <i>Ονοματεπώνυμο</i></span><div class="fill"></div></td>
+      <td colspan="2"><span class="lab">Date of birth — <i>Ημ/νία γεννήσεως</i></span><div class="fill"></div></td>
+    </tr>
+    <tr>
+      <td><span class="lab">Driver's lic. No — <i>Αρ. άδειας οδηγού</i></span><div class="fill"></div></td>
+      <td><span class="lab">Country — <i>Χώρα</i></span><div class="fill"></div></td>
+      <td><span class="lab">Date of issue — <i>Ημ/νία έκδοσης</i></span><div class="fill"></div></td>
+      <td><span class="lab">Exp. date — <i>Ημ/νία λήξης</i></span><div class="fill"></div></td>
+    </tr>
+  </table>
+
+  <div class="cols">
+    <div>
+      <table>
+        <tr><td colspan="3" class="sec">Car condition out — Κατάσταση αυτοκινήτου στην παράδοση</td></tr>
+        <tr>
+          <td style="width:44%" class="diagram">
+            <svg viewBox="0 0 200 120" fill="none" stroke="#C8452A" stroke-width="2">
+              <text x="100" y="9" font-size="8" fill="#C8452A" stroke="none" text-anchor="middle">LEFT</text>
+              <text x="100" y="117" font-size="8" fill="#C8452A" stroke="none" text-anchor="middle">RIGHT</text>
+              <text x="9" y="63" font-size="8" fill="#C8452A" stroke="none" text-anchor="middle">REAR</text>
+              <text x="191" y="63" font-size="8" fill="#C8452A" stroke="none" text-anchor="middle">FRONT</text>
+              <rect x="34" y="14" width="132" height="26" rx="8"/>
+              <rect x="34" y="80" width="132" height="26" rx="8"/>
+              <rect x="46" y="46" width="108" height="28" rx="9"/>
+              <path d="M62 46v28M110 46v28"/>
+              <circle cx="60" cy="20" r="5"/><circle cx="140" cy="20" r="5"/>
+              <circle cx="60" cy="100" r="5"/><circle cx="140" cy="100" r="5"/>
+            </svg>
+          </td>
+          <td><span class="lab">Damage out — <i>Προϋπάρχουσες ζημιές κατά την παράδοση</i></span><div class="fill tall"></div>
+              <span class="lab" style="margin-top:2mm">Condition in — <i>Κατάσταση κατά την παραλαβή</i></span><div class="fill tall"></div></td>
+          <td style="width:20mm"><span class="lab">Fuel tank out — <i>Καύσιμα</i></span>
+            <div class="gauge"><span>F</span><div class="bar"></div><span>E</span></div></td>
+        </tr>
+        <tr><td colspan="3" class="sec">Motorbike condition out — Κατάσταση μοτοποδηλάτου στην παράδοση</td></tr>
+        <tr>
+          <td class="diagram">
+            <svg viewBox="0 0 200 80" fill="none" stroke="#C8452A" stroke-width="2">
+              <circle cx="42" cy="58" r="16"/><circle cx="158" cy="58" r="16"/>
+              <path d="M42 58h40l18-26h34l14 26M84 32h30M124 32l10-14h18"/>
+              <path d="M100 58c14-6 30-6 44 0"/>
+            </svg>
+          </td>
+          <td><span class="lab">Damage out — <i>Προϋπάρχουσες ζημιές</i></span><div class="fill tall"></div>
+              <span class="lab" style="margin-top:2mm">Condition in — <i>Κατάσταση κατά την παραλαβή</i></span><div class="fill tall"></div></td>
+          <td><span class="lab">Fuel tank out</span>
+            <div class="gauge"><span>F</span><div class="bar"></div><span>E</span></div></td>
+        </tr>
+      </table>
+    </div>
+
+    <div>
+      <table class="charges">
+        <tr><td colspan="3" class="sec">Charges — Χρεώσεις</td></tr>
+        <tr><td>KM in — <i>Χλμ. εισόδου</i></td><td class="amt"></td><td class="amt">€</td></tr>
+        <tr><td>KM out — <i>Χλμ. εξόδου</i></td><td></td><td></td></tr>
+        <tr><td>KM driven / charged</td><td></td><td></td></tr>
+        <tr><td>Days — <i>Ημέρες</i></td><td></td><td></td></tr>
+        <tr><td>Hours — <i>Ώρες</i></td><td></td><td></td></tr>
+        <tr class="tot"><td>Sub-total</td><td></td><td></td></tr>
+        <tr><td>Discount — <i>Έκπτωση %</i></td><td></td><td></td></tr>
+        <tr><td>C.D.W. — <i>Μερική Απαλλαγή Ευθύνης Ζημιών</i></td><td></td><td></td></tr>
+        <tr><td>F.D.W. — <i>Πλήρης Απαλλαγή Ευθύνης Ζημιών</i></td><td></td><td></td></tr>
+        <tr><td>P.A.I. — <i>Προσωπική ασφάλεια</i></td><td></td><td></td></tr>
+        <tr><td>F.T.P. — <i>Πλήρης Ασφάλεια Κλοπής</i></td><td></td><td></td></tr>
+        <tr><td>Delivery – Collection — <i>Παράδοση – Παραλαβή</i></td><td></td><td></td></tr>
+        <tr><td>Additional driver — <i>Επιπλέον οδηγός</i></td><td></td><td></td></tr>
+        <tr><td>Young driver surcharge (under 23)</td><td></td><td></td></tr>
+        <tr class="tot"><td>Sub-total</td><td></td><td></td></tr>
+        <tr><td>Accessories — <i>Αξεσουάρ</i></td><td></td><td></td></tr>
+        <tr><td>Miscellaneous — <i>Διάφορα</i></td><td></td><td></td></tr>
+        <tr><td>A.S.C. — <i>Φόρος αεροδρομίου</i></td><td></td><td></td></tr>
+        <tr><td>Fuel — <i>Καύσιμα</i></td><td></td><td></td></tr>
+        <tr><td>Damage charge — <i>Χρέωση ζημιάς</i></td><td></td><td></td></tr>
+        <tr class="tot"><td>Sub-total</td><td></td><td></td></tr>
+        <tr><td>VAT — <i>Φ.Π.Α.</i></td><td></td><td></td></tr>
+        <tr class="tot"><td>Total — <i>Σύνολο</i></td><td></td><td></td></tr>
+        <tr><td>Advance payment — <i>Προκαταβολή</i></td><td></td><td></td></tr>
+        <tr class="tot"><td>Net due — <i>Πληρωτέο ποσό</i></td><td></td><td></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <table style="margin-top:1.5mm"><tr><td><span class="lab">Notes — <i>Σημειώσεις</i></span><div class="fill"></div></td></tr></table>
+
+  <div class="ack">
+    I HAVE READ AND AGREE COMPLETELY WITH THE TERMS AND CONDITIONS MENTIONED ON BOTH SIDES OF THE PRESENT RENTAL
+    AGREEMENT. IN CASE THAT THE RENTAL CHARGES HAVE TO BE PAID THROUGH A CREDIT CARD MY SIGNATURE BELOW WILL BE
+    CONSIDERED TO HAVE BEEN SIGNED ALSO ON THE RESPECTIVE CHARGE FORM OF THE CREDIT CARD. I DO ACCEPT MY CREDIT CARD
+    TO BE CHARGED FOR ANY DAMAGES CAUSED TO THE VEHICLE DURING THE RENTAL PERIOD OF THIS AGREEMENT.
+    <strong>NO INSURANCE COVERS TYRES, MIRRORS, GLASSES, KEYS LOSS OR THEFT AND THE INSIDE AND UNDER PART OF THE
+    VEHICLE.</strong> I ACCEPT THE INSURANCE OPTIONS SHOWN IN THIS RENTAL AGREEMENT.
+    <div style="margin-top:1.4mm">[ Greek text of the same acknowledgement — carry over verbatim from the current printed form. ]</div>
+  </div>
+
+  <div class="sign">
+    <div>Employee's name and signature — Όνομα και υπογραφή υπαλλήλου</div>
+    <div>Renter's signature — Υπογραφή μισθωτή</div>
+  </div>
+  <div style="margin-top:2mm; font-size:6pt; border-top:.5pt solid #999; padding-top:1mm;">
+    ALL CHARGES ARE SUBJECT TO FINAL AUDIT — ΟΙ ΧΡΕΩΣΕΙΣ ΥΠΟΚΕΙΝΤΑΙ ΣΕ ΤΕΛΙΚΟ ΕΛΕΓΧΟ
+  </div>
+</section>
+
+<!-- ============ PAGE 2 — TERMS ============ -->
+<section class="sheet">
+  <h2 class="pt">RENTAL AGREEMENT — ΣΥΜΦΩΝΗΤΙΚΟ ΜΙΣΘΩΣΗΣ</h2>
+
+  <div class="note">
+    <b>How to use this page.</b> Article 15 provides that <b>the Greek version prevails</b>, so the Greek column is the
+    operative text. It is deliberately <b>not</b> reproduced here: it must be carried over <b>verbatim</b> from the current
+    printed form, or redrafted by counsel — not re-typed from a photograph and not machine-translated. The English below
+    is the transcription in <code>TRANSCRIPTION.md</code>, with the corrections marked.
+    See <code>docs/CONTRACT-VS-WEBSITE.md</code> for why articles 8 and 16 need redrafting before this goes to print.
+  </div>
+
+  <div class="terms">
+    <p><span class="art">1.</span> Under this agreement ANADYON I.K.E., hereinafter called the Lessor, rents to the signatory Lessee the Vehicle including accessories and equipment described in this document, under the following terms and provisions as well as those inscribed on the front page of this document, which the Lessee fully accepts.</p>
+
+    <p><span class="art">2. DURATION.</span> The Lessor leases the Vehicle for the period indicated in this document. The minimum duration is 24 hours, and charges are based on 24-hour increments from the time of pick-up. The Lessor reserves the right to charge the Lessee for every additional day according to the relevant price list.</p>
+
+    <p><span class="art">3. RENT.</span> The Vehicle's rent is stated on the front page of this document. The rent is only changed in case adjustments are made by the relevant authorities to any of the items included in it (for example insurance rates, taxes).</p>
+
+    <p><span class="art">4. EXPENSES, COSTS AND FEES.</span> The Lessee shall bear: a) the rent and any community or other charges and premium airport surcharges; b) the charges for any additional services described in this document; c) fuel expenses including the value of missing fuel and the “fuel service” charge per the Price List at the time of the rental; d) any charge for loss or damage resulting from breach of the relevant articles of this agreement; e) all fines and processing fees for violations of traffic laws, and where the Lessee fails to pay fines, an “administrative processing service” charge per the official Price List; f) all costs, expenses or amounts of liability as described in <b>Article 8</b> (Insurance Coverage), repair or replacement of the Vehicle in case of damage or theft, together with the non-refundable “damage processing service” charge specified in the current official price list; g) any damage resulting from violation of the Greek Traffic Law; h) VAT and any other taxes levied on the above.</p>
+
+    <p><span class="art">5. DELIVERY – RECEIPT AND RETURN.</span> The Vehicle is delivered to the Lessee in the condition described on the front page. The Lessee has inspected the Vehicle and received it without reservation. Signing this document constitutes delivery and receipt. On expiry the Lessee must return the Vehicle with the registration permit and other documents, in the same condition, at the place and time indicated on the front page.</p>
+
+    <p><span class="art">6. TERMS OF USE.</span> <b>6.1</b> The Vehicle cannot be used: a) by any person other than the persons signing this agreement as Lessees, who must hold a valid driving licence recognised by the Greek authorities <b>held for at least one year prior to the lease</b>, and be <b>over 21 years of age for car rentals and over 18 years of age for motorbike rentals</b>, and in every case hold the licence category the law requires for the vehicle ridden or driven; b) for illegal purposes or in violation of Greek law; c) in violation of the Greek Traffic Code; d) for the transfer of passengers or goods for a fee; e) to move or tow another vehicle; f) in races or on unpaved roadways; g) to sublet to third parties; h) to carry heavy, flammable, dirty or malodorous objects, weapons, or anything whose possession or transfer is prohibited or endangers the Vehicle, its passengers or third parties; i) outside Greece without the Lessor's prior consent — <b>transfer by boat is prohibited without written consent</b>; j) while the driver is under the influence of alcohol, drugs or any substance affecting driving ability; k) in violation of driving, customs or other regulations; l) to give driving lessons; m) in violation of any term of this document.</p>
+
+    <p><b>6.2</b> The Lessee and authorised drivers must: a) take necessary precautions against theft of the Vehicle; b) use the correct type of fuel; c) not allow a third party to perform works on the Vehicle without the Lessor's written consent; d) inform the Lessor immediately of any defect or problem.</p>
+
+    <p><span class="art">7. ACCIDENTS.</span> In case of accident or any other event (fire, theft, loss), the Lessee agrees: a) to notify the police immediately; b) to note the names and addresses of witnesses and others involved; c) to refrain from yielding to demands from third parties; d) to contact the Lessor; e) to collect all relevant information and evidence, including photographs, and send it to the Lessor; f) to complete and sign the relevant accident declaration form.</p>
+
+    <p><span class="art">8. INSURANCE COVERAGE.</span> [ <b>Redraft before printing.</b> The current wording offers Collision Damage Waiver, Theft Waiver, Full Theft Protection and Personal Accident Insurance to €15,000, none of which is evidenced by the policies held; and the website simultaneously advertises theft and CDW as included. This article must state exactly what the policies actually cover, the non-waivable excess for each waiver sold, and the exclusions — tyres, glass, mirrors, keys, the underside and the interior — in the same place. See <code>docs/CONTRACT-VS-WEBSITE.md</code> §1 and §4. ]</p>
+
+    <p><span class="art">9. SUBSTITUTION RIGHT.</span> The Lessor may, by written statement, indicate any natural or legal person to substitute for him in part or in whole in the rights and obligations under this agreement. The Lessee may not cede any rights or responsibilities under it.</p>
+
+    <p><span class="art">10. OWNERSHIP.</span> Full ownership and possession of the Vehicle belongs to the Lessor throughout the lease. This document is strictly and solely a leasing agreement; the Lessee acquires no rights other than those stated in it, may not cede or transfer any rights in the Vehicle, and is in no way a representative of the Lessor.</p>
+
+    <p><span class="art">11. PROPERTY.</span> The Lessee relieves the Lessor of responsibility for loss of or damage to any property placed in or on the Vehicle.</p>
+
+    <p><span class="art">12. VIOLATION OF THE TERMS.</span> <b>12.1</b> The Lessee and authorised drivers are jointly and fully responsible for upholding the terms of this document. <b>12.2</b> Where they violate or attempt to violate any obligation, or where information they provide is inaccurate, the Lessor may insist on performance or give notice of termination, demanding full restitution of actual damage and loss of future gains and payment of any arrears; on termination all dues become payable de jure. <b>12.3</b> Where the Lessee terminates early, all obligations remain due; prepaid rent for the remaining period is retained by the Lessor as a fair and reasonable penal clause. <b>12.4</b> The agreement terminates automatically on the death or legal restraint of a natural-person Lessee, or the dissolution, liquidation, bankruptcy or seizure of assets of a legal-person Lessee.</p>
+
+    <p><span class="art">13. NON-WAIVING.</span> Failure or delay by the Lessor in exercising rights under this document does not constitute and may not be taken as a waiver of them.</p>
+
+    <p><span class="art">14. GENERAL PROVISIONS.</span> (a) All terms are substantial; breach of any one brings the consequences in article 12. This document is the full and exclusive agreement between the parties and supersedes any contrary written or verbal agreement. Article headings are for convenience and cannot be used to interpret it. (b) Where there is more than one Lessee, all are responsible to the Lessor as a whole; default, protest, violation, any court decision, or any judicial or extrajudicial statement addressed to one applies de jure to the others.</p>
+
+    <p><span class="art">15. JURISDICTION.</span> Any difference arising from this agreement, including as to its interpretation, force or execution, falls under the jurisdiction of the Zakynthos Courts. <b>In case of doubt as to interpretation, the Greek version of this agreement prevails.</b> [ <b>Check with counsel</b> before printing: an exclusive jurisdiction clause against consumers domiciled elsewhere in the EU is of doubtful enforceability. ]</p>
+
+    <p><span class="art">16. PERSONAL DATA.</span> [ <b>Replace before printing.</b> The current clause cites Law 2472/1997, which has been repealed, and bundles consent to direct marketing into the rental contract. Both are to be redrafted to Regulation (EU) 2016/679 and Law 4624/2019, with any marketing consent separate, optional and separately signed. See <code>docs/CONTRACT-VS-WEBSITE.md</code> §8. ]</p>
+
+    <p><span class="art">17. AMENDMENTS.</span> Any amendment of the terms of this agreement is invalid unless made in writing.</p>
+
+    <p><span class="art">18. NOTIFICATIONS – ANNOUNCEMENTS.</span> Any notification or announcement regarding this agreement, whether addressed to the Lessee or the Lessor, will be sent to the corresponding address inscribed on the front page.</p>
+  </div>
+</section>
+
+</body>
+</html>

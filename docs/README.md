@@ -9,6 +9,9 @@ machine or a six-month gap.
 |---|---|
 | [`OPEN-ITEMS.md`](OPEN-ITEMS.md) | **Obligatory at the start of every day** (`DEFINING-STATEMENTS.md` §12) — everything outstanding, with an owner on each item and a dated section to check against the calendar |
 | The status section below | Where the project actually is today |
+| [`EMAIL-DELIVERABILITY.md`](EMAIL-DELIVERABILITY.md) | **The two separate sending paths** — Resend for the booking system, the host's relay for the office mailbox — the live DNS behind each, and how to tell which one a bounce belongs to |
+| [`CONTRACT-VS-WEBSITE.md`](CONTRACT-VS-WEBSITE.md) | **Where the signed contract, the website terms and the insurance policies disagree** — nine mismatches, including a website that advertises theft and collision cover nothing provides |
+| [`contract/`](contract/) | The paper rental agreement: the scanned terms page, a full transcription, and a blank printable template |
 | [`WORKLOG.md`](WORKLOG.md) | The most recent day's entry |
 
 ## Where things stand — 2 September 2026
@@ -171,6 +174,13 @@ session's work. An old date is not a failure; an absent one means nobody knows.
 the paste copy drifts — this reached production once. `lib/migrationPasteParity.test.ts`
 now enforces the pair. Migrations are never applied automatically; they are
 handed over to be run.
+
+**A local failure is not necessarily a real failure.** Agent sandboxes drift:
+`npm install` resolves the carets in `package.json`, while CI runs `npm ci` from
+the lockfile. When a typecheck fails locally and the fix looks like editing a
+pinned literal, check the lockfile first — on 14 September a stripe `apiVersion`
+was "fixed" on three branches to match a drifted sandbox, each edit making the
+build wrong for everyone else. `npm ci` is the remedy.
 
 **Verification.** A new regression test is only trusted once it has been run
 against the *unfixed* code and seen to fail. Security tooling that runs only in
