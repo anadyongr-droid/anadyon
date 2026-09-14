@@ -1,6 +1,6 @@
 # Open items
 
-**Last verified:** 14 September 2026, Claude.
+**Last verified:** 14 September 2026, Claude — R1 withdrawn as wrong.
 
 **Read this first, every day.** [`DEFINING-STATEMENTS.md` §12](../DEFINING-STATEMENTS.md)
 makes it obligatory for every agent, before picking up a task.
@@ -100,7 +100,7 @@ under `supabase/migrations/paste/`.
 
 | # | Item | Owner |
 |---|---|---|
-| R1 | **`lib/stripe.ts` on `main` does not typecheck on a clean checkout.** `package.json` floats `stripe@^22.5.0`; a fresh install resolves 22.6.0, which narrows the `apiVersion` type. Fixed on `claude/insurance-surcharge` and on #96 — whichever merges first resolves it. | Agent |
+| ~~R1~~ | ~~`lib/stripe.ts` on `main` does not typecheck on a clean checkout.~~ **Wrong, withdrawn 14 Sep.** `main` typechecks fine: CI installs with `npm ci`, which honours the lockfile's **stripe 22.5.0**, and the pinned `2026-07-29.dahlia` is correct for it. The error only appeared in an **agent sandbox that had run `npm install`**, resolving the caret in `package.json` to 22.6.0 and reporting the mismatch *inverted*. The pin was then "fixed" to match the sandbox on three branches, which is what actually broke CI on #107. **The remedy for a local mismatch is `npm ci`, never editing the literal.** Recorded in `lib/stripe.ts` as a comment so the next agent does not repeat it. **Still to clean up:** `claude/insurance-surcharge` carries the same bad edit and will fail CI until reverted. |
 | R2 | **Dependabot backlog**, in this order: #96 (production group), #83 (CodeQL), #78–#81 (Actions majors, one at a time), #85, #86, and **#87 TypeScript 7 last** — it is the one likely to break. | Agent |
 | R3 | **Four stale PRs** — #16 (NBG payments, draft), #31 (incident closure), #58 (agent loop, draft), #71 (Epsilon/AADE, draft). Oldest from 22 August. Finish or close. | Agent |
 | R4 | **`codex/incident-admin-middleware-timeout`** has never been merged and has no PR. | Agent |

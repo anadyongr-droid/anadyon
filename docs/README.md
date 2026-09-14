@@ -175,6 +175,13 @@ the paste copy drifts — this reached production once. `lib/migrationPasteParit
 now enforces the pair. Migrations are never applied automatically; they are
 handed over to be run.
 
+**A local failure is not necessarily a real failure.** Agent sandboxes drift:
+`npm install` resolves the carets in `package.json`, while CI runs `npm ci` from
+the lockfile. When a typecheck fails locally and the fix looks like editing a
+pinned literal, check the lockfile first — on 14 September a stripe `apiVersion`
+was "fixed" on three branches to match a drifted sandbox, each edit making the
+build wrong for everyone else. `npm ci` is the remedy.
+
 **Verification.** A new regression test is only trusted once it has been run
 against the *unfixed* code and seen to fail. Security tooling that runs only in
 CI — CodeQL especially — is read from the pushed commit's check result, never
