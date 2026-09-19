@@ -1958,6 +1958,48 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 19 September 2026 — two DNS decisions, one of them a correction
+
+**Decision: Vercel's nameservers are declined.** Vercel emailed inviting us to
+point `anadyon.gr` at `ns1/ns2.vercel-dns.com`. We are staying on Papaki.
+
+Counted before deciding, from live DNS. Vercel would create **two** records
+automatically — the apex and `www` A records, both already working. It would
+**not** create the other eight, and every one of them is mail or staff access:
+the root MX, `mail.anadyon.gr`, `webmail.anadyon.gr`, the root SPF, `_dmarc`,
+the Resend DKIM key, and `send.anadyon.gr`'s SPF and feedback MX. The DKIM key
+is a 216-character base64 string with no checksum, so a truncation is invisible
+and degrades booking-email authentication over days rather than failing loudly.
+
+The benefit Vercel names — automatic certificate provisioning — **we already
+have**: Vercel issues off the A record, not nameserver delegation, and the site
+has served a valid certificate throughout with nameservers at Papaki. The real
+upside is one dashboard instead of two, against an eight-record hand migration
+of the mail configuration, mid-season, with 48 hours of propagation in which a
+mistake is hard to distinguish from an unpropagated record.
+
+Revisit in February if ever, and only staged: pre-create all eight at Vercel,
+query the Vercel nameservers directly for each, then delegate.
+
+**Correction: open item E4 rests on a misdiagnosis, and is suspended pending one
+check.** `EMAIL-DELIVERABILITY.md` asserted that every booking confirmation
+hard-fails SPF because the root record authorises no `amazonses.com`, and E4
+proposed adding it. That conflates the `From:` header with the envelope sender —
+**SPF is evaluated against the Return-Path, not the header**.
+
+The evidence says the envelope domain is `send.anadyon.gr`: it carries
+`v=spf1 include:amazonses.com ~all`, and it holds the SES **feedback MX**, which
+exists only to receive bounces for the Return-Path domain — while the root MX is
+the Papaki mailbox. Resend's own documentation states that a verified domain is
+"already passing SPF and DKIM". If that holds, booking mail passes SPF on
+`send.anadyon.gr` under relaxed alignment *and* DKIM as `d=anadyon.gr` under
+strict alignment, and nothing needs adding.
+
+Not closed, because it is inference rather than a measurement: one header from a
+delivered confirmation settles it. Suspended rather than actioned because the
+proposed fix has a real cost — `include:amazonses.com` on the root authorises
+the entire shared SES pool to send as `anadyon.gr`.
+
 ### 1 September 2026 — check-in, and the asymmetry that shapes it
 
 **Decision.** Migration 042 implements §4.2 rule 3, and rule 8 — which is
