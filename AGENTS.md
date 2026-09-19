@@ -172,6 +172,38 @@ existing convention and stays, whichever agent is working.
 Before starting any of it, check whether the blueprint already answers the
 question. It usually does.
 
+## Starting the day
+
+**Read [`docs/OPEN-ITEMS.md`](docs/OPEN-ITEMS.md) before picking up any task.**
+`DEFINING-STATEMENTS.md` §12 makes this obligatory. It is the live list of
+everything outstanding — unfinished work, unanswered questions, unapplied
+migrations, expiring insurance, known defects — each with a named owner. Check
+its dated section against the calendar; those items do not announce themselves.
+
+Then read the status section at the top of `docs/README.md`, and the most recent
+entry in `docs/WORKLOG.md`.
+
+If something important is missing from the open items list, the list is wrong
+and fixing it is the first task. Any agent may add to it at any time.
+
+## Ending the day
+
+`DEFINING-STATEMENTS.md` §11, obligatory for every agent:
+
+**Every agent** writes `docs/worklog/YYYY-MM-DD-<agent>.md` before the session
+ends — what was done, what was decided, what was discussed and not decided, what
+turned out to be already done, what is left broken or unverified, and what needs
+Tasos. One file per agent per day: two agents appending to a shared file would
+collide every day. Update the document that owns each subject you touched and
+refresh its `Last verified:` line.
+
+**Claude** then reads every agent's summary and consolidates: brings the living
+documents and the `docs/README.md` status section level with reality, writes the
+day's entry in `docs/WORKLOG.md`, and updates `docs/OPEN-ITEMS.md` — closing
+what closed, adding what opened, re-dating what is still open.
+
+Do it while there is still context to do it with, not in the last exchange.
+
 ## Verification before handoff
 
 Use one of the repository-owned verification commands instead of assembling a

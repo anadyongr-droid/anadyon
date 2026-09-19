@@ -225,9 +225,12 @@ Arguments for continuing to build, none of them decisive on their own:
 Arguments for buying that the decision below had to answer:
 
 - The counter workflow is the largest remaining build, and it is the part of the
-  category that is most commoditised.
+  category that is most commoditised. **Qualified 19 September (§1.11): it is
+  commoditised in the SaaS tier and entirely absent from the DIY tier, so the
+  "just buy a plugin" version of this argument does not hold.**
 - A $129/month subscription against the engineering time in §7 phases 1-4 is not
-  a close call on cost alone.
+  a close call on cost alone. **And the true floor is lower still: €129 once,
+  per §1.11.**
 - Every hour spent on condition capture is an hour not spent on the rate
   intelligence that actually differentiates.
 
@@ -444,6 +447,96 @@ annotations in §1.8 and the gate in §7.1a.
 
 ---
 
+### 1.11 The DIY tier — **VikRentCar**, **PHPJabbers**, **CodeCanyon**
+
+*Added 19 September 2026, at Tasos's request, after an adviser suggested them as
+the cheap alternative to building.*
+
+**Why this is inside the stop rule.** §1.9 caps the benchmark at sixteen and
+admits a new entry only on primary vendor evidence that would change a named
+decision. This is **one entry, not three** — a price tier, not three more
+products — and it bears directly on **build versus buy** (§1.8), which until now
+had only ever been tested against SaaS at $50–$129 *per month*. It had never
+been tested against a **one-off purchase under €130**. That is a different
+argument and it deserved checking.
+
+All figures below are from the vendors' own pages, fetched 19 September 2026.
+
+#### What they cost, and what they are
+
+| | **VikRentCar** | **PHPJabbers** | **CodeCanyon** |
+|---|---|---|---|
+| Form | WordPress (and Joomla) plugin | Self-hosted PHP script | Marketplace, ~163 listings |
+| Price | **€129** one-off, 1-year licence per domain; free BASIC on WordPress.org | **$129** one-off, "lifetime licence, full source code"; optional $39/mo care, $69/mo hosted | **$29–$109**, typically $59–$85 |
+| Best-selling example | — | — | *Car Rental System* (WP plugin), $85, 2.9K sales; *Car Rental Booking System*, $79, 2K sales |
+| Hosting | Your WordPress | Your PHP host | Yours |
+
+#### What VikRentCar actually offers — the strongest of the three
+
+Rate plans with **daily, weekly, monthly and hourly** costs; seasonal prices; a
+rates overview for per-date pricing; vehicles with sub-units and a numbering
+feature; monthly availability calendars; options and extra services; extra fees
+for out-of-hours pick-up and drop-off and for location combinations; custom tax
+rates per location; **multiple insurance types (CDW, LDW)**; **damage tracking
+via customisable PDF reports**; PayPal, offline card and cash, with "over 40
+credit card payment gateways compatible"; multi-language; coupons; graphs and
+reports; customisable PDF documents.
+
+PHPJabbers covers similar booking ground — unlimited car types, extras (child
+seats, GPS, insurance), custom rates by length or period, minimum booking
+length, hold rules, locations, user roles, ten colour themes, PayPal and
+Authorize.net, CSRF protection — and adds a paid maintenance and hosting tier,
+which is the honest part of its offer: someone else patches the PHP.
+
+#### What none of them states
+
+Checked against each vendor's own feature list. These are **absences from the
+vendors' documentation**, which is not the same as proof of absence in the
+product — but a capability a vendor does not advertise is one you cannot rely on:
+
+- **Greek fiscalisation.** No mention of AADE, myDATA, or Greek invoicing by any
+  of the three.
+- **A staff counter workflow.** No check-out/check-in state machine. VikRentCar
+  offers a "team dashboard" for viewing pickups and returns; that is a list, not
+  a workflow with blockers and an audit trail.
+- **Condition capture with photographs.** VikRentCar's damage tracking is a
+  customisable PDF report. Nothing photographic, nothing tied to a handover
+  record.
+- **Customer document storage.** Nothing on licence or passport capture and
+  retention.
+- **Mixed fleet.** All three are written for cars. Motorbikes and bicycles are
+  not addressed. (PHPJabbers sells a separate *equipment rental* script, which
+  is a different product, not a mixed fleet in one system.)
+- **Server-side price verification** and **live competitor rate collection.**
+  Neither appears, as with the sixteen.
+
+#### What this changes
+
+**It lowers the price floor, and confirms the floor buys none of the things
+§1.8 identified as reasons to build.** The cheapest credible alternative is not
+$129/month; it is **€129 once**. On cost alone the gap against engineering time
+is wider than §1.8 stated.
+
+But every reason §1.8 gave for building survives this tier intact: AADE, the
+mixed fleet, the competitor rate engine, server-side price verification — and,
+newly, **the entire counter workflow**, which this tier does not attempt at all.
+Where the SaaS tier (CarCEO, HQ Rental) genuinely competes on the counter, the
+DIY tier does not.
+
+**One finding worth carrying into pricing.** VikRentCar sells **CDW and LDW as
+distinct insurance products**, and PHPJabbers lists insurance among its extras.
+That is the same shape as the paper contract's C.D.W. / F.D.W. / T.W. / F.T.P.
+ladder (`docs/contract/TRANSCRIPTION.md`, article 8). It confirms the waiver
+ladder is the category norm rather than an Anadyon peculiarity — which matters
+for `CONTRACT-VS-WEBSITE.md` §1, where the website currently advertises two of
+those as *included* rather than sold.
+
+**Decision unchanged.** §1.8 stands. Nothing here argues for replacing Anadyon;
+the tier is recorded so the question is not reopened from scratch the next time
+somebody suggests a €129 plugin.
+
+---
+
 ## 2. Feature comparison
 
 ✅ built · ⚠️ partial · ❌ absent · — not applicable at this scale
@@ -483,6 +576,18 @@ annotations in §1.8 and the gate in §7.1a.
 | Toll processing | — | Rent Centric |
 | Franchise, multi-location | — | Wheelsys, TSD |
 | Vehicle subscription, P2P sharing | — | Rent Centric |
+
+> **This table is stale as of 19 September 2026 and has not been re-scored
+> here.** The counter rows — check-out and check-in, condition capture, digital
+> agreement, damage log — were written before phase 2. Migrations 040 and 041
+> (the handovers table and check-out finalisation) are **applied in production**;
+> 042 and 044 are written and unapplied; 043 and the five HTTP routes are open in
+> PR #95. So several ❌ and ⚠️ are now wrong, and re-scoring each honestly means
+> deciding what "built" means when a migration exists but is unapplied. Recorded
+> rather than quietly edited. Open item **W15**.
+>
+> Against the DIY tier (§1.11), the "Seen in" column would read **none** for every
+> row from *Counter* downwards.
 
 **Two positions worth noticing.**
 
@@ -1852,6 +1957,48 @@ currently unowned.
 
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
+
+### 19 September 2026 — two DNS decisions, one of them a correction
+
+**Decision: Vercel's nameservers are declined.** Vercel emailed inviting us to
+point `anadyon.gr` at `ns1/ns2.vercel-dns.com`. We are staying on Papaki.
+
+Counted before deciding, from live DNS. Vercel would create **two** records
+automatically — the apex and `www` A records, both already working. It would
+**not** create the other eight, and every one of them is mail or staff access:
+the root MX, `mail.anadyon.gr`, `webmail.anadyon.gr`, the root SPF, `_dmarc`,
+the Resend DKIM key, and `send.anadyon.gr`'s SPF and feedback MX. The DKIM key
+is a 216-character base64 string with no checksum, so a truncation is invisible
+and degrades booking-email authentication over days rather than failing loudly.
+
+The benefit Vercel names — automatic certificate provisioning — **we already
+have**: Vercel issues off the A record, not nameserver delegation, and the site
+has served a valid certificate throughout with nameservers at Papaki. The real
+upside is one dashboard instead of two, against an eight-record hand migration
+of the mail configuration, mid-season, with 48 hours of propagation in which a
+mistake is hard to distinguish from an unpropagated record.
+
+Revisit in February if ever, and only staged: pre-create all eight at Vercel,
+query the Vercel nameservers directly for each, then delegate.
+
+**Correction: open item E4 rests on a misdiagnosis, and is suspended pending one
+check.** `EMAIL-DELIVERABILITY.md` asserted that every booking confirmation
+hard-fails SPF because the root record authorises no `amazonses.com`, and E4
+proposed adding it. That conflates the `From:` header with the envelope sender —
+**SPF is evaluated against the Return-Path, not the header**.
+
+The evidence says the envelope domain is `send.anadyon.gr`: it carries
+`v=spf1 include:amazonses.com ~all`, and it holds the SES **feedback MX**, which
+exists only to receive bounces for the Return-Path domain — while the root MX is
+the Papaki mailbox. Resend's own documentation states that a verified domain is
+"already passing SPF and DKIM". If that holds, booking mail passes SPF on
+`send.anadyon.gr` under relaxed alignment *and* DKIM as `d=anadyon.gr` under
+strict alignment, and nothing needs adding.
+
+Not closed, because it is inference rather than a measurement: one header from a
+delivered confirmation settles it. Suspended rather than actioned because the
+proposed fix has a real cost — `include:amazonses.com` on the root authorises
+the entire shared SES pool to send as `anadyon.gr`.
 
 ### 1 September 2026 — check-in, and the asymmetry that shapes it
 
