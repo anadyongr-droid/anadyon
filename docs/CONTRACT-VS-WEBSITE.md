@@ -44,13 +44,6 @@ neither unless a policy nobody here has seen says otherwise.
 the own-damage policy — is what closes the gap on CDW. Theft has no candidate at
 all.
 
-**Website corrected 19 September 2026.** The English and Greek terms and FAQ
-no longer describe theft or CDW as included. They now state that motor-vehicle
-rentals include third-party liability, that theft/CDW are not in the standard
-price, and that any optional damage cover must appear in the written quote.
-B5 remains open because the own-damage policy is still needed before the exact
-optional-cover promise can be published.
-
 ## 2. The website says 21 for everything; the contract says 18 for motorbikes
 
 | | Cars | Motorbikes |
@@ -101,9 +94,6 @@ is the worst possible moment.
 certificates. So this is the one case where the fix is purely to publish what is
 already true.
 
-**Published 19 September 2026** in both languages in website §6: tyres, wheels,
-mirrors, glass, lost or stolen keys, underside and interior.
-
 ## 5. Roadside assistance is promised without qualification
 
 Website §10: *"We provide free 24-hour roadside assistance."*
@@ -115,10 +105,6 @@ none.**
 
 The contract's front page has a "Road assistance" field, so the counter can
 record it per rental. The website states it as universal.
-
-**Website corrected 19 September 2026.** Section 10 now says assistance depends
-on the vehicle, expressly excludes 50cc motorbikes, and directs the customer to
-the written quote for the applicable arrangement.
 
 ## 6. Personal accident: three different numbers
 
@@ -189,9 +175,9 @@ contract performance. **The paper form is the liability here, not the site.**
 
 | # | Change | Where | Blocked on |
 |---|---|---|---|
-| 1 | ~~Stop describing theft and CDW as included~~ **Done 19 Sep** | Website §6 | — |
-| 2 | ~~Publish the exclusion list (tyres, glass, mirrors, keys, underside, interior)~~ **Done 19 Sep** | Website §6 | — |
-| 3 | ~~Qualify roadside assistance by category, or drop "free 24-hour"~~ **Done 19 Sep** | Website §10 | — |
+| 1 | Stop describing theft and CDW as included | Website §6 | Nothing — the policies already settle it |
+| 2 | Publish the exclusion list (tyres, glass, mirrors, keys, underside, interior) | Website §6 | Nothing |
+| 3 | Qualify roadside assistance by category, or drop "free 24-hour" | Website §10 | Nothing |
 | 4 | Publish the one-year licence rule, and check it at the counter | Website §1, check-out | W10 |
 | 5 | Align motorbike minimum age — 18 on the website, or 21 in the contract | Both | A decision: which is right |
 | 6 | Replace article 16 with a GDPR clause, and unbundle marketing consent | Contract | Counsel |
@@ -199,6 +185,6 @@ contract performance. **The paper form is the liability here, not the site.**
 | 8 | Reconcile the two product menus | `extras_config` / form | A decision |
 | 9 | Reconcile the cancellation regimes | Both | A decision |
 
-Items 1–3 are complete. Item 7 is corrected in the maintained template but
-still needs the physical stock replaced. Items 5, 8 and 9 are commercial
-choices. Item 6 needs counsel.
+Items 1–3 remain open pending Tasos's approval of customer-facing wording.
+Item 7 is corrected in the maintained template but still needs the physical
+stock replaced. Items 5, 8 and 9 are commercial choices. Item 6 needs counsel.
