@@ -1,6 +1,6 @@
 # Open items
 
-**Last verified:** 14 September 2026, Claude — R1 withdrawn as wrong.
+**Last verified:** 19 September 2026, Claude.
 
 **Read this first, every day.** [`DEFINING-STATEMENTS.md` §12](../DEFINING-STATEMENTS.md)
 makes it obligatory for every agent, before picking up a task.
@@ -72,6 +72,7 @@ under `supabase/migrations/paste/`.
 | W12 | **Publish the exclusion list.** The contract's front page states in capitals that no insurance covers tyres, mirrors, glass, key loss or theft, the underside or the interior. The website says none of it — the customer meets it first at signing. The policies agree with the contract, so this is purely publishing what is already true. §4. | Agent |
 | W13 | **Qualify roadside assistance.** Website §10 promises "free 24-hour roadside assistance" unqualified; the 50cc has none. §5. | Agent |
 | W14 | **Fix the contract's article 4(f) cross-reference**, which points to "Article 10 (Insurance Coverage)" when insurance is article 8 and article 10 is Ownership. §9. | Agent |
+| W15 | **Re-score the §2 feature comparison.** Its counter rows — check-out/check-in, condition capture, digital agreement, damage log — predate phase 2 and are now wrong: 040 and 041 are applied in production, 042 and 044 are written and unapplied, 043 and the HTTP routes sit in PR #95. Re-scoring needs a decision first: does ✅ mean *migration written*, *applied*, or *reachable by staff*? Flagged in the blueprint rather than silently edited. | Agent |
 | W1 | **Photo upload saga** — the last piece of phase 2. Not started. Blueprint §7. | Agent |
 | W2 | **Content correctness against the insurance policies.** The site may currently imply cover that does not exist: theft is uncovered, glass is uncovered, and 50cc has no roadside assistance. `DEFINING-STATEMENTS.md` §10 makes this binding. **Partly blocked on B5** — the FDW wording cannot be written until the own-damage policy's terms and excess are known. The theft, glass and 50cc-assistance corrections are not blocked and can proceed now. | Agent |
 | W8 | **Our surcharge age and the insurer's age are computed differently.** Article 18 counts age **from 1 January of the year of birth** (`pickupYear − birthYear`); `lib/rentalPolicy.ts` computes true age on the pick-up date. Insurer age is always ≥ true age, so **we never undercharge** — but we do charge some customers whose birthday falls later in the year and whom the insurer already treats as 23. A decision about whose definition to follow, not a defect. | Agent |
