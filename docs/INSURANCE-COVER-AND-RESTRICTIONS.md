@@ -398,8 +398,19 @@ our renter damages it.**
 > paragraph above is narrowed to what these three certificates actually show.
 >
 > What is *not* yet answered is what that cover pays, what it excludes, and what
-> excess it carries — and the FDW we sell at €12/day is a promise pitched against
-> exactly those terms. Until the policy is seen, no accurate FDW wording can be
+> excess it carries — and the FDW we sell at €5.00/day is a promise pitched against
+> exactly those terms.
+>
+> <!-- price-exempt: states the superseded €12 figure in order to correct it -->
+> **Price corrected 19 September 2026.** This section, the README status table,
+> the competitor benchmark and open item B5 all said **€12/day**. They were
+> wrong. The 12 was read from `supabase/seeds/staging.sql`, a file whose first
+> line says "Synthetic staging fixtures only"; the seeded rate is **€5.00** and
+> a live quote on 18 September charged exactly that, under the same label. The
+> error ran in the direction that flatters us — it made the waiver look like a
+> product carrying 2.4x more premium against the same uninsured risk than it
+> actually does. `lib/publishedPriceParity.test.ts` now fails the build on a
+> repeat. Until the policy is seen, no accurate FDW wording can be
 > written, which is why open item **W2** (bringing published content in line with
 > the policies) is blocked on obtaining it rather than on drafting.
 
