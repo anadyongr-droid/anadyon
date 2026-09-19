@@ -1,6 +1,6 @@
 # Open items
 
-**Last verified:** 19 September 2026, Claude.
+**Last verified:** 19 September 2026, Codex.
 
 **Read this first, every day.** [`DEFINING-STATEMENTS.md` §12](../DEFINING-STATEMENTS.md)
 makes it obligatory for every agent, before picking up a task.
@@ -56,10 +56,10 @@ under `supabase/migrations/paste/`.
 
 | # | Migration | Status | Owner |
 |---|---|---|---|
-| M1 | **042** — check-in finalisation | Merged (#93), not applied | Tasos |
-| M2 | **043** — handover correction and voiding | In open PR #95 | merge, then Tasos |
-| M3 | **044** — insurance surcharge rate row | On `claude/insurance-surcharge`, no PR | Tasos |
-| M4 | **Grant the four handover gateways.** `finalise_check_out`, `finalise_check_in`, `correct_handover`, `void_handover` are granted to nobody, so the counter routes cannot work against production. The identity question that blocked this closed on 31 August — it is now a one-line follow-up migration that nobody has written. | not written | Agent |
+| M1 | **042** — check-in finalisation | Merged; applied and verified on staging, production pending | Tasos |
+| M2 | **043** — handover correction and voiding | Merged in #119; applied and verified on staging, production pending | Tasos |
+| M3 | **044** — insurance surcharge rate row | Merged in #118; applied and verified on staging, production pending | Tasos |
+| M4 | **045** — grant the four handover gateways | Merged in #119; applied and verified on staging, production pending | Tasos |
 
 ---
 
@@ -67,22 +67,15 @@ under `supabase/migrations/paste/`.
 
 | # | Item | Owner |
 |---|---|---|
-| W9 | **Never soften the signed-agreement blocker, and say why in the code.** The Intersalonica terms provide that where the vehicle belongs to a rental business, the insurer's recourse runs **only against the driver — provided a valid rental agreement exists**. So the signed agreement is what stands between Anadyon and the insurer's recourse after an excluded claim. Migration 041 already refuses check-out without one; that turns out to be load-bearing for a reason nobody had written down. Add the reason as a comment so a future agent does not relax it into a warning. §2c. | Agent |
-| W11 | **Website says theft and CDW are included; nothing provides either.** `legal.ts` §6 lists "Theft insurance" and "Collision Damage Waiver (CDW)" as included in **all** rentals. The paper contract sells both as paid options with a non-waivable excess, and **no certificate carries either**. Highest-exposure content defect found. `CONTRACT-VS-WEBSITE.md` §1. | Agent |
-| W12 | **Publish the exclusion list.** The contract's front page states in capitals that no insurance covers tyres, mirrors, glass, key loss or theft, the underside or the interior. The website says none of it — the customer meets it first at signing. The policies agree with the contract, so this is purely publishing what is already true. §4. | Agent |
-| W13 | **Qualify roadside assistance.** Website §10 promises "free 24-hour roadside assistance" unqualified; the 50cc has none. §5. | Agent |
-| W14 | **Fix the contract's article 4(f) cross-reference**, which points to "Article 10 (Insurance Coverage)" when insurance is article 8 and article 10 is Ownership. §9. | Agent |
-| W15 | **Re-score the §2 feature comparison.** Its counter rows — check-out/check-in, condition capture, digital agreement, damage log — predate phase 2 and are now wrong: 040 and 041 are applied in production, 042 and 044 are written and unapplied, 043 and the HTTP routes sit in PR #95. Re-scoring needs a decision first: does ✅ mean *migration written*, *applied*, or *reachable by staff*? Flagged in the blueprint rather than silently edited. | Agent |
-| W17 | **Quote notification emails render an empty address as `, , , Greece`.** Seen on a live 18 September notification: the customer left the address fields blank and the template joined them anyway, producing three commas and a country nobody chose — the country defaults to Greece even for a customer with a Korean mobile and a Korean email. Two small fixes: drop empty parts before joining, and stop defaulting the country when nothing was entered. Staff-facing, so not a customer embarrassment, but it is the address staff copy into the rental agreement. | Agent |
+| W14 | **Replace existing printed contract stock with the corrected template.** Article 4(f) incorrectly names Article 10; the maintained printable template already says Article 8. The remaining action is physical, before the next form is printed or used. §9. | **Tasos** |
 | W16 | **Work the Search Console 404 export when it arrives (E8).** The archive pass is done — 46 redirects now cover the 86 old URLs that were 404ing (`lib/legacyRedirects.ts`). What the export adds is the class the archive cannot show: links to URLs that were *never* ours — a typo, a truncation, a guessed path — plus a measure of what the redirects actually recovered. For each: redirect if there is a sensible destination, and add it to `docs/inbound-links.json` either way. [`INBOUND-LINKS.md`](INBOUND-LINKS.md). | Agent |
 | W1 | **Photo upload saga** — the last piece of phase 2. Not started. Blueprint §7. | Agent |
-| W2 | **Content correctness against the insurance policies.** The site may currently imply cover that does not exist: theft is uncovered, glass is uncovered, and 50cc has no roadside assistance. `DEFINING-STATEMENTS.md` §10 makes this binding. **Partly blocked on B5** — the FDW wording cannot be written until the own-damage policy's terms and excess are known. The theft, glass and 50cc-assistance corrections are not blocked and can proceed now. | Agent |
+| W2 | **Finish content correctness once B5 arrives.** Theft/CDW-as-standard claims, the exclusion list and the 50cc roadside promise were corrected in both languages on 19 September. The remaining FDW wording is blocked on the own-damage policy's terms and excess. | Agent after B5 |
 | W8 | **Our surcharge age and the insurer's age are computed differently.** Article 18 counts age **from 1 January of the year of birth** (`pickupYear − birthYear`); `lib/rentalPolicy.ts` computes true age on the pick-up date. Insurer age is always ≥ true age, so **we never undercharge** — but we do charge some customers whose birthday falls later in the year and whom the insurer already treats as 23. A decision about whose definition to follow, not a defect. | Agent |
 | W10 | **Capture licence issue date, and check the twelve-month rule at check-out.** Article 19 makes a first licence under twelve months old an undeclared-loading trigger with the same "no liability" consequence as the under-23 clause. Check whether the licence issue date is captured today; if not, it needs to be, alongside the category check in W7. §2c. | Agent |
 | W7 | **Licence category is a condition of cover, not counter etiquette.** Article 6β of PD 237/1986 excludes from compulsory cover any damage caused by a driver lacking the licence required for that category — and the Supreme Court has held the article's three exclusions exhaustive. So a renter on a 125 with only an AM licence voids cover by statute. **The Intersalonica booklet hardens this further**: a licence for other vehicle types does not count, and the exclusion applies *even if the missing licence played no part in the accident and even if the driver knew how to ride*. No causation defence, no competence defence. Check what the check-out flow verifies today, and make licence category against machine an explicit gate. §2b and §2c. | Agent |
 | W4 | **`discount_rules` `age_surcharge` is broken.** Charges per rental not per day; parses the band's *lower* bound so a threshold of 22 also charges a 24-year-old; the public quote route never calls it. Found 2 Sep and deliberately not fixed — it was not what was asked. | Agent |
 | W5 | **Admin frozen panes** — open UI defect, three theories disproved and recorded. [`HANDOVER-ADMIN-FROZEN-PANES.md`](HANDOVER-ADMIN-FROZEN-PANES.md). | Agent |
-| W6 | **Pin the `app/admin/login/page.tsx` lint warning** with a disable comment. The hard navigation is deliberate — it forces the browser to send refreshed cookies to the middleware after MFA — and "fixing" it would break login. | Agent |
 
 ---
 
@@ -90,7 +83,7 @@ under `supabase/migrations/paste/`.
 
 | # | Item | Owner |
 |---|---|---|
-| L1 | **The ΕΠΑνΕΚ 2014-2020 co-funding page no longer exists anywhere on the site.** The previous site served `/επανεκ-2014-2020` (archived title "ΕΠΑνΕΚ 2014-2020") until at least 3 October 2022; the current site has no equivalent and the URL 404s. Businesses taking ΕΣΠΑ/ΕΠΑνΕΚ money carry a **publicity obligation** to display the co-funding notice, and whether it still binds depends on the grant's own terms and its duration-of-obligation period — which is in the grant paperwork, not in anything an agent can reach. Deliberately **not** redirected to the home page: quietly disposing of a possible legal duty is worse than leaving the 404 visible. Check the grant terms; if it still binds, say so and an agent rebuilds the page. The archived copy is recoverable from the Wayback Machine. [`INBOUND-LINKS.md`](INBOUND-LINKS.md). | **Tasos** |
+| ~~L1~~ | ~~**Check whether the ΕΠΑνΕΚ co-funding page must remain online.**~~ **Closed 19 Sep** — Tasos checked the grant paperwork and confirmed the publicity obligation no longer applies. The old URL may remain a genuine 404. | **Tasos** |
 
 ---
 
@@ -130,7 +123,7 @@ under `supabase/migrations/paste/`.
 | E5 | **Naver has blocked the office mail relay — and it is costing bookings now, not hypothetically.** `relay12.grserver.gr` (`88.99.38.195`, shared Hetzner range) is refused by `mx4.mail.naver.com` with `421 4.3.2 Your ip blocked`, ref `VPdBxVRJReWvU4oJvox9JA`. Refused at connection time, before authentication, so SPF, DKIM and content play no part. **Nothing is misconfigured on our side** and only grserver can request delisting. **A quote request from a `naver.com` customer with a Korean mobile arrived on 18 September for a next-day pick-up** — any staff reply from the mailbox would have bounced, unseen by the customer. Ask grserver for delisting, and until it clears see the Korean-customer workaround in [`EMAIL-DELIVERABILITY.md`](EMAIL-DELIVERABILITY.md). | **Tasos** |
 | E8 | **Confirm whether `anadyon.gr` is verified in Google Search Console, then export *Indexing → Pages → Not found (404)* and the Links report.** Step-by-step in [`INBOUND-LINKS.md`](INBOUND-LINKS.md). Checked 19 September: no `google-site-verification` meta tag and no DNS TXT beyond SPF, which rules out two methods but not the Analytics one, so it may already be connected. **If it is not:** use a *URL-prefix* property (`https://anadyon.gr`) and the Google Analytics method — GA is already live under the same Google account. The Analytics method does **not** work for a *Domain* property; Google's docs say DNS is "the only way to verify a Domain property", and adding a DNS record is the registrar trip that E4 already needs. Note the limits before setting expectations: the 404 report covers **only the past month**, and the Links report is a **sample capped at 1,000 rows** — this is a discovery feed for what is still breaking, not a historical audit. Drop the CSVs in `docs/` and an agent takes it from there. Free and worth the same trip: Bing Webmaster Tools and Ahrefs Free. | **Tasos** |
 | E1 | **Sentry project** — needs a dashboard. [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md). | Tasos |
-| E2 | **Staging reset from main** via the guarded `npm run staging:reset`. | Tasos |
+| ~~E2~~ | ~~**Staging reset from main.**~~ **Closed 19 Sep** — the guarded reset passed twice against project `fzycvstifmltxybffinq`, replaying all 44 migrations with stable synthetic fixtures, Auth roles, grants and schema checks. | Tasos |
 | E3 | **Remaining §8 browser checks** not yet run. Recorded as not run, never as passed. | Agent |
 
 ---
@@ -141,6 +134,11 @@ Kept briefly so a closed item is not reopened by someone who remembers it as ope
 
 | Item | Closed | How |
 |---|---|---|
+| Website insurance overclaims (W11–W13) | 19 Sep 2026 | English and Greek terms/FAQ now remove universal theft/CDW claims, publish the exclusions and qualify 50cc roadside assistance; regression tests pin the wording. |
+| Signed-agreement rationale (W9) | 19 Sep 2026 | Migration 041 and its paste copy now explain why the check-out blocker protects Anadyon from insurer recourse. |
+| Feature comparison (W15) | 19 Sep 2026 | Re-scored using staff-reachable production behavior as the definition of ✅; staging-only/API-only work is ⚠️. |
+| Empty quote address (W17) | 19 Sep 2026 | Staff notification drops empty address parts and does not turn the form's default country into a fabricated address. |
+| Deliberate post-MFA navigation warning (W6) | 19 Sep 2026 | Narrow lint suppression added beside the existing security rationale. |
 | RPC staff identity — how does a function know who is calling? | 31 Aug 2026 | Option A adopted, diagnostic run and removed (#94). Production grant gate cleared. |
 | Driver-age contradiction between terms, modal and FAQ (audit B1) | before 2 Sep | `lib/rentalPolicy.ts` single-sources all three. The audit file still reads as open. |
 | Document upload verified against staging | 31 Aug 2026 | Verified. |

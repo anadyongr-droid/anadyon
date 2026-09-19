@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { handoverErrorMessage, handoverErrorStatus } from "@/lib/handoverErrors";
-import { handoverGatewayClient } from "../../route";
+import { handoverGatewayClient } from "@/lib/handoverAuth";
 
 /**
  * Finalising a handover: the car leaves, or the car is back.

@@ -239,6 +239,16 @@ export async function POST(req: NextRequest) {
     locale,
   } = body;
 
+  // Optional address fields must stay optional in the staff notification. The
+  // booking form starts with Greece selected, so treating the country alone as
+  // an address produced `, , , Greece` for customers who entered no address.
+  const enteredAddressParts = [address, postalCode, city]
+    .map((part) => String(part ?? "").trim())
+    .filter(Boolean);
+  const customerAddress = enteredAddressParts.length > 0
+    ? [...enteredAddressParts, String(country ?? "").trim()].filter(Boolean).join(", ")
+    : "";
+
   // The model is the only vehicle field the customer actually chooses; type,
   // pricing group and transmission all follow from it. Deriving them here is
   // what stops a crafted request naming an expensive model alongside a cheaper
@@ -649,7 +659,7 @@ export async function POST(req: NextRequest) {
         <tr><td><strong>Name:</strong></td><td>${esc(title)} ${esc(firstName)} ${esc(lastName)}</td></tr>
         <tr><td><strong>Email:</strong></td><td>${esc(email)}</td></tr>
         <tr><td><strong>Date of Birth:</strong></td><td>${esc(dob)}</td></tr>
-        <tr><td><strong>Address:</strong></td><td>${esc(address)}, ${esc(postalCode)}, ${esc(city)}, ${esc(country)}</td></tr>
+        <tr><td><strong>Address:</strong></td><td>${esc(customerAddress)}</td></tr>
         <tr><td><strong>Mobile:</strong></td><td>${esc(mobileTel)}</td></tr>
         ${landlineTel ? `<tr><td><strong>Landline:</strong></td><td>${esc(landlineTel)}</td></tr>` : ""}
         ${comments ? `<tr><td><strong>Comments:</strong></td><td>${esc(comments)}</td></tr>` : ""}
