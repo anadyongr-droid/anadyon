@@ -6,13 +6,13 @@ import { RESERVATION_STATUSES } from "@/lib/reservationStatus";
 import { vehicleLabel } from "@/lib/vehicleLabel";
 import Select from "./Select";
 import SegmentedDateInput from "@/app/components/SegmentedDateInput";
-import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, calcExtrasLines, calcExtrasTotal, resolveVehiclePricing, DEPOSIT_RATE } from "@/lib/pricing";
+import { calcRentalDays, calcVehicleSegments, calcVehicleSubtotal, calcExtrasLines, calcExtrasTotal, calcInsuranceSurchargeLine, resolveVehiclePricing, DEPOSIT_RATE } from "@/lib/pricing";
 import type { Rate, ExtrasConfig, PricingGroup } from "@/lib/pricing";
 import DateRangePicker from "@/app/components/DateRangePicker";
 import { TIME_OPTIONS, validateReservation, missingDeferrable, normaliseForStorage } from "@/lib/bookingFields";
 import { BOOKING_LOCATION_VALUES, DEFAULT_ADMIN_BOOKING_LOCATION } from "@/lib/bookingLocations";
 import { checkSubstitution, consentCanPermit, isEligibleAssignment, type Quoted } from "@/lib/substitution";
-import { MAX_CHILD_SEATS_TOTAL, SEATS_LIMIT_MESSAGE } from "@/lib/rentalPolicy";
+import { MAX_CHILD_SEATS_TOTAL, SEATS_LIMIT_MESSAGE, ageOnDate } from "@/lib/rentalPolicy";
 import { deriveWorkflowStage, type DeliveryRow } from "@/lib/emailWorkflowStage";
 import { licenceStatus, instant } from "@/lib/operations";
 
@@ -414,7 +414,23 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
     additional_drivers: form.additional_drivers,
   };
   const extraLines = rentalDays ? calcExtrasLines(extras, extrasSelection, rentalDays) : [];
-  const extrasSubtotal = rentalDays ? calcExtrasTotal(extras, extrasSelection, rentalDays) : 0;
+  // The under-23 insurance surcharge, recomputed here from the same rule the
+  // public quote used. Without this, opening a young driver's web booking and
+  // pressing Save would quietly drop the charge: this screen rebuilds the
+  // extras subtotal from the selection, and the surcharge is not in it.
+  const insuranceSurcharge = rentalDays
+    ? calcInsuranceSurchargeLine(
+        extras,
+        form.customer_dob && form.pickup_date
+          ? ageOnDate(form.customer_dob, form.pickup_date)
+          : null,
+        rentalDays,
+      )
+    : null;
+  const extrasSubtotal = parseFloat((
+    (rentalDays ? calcExtrasTotal(extras, extrasSelection, rentalDays) : 0)
+    + (insuranceSurcharge?.total ?? 0)
+  ).toFixed(2));
   const incomplete = missingDeferrable(form);
 
   // Measured against the return, so a licence valid at collection but expired
@@ -878,6 +894,17 @@ export default function ReservationModal({ vehicleId, date, reservationId, custo
                     <span className="whitespace-nowrap">€{line.total.toFixed(2)}</span>
                   </div>
                 ))}
+                {insuranceSurcharge && (
+                  <div className="flex justify-between items-start gap-3 text-gray-700" data-testid="admin-insurance-surcharge-line">
+                    <span>
+                      {insuranceSurcharge.label}
+                      <span className="ml-1 text-xs text-gray-500">
+                        ({insuranceSurcharge.rentalDays} day{insuranceSurcharge.rentalDays === 1 ? "" : "s"} × €{insuranceSurcharge.dailyRate.toFixed(2)}/day)
+                      </span>
+                    </span>
+                    <span className="whitespace-nowrap">€{insuranceSurcharge.total.toFixed(2)}</span>
+                  </div>
+                )}
                 {discount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>Discount{form.discount_reason ? ` (${form.discount_reason})` : ""}</span>
