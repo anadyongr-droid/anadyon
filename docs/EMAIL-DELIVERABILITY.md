@@ -198,3 +198,50 @@ from the mailbox. The signing setup is per-vhost and almost certainly identical
 for both, but "almost certainly" is how the SPF finding went wrong. Read the
 `rua` aggregate reports before tightening; they cover every source, including the
 ones nobody has thought of.
+
+
+## DMARC reports read — 19 September 2026. **Do not tighten yet.**
+
+The reports that answer **E9** had been arriving daily and being deleted unread.
+Twenty-plus were found in the Gmail bin, 21 August to 17 September, from five
+receivers. Gmail purges its bin after 30 days, so the August ones are days from
+being lost.
+
+Three have now been read — Google, GMX and Outlook.com — kept at `docs/dmarc/`
+and parsed with `npm run check:dmarc`:
+
+| Source IP | rDNS | Msgs | SPF aligned | DKIM aligned |
+|---|---|---|---|---|
+| `78.46.171.57` | relay11.grserver.gr | 2 | pass | pass |
+| `2a01:4f8:1c1b:b0af::1` | relay11.grserver.gr | 1 | pass | pass |
+| `2a01:4f9:c013:30d8::1` | relay14.grserver.gr | 1 | pass | pass |
+| `46.62.234.254` | relay15.grserver.gr | 1 | pass | pass |
+| **`209.85.220.41`** | **mail-sor-f41.google.com** | **1** | **FAIL** | **FAIL** |
+
+**Four of the five sources are the office mailbox relays, and all four pass.**
+grserver uses a pool — relay11, 14 and 15 all appear, over IPv4 and IPv6 — and
+every one authenticates: SPF on the root record through `include:_spf.fastmail.gr`,
+DKIM on the `default` selector, both aligned with the `From:` header.
+
+**The fifth is the answer to E9, and it is no.** `mail-sor-f41.google.com` is a
+**Gmail forwarder**, and its message failed DMARC outright. Its `auth_results`
+show SPF passing for `gmail.com` — which does not align with `anadyon.gr` — and
+**no DKIM result at all**, meaning no signature survived the forward.
+
+That is the classic forwarding break, and it is not hypothetical here:
+`customerservice@anadyon.gr` forwards to `anadyon.gr@gmail.com`, so mail crossing
+that hop is exactly what this record describes.
+
+**Under `p=quarantine` that message would have gone to spam.** One failing
+source in the first three reports ever read is reason enough to stop, and the
+right response is not to force it through:
+
+1. **Collect a week or two** across all five receivers before deciding. Three
+   reports covering six messages is a sample, not a picture.
+2. **Establish what that forwarded mail actually is.** If it is only the
+   mailbox's own forward to Gmail, the blast radius is internal and tolerable.
+   If customers are reached that way, it is not.
+3. **If tightening, ramp with `pct=`** — `p=quarantine; pct=10` affects a tenth
+   of failing mail and the reports show the effect before it is universal.
+
+E9 stays open, better informed rather than answered.
