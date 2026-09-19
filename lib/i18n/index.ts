@@ -146,6 +146,7 @@ const en: Dict = {
   "extra.fdw": "Full Damage Waiver (FDW)",
   "extra.cdw": "Collision Damage Waiver (CDW)",
   "extra.additionalDrivers": "Additional Drivers",
+  "extra.insuranceSurcharge": "Insurance surcharge (under 23)",
   "form.priceEstimate": "Price Estimate",
   "form.total": "Total",
   "form.depositDue": "Deposit (30%) required to confirm booking",
@@ -361,6 +362,15 @@ const en: Dict = {
   "cookie.declineAll": "Decline all",
   "cookie.essentialOnly": "Essential only",
   "cookie.settings": "Cookie settings",
+
+  // ── Page not found ──
+  // A 404 is the one page whose reader arrived by accident. Everything here is
+  // written to get them back to a vehicle rather than to apologise.
+  "notFound.heading": "That page isn't here",
+  "notFound.body": "The link you followed is out of date or was mistyped. Nothing is wrong with your booking — the page simply moved.",
+  "notFound.browse": "Where you were probably going:",
+  "notFound.helpLead": "Still stuck? We answer the phone.",
+  "notFound.lookup": "Find my rental",
 };
 
 const el: Dict = {
@@ -481,6 +491,7 @@ const el: Dict = {
   "extra.fdw": "Πλήρης Κάλυψη Ζημιών (FDW)",
   "extra.cdw": "Μεικτή Ασφάλεια (CDW)",
   "extra.additionalDrivers": "Πρόσθετοι Οδηγοί",
+  "extra.insuranceSurcharge": "Ασφαλιστική επιβάρυνση (κάτω των 23)",
   "form.priceEstimate": "Εκτίμηση Κόστους",
   "form.total": "Σύνολο",
   "form.depositDue": "Προκαταβολή (30%) απαραίτητη για την επιβεβαίωση της κράτησης",
@@ -696,6 +707,13 @@ const el: Dict = {
   "cookie.declineAll": "Απόρριψη όλων",
   "cookie.essentialOnly": "Μόνο τα απαραίτητα",
   "cookie.settings": "Ρυθμίσεις cookies",
+
+  // ── Η σελίδα δεν βρέθηκε ──
+  "notFound.heading": "Η σελίδα δεν βρέθηκε",
+  "notFound.body": "Ο σύνδεσμος που ακολουθήσατε είναι παλιός ή πληκτρολογήθηκε λάθος. Η κράτησή σας δεν επηρεάζεται — η σελίδα απλώς μετακινήθηκε.",
+  "notFound.browse": "Μάλλον ψάχνατε κάποια από αυτές:",
+  "notFound.helpLead": "Χρειάζεστε βοήθεια; Απαντάμε στο τηλέφωνο.",
+  "notFound.lookup": "Η κράτησή μου",
 };
 
 const dictionaries: Record<Locale, Dict> = { en, el };

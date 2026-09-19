@@ -225,9 +225,12 @@ Arguments for continuing to build, none of them decisive on their own:
 Arguments for buying that the decision below had to answer:
 
 - The counter workflow is the largest remaining build, and it is the part of the
-  category that is most commoditised.
+  category that is most commoditised. **Qualified 19 September (§1.11): it is
+  commoditised in the SaaS tier and entirely absent from the DIY tier, so the
+  "just buy a plugin" version of this argument does not hold.**
 - A $129/month subscription against the engineering time in §7 phases 1-4 is not
-  a close call on cost alone.
+  a close call on cost alone. **And the true floor is lower still: €129 once,
+  per §1.11.**
 - Every hour spent on condition capture is an hour not spent on the rate
   intelligence that actually differentiates.
 
@@ -444,6 +447,96 @@ annotations in §1.8 and the gate in §7.1a.
 
 ---
 
+### 1.11 The DIY tier — **VikRentCar**, **PHPJabbers**, **CodeCanyon**
+
+*Added 19 September 2026, at Tasos's request, after an adviser suggested them as
+the cheap alternative to building.*
+
+**Why this is inside the stop rule.** §1.9 caps the benchmark at sixteen and
+admits a new entry only on primary vendor evidence that would change a named
+decision. This is **one entry, not three** — a price tier, not three more
+products — and it bears directly on **build versus buy** (§1.8), which until now
+had only ever been tested against SaaS at $50–$129 *per month*. It had never
+been tested against a **one-off purchase under €130**. That is a different
+argument and it deserved checking.
+
+All figures below are from the vendors' own pages, fetched 19 September 2026.
+
+#### What they cost, and what they are
+
+| | **VikRentCar** | **PHPJabbers** | **CodeCanyon** |
+|---|---|---|---|
+| Form | WordPress (and Joomla) plugin | Self-hosted PHP script | Marketplace, ~163 listings |
+| Price | **€129** one-off, 1-year licence per domain; free BASIC on WordPress.org | **$129** one-off, "lifetime licence, full source code"; optional $39/mo care, $69/mo hosted | **$29–$109**, typically $59–$85 |
+| Best-selling example | — | — | *Car Rental System* (WP plugin), $85, 2.9K sales; *Car Rental Booking System*, $79, 2K sales |
+| Hosting | Your WordPress | Your PHP host | Yours |
+
+#### What VikRentCar actually offers — the strongest of the three
+
+Rate plans with **daily, weekly, monthly and hourly** costs; seasonal prices; a
+rates overview for per-date pricing; vehicles with sub-units and a numbering
+feature; monthly availability calendars; options and extra services; extra fees
+for out-of-hours pick-up and drop-off and for location combinations; custom tax
+rates per location; **multiple insurance types (CDW, LDW)**; **damage tracking
+via customisable PDF reports**; PayPal, offline card and cash, with "over 40
+credit card payment gateways compatible"; multi-language; coupons; graphs and
+reports; customisable PDF documents.
+
+PHPJabbers covers similar booking ground — unlimited car types, extras (child
+seats, GPS, insurance), custom rates by length or period, minimum booking
+length, hold rules, locations, user roles, ten colour themes, PayPal and
+Authorize.net, CSRF protection — and adds a paid maintenance and hosting tier,
+which is the honest part of its offer: someone else patches the PHP.
+
+#### What none of them states
+
+Checked against each vendor's own feature list. These are **absences from the
+vendors' documentation**, which is not the same as proof of absence in the
+product — but a capability a vendor does not advertise is one you cannot rely on:
+
+- **Greek fiscalisation.** No mention of AADE, myDATA, or Greek invoicing by any
+  of the three.
+- **A staff counter workflow.** No check-out/check-in state machine. VikRentCar
+  offers a "team dashboard" for viewing pickups and returns; that is a list, not
+  a workflow with blockers and an audit trail.
+- **Condition capture with photographs.** VikRentCar's damage tracking is a
+  customisable PDF report. Nothing photographic, nothing tied to a handover
+  record.
+- **Customer document storage.** Nothing on licence or passport capture and
+  retention.
+- **Mixed fleet.** All three are written for cars. Motorbikes and bicycles are
+  not addressed. (PHPJabbers sells a separate *equipment rental* script, which
+  is a different product, not a mixed fleet in one system.)
+- **Server-side price verification** and **live competitor rate collection.**
+  Neither appears, as with the sixteen.
+
+#### What this changes
+
+**It lowers the price floor, and confirms the floor buys none of the things
+§1.8 identified as reasons to build.** The cheapest credible alternative is not
+$129/month; it is **€129 once**. On cost alone the gap against engineering time
+is wider than §1.8 stated.
+
+But every reason §1.8 gave for building survives this tier intact: AADE, the
+mixed fleet, the competitor rate engine, server-side price verification — and,
+newly, **the entire counter workflow**, which this tier does not attempt at all.
+Where the SaaS tier (CarCEO, HQ Rental) genuinely competes on the counter, the
+DIY tier does not.
+
+**One finding worth carrying into pricing.** VikRentCar sells **CDW and LDW as
+distinct insurance products**, and PHPJabbers lists insurance among its extras.
+That is the same shape as the paper contract's C.D.W. / F.D.W. / T.W. / F.T.P.
+ladder (`docs/contract/TRANSCRIPTION.md`, article 8). It confirms the waiver
+ladder is the category norm rather than an Anadyon peculiarity — which matters
+for `CONTRACT-VS-WEBSITE.md` §1, where the website currently advertises two of
+those as *included* rather than sold.
+
+**Decision unchanged.** §1.8 stands. Nothing here argues for replacing Anadyon;
+the tier is recorded so the question is not reopened from scratch the next time
+somebody suggests a €129 plugin.
+
+---
+
 ## 2. Feature comparison
 
 ✅ built · ⚠️ partial · ❌ absent · — not applicable at this scale
@@ -483,6 +576,18 @@ annotations in §1.8 and the gate in §7.1a.
 | Toll processing | — | Rent Centric |
 | Franchise, multi-location | — | Wheelsys, TSD |
 | Vehicle subscription, P2P sharing | — | Rent Centric |
+
+> **This table is stale as of 19 September 2026 and has not been re-scored
+> here.** The counter rows — check-out and check-in, condition capture, digital
+> agreement, damage log — were written before phase 2. Migrations 040 and 041
+> (the handovers table and check-out finalisation) are **applied in production**;
+> 042 and 044 are written and unapplied; 043 and the five HTTP routes are open in
+> PR #95. So several ❌ and ⚠️ are now wrong, and re-scoring each honestly means
+> deciding what "built" means when a migration exists but is unapplied. Recorded
+> rather than quietly edited. Open item **W15**.
+>
+> Against the DIY tier (§1.11), the "Seen in" column would read **none** for every
+> row from *Counter* downwards.
 
 **Two positions worth noticing.**
 
@@ -1853,6 +1958,199 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 19 September 2026 — two DNS decisions, one of them a correction
+
+**Decision: Vercel's nameservers are declined.** Vercel emailed inviting us to
+point `anadyon.gr` at `ns1/ns2.vercel-dns.com`. We are staying on Papaki.
+
+Counted before deciding, from live DNS. Vercel would create **two** records
+automatically — the apex and `www` A records, both already working. It would
+**not** create the other eight, and every one of them is mail or staff access:
+the root MX, `mail.anadyon.gr`, `webmail.anadyon.gr`, the root SPF, `_dmarc`,
+the Resend DKIM key, and `send.anadyon.gr`'s SPF and feedback MX. The DKIM key
+is a 216-character base64 string with no checksum, so a truncation is invisible
+and degrades booking-email authentication over days rather than failing loudly.
+
+The benefit Vercel names — automatic certificate provisioning — **we already
+have**: Vercel issues off the A record, not nameserver delegation, and the site
+has served a valid certificate throughout with nameservers at Papaki. The real
+upside is one dashboard instead of two, against an eight-record hand migration
+of the mail configuration, mid-season, with 48 hours of propagation in which a
+mistake is hard to distinguish from an unpropagated record.
+
+Revisit in February if ever, and only staged: pre-create all eight at Vercel,
+query the Vercel nameservers directly for each, then delegate.
+
+**Correction: open item E4 rests on a misdiagnosis, and is suspended pending one
+check.** `EMAIL-DELIVERABILITY.md` asserted that every booking confirmation
+hard-fails SPF because the root record authorises no `amazonses.com`, and E4
+proposed adding it. That conflates the `From:` header with the envelope sender —
+**SPF is evaluated against the Return-Path, not the header**.
+
+The evidence says the envelope domain is `send.anadyon.gr`: it carries
+`v=spf1 include:amazonses.com ~all`, and it holds the SES **feedback MX**, which
+exists only to receive bounces for the Return-Path domain — while the root MX is
+the Papaki mailbox. Resend's own documentation states that a verified domain is
+"already passing SPF and DKIM". If that holds, booking mail passes SPF on
+`send.anadyon.gr` under relaxed alignment *and* DKIM as `d=anadyon.gr` under
+strict alignment, and nothing needs adding.
+
+Not closed, because it is inference rather than a measurement: one header from a
+delivered confirmation settles it. Suspended rather than actioned because the
+proposed fix has a real cost — `include:amazonses.com` on the root authorises
+the entire shared SES pool to send as `anadyon.gr`.
+
+### 1 September 2026 — the counter's HTTP surface
+
+**Decision.** Five routes under `/api/admin/handovers` carry a tablet's request
+to migrations 041–043 and its answer back: open or resume a draft, read one,
+record what is on the car, finalise, void, correct.
+
+**They decide as little as possible.** Anything a route validated *instead of*
+the database would be a second copy of a rule, and the copy without the lock is
+the one that will be wrong — it can pass on state that has changed by the time
+the transaction runs. So the routes check shape (is this a whole number of
+kilometres, is this a valid time) and leave meaning (is this odometer below the
+check-out reading) to the functions, which hold the reservation lock while they
+ask.
+
+**Three things the routes do decide, and why each is theirs:**
+
+- **The direction comes from the row, never from the request.** A tablet that
+  could name the direction could finalise a check-in through the check-out path.
+  Migration 042 refuses that; there is no reason to let it be attempted.
+- **The vehicle comes from the reservation, never from the request.** A tablet
+  that could name its own vehicle could file a handover against a car it never
+  saw.
+- **An inbound handover copies the completed outbound one's template**, rather
+  than looking up today's active template — which may have been superseded
+  during the rental. Migration 042 refuses the mismatch; this is what stops it
+  arising.
+
+**`client_operation_id` is required, not generated.** If the server invented
+one, every retry would be a new operation and the idempotency it exists for
+would be gone: the tablet has to be the thing that remembers. A resubmit is
+answered with the same handover, and a genuine race — two taps, both inserting
+— is answered with the row that won rather than with the collision.
+
+**The draft update is scoped to drafts in the statement itself**, not by reading
+first and writing after. A read-then-write leaves a window in which a
+finalisation lands between the two, and the update would then quietly edit a
+completed record — an unaudited correction wearing the wrong verb. A colleague
+who finalised it while somebody was still typing gets *"this handover is
+completed, reload"*, which is a different sentence from *"not found"* and a
+different problem.
+
+**Correction opts out of the staff allowlist at the point of use.** proxy.ts now
+lists `/api/admin/handovers` in `STAFF_API`, which prefix-matches every
+sub-path including `/correct`. That is the same shape as the vehicle ledger
+under `/api/admin/vehicles`: the broad entry is the operational default, and the
+one exception refuses where it is implemented rather than being carved out of a
+list a later sub-path would silently rejoin. Voiding stays with staff, because
+the wrong car on a handover is a counter mistake and a fix only an administrator
+can perform is a fix that waits with a customer standing there.
+
+**`lib/handoverErrors.ts` maps refusals to HTTP, in one place.** A deliberate
+refusal reaches the tablet in the database's own words, because those words say
+what to fix — *"vehicle is marked maintenance; 2 required photograph(s) are
+missing"*. Anything unrecognised does not: a Postgres error can carry a
+constraint name, a column list or a fragment of a query, and none of that
+belongs on a screen at a rental counter. A test asserts that property against
+several shapes rather than one.
+
+**What the route tests are, and are not.** They mock the database, so they prove
+the seams — direction from the row, actor from the session, refusal passed
+through, administrator required — and prove nothing about the rules. The rules
+are settled against real Postgres in the three migration suites. The mock
+records `update` filters rather than swallowing them, because a mock that
+ignored them would let the draft-scoping be deleted and every test still pass;
+removing `.eq("status", "draft")` fails a test now.
+
+**Mutation-checked.** Taking the direction from the request fails 1; dropping
+the administrator check fails 2; unscoping the draft update fails 1; passing
+unrecognised database errors to the screen fails 1.
+
+**Not here: photographs.** Upload is a saga against Storage — create or reuse
+the draft, upload each object, persist verified metadata, finalise only when the
+required objects exist — and it is its own piece of work. Until it lands,
+finalisation will refuse every handover with *"n required photograph(s) are
+missing"*, which is the correct answer to a counter that cannot yet take a
+picture.
+
+### 1 September 2026 — correction and voiding, and what a void does to the reservation
+
+**Decision.** Migration 043 implements §4.2 rule 4. Phase 2's counter is now
+complete as a set of database operations: check out, check in, correct, void.
+
+**§4.2 does not say what voiding does to the reservation, and "nothing" is the
+one answer that cannot be right.** Finalisation moves it — check-out to
+`active`, check-in to `returned`. If a void left that behind, the replacement
+handover could never be finalised: check-out requires a `confirmed` reservation
+and check-in an `active` one, so a corrected check-out would be refused for the
+state its own voided predecessor created. The correction path would exist and
+not work.
+
+So a void steps the reservation back, **and only when it is still in exactly the
+status this handover put it in**:
+
+| Voided | Reservation | Becomes |
+|---|---|---|
+| check-out | `active` | `confirmed` |
+| check-in | `returned` | `active` |
+| either | anything else | unchanged, and the fact is written to the event |
+
+That guard matters both ways. A reservation somebody cancelled afterwards must
+not be dragged back by a void; and stepping back from a status this handover did
+not set would be inventing history rather than undoing it.
+
+**The consequence to accept, stated rather than buried.** Between the void and
+the replacement check-out, a car physically with a customer reads as
+`confirmed` — not yet collected. That is accurate in record terms, since there
+is no valid check-out, and it is the state that makes the replacement
+finalisable. The alternative is a rental stuck `active` with no live check-out,
+which is both wrong and unrecoverable. A test drives the whole sequence: void
+the wrong check-out, record a replacement, finalise it.
+
+**A correction changes observations and nothing else** — odometer, fuel,
+cleanliness, note, time of occurrence. Never the reservation, vehicle,
+direction, template or client operation id: those are not observations, and
+changing one turns the record into a record of a different event. An
+unrecognised key is **refused by name**, never ignored, because silently
+dropping `vehicle_id` from a payload would let a caller believe they had
+changed it.
+
+**A correction cannot reach a state finalisation would have refused.**
+`handover_state_blockers()` re-checks the invariants against the corrected row,
+which closes a direction that was previously unguarded: check-out has no
+completed check-in to compare against when it runs, so *raising* an out
+odometer above a recorded in reading was only ever reachable through a
+correction. It is refused now.
+
+**The refusal rolls the row back.** The function updates and then validates, so
+a rejected correction must leave the record as it was. A test asserts the whole
+row is unchanged after a refusal — without it, a rejected correction that still
+changed the data would be the worst of both outcomes.
+
+**The fleet odometer follows a corrected check-in reading, but only when nothing
+else has moved it since.** If it no longer matches what the handover wrote, a
+person or another process set it deliberately, and a correction to an old rental
+has no business overriding that.
+
+**Who may do what.** Voiding is available to staff: getting the wrong car onto a
+handover is a counter mistake and the fix has to be available at the counter,
+where the mandatory reason and the replacement record are what make it safe.
+Correction is reserved to an administrator, because it rewrites an observation
+in place rather than leaving both versions in the log.
+
+**Mutation-checked** — and one mutation was worth catching for its own sake.
+Removing `completed_at = null` from the void fails 8 tests; not stepping the
+reservation back fails 4; stepping back regardless of current status fails 1;
+ignoring unknown correction keys fails 2; skipping revalidation fails 5;
+dropping the fleet-odometer guard fails 1. **The first attempt at that first
+mutation silently did not apply**, and the suite passed — a "mutation test" that
+never mutated. Verified by checking the file actually changed before trusting
+the run, which is the same rule as the reproductions in §9.
+
 ### 1 September 2026 — check-in, and the asymmetry that shapes it
 
 **Decision.** Migration 042 implements §4.2 rule 3, and rule 8 — which is
@@ -1931,9 +2229,11 @@ immediately afterwards. The temporary API route, command-line script, package
 entry and route-only test were then deleted; the reusable PGlite architecture
 tests remain.
 
-**Decision.** The §4.2 identity block is closed. A follow-up migration may grant
-the thin gateway to `authenticated`, and the route that calls it must use the
-user-scoped server client. The migration still requires Tasos to apply it.
+**Decision.** The §4.2 identity block is closed. Migration 045 grants all four
+thin gateways to `authenticated` only, and the finalise, correct and void routes
+call them through the user's cookie-backed Supabase client. `anon`,
+`service_role` and `PUBLIC` remain revoked. The migration still requires Tasos
+to apply it.
 
 ### 31 August 2026 — migrations 040 and 041 are applied to production
 

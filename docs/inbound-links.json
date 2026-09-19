@@ -1,0 +1,37 @@
+{
+  "_comment": [
+    "URLs that other people have published pointing at this site, and the ones we",
+    "have reason to believe they published in the past. `npm run check:links`",
+    "asserts every one still resolves.",
+    "",
+    "This is NOT a backlink index — it cannot be. Backlinks live on other people's",
+    "servers and the only complete lists are Google Search Console, Bing Webmaster",
+    "Tools and the commercial crawlers. See docs/INBOUND-LINKS.md for how to get",
+    "them. This file is the subset we know about, kept so that a URL somebody else",
+    "already published can never silently break again.",
+    "",
+    "Add to it whenever a referral shows up in Analytics, whenever Search Console",
+    "reports a 404 with a referring page, and whenever a URL shape is retired."
+  ],
+  "links": [
+    {
+      "url": "https://anadyon.gr/en/",
+      "publishedBy": "https://notrevieenvoyage.com/que-faire-a-zakynthos-dans-les-iles-ioniennes/",
+      "found": "2026-09-19, Google Analytics referral",
+      "note": "French travel guide to Zakynthos. This is the referral that exposed the whole problem; the /en redirect exists because of it."
+    },
+    {
+      "url": "https://anadyon.gr/en",
+      "publishedBy": "derived",
+      "found": "2026-09-19",
+      "note": "What /en/ normalises to. Checked separately because the trailing-slash 308 runs independently of the redirect."
+    },
+    {
+      "url": "https://www.anadyon.gr/",
+      "hostSpecific": true,
+      "publishedBy": "derived",
+      "found": "2026-09-19",
+      "note": "The www host. Redirected to the apex in next.config; asserted here so that rule cannot be dropped unnoticed."
+    }
+  ]
+}

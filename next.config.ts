@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 import { RECAPTCHA_TEST_SITE_KEY, isLiveSite } from "./lib/recaptchaKeys";
+import { legacyRedirects } from "./lib/legacyRedirects";
 import { sentryIngestOriginFromDsn } from "./lib/sentryPrivacy";
 
 /**
@@ -164,6 +165,19 @@ const nextConfig: NextConfig = {
         destination: "https://anadyon.gr/:path*",
         permanent: true,
       },
+      /**
+       * The previous site's URLs, which nothing redirected when it was replaced.
+       *
+       * Found on 19 September 2026 from one Google Analytics referral — a French
+       * travel guide linking `https://anadyon.gr/en/`, which 404ed. Checking the
+       * Wayback index afterwards turned one dead link into 86: of the 182 paths
+       * the 2014–2025 WordPress site served, that many still 404 here, the whole
+       * old fleet structure among them.
+       *
+       * The list, and how each destination was established, is in
+       * lib/legacyRedirects.ts.
+       */
+      ...legacyRedirects,
     ];
   },
   async headers() {
