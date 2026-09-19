@@ -54,15 +54,17 @@ against production.
 | `rental_handovers` table | 040 | **Applied** |
 | Check-out finalisation | 041 | **Applied** |
 | Check-in finalisation | 042 | Merged (#93). **Not applied** |
-| Correction and voiding, plus the five HTTP routes | 043 | Open in **PR #95** |
-| Insurance surcharge for under-23 drivers | 044 | **In progress** — see below |
+| Correction and voiding, plus the five HTTP routes | 043 | Reconciled with current `main`; supersedes **PR #95** |
+| Insurance surcharge for under-23 drivers | 044 | **Merged** (#118). **Not applied** |
+| Authenticated grants for all four handover gateways | 045 | Written with the route reconciliation. **Not applied** |
 | Photo upload saga | — | Not started. Last piece of phase 2 |
 
-**The gateways are granted to nobody.** `finalise_check_out`,
-`finalise_check_in`, `correct_handover` and `void_handover` all exist with no
-EXECUTE grant, because they were written while the identity question was open.
-That question is now closed, so a one-line follow-up migration can grant them.
-Until it does, the counter routes cannot work against production.
+**The gateways are enabled for authenticated users by migration 045.**
+`finalise_check_out`, `finalise_check_in`, `correct_handover` and
+`void_handover` remain unavailable to `anon`, `service_role` and `PUBLIC`.
+Their routes use the caller's cookie-backed Supabase session, so the database
+verifies `auth.uid()` and the server-owned application role itself. Migration
+045 is not yet applied to production.
 
 ### Insurance surcharge — in progress, 2 September
 
