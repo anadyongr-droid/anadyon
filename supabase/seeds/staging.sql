@@ -1,5 +1,18 @@
 -- Synthetic staging fixtures only. Never replace this with a production dump.
 -- IDs are deterministic so the script is safe to run more than once.
+--
+-- EVERY PRICE BELOW IS INVENTED. None of it is what Anadyon charges, and none
+-- of it may be quoted anywhere outside this file.
+--
+-- That warning is here because the first line above was not enough. On 19
+-- September 2026 the FDW figure in this file (12) was read as the real price
+-- and written into five documents — the README status section, the insurance
+-- analysis, the competitor benchmark, a worklog and open item B5 — where it
+-- overstated the self-insured exposure by 2.4x. The real rate is in
+-- supabase/schema.sql, and the authority is the live extras_config row.
+--
+-- lib/publishedPriceParity.test.ts now fails the build if a document quotes an
+-- extra at a price the repository does not seed.
 
 insert into public.rates
   (pricing_group, season_name, season_months, rate_1_2, rate_3_6, rate_7plus)

@@ -86,7 +86,8 @@ wrong place.
 From the insurance reading, in descending cost:
 
 - **No collision own-damage cover on any vehicle, across two insurers.** Full
-  Damage Waiver at €12/day is entirely self-insured. §4.1 of the insurance
+  Damage Waiver at ~~€12/day~~ is entirely self-insured.
+  <!-- price-exempt: dated entry; the €12 was read from a staging fixture and is corrected to €5.00 in the 19 September entry --> §4.1 of the insurance
   document.
 - **No theft cover, no general fire, no glass**, on any of the three.
 - **The 50cc has no roadside assistance** — the car's clause covers motorcycles
