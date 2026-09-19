@@ -1,7 +1,8 @@
 # How Anadyon's email actually leaves the building
 
-**Last verified:** 19 September 2026, Claude — read from live DNS, not assumed.
-Two conclusions from the 11 September pass were withdrawn on 19 September; see below.
+**Last verified:** 19 September 2026, Claude — from live DNS *and* from the full
+headers of a delivered message. Two conclusions from the 11 September pass were
+withdrawn; both had reasoned from DNS alone where only a header could answer.
 
 There are **two entirely separate sending paths**, and confusing them wastes a
 diagnosis. A failure on one says nothing about the other.
@@ -57,19 +58,64 @@ relaxed-aligns with `anadyon.gr` as the same organisational domain; and DKIM as
 is therefore not "half-configured" either — the split is Resend's standard
 layout, envelope on the subdomain and DKIM on the root where it aligns.
 
-**Still inference, not measurement.** One `Return-Path:` line from a delivered
-confirmation settles it, and nobody has looked yet. E4 is suspended, not closed.
+**Measured 19 September 2026, and confirmed.** Full headers of a live quote
+notification sent 18 September. At the first hop, where Papaki receives straight
+from SES:
 
-**Do not add `include:amazonses.com` to the root record in the meantime.** It
-authorises the entire shared Amazon SES pool — every SES customer — to send as
-`anadyon.gr`. That is a real widening, and it would be done to fix a failure
-that probably is not happening.
+```
+Received-SPF: pass (linux207.papaki.gr: domain of send.anadyon.gr
+             designates 54.240.3.27 as permitted sender)
+             envelope-from=…@send.anadyon.gr
+Authentication-Results: linux207.papaki.gr;
+             dmarc=pass (p=NONE sp=NONE) smtp.from=send.anadyon.gr header.from=anadyon.gr;
+             dkim=pass header.d=anadyon.gr; spf=pass (sender IP is 54.240.3.27)
+```
+
+The envelope is `send.anadyon.gr`, SPF passes against it, DKIM passes as
+`d=anadyon.gr`, DMARC passes. **Nothing was ever broken. E4 is closed.**
+
+The root record does its own separate job, which the same message shows. When
+the mailbox forwards on, the Papaki relay applies SRS and rewrites the envelope
+to the root domain — `SRS0=…=send.anadyon.gr=…@anadyon.gr` — and Google then
+checks *that* against the root record, where `88.99.38.195` is authorised
+through the fastmail include. It passes. So the root SPF is already correct for
+the traffic that actually uses it, and adding `include:amazonses.com` would have
+done nothing for booking mail while authorising every Amazon SES customer on the
+shared pool to send as `anadyon.gr`.
 
 **~~`send.anadyon.gr` is half-configured and unused.~~ — WITHDRAWN 19 September
 2026, same misreading.** It has no DKIM key because it does not need one: DKIM
 signs as the `From:` domain, which is the root, and that is where the key is.
 The subdomain carries the envelope and the bounce path. That is Resend's normal
 layout, not an unfinished setup.
+
+## Korean customers: reply through the system, not from the mailbox
+
+**Workaround for E5, until grserver gets the relay delisted.**
+
+The two sending paths have different reputations, and only one of them is
+blocked. Booking mail leaves through **Amazon SES** (`54.240.3.27` on the
+measured message); staff replies leave through **`relay12.grserver.gr`**
+(`88.99.38.195`), which is the address Naver refuses.
+
+So for a customer on `naver.com` — or any Korean provider — a reply typed in the
+mailbox bounces, while mail the system sends may well arrive. **Expected, not
+verified:** nobody has confirmed a delivery from SES to Naver, and the two are
+separate enough that it should not be assumed. What *is* verified is that the
+mailbox path is refused.
+
+Practically, until E5 clears:
+
+1. Answer through the system's own email where one exists, rather than replying
+   from the mailbox.
+2. Otherwise use the phone number on the request — Korean bookings have carried
+   a `+82` mobile — or WhatsApp.
+3. Do not assume a reply was received because it did not visibly bounce; a `421`
+   bounce lands in the mailbox, not in front of the person who typed the reply.
+
+This is live, not theoretical: a quote request from a `naver.com` address arrived
+on **18 September for a next-day pick-up**. Any reply from the mailbox would have
+been refused and the customer would simply have heard nothing.
 
 ## The Naver block, 11 September 2026
 
@@ -131,3 +177,24 @@ real one. Confirming what that certificate is bound to takes one look at Plesk.
    predecessor passed while Resend was unauthorised.
 5. DNS can be read from here without `dig`, which is not installed:
    `curl -sS -H "accept: application/dns-json" "https://dns.google/resolve?name=anadyon.gr&type=TXT"`
+
+
+## Both sending paths are DKIM-signed and aligned — 19 September 2026
+
+Relevant to **E9**, whether DMARC can move off `p=none`.
+
+| Path | Selector | Signs as | Aligns with `From:` |
+|---|---|---|---|
+| Booking mail (Resend/SES) | `resend._domainkey.anadyon.gr` | `d=anadyon.gr` | strict ✓ |
+| Office mailbox (Papaki relay) | `default._domainkey.anadyon.gr` | `d=anadyon.gr` | strict ✓ |
+
+Both selectors are published and both validated on the measured message
+(`dkim=pass header.i=@anadyon.gr header.s=default`). Papaki signs for the vhost
+on the way out, which is what the earlier note recorded as unverified.
+
+**This is better news for E9 than expected, and still not sufficient.** The
+message measured was one Papaki *forwarded*, not one a staff member *originated*
+from the mailbox. The signing setup is per-vhost and almost certainly identical
+for both, but "almost certainly" is how the SPF finding went wrong. Read the
+`rua` aggregate reports before tightening; they cover every source, including the
+ones nobody has thought of.
