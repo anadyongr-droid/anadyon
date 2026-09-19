@@ -1,6 +1,7 @@
 # How Anadyon's email actually leaves the building
 
-**Last verified:** 11 September 2026, Claude — read from live DNS, not assumed.
+**Last verified:** 19 September 2026, Claude — read from live DNS, not assumed.
+Two conclusions from the 11 September pass were withdrawn on 19 September; see below.
 
 There are **two entirely separate sending paths**, and confusing them wastes a
 diagnosis. A failure on one says nothing about the other.
@@ -31,20 +32,44 @@ send.anadyon.gr      MX   10 feedback-smtp.eu-west-1.amazonses.com
 reverse DNS resolves correctly to `relay12.grserver.gr`. Nothing is misconfigured
 on that path.
 
-**Resend is not authorised by SPF.** The root record ends `-all` and lists only
-`+mx` and the fastmail.gr include — no `amazonses.com`, no Resend. So every
-booking confirmation **hard-fails SPF** and passes DMARC on **DKIM alone**.
+**~~Resend is not authorised by SPF.~~ — WITHDRAWN 19 September 2026.**
 
-That works, and it satisfies the Gmail and Yahoo bulk-sender rules, which require
-*either* SPF or DKIM to align. But it is a single point of failure with no
-fallback: a mistaken DKIM rotation takes every booking email down at once, and
-some receivers weigh an SPF hard-fail into reputation even when DKIM passes.
-Open item **E4**.
+This section previously said the root record's `-all` meant every booking
+confirmation hard-fails SPF and passes DMARC on DKIM alone. That reasoning was
+wrong, and it is left visible rather than deleted because it is an easy mistake
+to make twice: **SPF is evaluated against the envelope sender (Return-Path), not
+the `From:` header.** The root record governs mail whose Return-Path is the root
+domain. Resend's is almost certainly not.
 
-**`send.anadyon.gr` is half-configured and unused.** It carries SPF and the SES
-feedback MX but **no DKIM key** (`resend._domainkey.send.anadyon.gr` does not
-exist), and nothing sends from it, because the From address is the root domain.
-Harmless today; misleading to the next reader.
+The evidence, all from live DNS above:
+
+- `send.anadyon.gr` carries `v=spf1 include:amazonses.com ~all` — exactly what a
+  Return-Path domain needs.
+- `send.anadyon.gr` holds the SES **feedback MX**. A feedback MX exists only to
+  receive bounces for the Return-Path domain. The root MX is the Papaki mailbox,
+  not a feedback host.
+- Resend's documentation: *"If you have a verified domain with Resend, it means
+  you are already passing SPF and DKIM."*
+
+On that reading booking mail passes **both**: SPF for `send.anadyon.gr`, which
+relaxed-aligns with `anadyon.gr` as the same organisational domain; and DKIM as
+`d=anadyon.gr`, which strict-aligns with the `From:` header. `send.anadyon.gr`
+is therefore not "half-configured" either — the split is Resend's standard
+layout, envelope on the subdomain and DKIM on the root where it aligns.
+
+**Still inference, not measurement.** One `Return-Path:` line from a delivered
+confirmation settles it, and nobody has looked yet. E4 is suspended, not closed.
+
+**Do not add `include:amazonses.com` to the root record in the meantime.** It
+authorises the entire shared Amazon SES pool — every SES customer — to send as
+`anadyon.gr`. That is a real widening, and it would be done to fix a failure
+that probably is not happening.
+
+**~~`send.anadyon.gr` is half-configured and unused.~~ — WITHDRAWN 19 September
+2026, same misreading.** It has no DKIM key because it does not need one: DKIM
+signs as the `From:` domain, which is the root, and that is where the key is.
+The subdomain carries the envelope and the bounce path. That is Resend's normal
+layout, not an unfinished setup.
 
 ## The Naver block, 11 September 2026
 
