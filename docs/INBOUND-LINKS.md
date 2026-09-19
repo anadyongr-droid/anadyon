@@ -9,49 +9,134 @@ On 19 September 2026 a referral appeared in Google Analytics from
 [notrevieenvoyage.com](https://notrevieenvoyage.com/que-faire-a-zakynthos-dans-les-iles-ioniennes/),
 a French travel guide to Zakynthos. It links `https://anadyon.gr/en/`.
 
-That URL has never existed on this site. English is at the root and Greek under
-`/el`, so `/en/` 308s to `/en` (trailing-slash normalisation) and then 404s —
-onto Next's built-in error page, which is a full screen of white with "404 This
-page could not be found." in the system font.
+That URL is not a route on the current site. English is at the root and Greek
+under `/el`, so `/en/` 308s to `/en` (trailing-slash normalisation) and then
+404s — onto Next's built-in error page, which is a full screen of white with
+"404 This page could not be found." in the system font.
 
 Every reader that guide sent us arrived at that. We do not know how many;
 nothing recorded it. It was found by accident, from one line in a referral
 report, roughly a year after launch.
 
-The link cannot be edited — it is on somebody else's website. That is the whole
-problem in one sentence, and it is what makes this different from an ordinary
-broken link.
+The link cannot be edited — it is on somebody else's website. That is what makes
+this different from an ordinary broken link, and it is why the fix has to be a
+redirect rather than a correction.
+
+**It was not one link.** `/en/` *had* been a real page — on the WordPress site
+this one replaced — and checking the archive turned one dead URL into 86. The
+detail is in "The old site" below; the short version is that the whole previous
+URL structure was retired without redirects, and the French guide was simply the
+first person to notice out loud.
 
 ## What was changed
 
 | Change | Where | What it does |
 |---|---|---|
-| `/en` and `/en/:path*` → `/:path*`, permanent (308) | `next.config.ts` | The referred URL and anything under it now land on the real English page, and the accumulated link equity transfers instead of draining into a 404. |
+| 46 permanent (308) redirects covering the old site's URLs | `lib/legacyRedirects.ts`, wired in `next.config.ts` | `/en/...` plus the whole 2014–2025 WordPress structure — fleet pages, information pages, both booking-funnel steps, in both languages — now land on the live equivalent, and eleven years of link equity transfers instead of draining into a 404. |
 | A recovery page replacing the blank 404 | `app/not-found.tsx`, `app/components/NotFoundContent.tsx` | Fleet links, contact, rental lookup, in the visitor's language. Still served with a 404 status. |
 | A `page_not_found` event carrying the path and referrer | `NotFoundContent.tsx` | Turns the next wrong link from something we stumble on into something reported. Consenting visitors only — see the blind spot below. |
 | A register of URLs other people publish at us | `docs/inbound-links.json` | So a URL a stranger already published can never silently break again. |
 | `npm run check:links` | `scripts/check-links.mjs` | Checks the register and crawls our own pages for internal breakage. |
-| Six regression tests | `tests/browser/inbound-links.spec.ts` | Five failed against the unfixed build. The sixth guards the 404 *status*, which already worked. |
+| Eight regression tests | `tests/browser/inbound-links.spec.ts` | Five failed against the unfixed build. One guards the 404 *status*, which already worked. Two walk all 46 legacy rules and assert each lands on the page it claims. |
 
-### Why `/en/` was written that way is not established
+### The old site: confirmed, and far bigger than one link
 
-The obvious guess is that the pre-2026 site served English under `/en/` — the
-footer says "Copyright © 2014–2026", so there was an earlier site. **This was
-not verified.** `web.archive.org` is blocked by this environment's egress
-policy, and no other primary source for the old URL structure was reachable.
+Tasos authorised access to `web.archive.org` on 19 September. The guess was
+right, and it was far too small.
 
-It stays a guess, recorded so nobody later reads it as a finding. What is
-verified is only that the URL is linked from outside and that it was dead.
+The Wayback CDX index returns **354 archived URLs** for this domain, the earliest
+from **15 June 2014**. Of the **182 distinct paths that once returned 200**,
+**86 return 404 on the live site today**. Nothing redirected when the site was
+replaced.
 
-If the guess is right, more of the old structure is linked too and only the
-sources below will show it.
+The old site was WordPress — the index is full of `/wp-content/plugins/...` —
+bilingual with `/en/` and `/el/` prefixes, and it used long keyword slugs at the
+root for both languages:
+
+| Old | Now |
+|---|---|
+| `/rent-cars-zakynthos`, and five car pages beneath it | `/cars` |
+| `/rent-motorbikes-zakynthos`, and five scooter pages | `/motorbikes` |
+| `/rent-bikes-zakynthos`, and two bicycle pages | `/bikes` |
+| `/enoikiaseis-autokinita-zakynthos/...` and the Greek fleet slugs | `/el/cars` etc. |
+| `/about-anadyon-vehicle-rentals-zakynthos-company-profile` | `/about` |
+| `/vehicle-pricing-extras`, `/submit-request-bikes` | `/quote` |
+| `/kratisi-ochimatos-times-ekstra`, `/ypovoli-aitimatos-bikes` | `/el/quote` |
+| a `/zante-rentals/` prefix carrying a second copy of the fleet pages | as above |
+
+Those were the money pages, and they had eleven years to accumulate links.
+
+**46 redirect rules** now cover them, in `lib/legacyRedirects.ts`, all permanent
+(308). Every destination was established by reading the archived page's
+`<title>` at a real snapshot, not by parsing the slug: `/vehicle-pricing-extras`
+turns out to be "Vehicle Rental Reservation Request - Pricing & Extras", and
+`/kratisi-ochimatos-times-ekstra` its Greek twin. Slugs read plausibly and mean
+something else often enough to be worth the extra requests.
+
+A browser test walks all 46 against a running server and asserts each lands on
+the page it claims — a rule pointing at a page that does not exist replaces a
+404 with a different 404 while looking, in review, exactly like a fix.
+
+#### How to redo this
+
+```
+curl "https://web.archive.org/cdx/search/cdx?url=anadyon.gr&matchType=domain&output=text&fl=original,timestamp,statuscode&collapse=urlkey&limit=2000"
+```
+
+HTTPS, not HTTP — the egress proxy only carries HTTPS, and a plain-`http://`
+call to the same endpoint returns "Blocked by egress policy", which reads like a
+domain block and is not one. That cost an hour on 19 September.
+
+Then `https://web.archive.org/web/<timestamp>id_/<url>` fetches a snapshot
+unmodified (`id_` suppresses the archive's own toolbar injection).
+
+#### Probing production in bulk trips Vercel's firewall
+
+Checking all 181 archived paths against `https://anadyon.gr` twice got this
+session firewalled: every request afterwards returned **403 from a Vercel
+challenge page**, `server: Vercel`, regardless of user agent. It decays on its
+own after a while.
+
+Two consequences, both already handled:
+
+- `check-links.mjs` treats 401/403/407/429 as **"could not check"**, reported
+  separately and never counted as a broken link. A checker that reports the
+  whole site dead because it annoyed the firewall is worse than no checker.
+- Its default concurrency is 3, and `--concurrency` lowers it further.
+
+If a bulk sweep is genuinely needed, run it against a local `next start` and
+keep production for spot checks.
+
+#### One old page was deliberately not redirected
+
+`/επανεκ-2014-2020` — archived title "ΕΠΑνΕΚ 2014-2020", the EU Operational
+Programme co-funding publicity page, live until at least October 2022 and now
+gone entirely. It is not a marketing page: businesses taking ΕΣΠΑ/ΕΠΑνΕΚ money
+carry a publicity obligation, and whether it still binds depends on the grant's
+own terms. Redirecting it to the home page would quietly dispose of a possible
+legal duty, so it is left 404ing and raised as open item **L1** instead.
 
 ## The honest answer to "check all our backlinks"
 
-**A complete check is not possible from our own server, and no script we write
-will change that.** Backlinks live on other people's machines. Nothing our
-website can do will enumerate the pages that link to it; the request only
-arrives if somebody follows one.
+Two different questions hide inside that one, and only one of them is hard.
+
+**"Which of our URLs are dead?" is answerable, and now answered.** The Wayback
+Machine holds the complete history of what this domain served, so the full list
+of retired URLs can be recovered without anyone's permission or any referral
+luck. That is where the 86 came from, and it is repeatable — the command is
+above.
+
+**"Who links to us?" is not answerable from our own server, and no script we
+write will change that.** Backlinks live on other people's machines. Nothing our
+website can do will enumerate the pages pointing at it; a request only arrives
+if somebody follows one.
+
+The distinction matters because the first question covers most of the damage.
+A dead URL is dead for every link to it, known or not — so redirecting all 86
+fixes every inbound link to any of them, including the ones we will never see.
+The external indexes below are for the remainder: links to URLs that were never
+ours to begin with (a typo, a truncation, a guessed path), and for measuring
+what the redirects recovered.
 
 What exists is four external indexes. Three are free.
 

@@ -73,7 +73,7 @@ under `supabase/migrations/paste/`.
 | W13 | **Qualify roadside assistance.** Website §10 promises "free 24-hour roadside assistance" unqualified; the 50cc has none. §5. | Agent |
 | W14 | **Fix the contract's article 4(f) cross-reference**, which points to "Article 10 (Insurance Coverage)" when insurance is article 8 and article 10 is Ownership. §9. | Agent |
 | W15 | **Re-score the §2 feature comparison.** Its counter rows — check-out/check-in, condition capture, digital agreement, damage log — predate phase 2 and are now wrong: 040 and 041 are applied in production, 042 and 044 are written and unapplied, 043 and the HTTP routes sit in PR #95. Re-scoring needs a decision first: does ✅ mean *migration written*, *applied*, or *reachable by staff*? Flagged in the blueprint rather than silently edited. | Agent |
-| W16 | **Work the Search Console 404 export when it arrives (E8).** For each dead URL with a referring page: add a redirect if there is a sensible destination, and add it to `docs/inbound-links.json` either way so `npm run check:links` asserts it from then on. The `/en` fix covers one referral found by accident; this covers the ones nobody has followed yet. If the guess in [`INBOUND-LINKS.md`](INBOUND-LINKS.md) is right and the pre-2026 site used `/en/...` throughout, the export is where the rest of that structure will show up. | Agent |
+| W16 | **Work the Search Console 404 export when it arrives (E8).** The archive pass is done — 46 redirects now cover the 86 old URLs that were 404ing (`lib/legacyRedirects.ts`). What the export adds is the class the archive cannot show: links to URLs that were *never* ours — a typo, a truncation, a guessed path — plus a measure of what the redirects actually recovered. For each: redirect if there is a sensible destination, and add it to `docs/inbound-links.json` either way. [`INBOUND-LINKS.md`](INBOUND-LINKS.md). | Agent |
 | W1 | **Photo upload saga** — the last piece of phase 2. Not started. Blueprint §7. | Agent |
 | W2 | **Content correctness against the insurance policies.** The site may currently imply cover that does not exist: theft is uncovered, glass is uncovered, and 50cc has no roadside assistance. `DEFINING-STATEMENTS.md` §10 makes this binding. **Partly blocked on B5** — the FDW wording cannot be written until the own-damage policy's terms and excess are known. The theft, glass and 50cc-assistance corrections are not blocked and can proceed now. | Agent |
 | W8 | **Our surcharge age and the insurer's age are computed differently.** Article 18 counts age **from 1 January of the year of birth** (`pickupYear − birthYear`); `lib/rentalPolicy.ts` computes true age on the pick-up date. Insurer age is always ≥ true age, so **we never undercharge** — but we do charge some customers whose birthday falls later in the year and whom the insurer already treats as 23. A decision about whose definition to follow, not a defect. | Agent |
@@ -82,6 +82,14 @@ under `supabase/migrations/paste/`.
 | W4 | **`discount_rules` `age_surcharge` is broken.** Charges per rental not per day; parses the band's *lower* bound so a threshold of 22 also charges a 24-year-old; the public quote route never calls it. Found 2 Sep and deliberately not fixed — it was not what was asked. | Agent |
 | W5 | **Admin frozen panes** — open UI defect, three theories disproved and recorded. [`HANDOVER-ADMIN-FROZEN-PANES.md`](HANDOVER-ADMIN-FROZEN-PANES.md). | Agent |
 | W6 | **Pin the `app/admin/login/page.tsx` lint warning** with a disable comment. The hard navigation is deliberate — it forces the browser to send refreshed cookies to the middleware after MFA — and "fixing" it would break login. | Agent |
+
+---
+
+## ⚖️ Legal and compliance
+
+| # | Item | Owner |
+|---|---|---|
+| L1 | **The ΕΠΑνΕΚ 2014-2020 co-funding page no longer exists anywhere on the site.** The previous site served `/επανεκ-2014-2020` (archived title "ΕΠΑνΕΚ 2014-2020") until at least 3 October 2022; the current site has no equivalent and the URL 404s. Businesses taking ΕΣΠΑ/ΕΠΑνΕΚ money carry a **publicity obligation** to display the co-funding notice, and whether it still binds depends on the grant's own terms and its duration-of-obligation period — which is in the grant paperwork, not in anything an agent can reach. Deliberately **not** redirected to the home page: quietly disposing of a possible legal duty is worse than leaving the 404 visible. Check the grant terms; if it still binds, say so and an agent rebuilds the page. The archived copy is recoverable from the Wayback Machine. [`INBOUND-LINKS.md`](INBOUND-LINKS.md). | **Tasos** |
 
 ---
 

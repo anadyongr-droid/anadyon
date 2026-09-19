@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { legacyRedirects } from "@/lib/legacyRedirects";
 
 /**
  * Links written against this site by other people, and what happens when one is
@@ -92,5 +93,57 @@ test.describe("the page a wrong link lands on", () => {
     await expect(
       page.getByRole("main").getByRole("link", { name: "Αυτοκίνητα" }),
     ).toHaveAttribute("href", "/el/cars");
+  });
+});
+
+/**
+ * Every rule in the legacy map, walked against a real server.
+ *
+ * Forty-six rules transcribed from an archive index is forty-six chances to
+ * fat-finger a slug, and a redirect pointing at a page that does not exist
+ * replaces a 404 with a different 404 while looking, in review, like a fix.
+ * Reading the table proves nothing; only the server settles it.
+ *
+ * Wildcard sources are given a sample path, because `:path*` is not a URL.
+ */
+const sources = legacyRedirects
+  .filter((rule) => rule.source !== "/en/:path*")
+  .map((rule) => ({
+    from: rule.source.replace("/:path*", "/anadyon-sample-slug"),
+    to: rule.destination,
+  }));
+
+test.describe("the old site's URLs", () => {
+  test("every legacy rule lands on a page that exists", async ({ request }) => {
+    const broken: string[] = [];
+
+    for (const { from, to } of sources) {
+      const res = await request.get(from, { maxRedirects: 5 });
+      if (res.status() !== 200) {
+        broken.push(`${from} -> ${res.status()}`);
+        continue;
+      }
+      // Landing on 200 is not enough: a rule pointing at the wrong live page is
+      // still wrong, and would pass a status-only check.
+      const landed = new URL(res.url()).pathname;
+      if (landed !== to) broken.push(`${from} landed on ${landed}, expected ${to}`);
+    }
+
+    expect(broken, `broken legacy redirects:\n${broken.join("\n")}`).toEqual([]);
+  });
+
+  test("the fleet pages that carried the most history resolve", async ({ page }) => {
+    // Named explicitly rather than left to the loop above. These three are the
+    // old site's money pages and the ones most likely to be linked from a
+    // travel guide; if the loop is ever weakened, these still fail loudly.
+    for (const [from, to] of [
+      ["/rent-cars-zakynthos", "/cars"],
+      ["/rent-motorbikes-zakynthos", "/motorbikes"],
+      ["/rent-bikes-zakynthos", "/bikes"],
+    ]) {
+      const response = await page.goto(from, { waitUntil: "domcontentloaded" });
+      expect(response?.status(), from).toBe(200);
+      expect(new URL(page.url()).pathname, from).toBe(to);
+    }
   });
 });

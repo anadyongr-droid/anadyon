@@ -41,6 +41,10 @@ const flag = (name, fallback = null) => {
 const BASE = (flag("base", "http://127.0.0.1:3100")).replace(/\/$/, "");
 const INBOUND_ONLY = args.includes("--inbound-only");
 const TIMEOUT_MS = Number(flag("timeout", "20000"));
+// Deliberately low. This checker exists to be run against the live site, and a
+// burst of parallel requests from one address is indistinguishable from an
+// attack — which is precisely how it got itself firewalled the first time.
+const CONCURRENCY = Math.max(1, Number(flag("concurrency", "3")));
 
 /** GET rather than HEAD: some hosts answer HEAD differently, or not at all. */
 async function probe(url) {
@@ -98,7 +102,23 @@ function pageLinks(html, pageUrl) {
 }
 
 const problems = [];
+const blocked = [];
 const ran = [];
+
+/**
+ * Statuses that mean "we could not look", not "the link is broken".
+ *
+ * Learned the hard way on 19 September 2026: probing the 181 archived paths
+ * against production twice tripped **Vercel's own firewall**, and every
+ * subsequent request came back 403 from a Vercel challenge page. A checker that
+ * counts those as broken links reports the entire site as dead and sends the
+ * next person hunting a bug that is not there — the worst possible failure mode
+ * for a tool whose whole job is to be believed.
+ *
+ * Reported separately and never as a failure. The block decays on its own; run
+ * it again later.
+ */
+const UNCHECKABLE = new Set([401, 403, 407, 429]);
 
 // ── Pass 2 first: it needs no local server, so it still runs under --inbound-only.
 {
@@ -122,12 +142,13 @@ const ran = [];
     return `${BASE}${u.pathname}${u.search}`;
   });
 
-  const results = await mapLimit(aimed, 6, probe);
+  const results = await mapLimit(aimed, CONCURRENCY, probe);
   ran.push(`inbound: ${results.length} published URL(s)`);
 
   results.forEach((r, i) => {
     const entry = register.links[i];
     if (r.status >= 200 && r.status < 300) return;
+    if (UNCHECKABLE.has(r.status)) { blocked.push(`${r.status}  ${r.url}`); return; }
     problems.push(
       `INBOUND ${r.status || r.error}  ${r.url}\n` +
       `         published by ${entry.publishedBy} (${entry.found})\n` +
@@ -149,7 +170,7 @@ if (!INBOUND_ONLY) {
 
   // Every sitemap entry must itself resolve. A sitemap that lists a 404 is worse
   // than one that omits the page: it actively sends crawlers at a dead URL.
-  const pageResults = await mapLimit(pages, 6, probe);
+  const pageResults = await mapLimit(pages, CONCURRENCY, probe);
   for (const r of pageResults) {
     if (r.status < 200 || r.status >= 300) problems.push(`SITEMAP ${r.status || r.error}  ${r.url}`);
   }
@@ -165,16 +186,24 @@ if (!INBOUND_ONLY) {
     }
   }
 
-  const linkResults = await mapLimit([...targets.keys()], 6, probe);
+  const linkResults = await mapLimit([...targets.keys()], CONCURRENCY, probe);
   ran.push(`internal: ${linkResults.length} distinct link target(s)`);
   for (const r of linkResults) {
     if (r.status >= 200 && r.status < 300) continue;
+    if (UNCHECKABLE.has(r.status)) { blocked.push(`${r.status}  ${r.url}`); continue; }
     problems.push(`LINK    ${r.status || r.error}  ${r.url}\n         linked from ${targets.get(r.url).join(", ")}`);
   }
 }
 
 console.log(`Checked against ${BASE}${INBOUND_ONLY ? " (inbound only)" : ""}`);
 ran.forEach((line) => console.log(`  ${line}`));
+
+if (blocked.length) {
+  console.log(`\n${blocked.length} URL(s) could not be checked — not counted as broken:\n`);
+  blocked.forEach((b) => console.log(`  ${b}`));
+  console.log("\n  A 403 or 429 here is usually Vercel's firewall reacting to the check itself,");
+  console.log("  not a broken link. Lower --concurrency, or wait and run it again.");
+}
 
 if (problems.length) {
   console.error(`\n${problems.length} broken link(s):\n`);
