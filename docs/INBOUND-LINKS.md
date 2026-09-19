@@ -142,7 +142,7 @@ What exists is four external indexes. Three are free.
 
 | Source | Gives | Cost | Needs |
 |---|---|---|---|
-| **Google Search Console** | Links report; and *Pages → Not found (404)* with referring pages — the one that directly answers "which inbound links are broken" | Free | Verified ownership |
+| **Google Search Console** | *Indexing → Pages → Not found (404)*, and the Links report. **Both are samples, not inventories** — see the limits below. | Free | Verified ownership |
 | **Bing Webmaster Tools** | Backlinks report; can import the GSC site verification | Free | Verified ownership |
 | **Ahrefs Free** (was Ahrefs Webmaster Tools) | Site Explorer: "Uncover which websites and pages are linking to you", plus broken-link data for internal and external links | Free, unlimited verified sites; **up to 1,000 backlinks visible at once** | Verified ownership |
 | Semrush / Majestic / Ahrefs paid | Larger indexes, competitor backlinks | Paid — Ahrefs' own next tier is $29/mo | Money, so Tasos |
@@ -151,6 +151,27 @@ Ahrefs' figures are from its own page, read 19 September 2026. Its comparison
 table claims Search Console shows only the "Top 1,000" links while Ahrefs Free
 shows "All known links", but its own limits table and FAQ both say 1,000
 visible at once, so treat 1,000 as the working ceiling for the free tier.
+
+### What Search Console does not give you
+
+Checked against Google's own documentation, 19 September 2026, because the
+earlier draft of this document overstated it:
+
+- **The 404 report is a one-month window, not a history.** Google: *"To avoid
+  showing you an eternally growing list of 404 errors, the Page indexing report
+  shows only URLs that have shown 404 errors in the past month."* It will not
+  produce eleven years of dead URLs. The Wayback Machine did that, and is the
+  reason this was solvable at all.
+- **The Links report is a sample.** Google: *"This report isn't a comprehensive
+  list of every link on your site. It shows a sample of internal and external
+  links"*, and *"Tables are limited to 1,000 rows"*.
+- **Timing works against us now.** The 46 redirects shipped on 19 September, so
+  as Google re-crawls, those URLs stop being 404s and drop out of the report.
+  Pulling the export sooner shows more. This is not a reason to rush — the
+  redirects are the fix, and the report is only how we find what they missed.
+
+None of that makes it not worth doing. It makes it a **discovery feed for what
+is still breaking**, rather than the audit the earlier draft implied.
 
 ### Is Search Console even connected?
 
@@ -180,7 +201,7 @@ referred upward.
 2. **Export *Pages → Not found (404)*.** This is the payload. It lists dead URLs
    *and* the pages linking to them — the complete version of the accident that
    started this.
-3. **Export the Links report** (top linking sites and top linked pages).
+3. **Export the Links report** — External links → Top linking sites, and Top linked pages. A sample capped at 1,000 rows, so read it as "who links to us most", not "everyone who links to us".
 4. Optionally, sign up for Bing Webmaster Tools and Ahrefs Free and verify the
    same domain.
 
