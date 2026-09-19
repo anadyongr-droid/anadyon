@@ -164,6 +164,36 @@ const nextConfig: NextConfig = {
         destination: "https://anadyon.gr/:path*",
         permanent: true,
       },
+      /**
+       * `/en` is not a route on this site. English is at the root and Greek
+       * under `/el`, so anything addressed to `/en/...` 404s.
+       *
+       * Found on 19 September 2026 from a Google Analytics referral:
+       * notrevieenvoyage.com, a French travel guide to Zakynthos, links
+       * `https://anadyon.gr/en/`. That request 308s to `/en` (trailing-slash
+       * normalisation) and then 404s, so every reader that guide sent us hit a
+       * dead end.
+       *
+       * Why a third party wrote `/en/` is NOT established. The obvious guess is
+       * that the pre-2026 site served English there, but web.archive.org is
+       * blocked by this environment's egress policy and no other primary source
+       * was reachable, so it stays a guess. What is verified is only this: the
+       * URL is linked from outside, and it is dead. That is enough to redirect
+       * it, and the guess is recorded so nobody later mistakes it for a finding.
+       *
+       * Two rules rather than one. `/en/:path*` does match a bare `/en` on
+       * paper — path-to-regexp's `*` is zero-or-more — but the empty-parameter
+       * case is exactly the kind of thing that behaves differently than the
+       * documentation reads, and the bare `/en` is the link we have evidence
+       * for. It is spelled out so it cannot depend on that.
+       *
+       * Permanent (308), so the link equity a twelve-year-old domain has
+       * accumulated against `/en/...` transfers to the live page instead of
+       * draining into a 404. A path with no English equivalent still 404s —
+       * onto the recovery page added alongside this, not a blank one.
+       */
+      { source: "/en", destination: "/", permanent: true },
+      { source: "/en/:path*", destination: "/:path*", permanent: true },
     ];
   },
   async headers() {
