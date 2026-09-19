@@ -22,43 +22,60 @@
  * not proof: aggregate reports only cover receivers that send them, so a source
  * that mails exclusively to a domain with no reporting is invisible here.
  *
- * ── NOT YET VALIDATED ────────────────────────────────────────────────────────
- * This has NEVER BEEN RUN AGAINST A REAL REPORT. It is committed so the work is
- * not lost with the container, not because it is finished, and nothing should
- * be decided from its output until it has parsed a genuine file.
- *
- * The field names come from RFC 7489 appendix C, not from a report anybody
- * opened, and the regex reader assumes a shape real receivers may not share —
- * `<record>` blocks vary, and `<auth_results>` can carry several `<spf>` and
- * `<dkim>` children where this expects a handful. On 19 September this same
- * mistake was made in a more expensive way: the SPF finding in
- * EMAIL-DELIVERABILITY.md was reasoned from DNS structure and was wrong, and
- * only a real message header settled it.
- *
- * To validate: get one real `.xml.gz` (they arrive daily; on 19 September
- * twenty-plus were sitting in the Gmail bin from Microsoft, Google, Yahoo, AOL
- * and GMX), run it, and check the parsed totals against the numbers in the XML
- * by eye. Delete this block once that is done.
- * ─────────────────────────────────────────────────────────────────────────────
+ * Validated 19 September 2026 against a real Outlook.com report, kept as a
+ * fixture at docs/dmarc/. lib/dmarcReader.test.ts runs it against that file and
+ * against two mutations of it; both mutation tests were confirmed to fail when
+ * the script was changed to read `auth_results` instead of `policy_evaluated`,
+ * which is the mis-parse that would matter.
  */
 import { readFileSync } from "node:fs";
-import { gunzipSync } from "node:zlib";
+import { gunzipSync, inflateRawSync } from "node:zlib";
 
 const files = process.argv.slice(2);
 if (!files.length) {
-  console.error("usage: node scripts/read-dmarc.mjs <report.xml.gz | report.xml> …");
+  console.error("usage: node scripts/read-dmarc.mjs <report.xml.gz | .zip | .xml> …");
   process.exit(2);
 }
 
-/** Tolerant of however the file arrived: gzip, plain XML, or base64 of either. */
+/**
+ * Pull the single member out of a ZIP without a dependency.
+ *
+ * Google sends `.zip` where Microsoft and GMX send `.xml.gz` — found the first
+ * time a real Google report was opened, because the earlier version of this
+ * script handled only gzip and silently failed on it. Reads the local file
+ * header (RFC 1952's cousin, PKZIP APPNOTE 4.3.7): 30-byte fixed header, then
+ * the name and extra field, then the data, stored (method 0) or deflated (8).
+ */
+function fromZip(buf) {
+  if (buf.readUInt32LE(0) !== 0x04034b50) throw new Error("not a zip");
+  const method = buf.readUInt16LE(8);
+  const nameLen = buf.readUInt16LE(26);
+  const extraLen = buf.readUInt16LE(28);
+  const start = 30 + nameLen + extraLen;
+  let size = buf.readUInt32LE(18); // compressed size
+
+  // A streamed zip writes sizes to the data descriptor instead, leaving these
+  // zero. Fall back to everything up to the central directory.
+  if (size === 0) {
+    const central = buf.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]), start);
+    size = (central === -1 ? buf.length : central) - start;
+  }
+
+  const body = buf.subarray(start, start + size);
+  return (method === 0 ? body : inflateRawSync(body)).toString("utf8");
+}
+
+/** Tolerant of however the file arrived: zip, gzip, plain XML, or base64 of any. */
 function xmlFrom(path) {
   let buf = readFileSync(path);
   if (buf[0] === 0x1f && buf[1] === 0x8b) return gunzipSync(buf).toString("utf8");
+  if (buf[0] === 0x50 && buf[1] === 0x4b) return fromZip(buf);
   const text = buf.toString("utf8").trim();
   if (text.startsWith("<")) return text;
   // Base64 — decode once, then it is either gzip or XML.
   const decoded = Buffer.from(text.replace(/\s+/g, ""), "base64");
   if (decoded[0] === 0x1f && decoded[1] === 0x8b) return gunzipSync(decoded).toString("utf8");
+  if (decoded[0] === 0x50 && decoded[1] === 0x4b) return fromZip(decoded);
   return decoded.toString("utf8");
 }
 
