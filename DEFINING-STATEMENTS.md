@@ -345,3 +345,44 @@ dated item that has passed is escalated, not silently carried forward.
 `docs/README.md` should be able to start work knowing what matters today and
 what is waiting on whom. If something important is not on that list, the list is
 wrong and fixing it is the first task.
+
+## 13. Changes to the operating model or customer relationship require Tasos's explicit approval
+
+*Added 20 September 2026, by Tasos, after customer-facing insurance wording was
+prepared for merge without first being discussed with him.*
+
+An agent may investigate a problem, document the evidence, identify risk, and
+draft a proposed solution. It may not merge or deploy a change that alters how
+Anadyon operates or what it tells, promises, charges, requires, permits, or
+withholds from a customer until **Tasos has explicitly approved that specific
+change**.
+
+This includes, without limitation:
+
+- prices, deposits, fees, discounts, refunds and payment deadlines;
+- insurance, waivers, exclusions, liability and roadside-assistance wording;
+- age, licence, eligibility, cancellation and booking rules;
+- customer emails, contractual wording, disclosures and service promises;
+- the steps staff or customers must follow, and changes to who may take an
+  operational action; and
+- new products, removed products, sales channels or material changes to the
+  booking, handover, payment or support model.
+
+General authority to continue working, merge green pull requests, deploy, fix
+bugs, or maintain the system **does not count as approval** for one of these
+changes. Approval must identify the proposal closely enough that there is no
+reasonable doubt what customer or operational effect Tasos accepted. Silence,
+an open item, an audit finding, policy evidence, or agreement that a problem
+exists is not approval of a particular remedy or wording.
+
+Agents may still make changes that preserve the agreed model — for example a
+security fix, build repair, formatting correction, regression test, or faithful
+implementation of wording already approved — provided the change does not
+quietly alter customer outcomes or staff authority. If there is doubt, the
+change stays in a draft or unmerged branch and is presented to Tasos with its
+before/after effect.
+
+**The test:** could a customer receive different terms, price, cover,
+expectation, communication or treatment, or could staff be required or allowed
+to operate differently? If yes, obtain Tasos's explicit approval before merge
+or deployment.

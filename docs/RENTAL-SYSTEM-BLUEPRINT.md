@@ -539,7 +539,8 @@ somebody suggests a €129 plugin.
 
 ## 2. Feature comparison
 
-✅ built · ⚠️ partial · ❌ absent · — not applicable at this scale
+✅ reachable in the current production staff workflow · ⚠️ present but not yet
+fully reachable in production · ❌ absent · — not applicable at this scale
 
 | Capability | Anadyon | Seen in |
 |---|---|---|
@@ -557,12 +558,12 @@ somebody suggests a €129 plugin.
 | Fleet register with statutory dates | ✅ | Coastr, Wheelsys |
 | Cost tracking per vehicle | ✅ | Coastr, RENTALL |
 | Maintenance scheduling | ⚠️ dates only, no scheduler | Coastr, Navotar, RentWorks |
-| Damage log | ⚠️ schema only, no UI | all |
-| **Counter / paperless check-out & check-in** | ❌ | Wheelsys, Rent Centric, TSD |
+| Damage log | ✅ fleet ledger UI | all |
+| **Counter / paperless check-out & check-in** | ⚠️ database + API complete on staging; staff UI absent | Wheelsys, Rent Centric, TSD |
 | **Condition capture with photos** | ❌ | Record360, ProovStation, Coastr |
-| **Digital agreement + signature** | ❌ | TSD, Rent Centric, Coastr |
-| **Stop-sells (withdraw for a date range)** | ❌ | Wheelsys |
-| **Licence verification** | ❌ stored, never checked | Coastr, Rent Centric |
+| **Digital agreement + signature** | ⚠️ paper-signature timestamp gate; no versioned digital agreement | TSD, Rent Centric, Coastr |
+| **Stop-sells (withdraw for a date range)** | ✅ | Wheelsys |
+| **Licence verification** | ⚠️ expiry gate built; category and issue date absent | Coastr, Rent Centric |
 | Utilisation / RevPAV reporting | ❌ | Wheelsys, RENTALL, Nomora |
 | Real-time dashboards + alerting | ⚠️ one daily cron | Wheelsys, Coastr |
 | Scheduled email reports | ❌ | Wheelsys |
@@ -577,14 +578,12 @@ somebody suggests a €129 plugin.
 | Franchise, multi-location | — | Wheelsys, TSD |
 | Vehicle subscription, P2P sharing | — | Rent Centric |
 
-> **This table is stale as of 19 September 2026 and has not been re-scored
-> here.** The counter rows — check-out and check-in, condition capture, digital
-> agreement, damage log — were written before phase 2. Migrations 040 and 041
-> (the handovers table and check-out finalisation) are **applied in production**;
-> 042 and 044 are written and unapplied; 043 and the five HTTP routes are open in
-> PR #95. So several ❌ and ⚠️ are now wrong, and re-scoring each honestly means
-> deciding what "built" means when a migration exists but is unapplied. Recorded
-> rather than quietly edited. Open item **W15**.
+> **Re-scored 19 September 2026.** A ✅ now means a staff member can use the
+> capability in the current production application. Merged code or a migration
+> that is not yet applied/reachable is ⚠️, never ✅. On that basis the complete
+> handover database and API are correctly partial: migrations 042–045 and all
+> routes have been replayed and exercised on staging, but production has not
+> received those migrations and no staff counter UI calls the routes yet.
 >
 > Against the DIY tier (§1.11), the "Seen in" column would read **none** for every
 > row from *Counter* downwards.

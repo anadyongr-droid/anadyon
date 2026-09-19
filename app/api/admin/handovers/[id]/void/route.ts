@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handoverErrorMessage, handoverErrorStatus } from "@/lib/handoverErrors";
-import { handoverGatewayClient } from "../../route";
+import { handoverGatewayClient } from "@/lib/handoverAuth";
 
 /**
  * Voiding a handover.

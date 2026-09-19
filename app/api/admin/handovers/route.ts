@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase";
 import { handoverErrorMessage, handoverErrorStatus } from "@/lib/handoverErrors";
+import { handoverActorId } from "@/lib/handoverAuth";
 
 /**
  * The counter: listing a rental's handovers, and opening one.
@@ -20,47 +19,6 @@ import { handoverErrorMessage, handoverErrorStatus } from "@/lib/handoverErrors"
  */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * A user-scoped client for the identity-verifying handover gateways.
- *
- * Mutations that finalise, correct or void must use this client rather than
- * `supabaseAdmin`: the gateways read `auth.uid()` and verify the caller against
- * `auth.users.raw_app_meta_data`. A service-role call has no end-user identity
- * and deliberately fails closed.
- */
-export async function handoverGatewayClient() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
-  );
-}
-
-/** The staff member acting, used while opening a draft through the service role. */
-export async function actorId(): Promise<string | null> {
-  try {
-    const supabase = await handoverGatewayClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.id ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/** The display name stored alongside the actor, so a later rename cannot erase it. */
-export async function actorName(): Promise<string | null> {
-  try {
-    const supabase = await handoverGatewayClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    const meta = user?.user_metadata as Record<string, unknown> | undefined;
-    const full = typeof meta?.full_name === "string" ? meta.full_name : null;
-    return full ?? user?.email ?? null;
-  } catch {
-    return null;
-  }
-}
 
 const HANDOVER_COLUMNS =
   "id, reservation_id, vehicle_id, direction, status, client_operation_id, " +
@@ -217,7 +175,7 @@ export async function POST(req: NextRequest) {
       status: "draft",
       client_operation_id: clientOperationId,
       inspection_template_id: templateId,
-      created_by: await actorId(),
+      created_by: await handoverActorId(),
     })
     .select(HANDOVER_COLUMNS)
     .single();
