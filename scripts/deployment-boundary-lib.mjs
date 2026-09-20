@@ -1,6 +1,6 @@
 export const STAGING_PROJECT_REF = "fzycvstifmltxybffinq";
 
-const NEVER_ON_PREVIEW = [
+export const NEVER_ON_PREVIEW = [
   "ANTHROPIC_API_KEY",
   "APIFY_TOKEN",
   "GMAIL_CLIENT_ID",
@@ -14,7 +14,7 @@ const NEVER_ON_PREVIEW = [
   "WISE_BUSINESS_HANDLE",
 ];
 
-const GENERAL_PREVIEW_SERVER_KEYS = [
+export const GENERAL_PREVIEW_SERVER_KEYS = [
   "AADE_SUBSCRIPTION_KEY",
   "AADE_USER_ID",
   "CRON_SECRET",
