@@ -1,6 +1,45 @@
 const REDACTED_DATABASE_URL = "[REDACTED_DATABASE_URL]";
 
 /** Remove database credentials from any diagnostic before it reaches output. */
+export const REDACTED_DATABASE_PASSWORD = "[REDACTED_DATABASE_PASSWORD]";
+
+/**
+ * The password out of a connection URL, raw and percent-decoded.
+ *
+ * Whole-URL replacement covers the URL as it was passed in, and the patterns
+ * below cover anything URL-shaped. Neither covers the password on its own —
+ * and the password is the part that matters. Two cases produce it detached
+ * from its URL:
+ *
+ * - output wrapped across a line, so the URL no longer matches as one string
+ *   and the pattern stops at the newline, leaving the tail in the clear;
+ * - a driver reporting `password=...` in libpq keyword form rather than as a
+ *   URL, which no URL-shaped pattern can see.
+ *
+ * Both forms are redacted because the password is already in hand: it came in
+ * with `knownUrls`. Decoded as well as raw, since a URL carries `%40` where
+ * the driver prints `@`.
+ *
+ * Short values are skipped. A six-character floor keeps a password that
+ * happens to read like an ordinary word from blanking unrelated log text; a
+ * credential short enough to be caught by that floor has a worse problem than
+ * its logging.
+ */
+const MIN_REDACTABLE_SECRET = 6;
+
+function passwordTokens(url) {
+  const match = /^[a-z][a-z0-9+.-]*:\/\/[^:@/\s]+:([^@\s]+)@/i.exec(url);
+  if (!match) return [];
+  const raw = match[1];
+  const tokens = new Set([raw]);
+  try {
+    tokens.add(decodeURIComponent(raw));
+  } catch {
+    // A malformed escape is not a reason to skip the raw form.
+  }
+  return [...tokens].filter((token) => token.length >= MIN_REDACTABLE_SECRET);
+}
+
 export function redactDatabaseCredentials(value, knownUrls = []) {
   let redacted = String(value ?? "");
   const secrets = knownUrls
@@ -9,6 +48,13 @@ export function redactDatabaseCredentials(value, knownUrls = []) {
 
   for (const secret of secrets) {
     redacted = redacted.replaceAll(secret, REDACTED_DATABASE_URL);
+  }
+
+  // Longest first, so a password that contains another is not half-replaced.
+  const passwords = [...new Set(secrets.flatMap(passwordTokens))]
+    .sort((a, b) => b.length - a.length);
+  for (const password of passwords) {
+    redacted = redacted.replaceAll(password, REDACTED_DATABASE_PASSWORD);
   }
 
   // Cover malformed schemes too: third-party parsers may partially normalise
