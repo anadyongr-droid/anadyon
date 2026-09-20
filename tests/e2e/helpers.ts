@@ -49,6 +49,16 @@ export function req(url: string, method: string, body?: unknown, ip = "203.0.113
 
 export const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 
+/** Waits for work registered through the test implementation of Next `after`. */
+export async function flushAfterTasks() {
+  const key = Symbol.for("anadyon.e2e.afterTasks");
+  const tasks = (globalThis as typeof globalThis & {
+    [key]?: Set<Promise<unknown>>;
+  })[key];
+  if (!tasks?.size) return;
+  await Promise.all([...tasks]);
+}
+
 /** Removes every row this suite created, in dependency order. */
 export async function cleanup() {
   const { data: res } = await db.from("reservations").select("id").ilike("customer_name", `%${MARK}%`);

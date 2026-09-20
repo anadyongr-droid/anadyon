@@ -56,6 +56,17 @@ export function isAllowedMime(value: unknown): boolean {
 }
 
 /**
+ * Converts the collision-resistant object name back to the filename staff saw.
+ *
+ * Uploads are stored as `<Date.now()>-<safe filename>`. The timestamp belongs
+ * to the private Storage key, not the reservation UI; leaking it made the same
+ * file change name after the modal was closed and reopened.
+ */
+export function documentDisplayName(storedName: string): string {
+  return storedName.replace(/^\d{13}-(?=.)/, "");
+}
+
+/**
  * Splits a storage path and refuses anything that is not exactly
  * `<uuid>/<filename>`.
  *

@@ -126,6 +126,30 @@ blocker** — the only area so graded. It has not been re-graded since.
 
 ### B1. The age and eligibility contradiction
 
+> **Superseded in part, 1 September 2026.** The contradiction described below
+> was repaired: `lib/rentalPolicy.ts` now single-sources the rule and the terms
+> page, the booking modal and the FAQ all derive from it, so they cannot
+> diverge. The published position is **21 for every vehicle, with a young-driver
+> surcharge that "may apply" for 21–25**.
+>
+> Two things remain open, and they are commercial rather than legal:
+>
+> - **The surcharge is published and not implemented.** Nothing in pricing
+>   charges it. Telling a customer a fee may apply and never applying it is the
+>   harmless direction, but the two should agree.
+> - **The blanket 21 sits above the legal floor for motorbikes**, where Greek
+>   and EU law sets the minimum by licence category — 16 for AM, 18 for A1, 20
+>   for A2, 24 for A. See `docs/DRIVER-AGE-MARKET.md`, which also has what the
+>   Zakynthos market does and the questions for the insurer.
+>
+> Counsel's remaining interest here is narrower than the original finding: not
+> "these pages contradict each other", but "is the age matrix, once decided,
+> stated lawfully and consistently, and does the surcharge need disclosing at a
+> particular point in the booking".
+
+*Original finding, 18 August 2026, kept because the reasoning still applies to
+any future change:*
+
 `app/terms/page.tsx` and the booking form's shared modal both say *"Minimum
 driver's age is 21 years"* with no vehicle qualification. `app/faq/FaqClient.tsx`
 says cars require above 21 while motorbikes and bicycles require 18. Separately,

@@ -225,9 +225,12 @@ Arguments for continuing to build, none of them decisive on their own:
 Arguments for buying that the decision below had to answer:
 
 - The counter workflow is the largest remaining build, and it is the part of the
-  category that is most commoditised.
+  category that is most commoditised. **Qualified 19 September (§1.11): it is
+  commoditised in the SaaS tier and entirely absent from the DIY tier, so the
+  "just buy a plugin" version of this argument does not hold.**
 - A $129/month subscription against the engineering time in §7 phases 1-4 is not
-  a close call on cost alone.
+  a close call on cost alone. **And the true floor is lower still: €129 once,
+  per §1.11.**
 - Every hour spent on condition capture is an hour not spent on the rate
   intelligence that actually differentiates.
 
@@ -444,9 +447,100 @@ annotations in §1.8 and the gate in §7.1a.
 
 ---
 
+### 1.11 The DIY tier — **VikRentCar**, **PHPJabbers**, **CodeCanyon**
+
+*Added 19 September 2026, at Tasos's request, after an adviser suggested them as
+the cheap alternative to building.*
+
+**Why this is inside the stop rule.** §1.9 caps the benchmark at sixteen and
+admits a new entry only on primary vendor evidence that would change a named
+decision. This is **one entry, not three** — a price tier, not three more
+products — and it bears directly on **build versus buy** (§1.8), which until now
+had only ever been tested against SaaS at $50–$129 *per month*. It had never
+been tested against a **one-off purchase under €130**. That is a different
+argument and it deserved checking.
+
+All figures below are from the vendors' own pages, fetched 19 September 2026.
+
+#### What they cost, and what they are
+
+| | **VikRentCar** | **PHPJabbers** | **CodeCanyon** |
+|---|---|---|---|
+| Form | WordPress (and Joomla) plugin | Self-hosted PHP script | Marketplace, ~163 listings |
+| Price | **€129** one-off, 1-year licence per domain; free BASIC on WordPress.org | **$129** one-off, "lifetime licence, full source code"; optional $39/mo care, $69/mo hosted | **$29–$109**, typically $59–$85 |
+| Best-selling example | — | — | *Car Rental System* (WP plugin), $85, 2.9K sales; *Car Rental Booking System*, $79, 2K sales |
+| Hosting | Your WordPress | Your PHP host | Yours |
+
+#### What VikRentCar actually offers — the strongest of the three
+
+Rate plans with **daily, weekly, monthly and hourly** costs; seasonal prices; a
+rates overview for per-date pricing; vehicles with sub-units and a numbering
+feature; monthly availability calendars; options and extra services; extra fees
+for out-of-hours pick-up and drop-off and for location combinations; custom tax
+rates per location; **multiple insurance types (CDW, LDW)**; **damage tracking
+via customisable PDF reports**; PayPal, offline card and cash, with "over 40
+credit card payment gateways compatible"; multi-language; coupons; graphs and
+reports; customisable PDF documents.
+
+PHPJabbers covers similar booking ground — unlimited car types, extras (child
+seats, GPS, insurance), custom rates by length or period, minimum booking
+length, hold rules, locations, user roles, ten colour themes, PayPal and
+Authorize.net, CSRF protection — and adds a paid maintenance and hosting tier,
+which is the honest part of its offer: someone else patches the PHP.
+
+#### What none of them states
+
+Checked against each vendor's own feature list. These are **absences from the
+vendors' documentation**, which is not the same as proof of absence in the
+product — but a capability a vendor does not advertise is one you cannot rely on:
+
+- **Greek fiscalisation.** No mention of AADE, myDATA, or Greek invoicing by any
+  of the three.
+- **A staff counter workflow.** No check-out/check-in state machine. VikRentCar
+  offers a "team dashboard" for viewing pickups and returns; that is a list, not
+  a workflow with blockers and an audit trail.
+- **Condition capture with photographs.** VikRentCar's damage tracking is a
+  customisable PDF report. Nothing photographic, nothing tied to a handover
+  record.
+- **Customer document storage.** Nothing on licence or passport capture and
+  retention.
+- **Mixed fleet.** All three are written for cars. Motorbikes and bicycles are
+  not addressed. (PHPJabbers sells a separate *equipment rental* script, which
+  is a different product, not a mixed fleet in one system.)
+- **Server-side price verification** and **live competitor rate collection.**
+  Neither appears, as with the sixteen.
+
+#### What this changes
+
+**It lowers the price floor, and confirms the floor buys none of the things
+§1.8 identified as reasons to build.** The cheapest credible alternative is not
+$129/month; it is **€129 once**. On cost alone the gap against engineering time
+is wider than §1.8 stated.
+
+But every reason §1.8 gave for building survives this tier intact: AADE, the
+mixed fleet, the competitor rate engine, server-side price verification — and,
+newly, **the entire counter workflow**, which this tier does not attempt at all.
+Where the SaaS tier (CarCEO, HQ Rental) genuinely competes on the counter, the
+DIY tier does not.
+
+**One finding worth carrying into pricing.** VikRentCar sells **CDW and LDW as
+distinct insurance products**, and PHPJabbers lists insurance among its extras.
+That is the same shape as the paper contract's C.D.W. / F.D.W. / T.W. / F.T.P.
+ladder (`docs/contract/TRANSCRIPTION.md`, article 8). It confirms the waiver
+ladder is the category norm rather than an Anadyon peculiarity — which matters
+for `CONTRACT-VS-WEBSITE.md` §1, where the website currently advertises two of
+those as *included* rather than sold.
+
+**Decision unchanged.** §1.8 stands. Nothing here argues for replacing Anadyon;
+the tier is recorded so the question is not reopened from scratch the next time
+somebody suggests a €129 plugin.
+
+---
+
 ## 2. Feature comparison
 
-✅ built · ⚠️ partial · ❌ absent · — not applicable at this scale
+✅ reachable in the current production staff workflow · ⚠️ present but not yet
+fully reachable in production · ❌ absent · — not applicable at this scale
 
 | Capability | Anadyon | Seen in |
 |---|---|---|
@@ -464,12 +558,12 @@ annotations in §1.8 and the gate in §7.1a.
 | Fleet register with statutory dates | ✅ | Coastr, Wheelsys |
 | Cost tracking per vehicle | ✅ | Coastr, RENTALL |
 | Maintenance scheduling | ⚠️ dates only, no scheduler | Coastr, Navotar, RentWorks |
-| Damage log | ⚠️ schema only, no UI | all |
-| **Counter / paperless check-out & check-in** | ❌ | Wheelsys, Rent Centric, TSD |
+| Damage log | ✅ fleet ledger UI | all |
+| **Counter / paperless check-out & check-in** | ⚠️ database + API complete on staging; staff UI absent | Wheelsys, Rent Centric, TSD |
 | **Condition capture with photos** | ❌ | Record360, ProovStation, Coastr |
-| **Digital agreement + signature** | ❌ | TSD, Rent Centric, Coastr |
-| **Stop-sells (withdraw for a date range)** | ❌ | Wheelsys |
-| **Licence verification** | ❌ stored, never checked | Coastr, Rent Centric |
+| **Digital agreement + signature** | ⚠️ paper-signature timestamp gate; no versioned digital agreement | TSD, Rent Centric, Coastr |
+| **Stop-sells (withdraw for a date range)** | ✅ | Wheelsys |
+| **Licence verification** | ⚠️ expiry gate built; category and issue date absent | Coastr, Rent Centric |
 | Utilisation / RevPAV reporting | ❌ | Wheelsys, RENTALL, Nomora |
 | Real-time dashboards + alerting | ⚠️ one daily cron | Wheelsys, Coastr |
 | Scheduled email reports | ❌ | Wheelsys |
@@ -483,6 +577,16 @@ annotations in §1.8 and the gate in §7.1a.
 | Toll processing | — | Rent Centric |
 | Franchise, multi-location | — | Wheelsys, TSD |
 | Vehicle subscription, P2P sharing | — | Rent Centric |
+
+> **Re-scored 19 September 2026.** A ✅ now means a staff member can use the
+> capability in the current production application. Merged code or a migration
+> that is not yet applied/reachable is ⚠️, never ✅. On that basis the complete
+> handover database and API are correctly partial: migrations 042–045 and all
+> routes have been replayed and exercised on staging, but production has not
+> received those migrations and no staff counter UI calls the routes yet.
+>
+> Against the DIY tier (§1.11), the "Seen in" column would read **none** for every
+> row from *Counter* downwards.
 
 **Two positions worth noticing.**
 
@@ -715,9 +819,23 @@ reason are written to the event log; device time alone is not legal evidence.
    - EXECUTE revoked from `PUBLIC` and `anon`, granted only to the role that
      needs it.
 
-   > **OPEN — this gateway cannot work as written, and the fix is not decided.**
-   > *Raised 28 August. Do not implement §4.2's finalisation against this
-   > pattern until it is resolved.*
+   > **CLOSED, 1 September — the pattern is decided and observed through the
+   > production request path.** *Raised 28 August. Option A is
+   > adopted: staff-initiated RPCs are called with a user-scoped client built
+   > from the staff member's access token, and the gateway verifies
+   > `auth.uid()` against server-owned membership in
+   > `auth.users.raw_app_meta_data`, never against a JWT claim.*
+   >
+   > *Diagnostic 10c returned a non-null user ID through the application's
+   > cookie-backed user client and a null user ID through an explicitly
+   > callable service-role control. Both ran as the definer (`postgres`), as
+   > expected. The temporary database function and application route were then
+   > removed. A reviewed follow-up migration may now grant a staff gateway to
+   > `authenticated`. See `docs/OPEN-QUESTION-RPC-STAFF-IDENTITY.md` §12.4 and
+   > §13, and `lib/rpcStaffIdentity.test.ts` for the permanent local evidence.*
+   >
+   > *The original objection, kept because it is still the reason the pattern
+   > looks the way it does:*
    >
    > Every non-test `.rpc()` call site in the repository uses `supabaseAdmin` —
    > the service role. Under a service-role key **`auth.uid()` returns NULL**,
@@ -1838,6 +1956,506 @@ currently unowned.
 
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
+
+### 19 September 2026 — two DNS decisions, one of them a correction
+
+**Decision: Vercel's nameservers are declined.** Vercel emailed inviting us to
+point `anadyon.gr` at `ns1/ns2.vercel-dns.com`. We are staying on Papaki.
+
+Counted before deciding, from live DNS. Vercel would create **two** records
+automatically — the apex and `www` A records, both already working. It would
+**not** create the other eight, and every one of them is mail or staff access:
+the root MX, `mail.anadyon.gr`, `webmail.anadyon.gr`, the root SPF, `_dmarc`,
+the Resend DKIM key, and `send.anadyon.gr`'s SPF and feedback MX. The DKIM key
+is a 216-character base64 string with no checksum, so a truncation is invisible
+and degrades booking-email authentication over days rather than failing loudly.
+
+The benefit Vercel names — automatic certificate provisioning — **we already
+have**: Vercel issues off the A record, not nameserver delegation, and the site
+has served a valid certificate throughout with nameservers at Papaki. The real
+upside is one dashboard instead of two, against an eight-record hand migration
+of the mail configuration, mid-season, with 48 hours of propagation in which a
+mistake is hard to distinguish from an unpropagated record.
+
+Revisit in February if ever, and only staged: pre-create all eight at Vercel,
+query the Vercel nameservers directly for each, then delegate.
+
+**Correction: open item E4 rests on a misdiagnosis, and is suspended pending one
+check.** `EMAIL-DELIVERABILITY.md` asserted that every booking confirmation
+hard-fails SPF because the root record authorises no `amazonses.com`, and E4
+proposed adding it. That conflates the `From:` header with the envelope sender —
+**SPF is evaluated against the Return-Path, not the header**.
+
+The evidence says the envelope domain is `send.anadyon.gr`: it carries
+`v=spf1 include:amazonses.com ~all`, and it holds the SES **feedback MX**, which
+exists only to receive bounces for the Return-Path domain — while the root MX is
+the Papaki mailbox. Resend's own documentation states that a verified domain is
+"already passing SPF and DKIM". If that holds, booking mail passes SPF on
+`send.anadyon.gr` under relaxed alignment *and* DKIM as `d=anadyon.gr` under
+strict alignment, and nothing needs adding.
+
+Not closed, because it is inference rather than a measurement: one header from a
+delivered confirmation settles it. Suspended rather than actioned because the
+proposed fix has a real cost — `include:amazonses.com` on the root authorises
+the entire shared SES pool to send as `anadyon.gr`.
+
+### 1 September 2026 — the counter's HTTP surface
+
+**Decision.** Five routes under `/api/admin/handovers` carry a tablet's request
+to migrations 041–043 and its answer back: open or resume a draft, read one,
+record what is on the car, finalise, void, correct.
+
+**They decide as little as possible.** Anything a route validated *instead of*
+the database would be a second copy of a rule, and the copy without the lock is
+the one that will be wrong — it can pass on state that has changed by the time
+the transaction runs. So the routes check shape (is this a whole number of
+kilometres, is this a valid time) and leave meaning (is this odometer below the
+check-out reading) to the functions, which hold the reservation lock while they
+ask.
+
+**Three things the routes do decide, and why each is theirs:**
+
+- **The direction comes from the row, never from the request.** A tablet that
+  could name the direction could finalise a check-in through the check-out path.
+  Migration 042 refuses that; there is no reason to let it be attempted.
+- **The vehicle comes from the reservation, never from the request.** A tablet
+  that could name its own vehicle could file a handover against a car it never
+  saw.
+- **An inbound handover copies the completed outbound one's template**, rather
+  than looking up today's active template — which may have been superseded
+  during the rental. Migration 042 refuses the mismatch; this is what stops it
+  arising.
+
+**`client_operation_id` is required, not generated.** If the server invented
+one, every retry would be a new operation and the idempotency it exists for
+would be gone: the tablet has to be the thing that remembers. A resubmit is
+answered with the same handover, and a genuine race — two taps, both inserting
+— is answered with the row that won rather than with the collision.
+
+**The draft update is scoped to drafts in the statement itself**, not by reading
+first and writing after. A read-then-write leaves a window in which a
+finalisation lands between the two, and the update would then quietly edit a
+completed record — an unaudited correction wearing the wrong verb. A colleague
+who finalised it while somebody was still typing gets *"this handover is
+completed, reload"*, which is a different sentence from *"not found"* and a
+different problem.
+
+**Correction opts out of the staff allowlist at the point of use.** proxy.ts now
+lists `/api/admin/handovers` in `STAFF_API`, which prefix-matches every
+sub-path including `/correct`. That is the same shape as the vehicle ledger
+under `/api/admin/vehicles`: the broad entry is the operational default, and the
+one exception refuses where it is implemented rather than being carved out of a
+list a later sub-path would silently rejoin. Voiding stays with staff, because
+the wrong car on a handover is a counter mistake and a fix only an administrator
+can perform is a fix that waits with a customer standing there.
+
+**`lib/handoverErrors.ts` maps refusals to HTTP, in one place.** A deliberate
+refusal reaches the tablet in the database's own words, because those words say
+what to fix — *"vehicle is marked maintenance; 2 required photograph(s) are
+missing"*. Anything unrecognised does not: a Postgres error can carry a
+constraint name, a column list or a fragment of a query, and none of that
+belongs on a screen at a rental counter. A test asserts that property against
+several shapes rather than one.
+
+**What the route tests are, and are not.** They mock the database, so they prove
+the seams — direction from the row, actor from the session, refusal passed
+through, administrator required — and prove nothing about the rules. The rules
+are settled against real Postgres in the three migration suites. The mock
+records `update` filters rather than swallowing them, because a mock that
+ignored them would let the draft-scoping be deleted and every test still pass;
+removing `.eq("status", "draft")` fails a test now.
+
+**Mutation-checked.** Taking the direction from the request fails 1; dropping
+the administrator check fails 2; unscoping the draft update fails 1; passing
+unrecognised database errors to the screen fails 1.
+
+**Not here: photographs.** Upload is a saga against Storage — create or reuse
+the draft, upload each object, persist verified metadata, finalise only when the
+required objects exist — and it is its own piece of work. Until it lands,
+finalisation will refuse every handover with *"n required photograph(s) are
+missing"*, which is the correct answer to a counter that cannot yet take a
+picture.
+
+### 1 September 2026 — correction and voiding, and what a void does to the reservation
+
+**Decision.** Migration 043 implements §4.2 rule 4. Phase 2's counter is now
+complete as a set of database operations: check out, check in, correct, void.
+
+**§4.2 does not say what voiding does to the reservation, and "nothing" is the
+one answer that cannot be right.** Finalisation moves it — check-out to
+`active`, check-in to `returned`. If a void left that behind, the replacement
+handover could never be finalised: check-out requires a `confirmed` reservation
+and check-in an `active` one, so a corrected check-out would be refused for the
+state its own voided predecessor created. The correction path would exist and
+not work.
+
+So a void steps the reservation back, **and only when it is still in exactly the
+status this handover put it in**:
+
+| Voided | Reservation | Becomes |
+|---|---|---|
+| check-out | `active` | `confirmed` |
+| check-in | `returned` | `active` |
+| either | anything else | unchanged, and the fact is written to the event |
+
+That guard matters both ways. A reservation somebody cancelled afterwards must
+not be dragged back by a void; and stepping back from a status this handover did
+not set would be inventing history rather than undoing it.
+
+**The consequence to accept, stated rather than buried.** Between the void and
+the replacement check-out, a car physically with a customer reads as
+`confirmed` — not yet collected. That is accurate in record terms, since there
+is no valid check-out, and it is the state that makes the replacement
+finalisable. The alternative is a rental stuck `active` with no live check-out,
+which is both wrong and unrecoverable. A test drives the whole sequence: void
+the wrong check-out, record a replacement, finalise it.
+
+**A correction changes observations and nothing else** — odometer, fuel,
+cleanliness, note, time of occurrence. Never the reservation, vehicle,
+direction, template or client operation id: those are not observations, and
+changing one turns the record into a record of a different event. An
+unrecognised key is **refused by name**, never ignored, because silently
+dropping `vehicle_id` from a payload would let a caller believe they had
+changed it.
+
+**A correction cannot reach a state finalisation would have refused.**
+`handover_state_blockers()` re-checks the invariants against the corrected row,
+which closes a direction that was previously unguarded: check-out has no
+completed check-in to compare against when it runs, so *raising* an out
+odometer above a recorded in reading was only ever reachable through a
+correction. It is refused now.
+
+**The refusal rolls the row back.** The function updates and then validates, so
+a rejected correction must leave the record as it was. A test asserts the whole
+row is unchanged after a refusal — without it, a rejected correction that still
+changed the data would be the worst of both outcomes.
+
+**The fleet odometer follows a corrected check-in reading, but only when nothing
+else has moved it since.** If it no longer matches what the handover wrote, a
+person or another process set it deliberately, and a correction to an old rental
+has no business overriding that.
+
+**Who may do what.** Voiding is available to staff: getting the wrong car onto a
+handover is a counter mistake and the fix has to be available at the counter,
+where the mandatory reason and the replacement record are what make it safe.
+Correction is reserved to an administrator, because it rewrites an observation
+in place rather than leaving both versions in the log.
+
+**Mutation-checked** — and one mutation was worth catching for its own sake.
+Removing `completed_at = null` from the void fails 8 tests; not stepping the
+reservation back fails 4; stepping back regardless of current status fails 1;
+ignoring unknown correction keys fails 2; skipping revalidation fails 5;
+dropping the fleet-odometer guard fails 1. **The first attempt at that first
+mutation silently did not apply**, and the suite passed — a "mutation test" that
+never mutated. Verified by checking the file actually changed before trusting
+the run, which is the same rule as the reproductions in §9.
+
+### 1 September 2026 — check-in, and the asymmetry that shapes it
+
+**Decision.** Migration 042 implements §4.2 rule 3, and rule 8 — which is
+enforceable here or nowhere. Correction and voiding (rule 4) remain a separate
+migration.
+
+**Check-in is deliberately less willing to refuse than check-out, and the reason
+is worth stating.** Check-out decides whether a car *may leave*, so almost
+everything it checks is a reason to say no. Check-in records what *came back*,
+and the car is already back. It does not re-check the licence, the agreement,
+vehicle blocks or statutory cover: refusing on those prevents nothing — it only
+loses the record of what staff saw, which is the one thing a later dispute
+needs. Four tests assert exactly that: a rental whose licence expired mid-hire,
+a vehicle since blocked, a vehicle marked out of service, and a cleared
+agreement record all check in normally.
+
+**What it does refuse is a contradiction**, where accepting both facts as true
+is worse than stopping: a reservation that is not active, a rental with no
+completed check-out, an inbound handover on a different template or a different
+vehicle from the outbound one, and an odometer reading lower than the one taken
+at check-out. That last is not a reading; either a digit was mistyped or this is
+not the same car, and both need a person.
+
+**Measured, never charged.** Distance and fuel difference are computed and
+written into the audit event, not into columns and not into money.
+`reservation_adjustments` still does not exist, and a test in this suite asserts
+its absence so the area-5 deferral cannot be quietly undone. §4.2 anticipated
+this exact position: *"check-in can record that a car came back three eighths
+down on fuel and cannot yet raise a charge for it."* The differences live in the
+event because that is where the adjustment's `calculation_snapshot` will read
+them from, and a fact recorded once cannot drift from a copy.
+
+**Null, not zero, when there is no instrument.** A bicycle did not travel 0 km;
+it travelled an unrecorded distance. §4.2's *"do not write invented zero readings
+to satisfy a form"* applies to what is derived from readings too.
+
+**The fleet odometer is set from the check-in reading, not raised to it.**
+`greatest()` would quietly preserve a larger number typed by hand mid-rental —
+the value more likely to be wrong — while the check-in reading has photographs
+attached. A reading below the check-out figure is refused earlier, so the one
+direction that must never happen cannot reach the update.
+
+**A finding from writing the tests, recorded because rule 4 will hit it.**
+`rental_handovers_completed_together` asserts
+`(status = 'completed') = (completed_at is not null)`, so **a completed handover
+cannot be voided by flipping its status** — the void must clear `completed_at`
+in the same statement. The obvious one-line implementation of rule 4 does not,
+and would fail in production rather than in review. Pinned by a test in
+`lib/checkInFinalisation.test.ts` so the next migration meets it here.
+
+**Mutation-checked.** Dropping rule 8 fails 1; allowing the odometer to go
+backwards fails 2; using `greatest()` for the fleet odometer fails 1; reporting
+zero instead of null fails 1; dropping the completed-check-out requirement
+fails 2.
+
+**The fixture runs a real check-out** rather than inserting a row shaped like
+one, so the state check-in is measured against is state the system actually
+produced. As in 041, the gateway is written and granted to nobody until
+diagnostic 10c has run.
+### 1 September 2026 — diagnostic 10c passed and its temporary surface was removed
+
+The production PostgREST check settled the remaining staff-identity question.
+Through the application's cookie-backed, user-scoped Supabase client, the
+definer probe saw a non-null `auth.uid()` and the administrator application
+role. Through a separately executable service-role control, it saw a null user
+ID and null JWT role. Both calls reported `current_user = postgres`; that is the
+function owner and therefore the correct execution role for `SECURITY
+DEFINER`, not evidence that the user's claims were lost.
+
+The original command-line probe could have false-passed its negative control:
+its documented SQL did not grant `service_role`, while the script converted a
+non-successful service-role call into the same null shape it expected. The live
+run avoided that ambiguity by granting both test callers temporarily and
+observing both results. The database function was dropped and confirmed absent
+immediately afterwards. The temporary API route, command-line script, package
+entry and route-only test were then deleted; the reusable PGlite architecture
+tests remain.
+
+**Decision.** The §4.2 identity block is closed. Migration 045 grants all four
+thin gateways to `authenticated` only, and the finalise, correct and void routes
+call them through the user's cookie-backed Supabase client. `anon`,
+`service_role` and `PUBLIC` remain revoked. The migration still requires Tasos
+to apply it.
+
+### 31 August 2026 — migrations 040 and 041 are applied to production
+
+Tasos applied both through the SQL Editor, 040 first. Recorded here because
+every other §10 entry about these two says "written and not applied", and a
+later reader has no other way to tell.
+
+**Verified by query, not by the editor's "Success. No rows returned"** — which
+is what both files return whether or not they did what they claim, since the
+Supabase SQL Editor does not surface `raise notice` in its results pane. The
+`REACHED THE END` markers in 040 and 041 are therefore invisible in that
+interface, and advice to watch for them was wrong.
+
+| Checked | Result |
+|---|---|
+| The seven tables of §4.2 | 7 of 7 |
+| `handover-photos` bucket | present and private |
+| `reservation_adjustments` still absent | yes |
+| The three functions of 041 | 3 of 3 |
+| Gateway reachable by anon, authenticated or service_role | **no** |
+| `finalise_check_out_impl` callable by service_role | yes |
+
+The fifth row is the one worth having asked. §13.4 of
+`OPEN-QUESTION-RPC-STAFF-IDENTITY.md` forbids granting a gateway EXECUTE in
+production before diagnostic 10c, and this is the production database
+confirming the migration honoured that rather than a test confirming the file
+intended to.
+
+**No behaviour changed.** Nothing calls either function — the API route is not
+written. Both migrations are additive; neither alters or drops anything that
+existed.
+
+**And the one unverified assumption in 041 is now settled.** `handover_actor_role()`
+reads `auth.users`, which no migration here had done before, and creation
+succeeding does not prove the owner may read it — PostgreSQL checks that a
+relation *exists* when a SQL function body is parsed, and checks *permission*
+only at execution. Calling it in the SQL Editor returned one row, `null`:
+
+```
+| role_lookup |
+| ----------- |
+| null        |
+```
+
+**Null is the pass, and the absence of an error is the whole result.** The SQL
+Editor carries no end-user JWT, so `auth.uid()` is null and there is no user to
+look up; what the call establishes is that the function *executed* rather than
+raising `permission denied for table users`. Membership can be read from
+`auth.users`, and no fallback source is needed.
+
+**It does not answer diagnostic 10c**, and the two should not be confused. 10c
+asks whether PostgREST populates `request.jwt.claims` for a request bearing a
+user's access token — a question about Supabase's request path, which the SQL
+Editor does not exercise at all. This settles only the privilege sub-question
+that migration 041 added on top of it.
+
+### 31 August 2026 — the private document path was run, not inferred
+
+The hosted staging gate now uploads a synthetic PDF through the same signed
+upload contract used by the reservation modal, proves the private bucket
+refuses anonymous download, lists the object through the admin route, fetches
+the exact bytes through a five-minute signed URL, deletes it, proves the stale
+URL no longer works, and removes interrupted-run residue on the next pass.
+Bucket privacy, the 10 MB limit and the MIME allowlist are asserted as hosted
+state rather than inferred from migration 021.
+
+The fail-first run found one real defect: after closing and reopening a
+reservation, staff saw the internal `<timestamp>-<filename>` object key rather
+than the filename they uploaded. **Decision:** keep the timestamp in the
+immutable private object path for collision resistance, but strip only the
+exact 13-digit `Date.now()` prefix in the listing response. Storage identity
+and staff presentation are different fields; changing the visible name must
+not rename the object or invalidate links. The six-check flow then passed
+against isolated staging and left no object behind. Production was untouched.
+
+### 31 August 2026 — phase 2 starts moving: check-out finalisation
+
+**Decision.** Migration 041 implements §4.2 rules 1 and 2 — the transaction that
+decides whether a car may leave the yard. Check-in (rule 3) and correction and
+voiding (rule 4) are separate migrations, so each is small enough to be read.
+
+**The two layers, and which one is switched on.** `finalise_check_out_impl` does
+the work and is granted to `service_role`, with the actor passed as an argument
+— the interim position migrations 038 and 040 already record. `finalise_check_out`
+is the identity-verifying gateway, written and **granted to nobody**, because
+`OPEN-QUESTION-RPC-STAFF-IDENTITY.md` §13.4 says no gateway gets EXECUTE in
+production until diagnostic 10c has run. A test asserts the absence of that
+grant, so it cannot be added by a well-meaning later edit. The cost, stated
+rather than buried: until 10c, the actor on a check-out is what the application
+claims, not what the database verified — today's position everywhere else here,
+and one line away from the design.
+
+**Membership comes from `auth.users.raw_app_meta_data`,** read in exactly one
+function (`handover_actor_role`). §2 requires database-held membership rather
+than a JWT claim, because a claim minted at sign-in outlives a withdrawal for
+the life of the token. No staff table is invented; a mirror would need a sync
+that can drift. One thing is unverified and cheap to add to 10c: that the
+function owner can select from `auth.users` on the live project. No migration
+here has read that table before, and the failure is a clean permission error.
+
+**Refusals are collected, not raised one at a time.** Staff are standing next to
+a car with a customer waiting; three round trips to discover three problems is
+three conversations. Every unmet precondition is accumulated and reported
+together.
+
+**Two real defects, both found by executing rather than reading.**
+
+1. **The block predicate was wrong in the exact way migration 20260829090000
+   exists to prevent.** The first draft treated `expected_return` as an end
+   date. It is not one — that migration renamed `ends_on` precisely because "the
+   mechanic says the 15th, does not deliver, the block lapses on its own, and a
+   car still in pieces becomes bookable with nobody asked." The predicate is now
+   copied from `find_available_eligible_vehicle` rather than re-derived: open
+   while `released_at` is null, biting if it starts on or before the return
+   date.
+2. **`text[] || <literal>` raised `malformed array literal` instead of the
+   refusal.** PostgreSQL resolves the operator to `anyarray || anyarray` and
+   tries to parse the message as an array. Single-reason cases happened to pick
+   the other overload and passed; the test that damages three preconditions at
+   once did not. Every append is now `array_append`.
+
+Neither would have been caught by review, and neither would have been caught by
+a hand-built fixture schema — the first because a stub would have carried
+whichever column name the author believed in. **So the test replays the entire
+migration chain**, and the PGlite compatibility stubs now live in one file
+(`scripts/pgliteSupabaseStubs.mjs`) shared with `check:migration-replay`, so a
+migration cannot pass against one fixture and fail against the other. The stubs
+gained an `auth` schema, which the chain had not needed until now.
+
+**Mutation-checked, per the fail-first rule.** Treating `expected_return` as an
+end date fails 2; ignoring the `required` flag on template views fails 8; moving
+the idempotency branch after validation fails 3; granting the gateway to
+`authenticated` fails 1.
+
+**One thing deliberately not tested here, and it is on §4.2's acceptance list.**
+Two finalisations racing. PGlite is a single connection, so a test shaped like a
+race would be two sequential calls wearing a costume — the class of reproduction
+this project has already been burned by. What holds without depending on timing
+is structural and is asserted: the partial unique index permits one live
+handover per reservation and direction, and the row locks are taken in a fixed
+order. The race belongs in the hosted staging suite.
+
+**Statutory cover mirrors the allocator rather than improving on it.** Both test
+the pickup date, so a KTEO expiring mid-rental stops neither. Tightening only
+the counter would make a car the system allocated impossible to release — a
+support call, not a fix. Tightening both is its own migration.
+
+### 31 August 2026 — hosted staging activated, and the gate proved it can fail
+
+The isolated Supabase project was reset twice from the migration chain and
+synthetic seed, then the four staging-only credentials were installed as
+encrypted GitHub Actions repository secrets. Production credentials and data
+were not used. Both resets produced the same fixtures, role claims, private
+bucket, zero residual grants and a 391-column/29-table schema match against the
+declared migration state.
+
+The first credentialled CI execution did not go green by ceremony: its main
+build passed and its staging phase failed 15/78 checks. The database and all 22
+security assertions held. What failed was the test contract after intervening
+application changes — Next `after()` had no request context in direct-handler
+tests, the mail mocks predated the audited delivery fields, a fake provider id
+was unrealistically constant, one assertion demanded duplicate rows where the
+atomic booking RPC now guarantees idempotency, and admin fixtures bypassed the
+payment attestation the live workflow requires.
+
+**Decision.** Repair the harness rather than weaken any live rule: emulate and
+drain post-response work, make fake provider ids unique, keep the global
+no-mail boundary, and assert atomic replay plus payment-gated confirmation.
+The corrected suite passed 78/78 against hosted staging locally and in GitHub
+run `33413251647`, after the ordinary build passed. The fail/green evidence is
+therefore closed; Preview/vendor acceptance remains separate. Detailed evidence
+and remaining checkboxes are in `docs/STAGING-AND-OBSERVABILITY-RUNBOOK.md` §11.
+
+### 31 August 2026 — the identity question, split in two and half of it closed
+
+**Decision.** Option A is adopted for staff-initiated RPCs, and §4.2 rule 6's
+OPEN block is narrowed from *"do not implement"* to *"implement, but do not
+grant in production yet"*.
+
+**What unblocked it.** §12.4 of `OPEN-QUESTION-RPC-STAFF-IDENTITY.md` left
+everything resting on one untested sentence — that `auth.uid()` resolves inside
+a `SECURITY DEFINER` function when the call comes from a user-scoped client.
+That is two claims wearing one coat: **(a)** a request-scoped GUC survives the
+definer boundary and `SET search_path = ''` does not disturb it, which is
+PostgreSQL's behaviour, and **(b)** PostgREST populates those claims for a
+user's token, which is Supabase's.
+
+(a) is now executed rather than assumed. `lib/rpcStaffIdentity.test.ts` builds a
+Supabase-shaped database in PGlite with `auth.uid()` reproduced exactly from
+Supabase's own migration, and shows identity surviving the boundary while
+privilege changes — the definer function returns the caller's `sub` *and* runs
+as its owner, reading a table the caller is separately proved unable to read.
+The §2 gateway is then exercised end to end: admits a member, refuses a
+stranger, refuses a deactivated member, refuses a service-role call. Mutating
+the fixture — `SECURITY INVOKER`, no membership check, `auth.uid()` reading
+`role` instead of `sub` — fails 2, 2 and 7 tests respectively, so the suite is
+not vacuous.
+
+**Why this is not the third mechanism specified without testing.** §4.2 has
+twice named something that could not be built — a private schema unreachable
+through the Data API, then a gateway that cannot see `auth.uid()` under the
+service role. The difference here is that the mechanism was run before being
+written down, and the half that could not be run locally is named as such
+rather than absorbed into the claim.
+
+**Two findings from the suite failing, both kept.** The refusal has two
+independent layers and only one was designed: with EXECUTE granted narrowly, a
+service-role call is refused *at the grant* and never reaches the identity
+check — a second closed door that a later broad grant would silently remove.
+And Supabase's `auth.uid()` **raises** on an empty claims GUC rather than
+returning NULL, because `''::jsonb` is invalid; a custom GUC reverts to `''`
+rather than to unset after a transaction, so a gateway meaning to answer "not a
+staff member" would answer "internal error". Both are now pinned by assertions.
+
+**What is left, and why building is safe.** Only (b), which every RLS policy on
+this project already depends on — `auth.uid()` in a policy has the identical
+requirement — so it is not a novel assumption. And the failure direction is
+benign: if (b) were false the gateway refuses and the feature does not work. A
+wrong assumption here is a locked door found on the first test, not an exposure
+found later.
+
+**Why an agent did not just run 10c.** It creates a function in the live
+database, which is a migration, and that stays with Tasos.
 
 ### 31 August 2026 — an agent can finally look at an admin screen
 

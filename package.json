@@ -18,6 +18,8 @@
     "test:mail": "CONFIRM_LIVE_MAIL=yes node tests/e2e/mail-live.mjs",
     "check:translation": "node scripts/check-translation.mjs",
     "check:a11y": "node scripts/check-a11y.mjs",
+    "check:links": "node scripts/check-links.mjs",
+    "check:dmarc": "node scripts/read-dmarc.mjs",
     "test:seo": "vitest run --config vitest.build.config.ts",
     "test:browser": "playwright test",
     "test:frozen-panes": "playwright test tests/browser/frozen-panes.spec.ts --config playwright.frozen-panes.config.ts",
@@ -27,7 +29,6 @@
     "staging:reset": "node scripts/reset-staging.mjs",
     "staging:seed-auth": "node scripts/seed-staging-auth.mjs",
     "test:browser:all": "playwright test --config playwright.crossbrowser.config.ts",
-    "probe:rpc-identity": "node scripts/probe-rpc-identity.mjs",
     "verify": "node scripts/verify.mjs",
     "verify:fast": "node scripts/verify.mjs --fast",
     "hooks:install": "git config core.hooksPath .githooks"
@@ -56,7 +57,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.5",
+    "@electric-sql/pglite": "0.5.8",
     "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
@@ -64,10 +65,10 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-google-recaptcha": "^2.1.9",
-    "@vitest/coverage-v8": "4.1.10",
+    "@vitest/coverage-v8": "4.1.11",
     "axe-core": "^4.13.0",
     "eslint": "^9",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.3.3",
     "jsdom": "^30.0.1",
     "supabase": "2.116.0",
     "tailwindcss": "^4",
