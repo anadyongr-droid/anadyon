@@ -54,6 +54,27 @@ describe("phase 1 — public quote funnel", () => {
   afterEach(async () => { await flushAfterTasks(); });
 
   beforeAll(async () => {
+    // Clear this phase's rate-limit buckets before anything runs.
+    //
+    // The limiter is durable by design — it counts in the database precisely so
+    // a counter cannot be reset by a cold start (`lib/rateLimit.ts`). `ipSeq`,
+    // however, restarts at 0 every run, so every run replays the *same*
+    // addresses: 198.51.100.1, .2, .3 and so on. The buckets therefore
+    // accumulate across runs for the whole fifteen-minute window.
+    //
+    // Most cases here spend one request per address per run, so they need ten
+    // runs in a window to reach the limit and had never hit it. The idempotent
+    // replay spends **two** on a single address, by the nature of what it
+    // tests, so it reaches ten after **five** runs — and it is the only case
+    // that does. On 20 September the dependency queue put six end-to-end runs
+    // through staging inside fifteen minutes and that test alone came back 429
+    // against completely unrelated changes.
+    //
+    // The remedy is the one already used below for the flood test's attacker
+    // address, which hit this first and fixed it only for itself. Applied to
+    // the whole range so a busy afternoon cannot fail a green pull request.
+    await db.from("rate_limits").delete().like("key", "%198.51.100.%");
+
     // What the server will independently arrive at, from the live rate card.
     const { calcVehicleSubtotal, calcRentalDays } = await import("@/lib/pricing");
     const { data: rates } = await db.from("rates").select("*");
@@ -208,7 +229,12 @@ describe("phase 1b — rate limiting", () => {
     // The window is fifteen minutes and the bucket is durable now, so a second
     // run inside that window would start already exhausted and the first
     // request would come back 429. Clearing it makes the test repeatable.
-    await db.from("rate_limits").delete().like("key", `%${attacker}%`);
+    //
+    // Widened from this one address to the whole range, so that this suite
+    // does not depend on phase 1's beforeAll having run first. It also covers
+    // the innocent caller in the next case, which spends one request per run
+    // on .251 and would otherwise accumulate exactly as the replay case did.
+    await db.from("rate_limits").delete().like("key", "%198.51.100.%");
     const codes: number[] = [];
     for (let i = 0; i < 12; i++) {
       const res = await POST(req("/api/quote", "POST", { ...base, lastName: `Flood ${MARK}` }, attacker));
