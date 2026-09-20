@@ -134,7 +134,7 @@ the two.
 >
 > Reading them turned up findings that outrank the age question: **no collision
 > own-damage cover on any vehicle, across two insurers**, which is what our
-> €12/day Full Damage Waiver is sold against; **no theft cover**; **no roadside
+> €5.00/day Full Damage Waiver is sold against; **no theft cover**; **no roadside
 > assistance for 50cc**; and policy terms of one to three months with no
 > automatic renewal — the 50cc expires 11 September 2026.
 

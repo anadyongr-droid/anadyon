@@ -476,14 +476,14 @@ describe("what cannot be completed at all", () => {
   });
 });
 
-describe("the gateway, written but not switched on", () => {
-  it("is granted to nobody, per the narrowed OPEN block", async () => {
+describe("the identity-verifying gateway", () => {
+  it("is callable only by an authenticated user", async () => {
     for (const role of ["anon", "authenticated", "service_role", "public"]) {
       const { rows } = await db.query<{ allowed: boolean }>(
         `select has_function_privilege($1, 'public.finalise_check_in(uuid, timestamptz)', 'execute') as allowed`,
         [role],
       );
-      expect(rows[0].allowed, role).toBe(false);
+      expect(rows[0].allowed, role).toBe(role === "authenticated");
     }
   });
 
