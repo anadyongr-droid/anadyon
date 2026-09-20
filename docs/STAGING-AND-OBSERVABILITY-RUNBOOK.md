@@ -1,14 +1,13 @@
 # Staging and observability runbook
 
-**Status:** the isolated Supabase project exists, has been reset twice by the
-owner, the four staging-only GitHub Actions secrets are installed, and the
-credentialled commercial-path suite passes 84/84. Staging has migration 040
-but not 041. Migration 042 subsequently entered `main`, after the last hosted
-reset, so staging does not have that migration either. Repository-schema parity
-and final sign-off therefore remain open. The permanent `staging` branch and
-its Vercel-authenticated stable alias now exist; Preview variable scoping,
-hosted vendor acceptance and Sentry acceptance remain open. Codex must not run
-migrations against any hosted Supabase project.
+**Status:** the isolated Supabase project exists and was reset twice from
+current `main` on 19 September 2026. Both runs replayed all 44 migrations and
+finished with identical synthetic fixtures, Auth roles, grants and schema
+checks. The `staging` branch alias is live with branch-scoped Supabase URL, anon
+key and service-role key; synthetic admin and staff both completed browser login
+and separate MFA enrolment. The staff role was observed being redirected away
+from `/admin/users` to `/admin/reservations`. Production was not changed.
+Production-schema parity, hosted vendor flows and Sentry acceptance remain open.
 
 This runbook creates an isolated test system. It never copies production data,
 never reuses production Supabase credentials, and never permits test mail to
@@ -212,10 +211,14 @@ assertion, then remove the break.
 ## 8. Final acceptance checklist
 
 - [x] `npm run check:migration-replay` passes locally (31 August 2026).
-- [x] `npm run staging:reset` passes twice consecutively (31 August 2026).
+- [x] `npm run staging:reset` passes twice consecutively from current `main`
+  (44 migrations, 19 September 2026).
 - [ ] `npm run check:schema:parity` reports equality or every difference is documented.
-- [ ] Synthetic admin and staff can log in and enrol MFA.
-- [ ] Staff is refused administrator-only actions.
+- [x] Synthetic admin and staff can log in and enrol separate MFA factors
+  (19 September 2026).
+- [x] Staff is refused administrator-only user management: `/admin/users`
+  redirects to `/admin/reservations`, and no Users navigation is rendered
+  (19 September 2026).
 - [ ] Browser booking succeeds: quote → reservation → redirected email.
 - [x] Document upload and signed download work in `reservation-documents`
   (31 August 2026). Six hosted checks prove the bucket is private with its

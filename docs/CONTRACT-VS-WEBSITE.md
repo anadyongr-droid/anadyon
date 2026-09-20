@@ -1,6 +1,6 @@
 # Where the contract, the website and the policies disagree
 
-**Last verified:** 9 September 2026, Claude.
+**Last verified:** 19 September 2026, Codex.
 
 Three documents describe what Anadyon sells, and they do not say the same thing.
 
@@ -158,8 +158,8 @@ contract performance. **The paper form is the liability here, not the site.**
 ## 9. Smaller defects in the printed contract
 
 - **Article 4(f) cross-references "Article 10 … (Insurance Coverage)".** Insurance
-  is article 8; article 10 is Ownership. A wrong internal cross-reference in a
-  clause that allocates repair and theft costs.
+  is article 8; article 10 is Ownership. The maintained printable template now
+  says Article 8; existing printed stock still needs replacement before use.
 - **Article 15** gives exclusive jurisdiction to the Zakynthos courts. For
   consumers domiciled elsewhere in the EU, an exclusive jurisdiction clause of
   this kind is of doubtful enforceability. **Counsel's question, not ours** —
@@ -181,9 +181,10 @@ contract performance. **The paper form is the liability here, not the site.**
 | 4 | Publish the one-year licence rule, and check it at the counter | Website §1, check-out | W10 |
 | 5 | Align motorbike minimum age — 18 on the website, or 21 in the contract | Both | A decision: which is right |
 | 6 | Replace article 16 with a GDPR clause, and unbundle marketing consent | Contract | Counsel |
-| 7 | Fix the article 4(f) cross-reference | Contract | Nothing |
+| 7 | Replace printed stock with the corrected Article 8 template | Contract | Tasos / next print run |
 | 8 | Reconcile the two product menus | `extras_config` / form | A decision |
 | 9 | Reconcile the cancellation regimes | Both | A decision |
 
-Items 1–3 and 7 are corrections of fact and need no decision from anyone. Items
-5, 8 and 9 are commercial choices. Item 6 needs counsel.
+Items 1–3 remain open pending Tasos's approval of customer-facing wording.
+Item 7 is corrected in the maintained template but still needs the physical
+stock replaced. Items 5, 8 and 9 are commercial choices. Item 6 needs counsel.

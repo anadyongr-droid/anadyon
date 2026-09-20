@@ -41,7 +41,7 @@ because it is believed.
 | Why does `df` say the sandbox disk is full when little is used? | Fixed per-session allowance, not a broken machine. Never delete `/opt/pw-browsers`. | `SANDBOX-DISK.md` (PR #98) |
 | Do the insurance policies restrict driver age? | **No — none of the three certificates carries an age or licence-tenure condition.** Our 21 is a commercial choice. But the certificates defer exclusions to terms booklets not yet supplied, so this is "not on the certificate", not "does not exist". | `INSURANCE-COVER-AND-RESTRICTIONS.md` §2 |
 | Does the system already track KTEO and insurance expiry, and stop-sell on them? | **Yes — built and tested.** Migration 011 columns, admin modal inputs, 30-day warnings in `lib/fleetStatus.ts`, and a hard bar in the availability route measured against the pick-up date. It is **inert until the dates are entered**, because an unrecorded date reads as `unknown` and `unknown` does not bar. Open item F1. | `lib/fleetStatus.ts` |
-| Is the Full Damage Waiver backed by insurance? | **No.** No collision own-damage cover on any of the three vehicles, across two insurers. FDW at €12/day is self-insured. | `INSURANCE-COVER-AND-RESTRICTIONS.md` §4.1 |
+| Is the Full Damage Waiver backed by insurance? | **No.** No collision own-damage cover on any of the three vehicles, across two insurers. FDW at €5.00/day — verified on the live Rates screen, 19 Sep — is self-insured. | `INSURANCE-COVER-AND-RESTRICTIONS.md` §4.1 |
 
 ### Phase 2, the counter — the live workstream
 
@@ -54,15 +54,17 @@ against production.
 | `rental_handovers` table | 040 | **Applied** |
 | Check-out finalisation | 041 | **Applied** |
 | Check-in finalisation | 042 | Merged (#93). **Not applied** |
-| Correction and voiding, plus the five HTTP routes | 043 | Open in **PR #95** |
-| Insurance surcharge for under-23 drivers | 044 | **In progress** — see below |
+| Correction and voiding, plus the five HTTP routes | 043 | Reconciled with current `main`; supersedes **PR #95** |
+| Insurance surcharge for under-23 drivers | 044 | **Merged** (#118). **Not applied** |
+| Authenticated grants for all four handover gateways | 045 | Written with the route reconciliation. **Not applied** |
 | Photo upload saga | — | Not started. Last piece of phase 2 |
 
-**The gateways are granted to nobody.** `finalise_check_out`,
-`finalise_check_in`, `correct_handover` and `void_handover` all exist with no
-EXECUTE grant, because they were written while the identity question was open.
-That question is now closed, so a one-line follow-up migration can grant them.
-Until it does, the counter routes cannot work against production.
+**The gateways are enabled for authenticated users by migration 045.**
+`finalise_check_out`, `finalise_check_in`, `correct_handover` and
+`void_handover` remain unavailable to `anon`, `service_role` and `PUBLIC`.
+Their routes use the caller's cookie-backed Supabase session, so the database
+verifies `auth.uid()` and the server-owned application role itself. Migration
+045 is not yet applied to production.
 
 ### Insurance surcharge — in progress, 2 September
 
