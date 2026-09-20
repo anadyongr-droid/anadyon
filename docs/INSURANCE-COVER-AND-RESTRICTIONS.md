@@ -5,7 +5,7 @@ supplied by Tasos, covering one car and two motorbikes across two insurers.
 This document is the reference for what may be offered, promised and published.
 `DEFINING-STATEMENTS.md` §10 makes that binding.
 
-**Last verified:** 2 September 2026, Claude — certificates, the renewed 125, and the Intersalonica terms booklet (§2c). The Euroins booklet is still unread.
+**Last verified:** 20 September 2026, Codex — official Euroins rental-car IPID and public motor terms located and read through the search index; the exact terms edition incorporated into policy 9190600829 still requires the broker (§7).
 
 **Scope caveat, stated once and applying throughout.** All three documents are
 **certificates** — the schedule of what is covered, for how much, at what
@@ -490,7 +490,30 @@ unnamed drivers; own-damage cover exists; Tasos handles renewals directly.
 
 ---
 
-## 7. Why the booklets are still not read
+## 7. Terms-booklet retrieval status
+
+**Updated 20 September 2026.** The earlier network block is no longer the
+current state. Euroins's live site now fails normal HTTPS validation because
+its certificate is expired, so the agent did not bypass TLS verification.
+However, the official documents remain readable through the search index:
+
+- the Euroins rental-car product information document dated 19 May 2025;
+- the 68-page General and Special Terms of Motor Insurance dated 25 April 2024;
+- the official product pages, which list 2022, 2024 and 2025 terms editions.
+
+The public terms confirm a dedicated section for roadside assistance for
+daily-rental vehicles, and repeat the statutory exclusion where the driver
+lacks the licence required for the vehicle category. The rental-car product
+sheet also says expressly that it does not replace the policy and its attached
+general/special terms.
+
+That leaves one narrower blocker: repository evidence does not identify which
+dated edition was delivered with and incorporated into Euroins policy
+9190600829. Publicly locating a current booklet is not proof of the terms of a
+specific contract. The broker must provide the booklet/version attached to
+that policy before conclusions are attributed to the car's contract.
+
+### Historical retrieval note
 
 Attempted 2 September 2026. **Both insurers' websites are blocked by this
 session's network egress policy** — `www.euroins.gr` and `www.intersalonica.gr`
