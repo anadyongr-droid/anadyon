@@ -479,3 +479,19 @@ a document again.
 
 Applying 042–045 to production remains Tasos's, per `AGENTS.md`. Nothing above
 brings that forward, and **no item requires it.**
+
+### Progress — 20 September 2026
+
+- **Item 1 complete.** The two staging-only commits were reviewed: one was an
+  empty deployment marker and the other an earlier merge from `main`; neither
+  carried a staging-only application or configuration change. Current `main`
+  through #134 was merged into `staging` without rewriting its history. The
+  merged tree passed 99 test files / 1,068 tests locally, Vercel reported the
+  stable branch deployment ready at commit `17da564`, and the stable alias
+  loaded its public homepage with no browser-console errors.
+- **Item 6 implemented.** `GET /api/admin/deployment-identity` reports only the
+  deployed commit, Vercel environment and Supabase project ref. It is omitted
+  from staff access, independently requires the proxy-resolved admin role, sets
+  `Cache-Control: no-store`, and never returns an environment-variable value or
+  Supabase URL. Hosted acceptance remains unrun until this change is merged and
+  deployed.
