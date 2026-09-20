@@ -144,6 +144,7 @@ function AdminLogin() {
       // A full navigation rather than a soft one. The session was just upgraded
       // to aal2; a hard load guarantees the browser sends the refreshed cookies
       // with the request the middleware will read.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- deliberate hard navigation after MFA; see comment above
       window.location.assign("/admin");
     } catch (err) {
       setError(err instanceof TimeoutError

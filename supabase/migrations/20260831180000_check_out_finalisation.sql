@@ -248,6 +248,10 @@ begin
   end if;
 
   if r.agreement_signed_at is null then
+    -- This is an insurance control, not paperwork polish. Under the
+    -- Intersalonica rental terms, the insurer's recourse after an excluded
+    -- claim runs only against the driver provided a valid rental agreement
+    -- exists; relaxing this blocker can expose Anadyon itself to that recourse.
     blockers := array_append(blockers, 'the rental agreement is not recorded as signed');
   end if;
 

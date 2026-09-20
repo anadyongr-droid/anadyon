@@ -461,7 +461,7 @@ describe("what cannot be completed at all", () => {
   });
 });
 
-describe("the gateway, which is written but not switched on", () => {
+describe("the identity-verifying gateway", () => {
   it("exists", async () => {
     const { rows } = await db.query<{ n: number }>(
       `select count(*)::int as n from pg_proc where proname = 'finalise_check_out'`,
@@ -469,16 +469,13 @@ describe("the gateway, which is written but not switched on", () => {
     expect(rows[0].n).toBe(1);
   });
 
-  it("is granted to nobody, per the narrowed OPEN block", async () => {
-    // docs/OPEN-QUESTION-RPC-STAFF-IDENTITY.md §13.4: no gateway gets EXECUTE in
-    // production until diagnostic 10c has run. A grant added here by accident —
-    // or by a well-meaning later edit — is the thing this test exists to catch.
+  it("is callable only by an authenticated user", async () => {
     for (const role of ["anon", "authenticated", "service_role", "public"]) {
       const { rows } = await db.query<{ allowed: boolean }>(
         `select has_function_privilege($1, 'public.finalise_check_out(uuid, timestamptz)', 'execute') as allowed`,
         [role],
       );
-      expect(rows[0].allowed, role).toBe(false);
+      expect(rows[0].allowed, role).toBe(role === "authenticated");
     }
   });
 
