@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
+import { canonicalDump, classifySchemaDifference } from "./schema-parity-lib.mjs";
 
 const production = process.env.PRODUCTION_SUPABASE_DB_URL?.trim();
 const staging = process.env.STAGING_SUPABASE_DB_URL?.trim();
@@ -27,39 +28,46 @@ for (const [url, file] of [[production, productionFile], [staging, stagingFile]]
   });
 }
 
-function canonical(path) {
-  return readFileSync(path, "utf8")
-    .split("\n")
-    .filter((line) =>
-      line.trim() &&
-      !line.startsWith("--") &&
-      !line.startsWith("SET ") &&
-      !line.startsWith("SELECT pg_catalog.set_config") &&
-      !line.startsWith("\\restrict") &&
-      !line.startsWith("\\unrestrict"),
-    )
-    .join("\n");
-}
-
-const prodSchema = canonical(productionFile);
-const stageSchema = canonical(stagingFile);
+const prodRaw = readFileSync(productionFile, "utf8");
+const stageRaw = readFileSync(stagingFile, "utf8");
+const prodSchema = canonicalDump(prodRaw);
+const stageSchema = canonicalDump(stageRaw);
 const digest = (value) => createHash("sha256").update(value).digest("hex");
+const manifest = JSON.parse(
+  readFileSync(join(root, "scripts", "schema-parity-pending.json"), "utf8"),
+);
+const result = classifySchemaDifference(prodRaw, stageRaw, manifest);
 
-if (prodSchema === stageSchema) {
+if (prodSchema === stageSchema && result.ok) {
   console.log(`Schema parity passed in both directions (${digest(prodSchema)}).`);
   console.log(`Read-only dumps retained at ${output}`);
   process.exit(0);
 }
 
-const prodLines = new Set(prodSchema.split("\n"));
-const stageLines = new Set(stageSchema.split("\n"));
-const onlyProduction = [...prodLines].filter((line) => !stageLines.has(line));
-const onlyStaging = [...stageLines].filter((line) => !prodLines.has(line));
+if (result.ok) {
+  const migrations = [...new Set(result.expectedStaging.map(({ migration }) => migration))];
+  console.log(
+    `Schema parity passed with declared staging-only migrations ${migrations.join(", ")}. ` +
+    `Classified ${result.expectedStaging.length} complete SQL statement(s); no unexplained drift.`,
+  );
+  console.log(`Read-only dumps retained at ${output}`);
+  process.exit(0);
+}
 
-console.error("Schema parity failed.");
-console.error(`Only in production (${onlyProduction.length} lines):`);
-for (const line of onlyProduction.slice(0, 80)) console.error(`  - ${line}`);
-console.error(`Only in staging (${onlyStaging.length} lines):`);
-for (const line of onlyStaging.slice(0, 80)) console.error(`  + ${line}`);
+console.error(
+  "Schema parity failed: the live difference is not exactly the declared pending-migration boundary.",
+);
+console.error(`Only in production (${result.onlyProduction.length} statements):`);
+for (const statement of result.onlyProduction.slice(0, 20)) {
+  console.error(`  - ${statement.slice(0, 500)}`);
+}
+console.error(`Unexplained only in staging (${result.unexpectedStaging.length} statements):`);
+for (const statement of result.unexpectedStaging.slice(0, 20)) {
+  console.error(`  + ${statement.slice(0, 500)}`);
+}
+if (result.missingRequired.length) {
+  console.error(`Declared migrations with no matching schema effect: ${result.missingRequired.join(", ")}`);
+}
+console.error(`Expected staging-only statements classified: ${result.expectedStaging.length}`);
 console.error(`Full read-only dumps retained at ${output}`);
 process.exit(1);

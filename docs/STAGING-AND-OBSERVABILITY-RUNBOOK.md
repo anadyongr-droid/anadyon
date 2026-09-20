@@ -106,10 +106,18 @@ Supply the two database URLs only for this read-only check:
 PRODUCTION_SUPABASE_DB_URL=production_url STAGING_SUPABASE_DB_URL=staging_url npm run check:schema:parity
 ```
 
-The command dumps only the `public` schema and never dumps rows. Equal
-SHA-256 output is a pass. A mismatch prints lines found only in production and
-only in staging and retains both dumps in a newly created temporary directory.
-Every difference must be explained or closed before staging is trusted.
+The command dumps only the `public` schema and never dumps rows. Equal SHA-256
+output is a pass. While 042–045 remain pending on production, it classifies
+complete SQL statements against `scripts/schema-parity-pending.json`: only the
+functions and grants attributable to those migrations are permitted, 044 is
+declared explicitly as data-only, and every production-only or unexplained
+staging statement fails the check. Required schema-producing migrations must
+also be observable; a missing expected difference fails rather than silently
+shrinking the boundary. Both dumps are retained in a new temporary directory.
+
+Update the manifest when Tasos applies a pending migration to production. Never
+broaden a pattern merely to make the check green: the manifest is the declared
+boundary, not a suppression list.
 
 Also run these against the mapped staging values; `staging:reset` already runs
 them once automatically:
@@ -403,6 +411,13 @@ Codex's refinement is the right one and is the single highest-value item here:
 keep the byte comparison, but take a declared list of pending migrations and
 fail only on differences that list does not explain. A check that is expected to
 fail gets ignored, and an ignored check is worse than none.
+
+**Implemented 20 September:** the checker now compares whole SQL statements,
+including intact dollar-quoted function bodies, against the narrow migration
+manifest. Focused tests prove that an unrelated staging object, any
+production-only object, and a missing required migration all fail. The live
+read-only comparison is still an acceptance step because no database URL is
+stored in the agent worktree.
 
 ### Ordering, with reasons
 
