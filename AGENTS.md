@@ -81,6 +81,15 @@ significant, because it touches security, or because you would like the
 reassurance. A design call, a schema shape, a library, a refactor, a domain to
 read, a PR of your own to merge — yours.
 
+**Qualified 20 September 2026 by `DEFINING-STATEMENTS.md` §13, which is binding
+where the two differ.** The default above is about *how the thing is built*. It
+was never a licence to change *what Anadyon sells, promises, charges or
+requires*, but it read like one, and on 19 September customer-facing insurance
+wording was prepared for merge on the strength of it. Anything whose effect
+reaches a customer, or changes what staff may do, now needs Tasos's explicit
+approval before merge or deploy — see the list below. Everything else here
+stands unchanged: act, decide, and write it down.
+
 Two things do not change, and they are not exceptions to this rule so much as
 the reason it can be safe:
 
@@ -108,10 +117,26 @@ This list is short on purpose. If it grows, something has gone wrong.
 - **Irreversibly destroying real data**, or anything else with no undo that
   reaches customers. The purge design in blueprint §4.2b is the shape: an agent
   builds and proposes, a person confirms.
+- **Any change to the operating model or the customer relationship.** Prices,
+  deposits, fees, refunds; insurance, waiver, exclusion and liability wording;
+  age, licence, eligibility and cancellation rules; customer emails and
+  contractual text; who may take an operational action; products added or
+  removed. **`DEFINING-STATEMENTS.md` §13 is binding and has the full scope**,
+  the examples, and the test. Investigate, document and draft freely — a
+  proposal is not a deployment. Do not merge or deploy one of these without
+  Tasos's explicit approval *of that specific change*: a general instruction to
+  carry on, an open item, an audit finding, or agreement that a problem exists
+  is not approval of a particular remedy.
 
-**Not on the list, and specifically so:** which domains to read, whether a
-design is significant enough to check, whether to merge your own green PR,
-whether a security-shaped change is "too sensitive to decide". Decide.
+**Not on the list, and specifically so:** which domains to read, whether to
+merge your own green PR, whether a security-shaped change is "too sensitive to
+decide". Decide.
+
+Note what changed there. Until 20 September this paragraph also said *"whether a
+design is significant enough to check"* — decide it yourself. §13 removes that
+one, and only that one: a design whose effect reaches a customer or changes what
+staff may do is now checkable by definition, and no longer an agent's call.
+Everything else in the paragraph stands.
 
 ## What `.claude/settings.json` does, and what it does not
 
