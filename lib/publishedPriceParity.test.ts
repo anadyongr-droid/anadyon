@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -40,6 +40,22 @@ import { describe, expect, it } from "vitest";
  */
 const CANON = "supabase/schema.sql";
 const DOCS = "docs";
+
+/**
+ * The governing documents at the repository root, which are NOT under docs/.
+ *
+ * Added 20 September 2026, the day CLAUDE.md began importing
+ * DEFINING-STATEMENTS.md so that every principle binds. That import made a
+ * stale price worse rather than better: §10 still said the Full Damage Waiver
+ * "is sold at €12 a day", the figure corrected to €5.00 the day before, and it
+ * now entered every agent's context as a stated principle.
+ *
+ * This test scanned `docs/` only, so it never looked. Neither did the manual
+ * grep that found the other five occurrences — both searched the directory
+ * rather than the repository. A control that checks everywhere except the file
+ * everyone reads is worse than none, because it reports clean.
+ */
+const ROOT_DOCS = ["DEFINING-STATEMENTS.md", "AGENTS.md", "README.md", "CLAUDE.md"];
 const OPT_OUT = /<!--\s*price-exempt:\s*([^>]{8,}?)\s*-->/;
 
 /** The extras seed, read from the SQL rather than restated here. */
@@ -113,7 +129,9 @@ describe("prices quoted in docs match the seeded extras", () => {
   it("no document states one of our extras at a price we do not charge", () => {
     const wrong: string[] = [];
 
-    for (const file of markdownFiles(DOCS)) {
+    const files = [...markdownFiles(DOCS), ...ROOT_DOCS.filter((f) => existsSync(f))];
+
+    for (const file of files) {
       for (const { line, text } of paragraphs(readFileSync(file, "utf8"))) {
         if (OPT_OUT.test(text)) continue;
         const hay = text.toLowerCase();

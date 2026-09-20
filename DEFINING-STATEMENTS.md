@@ -167,9 +167,20 @@ has no assistance, or after a fall that the damage waiver they bought was ours
 to honour and not an insurer's, has been misled by omission.
 
 **A product with no policy behind it must be labelled as what it is.** The Full
-Damage Waiver is the live example. It is sold at €12 a day against no
+Damage Waiver is the live example. It is sold at €5.00 a day against no
 own-damage cover on any vehicle inspected, across two insurers — so it is
-Anadyon's own promise, not an insurance product. That may be a perfectly good
+Anadyon's own promise, not an insurance product.
+
+<!-- price-exempt: states the superseded €12 figure in order to correct it -->
+*Price corrected 20 September 2026. This paragraph said **€12 a day** from 2
+September until today. The figure was read from `supabase/seeds/staging.sql`,
+whose first line reads "Synthetic staging fixtures only"; the real rate is
+€5.00, verified on the live Admin → Rates screen. Five documents under `docs/`
+were corrected on 19 September and this one was missed, because both the manual
+search and `lib/publishedPriceParity.test.ts` looked in `docs/` and this file is
+at the repository root. The test now scans the root documents too. The error ran
+in the direction that flattered us: it made the waiver look like a product
+carrying 2.4x more premium against the same uninsured risk than it does.* That may be a perfectly good
 commercial decision. It is not one that may be made silently, priced by
 accident, or described to a customer as insurance.
 
