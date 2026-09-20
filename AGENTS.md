@@ -196,10 +196,17 @@ than a full volume.
 - `docs/audits/` — the ten review areas and what each audit did *not* cover.
   Areas 2 (design) and 5 (content and legal) are ungraded; area 5 held a
   blocker.
-- `docs/HANDOVER-ADMIN-FROZEN-PANES.md` — open UI defect, with three disproved
-  theories recorded so they are not retried.
-- Open PRs: #16 gated NBG payments, #31 incident closure.
-- `codex/incident-admin-middleware-timeout` has never been merged and has no PR.
+- `docs/HANDOVER-ADMIN-FROZEN-PANES.md` — **closed 20 September**, kept for its
+  three disproved theories so they are not retried. The implementation passed
+  all 32 focused checks, including a deliberately broken control proving the
+  instrument detects clipping.
+- **Open PRs and stale branches are not listed here.** They were, and the list
+  named #16, #31 and `codex/incident-admin-middleware-timeout` for weeks after
+  all three were resolved — a file that changes daily does not belong in one
+  that changes monthly. [`docs/OPEN-ITEMS.md`](docs/OPEN-ITEMS.md) is the live
+  list and the status table at the top of [`docs/README.md`](docs/README.md)
+  carries the current pull requests. Both are refreshed by the close-of-day
+  pass; this file is not.
 
 Before starting any of it, check whether the blueprint already answers the
 question. It usually does.

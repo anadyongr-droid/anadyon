@@ -16,7 +16,7 @@ machine or a six-month gap.
 
 ## Where things stand — 2 September 2026
 
-**Last verified:** 2 September 2026, Claude.
+**Last verified:** 20 September 2026, Claude.
 
 **Read this section before opening anything else, and before researching
 anything.** It exists because an agent spent a working session re-deriving
@@ -99,15 +99,13 @@ Recorded here rather than fixed, because fixing it was not what was asked.
 
 | PR | What | Waiting on |
 |---|---|---|
-| **#95** | Phase 2 correction and voiding, plus the HTTP surface | Review/merge |
-| **#96** | Dependabot production group, 11 updates | CI. Needed a Stripe `apiVersion` fix, pushed |
-| **#98** | Sandbox disk runbook | Review/merge |
-| **#99** | Driver age market research | Review/merge |
-| #83, #78–#81 | GitHub Actions and CodeQL majors | Take one at a time |
-| #85, #86, #87 | `@types/node` 26, googleapis 176, TypeScript 7 | TypeScript 7 last — it is the one likely to break |
-| #16, #31, #58, #71 | Stale, three of them drafts, oldest from 22 August | A decision to finish or close them |
+| **#131** | `@types/node` matched to the Node 24 the project runs, replacing #85's ^26 | CI, then merge |
+| **#132** | Every Action in CI moved to the node24 runtime, replacing #78/#79/#80 — plus `actions/cache`, which was node20 with no PR | CI, then merge |
+| **#133** | `supabase/setup-cli` pinned to a tagged v3.0.0, replacing #81. Verified by dispatching the backup workflow, since no PR's CI runs it | Merge |
+| #87 | TypeScript 7.0.2 | **Nothing we can do.** `tsc` passes; `typescript-eslint` refuses to load against TS 7 and caps at `<6.1.0` two levels down. Stays open until upstream moves |
+| #78–#81, #85 | Superseded by #131–#133 | Close as each replacement merges |
 
-`codex/incident-admin-middleware-timeout` has never been merged and has no PR.
+Every branch listed here on 19 September is now resolved. `codex/incident-admin-middleware-timeout` was closed on 20 September — its incident record was already on `main`, #121 supplied the missing outcome, and the obsolete remote branches were deleted. Confirmed gone from `origin` on 20 September. `AGENTS.md` still names it under "where the remaining work is defined"; that line is stale and is the next thing to correct there.
 
 ### Waiting on a human
 
