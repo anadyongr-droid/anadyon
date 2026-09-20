@@ -1,0 +1,34 @@
+{
+  "pendingMigrations": [
+    {
+      "id": "042",
+      "file": "20260901090000_check_in_finalisation.sql",
+      "required": true,
+      "stagingOnlyStatementPatterns": [
+        "\\bFUNCTION public\\.finalise_check_in(?:_impl)?\\b"
+      ]
+    },
+    {
+      "id": "043",
+      "file": "20260901140000_handover_correction_and_void.sql",
+      "required": true,
+      "stagingOnlyStatementPatterns": [
+        "\\bFUNCTION public\\.(?:handover_state_blockers|correct_handover(?:_impl)?|void_handover(?:_impl)?)\\b"
+      ]
+    },
+    {
+      "id": "044",
+      "file": "20260902100000_insurance_surcharge_rate.sql",
+      "required": false,
+      "schemaEffect": "none — data-only extras_config upsert"
+    },
+    {
+      "id": "045",
+      "file": "20260919153359_grant_handover_gateways.sql",
+      "required": true,
+      "stagingOnlyStatementPatterns": [
+        "^GRANT (?:ALL|EXECUTE) ON FUNCTION public\\.(?:finalise_check_out|finalise_check_in|correct_handover|void_handover)\\b[\\s\\S]*\\bTO authenticated$"
+      ]
+    }
+  ]
+}
