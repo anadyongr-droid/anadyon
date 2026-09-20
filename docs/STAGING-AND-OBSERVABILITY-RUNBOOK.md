@@ -1,14 +1,15 @@
 # Staging and observability runbook
 
-**Status:** the isolated Supabase project exists, has been reset twice by the
-owner, the four staging-only GitHub Actions secrets are installed, and the
-credentialled commercial-path suite passes 84/84. Staging has migration 040
-but not 041. Migration 042 subsequently entered `main`, after the last hosted
-reset, so staging does not have that migration either. Repository-schema parity
-and final sign-off therefore remain open. The permanent `staging` branch and
-its Vercel-authenticated stable alias now exist; Preview variable scoping,
-hosted vendor acceptance and Sentry acceptance remain open. Codex must not run
-migrations against any hosted Supabase project.
+**Status:** the isolated Supabase project exists and was reset twice from
+current `main` on 19 September 2026. Both runs replayed all 44 migrations and
+finished with identical synthetic fixtures, Auth roles, grants and schema
+checks. The `staging` branch alias is live with branch-scoped Supabase URL, anon
+key and service-role key; synthetic admin and staff both completed browser login
+and separate MFA enrolment. The staff role was observed being redirected away
+from `/admin/users` to `/admin/reservations`. Production was not changed.
+Production-schema parity, hosted vendor flows and Sentry acceptance remain open.
+A reviewed plan for closing the remaining parity gaps is in §13, added 20
+September 2026.
 
 This runbook creates an isolated test system. It never copies production data,
 never reuses production Supabase credentials, and never permits test mail to
@@ -105,10 +106,18 @@ Supply the two database URLs only for this read-only check:
 PRODUCTION_SUPABASE_DB_URL=production_url STAGING_SUPABASE_DB_URL=staging_url npm run check:schema:parity
 ```
 
-The command dumps only the `public` schema and never dumps rows. Equal
-SHA-256 output is a pass. A mismatch prints lines found only in production and
-only in staging and retains both dumps in a newly created temporary directory.
-Every difference must be explained or closed before staging is trusted.
+The command dumps only the `public` schema and never dumps rows. Equal SHA-256
+output is a pass. While 042–045 remain pending on production, it classifies
+complete SQL statements against `scripts/schema-parity-pending.json`: only the
+functions and grants attributable to those migrations are permitted, 044 is
+declared explicitly as data-only, and every production-only or unexplained
+staging statement fails the check. Required schema-producing migrations must
+also be observable; a missing expected difference fails rather than silently
+shrinking the boundary. Both dumps are retained in a new temporary directory.
+
+Update the manifest when Tasos applies a pending migration to production. Never
+broaden a pattern merely to make the check green: the manifest is the declared
+boundary, not a suppression list.
 
 Also run these against the mapped staging values; `staging:reset` already runs
 them once automatically:
@@ -212,10 +221,14 @@ assertion, then remove the break.
 ## 8. Final acceptance checklist
 
 - [x] `npm run check:migration-replay` passes locally (31 August 2026).
-- [x] `npm run staging:reset` passes twice consecutively (31 August 2026).
+- [x] `npm run staging:reset` passes twice consecutively from current `main`
+  (44 migrations, 19 September 2026).
 - [ ] `npm run check:schema:parity` reports equality or every difference is documented.
-- [ ] Synthetic admin and staff can log in and enrol MFA.
-- [ ] Staff is refused administrator-only actions.
+- [x] Synthetic admin and staff can log in and enrol separate MFA factors
+  (19 September 2026).
+- [x] Staff is refused administrator-only user management: `/admin/users`
+  redirects to `/admin/reservations`, and no Users navigation is rendered
+  (19 September 2026).
 - [ ] Browser booking succeeds: quote → reservation → redirected email.
 - [x] Document upload and signed download work in `reservation-documents`
   (31 August 2026). Six hosted checks prove the bucket is private with its
@@ -363,3 +376,106 @@ Production observability exposed a separate operational issue, not a staging
 failure: the morning briefing logged `invalid_grant` for Gmail reply detection
 and email sync on 31 August. Refreshing the production Gmail OAuth grant belongs
 in the operational queue and must not be disguised as part of staging sign-off.
+
+## 13. Parity plan — 20 September 2026
+
+Codex proposed eight ways to bring staging closer to production without copying
+production data and without applying migrations 042–045 to production. Reviewed
+and re-scoped here. **The plan is sound; the changes below are sequencing,
+ownership and two corrections.**
+
+### What was checked first, and why it changed the plan
+
+Codex's item 3 listed *"server-side price recalculation"* as something to test.
+`DEFINING-STATEMENTS.md` §5 said the API **never** recalculates. Both could not
+be right.
+
+The code settles it: `app/api/quote/route.ts:301` is headed "Server-side
+verification — recalculate independently from DB" and computes `serverTotal`,
+`serverDeposit` and `serverBalanceDue`; the client's deposit is bound to
+`_clientDeposit` and discarded. **Codex was right and §5 was stale** — corrected
+in #125, along with §6 and §10. §1 was also wrong and is deliberately left
+wrong pending **W18**.
+
+That is the reason this section leads with verification rather than tasks: the
+plan was being written against a document that described an older system.
+
+### Already built — do not rebuild
+
+**Item 2 (two schema baselines) extends `npm run check:schema:parity`; it does
+not replace it.** §4 above already dumps both `public` schemas and compares
+SHA-256. What it cannot currently express is an *expected* difference, so it
+will now fail permanently — staging carries 042–045 and production does not.
+
+Codex's refinement is the right one and is the single highest-value item here:
+keep the byte comparison, but take a declared list of pending migrations and
+fail only on differences that list does not explain. A check that is expected to
+fail gets ignored, and an ignored check is worse than none.
+
+**Implemented 20 September:** the checker now compares whole SQL statements,
+including intact dollar-quoted function bodies, against the narrow migration
+manifest. Focused tests prove that an unrelated staging object, any
+production-only object, and a missing required migration all fail. The live
+read-only comparison is still an acceptance step because no database URL is
+stored in the agent worktree.
+
+### Ordering, with reasons
+
+1. **Item 2 — expected-difference schema parity.** Highest value. Turns "042–045
+   are pending" from something a person remembers into something the build
+   asserts. Restores a check that is currently guaranteed red.
+2. **Item 1 — synchronise the `staging` branch.** Nine commits behind with two
+   staging-specific commits. Review those two before merging `main` in; they are
+   the only thing that makes this more than a fast-forward.
+3. **Item 6 — deployment identity.** Cheap, and it removes a whole class of
+   wasted session. An admin-only diagnostic showing deployed commit, environment
+   name and Supabase project ref answers "was staging even running that code?"
+   without inference. A stale `.next` already cost a session on the frozen-pane
+   work.
+4. **Item 3 — deployed-browser journey.** The highest-value *test*: every
+   existing suite calls route handlers directly and therefore cannot see the
+   browser or the network boundary. **What it will not prove:** it exercises
+   synthetic data, so green means the code path works, not that production data
+   fits it.
+5. **Item 5 — configuration shape.** Compare variable *names* and assert values
+   differ. It must never print a value, only a name and a boolean.
+6. **Item 7 — synthetic data coverage.** See the §13 boundary below.
+7. **Item 8 — scheduled drift checks.** Last, deliberately. Built before items
+   1–2 define what "drift" means, it reports noise and gets muted.
+
+### Item 4 is mostly not agent-actionable, and was listed as though it were
+
+Stripe test mode, a restricted Resend key, AADE sandbox credentials and a
+separate Sentry project are each an account action requiring Tasos's login. An
+agent should hand him the exact steps rather than plan around them. The one
+genuinely agent-side piece — Google's reCAPTCHA test keys — is already handled
+and guarded by the build-time assertion in `next.config.ts`.
+
+### The §13 boundary on this work
+
+None of items 1–8 changes the operating model, so none needs approval **as test
+infrastructure**. Two need care:
+
+- **Item 7's fixtures may represent states, not enforce policy.** Synthetic data
+  covering under-age bands, expired documents and overlapping reservations is
+  fine. A fixture that *encodes* an eligibility rule is one step from that rule
+  being treated as agreed, and **W7/W10 are open and unapproved**.
+- **Item 3's journey exercises the booking flow; it must not alter it.** If the
+  journey cannot pass without changing what a customer is asked, charged or
+  told, that is a finding to report — not a fix to make.
+
+### The staging FDW trap, stated once
+
+<!-- price-exempt: names the synthetic staging figure in order to warn against it -->
+`staging:reset` reseeds from `supabase/seeds/staging.sql`, so staging shows the
+Full Damage Waiver at **€12/day** and carries no GPS row. That is correct for
+staging and is synthetic. **Production is €5.00/day**, verified on the live
+Admin → Rates screen on 19 September. An hour was lost to this confusion on 19
+September and the wrong figure reached five documents, plus §10 of the
+principles. `lib/publishedPriceParity.test.ts` now fails the build if it reaches
+a document again.
+
+### What this does not address
+
+Applying 042–045 to production remains Tasos's, per `AGENTS.md`. Nothing above
+brings that forward, and **no item requires it.**
