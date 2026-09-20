@@ -16,7 +16,7 @@ machine or a six-month gap.
 
 ## Where things stand — 2 September 2026
 
-**Last verified:** 2 September 2026, Claude.
+**Last verified:** 20 September 2026, Claude.
 
 **Read this section before opening anything else, and before researching
 anything.** It exists because an agent spent a working session re-deriving
@@ -99,15 +99,13 @@ Recorded here rather than fixed, because fixing it was not what was asked.
 
 | PR | What | Waiting on |
 |---|---|---|
-| **#95** | Phase 2 correction and voiding, plus the HTTP surface | Review/merge |
-| **#96** | Dependabot production group, 11 updates | CI. Needed a Stripe `apiVersion` fix, pushed |
-| **#98** | Sandbox disk runbook | Review/merge |
-| **#99** | Driver age market research | Review/merge |
-| #83, #78–#81 | GitHub Actions and CodeQL majors | Take one at a time |
-| #85, #86, #87 | `@types/node` 26, googleapis 176, TypeScript 7 | TypeScript 7 last — it is the one likely to break |
-| #16, #31, #58, #71 | Stale, three of them drafts, oldest from 22 August | A decision to finish or close them |
+| #87 | TypeScript 7.0.2 | **Nothing we can do.** `tsc` passes against this codebase; `typescript-eslint` refuses to load against TS 7 and caps at `<6.1.0` two levels down through `eslint-config-next`. Tracked at typescript-eslint#10940. Stays open until upstream moves — do not close it |
 
-`codex/incident-admin-middleware-timeout` has never been merged and has no PR.
+Everything else is merged. On 20 September #130, #131, #132, #133 and #135
+landed, and #78, #79, #80, #81, #83 and #85 were closed as superseded with the
+reason recorded on each. **No node20 GitHub Action remains in the repository.**
+
+Every branch listed here on 19 September is now resolved. `codex/incident-admin-middleware-timeout` was closed on 20 September — its incident record was already on `main`, #121 supplied the missing outcome, and the obsolete remote branches were deleted. Confirmed gone from `origin` on 20 September. `AGENTS.md` named it too, under "where the remaining work is defined", and that bullet is corrected in the same change as this one — it no longer lists open branches or pull requests at all, because a file that changes monthly should not carry a list that changes daily.
 
 ### Waiting on a human
 

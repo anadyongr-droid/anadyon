@@ -15,6 +15,92 @@ wrong place.
 
 ---
 
+## 20 September 2026 — Claude, implementer
+
+**Last verified:** 20 September 2026, Claude.
+
+Full detail in [`worklog/2026-09-20-claude.md`](worklog/2026-09-20-claude.md)
+and [`worklog/2026-09-20-codex.md`](worklog/2026-09-20-codex.md). This entry
+points at what moved; it does not restate it.
+
+**Governance.** `CLAUDE.md` now imports `DEFINING-STATEMENTS.md` as well as
+`AGENTS.md`, so both bind every agent every session rather than only when
+someone thought to open them (#124). `lib/governanceWiring.test.ts` holds that
+wiring: both imports present, no principle silently dropped or renumbered,
+every `§N` cited in `AGENTS.md` actually existing, and §13 present by number and
+by substance.
+
+**Three principles were factually wrong and are corrected** (#125) — §5 on where
+pricing is computed, §6 on anonymous grants, §10 on the Full Damage Waiver's
+price. The FDW figure had read €12 since 2 September, taken from
+`supabase/seeds/staging.sql`, whose own first line says "Synthetic staging
+fixtures only"; the live rate is **€5.00**. `lib/publishedPriceParity.test.ts`
+now scans the repository root as well as `docs/`, which is why the error
+survived the 19 September sweep. **The code was never wrong** — the documents
+had drifted away from it, and §5's stale wording actively invited an agent to
+delete a server-side security control.
+
+**Dependency queue, worked one at a time** (#130–#133). Six of seven resolved;
+**four were wrong as offered.** Dependabot enumerates dependencies, it does not
+understand them: it split a CodeQL pin that must move as one, offered
+`@types/node` ^26 against a Node 24 runtime, and named three node20 actions
+while a fourth had no PR at all. `lib/actionPinParity.test.ts` now fails on a
+split pin. **#87 (TypeScript 7) stays open and is blocked upstream** — `tsc`
+passes; `typescript-eslint` refuses to load. Recorded on `OPEN-ITEMS.md` R2.
+
+**The queue's own load then exposed a durable bug in the end-to-end rig**
+(#135). The staging suite failed with 429 against a diff of one workflow file:
+the limiter is database-backed on purpose, but the test's IP counter restarts
+every run, so the buckets accumulate. The replay case spends two requests on
+one address where every other case spends one, so it alone breaks after five
+runs in the window — and the queue put six through. The remedy was already in
+the file, written for one address and never extended.
+
+**Three new open items.** **E11** — a cancelled staging E2E check is grey, not
+red, so a pull request whose E2E never ran does not read as failing; seen on
+#131. **E12** — which Node major Vercel runs has not been confirmed since
+19 August, and only Tasos can read it. **R7** — with branch protection strict
+and two agents merging, a stale branch is reported as `405 Required status
+check "build" is expected`, which reads as a missing check; the real signal is
+`mergeable_state: behind`.
+
+**Codex merged #134 the same afternoon**, making the staging schema-parity
+check understand the pending 042–045 migrations — item 2 of the runbook §13
+plan, and the one that turns a check guaranteed to fail back into a useful one.
+
+**Also closed today:** the admin frozen-panes defect (W5), on evidence rather
+than a fix — the existing implementation passed all 32 checks including a
+deliberately broken control. The inbound-link work shipped 46 redirects for 86
+legacy URLs that were 404ing.
+
+---
+
+## 19 and 9 September 2026 — consolidation owed and now written
+
+**Last verified:** 20 September 2026, Claude.
+
+**This file held one entry, from 2 September, until today.** §11.2 makes the
+consolidated daily entry Claude's job, and it was not done on 9 or 19
+September even though the agent summaries were written. Recording the gap
+rather than quietly filling it, because the pattern matters more than the two
+missing entries: the per-agent summaries under `worklog/` were kept faithfully
+throughout, so nothing was lost — but anyone reading this file for the shape of
+the month would have concluded that nothing happened after 2 September.
+
+The days themselves are in
+[`worklog/2026-09-09-claude.md`](worklog/2026-09-09-claude.md),
+[`worklog/2026-09-19-claude.md`](worklog/2026-09-19-claude.md) and
+[`worklog/2026-09-19-codex.md`](worklog/2026-09-19-codex.md). The living
+documents they feed — the blueprint, the audits, `OPEN-ITEMS.md` and the
+status section of `README.md` — were kept current on those days, which is the
+part §11.2 says matters most.
+
+**The lesson is the one §11 already states:** do the close-of-day pass while
+there is still context to do it with. Both missed days were long ones that ran
+to the end of their budget.
+
+---
+
 ## 2 September 2026 — Claude, implementer
 
 **Last verified:** 2 September 2026, Claude.
