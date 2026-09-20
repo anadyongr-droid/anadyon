@@ -524,5 +524,5 @@ brings that forward, and **no item requires it.**
   Production values were narrowed to Production only; the `staging` branch kept
   only its isolated Supabase URL, anon key and service-role key. A build-time
   policy now makes recurrence a build failure. Existing Preview artifacts retain
-  their build-time snapshot and are tracked for deletion under E14 after the
+  their build-time snapshot and are tracked for deletion under E15 after the
   clean replacement staging deployment is verified.
