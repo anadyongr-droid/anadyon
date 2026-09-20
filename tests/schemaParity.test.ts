@@ -4,6 +4,8 @@ import { join } from "node:path";
 import {
   canonicalDump,
   classifySchemaDifference,
+  redactDatabaseCredentials,
+  schemaDumpFailureMessage,
   splitSqlStatements,
 } from "../scripts/schema-parity-lib.mjs";
 
@@ -100,5 +102,54 @@ GRANT ALL ON FUNCTION public.finalise_check_out(uuid, timestamp with time zone) 
     expect(new Set(result.expectedStaging.map(({ migration }) => migration))).toEqual(
       new Set(["042", "043", "045"]),
     );
+  });
+});
+
+describe("schema parity credential safety", () => {
+  const databaseUrl =
+    "postgresql://postgres.project-ref:password-with-%40@pooler.example.com:5432/postgres";
+
+  it("redacts a known database URL from child-process diagnostics", () => {
+    const diagnostic = `Command failed: supabase db dump --db-url ${databaseUrl}`;
+    const redacted = redactDatabaseCredentials(diagnostic, [databaseUrl]);
+
+    expect(redacted).not.toContain(databaseUrl);
+    expect(redacted).not.toContain("password-with-%40");
+    expect(redacted).toContain("[REDACTED_DATABASE_URL]");
+  });
+
+  it("redacts PostgreSQL URLs even when they were not supplied separately", () => {
+    const redacted = redactDatabaseCredentials(`unexpected ${databaseUrl}`, []);
+
+    expect(redacted).not.toContain("password-with-%40");
+    expect(redacted).toBe("unexpected [REDACTED_DATABASE_URL]");
+  });
+
+  it("reports a labelled dump failure without reproducing command arguments", () => {
+    const message = schemaDumpFailureMessage(
+      "production",
+      {
+        status: 1,
+        stdout: "Dumping schemas from remote database...",
+        stderr: `failed command --db-url ${databaseUrl}`,
+        error: new Error(`Command failed with ${databaseUrl}`),
+      },
+      [databaseUrl],
+    );
+
+    expect(message).toContain("production schema dump failed");
+    expect(message).not.toContain(databaseUrl);
+    expect(message).not.toContain("password-with-%40");
+    expect(message).toContain("[REDACTED_DATABASE_URL]");
+  });
+
+  it("checks Docker before the executable script reads database URLs", () => {
+    const source = readFileSync(
+      join(process.cwd(), "scripts/check-schema-parity.mjs"),
+      "utf8",
+    );
+
+    expect(source.indexOf("ensureSchemaDumpPrerequisites"))
+      .toBeLessThan(source.indexOf("PRODUCTION_SUPABASE_DB_URL"));
   });
 });

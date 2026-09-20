@@ -1,3 +1,34 @@
+const REDACTED_DATABASE_URL = "[REDACTED_DATABASE_URL]";
+
+/** Remove database credentials from any diagnostic before it reaches output. */
+export function redactDatabaseCredentials(value, knownUrls = []) {
+  let redacted = String(value ?? "");
+  const secrets = knownUrls
+    .filter((url) => typeof url === "string" && url.length > 0)
+    .sort((a, b) => b.length - a.length);
+
+  for (const secret of secrets) {
+    redacted = redacted.replaceAll(secret, REDACTED_DATABASE_URL);
+  }
+
+  // Defence in depth: redact PostgreSQL URLs the caller did not know about.
+  return redacted.replace(
+    /\bpostgres(?:ql)?:\/\/[^\s'"`]+/gi,
+    REDACTED_DATABASE_URL,
+  );
+}
+
+/** Build a useful child-process failure without reproducing argv or secrets. */
+export function schemaDumpFailureMessage(label, result, knownUrls = []) {
+  const detail = [result?.error?.message, result?.stderr, result?.stdout]
+    .filter(Boolean)
+    .map((part) => redactDatabaseCredentials(part, knownUrls).trim())
+    .filter(Boolean)
+    .join("\n");
+
+  return `${label} schema dump failed.${detail ? `\n${detail}` : ""}`;
+}
+
 /** Split a pg_dump into complete top-level SQL statements. */
 export function splitSqlStatements(sql) {
   const statements = [];

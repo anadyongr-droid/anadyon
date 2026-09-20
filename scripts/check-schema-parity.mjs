@@ -1,10 +1,40 @@
 #!/usr/bin/env node
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { canonicalDump, classifySchemaDifference } from "./schema-parity-lib.mjs";
+import {
+  canonicalDump,
+  classifySchemaDifference,
+  redactDatabaseCredentials,
+  schemaDumpFailureMessage,
+} from "./schema-parity-lib.mjs";
+
+const root = join(import.meta.dirname, "..");
+const cli = join(root, "node_modules", ".bin", "supabase");
+
+function ensureSchemaDumpPrerequisites() {
+  if (!existsSync(cli)) {
+    throw new Error("Schema parity prerequisites are missing. Run npm ci first.");
+  }
+
+  // Supabase CLI runs pg_dump in Docker. Check this before reading credentials
+  // so a missing CLI/daemon can never put a database URL on a failing argv.
+  const docker = spawnSync("docker", ["info"], { stdio: "ignore" });
+  if (docker.error || docker.status !== 0) {
+    throw new Error(
+      "Schema parity requires a running Docker Desktop. Start Docker and retry; no database connection was attempted.",
+    );
+  }
+}
+
+try {
+  ensureSchemaDumpPrerequisites();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : "Schema parity prerequisites are unavailable.");
+  process.exit(1);
+}
 
 const production = process.env.PRODUCTION_SUPABASE_DB_URL?.trim();
 const staging = process.env.STAGING_SUPABASE_DB_URL?.trim();
@@ -15,17 +45,31 @@ if (production === staging) {
   throw new Error("Refusing parity check: production and staging database URLs are identical");
 }
 
-const root = join(import.meta.dirname, "..");
-const cli = join(root, "node_modules", ".bin", "supabase");
 const output = mkdtempSync(join(tmpdir(), "anadyon-schema-parity-"));
 const productionFile = join(output, "production-public.sql");
 const stagingFile = join(output, "staging-public.sql");
 
-for (const [url, file] of [[production, productionFile], [staging, stagingFile]]) {
-  execFileSync(cli, ["db", "dump", "--db-url", url, "--schema", "public", "--file", file], {
-    cwd: root,
-    stdio: "inherit",
-  });
+for (const [label, url, file] of [
+  ["production", production, productionFile],
+  ["staging", staging, stagingFile],
+]) {
+  const result = spawnSync(
+    cli,
+    ["db", "dump", "--db-url", url, "--schema", "public", "--file", file],
+    {
+      cwd: root,
+      encoding: "utf8",
+    },
+  );
+  if (result.error || result.status !== 0) {
+    console.error(schemaDumpFailureMessage(label, result, [production, staging]));
+    process.exit(1);
+  }
+  const progress = redactDatabaseCredentials(
+    [result.stdout, result.stderr].filter(Boolean).join("\n"),
+    [production, staging],
+  ).trim();
+  if (progress) console.log(progress);
 }
 
 const prodRaw = readFileSync(productionFile, "utf8");

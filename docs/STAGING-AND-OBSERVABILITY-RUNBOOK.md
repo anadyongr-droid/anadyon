@@ -106,6 +106,19 @@ Supply the two database URLs only for this read-only check:
 PRODUCTION_SUPABASE_DB_URL=production_url STAGING_SUPABASE_DB_URL=staging_url npm run check:schema:parity
 ```
 
+The checker validates that the Supabase CLI and a running Docker Desktop are
+available **before it reads either URL**. Child-process output is captured and
+every known or incidental PostgreSQL URL is redacted before a diagnostic can
+reach the terminal. Never replace the captured runner with `execFileSync(...,
+{ stdio: "inherit" })`: Node includes the complete failing command in the
+exception, and `--db-url` contains the database password.
+
+This safeguard was added after the first hosted attempt on 20 September failed
+the Docker prerequisite and Node reproduced the production connection string
+in its uncaught exception. No database was reached and staging was not
+attempted, but the production database password required rotation. Regression
+tests now simulate that exact failure and fail if a URL or password survives.
+
 The command dumps only the `public` schema and never dumps rows. Equal SHA-256
 output is a pass. While 042–045 remain pending on production, it classifies
 complete SQL statements against `scripts/schema-parity-pending.json`: only the
