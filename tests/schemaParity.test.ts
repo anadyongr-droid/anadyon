@@ -5,6 +5,7 @@ import {
   canonicalDump,
   classifySchemaDifference,
   redactDatabaseCredentials,
+  REDACTED_DATABASE_PASSWORD,
   schemaDumpFailureMessage,
   splitSqlStatements,
 } from "../scripts/schema-parity-lib.mjs";
@@ -133,6 +134,44 @@ describe("schema parity credential safety", () => {
     expect(redacted).toBe("failed to parse [REDACTED_DATABASE_URL]");
     expect(redacted).not.toContain("do-not-print");
     expect(redacted).not.toContain("pooler.example.com");
+  });
+
+  // The password on its own, detached from the URL it came in.
+  //
+  // Whole-URL replacement covers the string as passed; the URL-shaped patterns
+  // cover anything that still looks like a URL. Neither sees the password once
+  // it is separated from its URL — and that is the part worth protecting.
+  // Found by running the redactor against output shapes these tools actually
+  // produce, after #142 landed.
+  it("redacts the password when it appears outside a URL", () => {
+    const url =
+      "postgresql://postgres.project:S3cr3tP%40ss@pooler.example.com:5432/postgres";
+
+    // libpq keyword form. A driver reporting a connection string this way
+    // produces no URL for a URL-shaped pattern to match.
+    const keyword = redactDatabaseCredentials(
+      "connection failed: host=db.example.com user=postgres password=S3cr3tP@ss",
+      [url],
+    );
+    expect(keyword).not.toContain("S3cr3tP@ss");
+    expect(keyword).toContain(REDACTED_DATABASE_PASSWORD);
+
+    // Percent-decoded, because the URL carries %40 where the driver prints @.
+    expect(keyword).not.toContain("S3cr3t");
+
+    // And the raw form, as it appears inside the URL.
+    const raw = redactDatabaseCredentials("tried S3cr3tP%40ss", [url]);
+    expect(raw).not.toContain("S3cr3tP%40ss");
+    expect(raw).toContain(REDACTED_DATABASE_PASSWORD);
+  });
+
+  // The floor exists so a password that reads like a word cannot blank
+  // unrelated text. Asserted rather than assumed, because a redactor that
+  // rewrites ordinary log lines gets turned off.
+  it("leaves a very short password alone rather than scrubbing common words", () => {
+    const url = "postgresql://postgres:abc@pooler.example.com:5432/postgres";
+    const out = redactDatabaseCredentials("abc appears in ordinary text", [url]);
+    expect(out).toBe("abc appears in ordinary text");
   });
 
   it("reports a labelled dump failure without reproducing command arguments", () => {
