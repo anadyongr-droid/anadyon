@@ -55,17 +55,63 @@ enter should be one the customer could have made themselves.
 email, phone, and a total that is not zero by accident.
 **Deferrable:** date of birth, nationality, flight number.
 
-## 5. Pricing is calculated in one place
+## 5. One pricing implementation, run on both sides — and the server's answer wins
 
-All price calculation happens client-side in the booking form. The API formats
-and emails the values it is given and never recalculates them, so there is no
-second implementation to drift out of step with the first.
+`lib/pricing.ts` is the only place prices are computed. The booking form calls
+it so the customer sees a figure as they choose; the quote API calls **the same
+functions again**, against rates read from the database, and **the server's
+result is what is stored and emailed**. The client's numbers are received and
+discarded — the deposit it sends is bound to `_clientDeposit` and never used.
+
+One implementation, two callers. That is what stops the two drifting: not
+calculating in a single *place at runtime*, but having a single *module* neither
+side can bypass.
+
+**The server's recalculation is a security control, not duplication.** It is
+what stops a crafted request naming an expensive model alongside a cheap price,
+and `lib/quoteTamperResistance.test.ts` exists to hold it there. Anyone reading
+this section as licence to delete it because "pricing happens on the client"
+would be removing the check, not the redundancy.
+
+<!-- price-exempt: describes where pricing is computed, quotes no rate -->
+*Rewritten 20 September 2026. This section previously said "All price
+calculation happens client-side in the booking form. The API formats and emails
+the values it is given and never recalculates them." That has not been true
+since server-side verification was added: `app/api/quote/route.ts` computes
+`serverVehicleSubtotal`, `serverTotal`, `serverDeposit` and `serverBalanceDue`
+independently from the database, and `docs/HANDOFF-H1.md` §7 already recorded
+that "the server's pricing always wins". The old wording survived because
+nothing loaded it — it began binding on every agent only when CLAUDE.md started
+importing this file, hours before this correction. Left visible because the
+stale version actively invited an agent to delete a security control in the name
+of following a principle.*
 
 ## 6. Customer data is not exposed by default
 
-Tables are never granted to the anonymous role. Row-level security filters
-rows, not columns, so a readable table is a readable table — the protection has
-to be that the anonymous key cannot reach it at all.
+No table containing customer or operational data is granted to the anonymous
+role. Row-level security filters rows, not columns, so a readable table is a
+readable table — the protection has to be that the anonymous key cannot reach it
+at all.
+
+**Two tables are deliberately readable and hold nothing private:** `rates` and
+`extras_config`, granted `select` to `anon` in migration 023. The public booking
+form cannot price a rental without them and neither carries a customer record.
+Everything else is revoked — `vehicles`, `vehicle_costs` and `vehicle_damages`
+in migration 012, the public functions in 014, the residue in 019.
+
+**A policy `to anon` is not a grant.** `001_baseline.sql` creates several, on
+`quotes`, `reservations`, `promo_codes` and others. They are inert where the
+grant was revoked: a policy decides which rows a role may see *if* it can reach
+the table at all. Read one as an exposure and you will go looking for a breach
+that is not there; read the absence of one as safety and you will miss a table
+that was granted and never policed. **The grant is the boundary; the policy is
+the filter.**
+
+*Narrowed 20 September 2026. This section said tables are "never" granted to the
+anonymous role, which the code has deliberately contradicted since migration 023
+for the two pricing tables. An absolute a codebase knowingly breaks is worse
+than a precise rule: an agent correcting the code toward it would revoke the
+grants and break public booking.*
 
 ## 7. Build for the owned fleet; at a crossroads, take the option that keeps brokerage open
 
