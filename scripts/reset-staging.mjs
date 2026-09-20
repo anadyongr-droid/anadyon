@@ -25,15 +25,19 @@ if (!existsSync(cli)) {
 console.log(`Reset target verified three ways: ${target.ref} (${target.apiUrl}).`);
 console.log("This command drops the hosted STAGING database, replays every migration, and loads synthetic fixtures.");
 
-execFileSync(cli, [
-  "db",
-  "reset",
-  "--db-url",
-  target.dbUrl,
-  "--sql-paths",
-  "seeds/staging.sql",
-  "--yes",
-], { cwd: root, stdio: "inherit" });
+try {
+  execFileSync(cli, [
+    "db",
+    "reset",
+    "--db-url",
+    target.dbUrl,
+    "--sql-paths",
+    "seeds/staging.sql",
+    "--yes",
+  ], { cwd: root, stdio: "inherit" });
+} catch {
+  throw new Error("The hosted staging reset failed; database credentials were redacted from this error");
+}
 
 await seedStagingAuth(env);
 

@@ -211,6 +211,22 @@ describe("POST /api/quote atomic booking", () => {
     expect(customerMail.html).toContain("Anadyon Customer Service");
   });
 
+  it("does not invent an address from the form's default country", async () => {
+    const response = await POST(post(requestBody({
+      address: "",
+      postalCode: "",
+      city: "",
+      country: "Greece",
+    })));
+
+    expect(response.status).toBe(200);
+    const officeHtml = mocks.sendMail.mock.calls
+      .map(([mail]) => mail)
+      .find((mail) => Array.isArray(mail.to) && mail.to.includes("customerservice@anadyon.gr"))?.html ?? "";
+    expect(officeHtml).toContain("<strong>Address:</strong></td><td></td>");
+    expect(officeHtml).not.toContain(", , , Greece");
+  });
+
   it("sends a Greek acknowledgment for a request submitted on the Greek site", async () => {
     const response = await POST(post(requestBody({ locale: "el", fdw: true, extrasSubtotal: 5, total: 63 })));
 

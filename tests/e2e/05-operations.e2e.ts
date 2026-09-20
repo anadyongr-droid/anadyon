@@ -2,8 +2,9 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { db, req, MARK, TEST_EMAIL, futureDates, cleanup } from "./helpers";
 
 vi.mock("@/lib/mailer", () => ({
-  sendMail: async () => ({ data: null, error: null }),
+  sendMail: async () => ({ ok: true, queued: false, providerMessageId: "stubbed-in-tests" }),
   mailIsRedirected: true,
+  mailRedirectTarget: "blackhole@example.invalid",
 }));
 
 const { POST: createReservation } = await import("@/app/api/admin/reservations/route");
@@ -85,9 +86,13 @@ describe("phase 5 — fleet, operations and customers", () => {
       customer_name: `Ops Tester ${MARK}`, customer_email: TEST_EMAIL,
       pickup_date: d.pickup_date, return_date: d.return_date, pickup_time: "10:00", return_time: "10:00",
       rental_days: 3, daily_rate: 30, vehicle_subtotal: 90, extras_subtotal: 0, total: 90,
-      status: "confirmed", notes: `Quote ref: OPS. ${MARK}`,
+      // This test is about the customer interaction stamp, not payment. A
+      // confirmed admin booking now correctly requires the explicit payment
+      // attestation exercised in the lifecycle phase.
+      status: "pending", notes: `Quote ref: OPS. ${MARK}`,
     }));
-    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(res.status, `reservation create failed: ${JSON.stringify(body)}`).toBe(201);
     const after = (await db.from("customers").select("last_interaction_at").eq("id", customerId).single()).data!;
     expect(after.last_interaction_at).not.toBe(before.last_interaction_at);
   });

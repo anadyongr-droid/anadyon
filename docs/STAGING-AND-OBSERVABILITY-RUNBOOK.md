@@ -1,7 +1,13 @@
 # Staging and observability runbook
 
-**Status:** code and local replay tooling prepared; hosted setup still requires
-the owner. Codex must not run migrations against any hosted Supabase project.
+**Status:** the isolated Supabase project exists and was reset twice from
+current `main` on 19 September 2026. Both runs replayed all 44 migrations and
+finished with identical synthetic fixtures, Auth roles, grants and schema
+checks. The `staging` branch alias is live with branch-scoped Supabase URL, anon
+key and service-role key; synthetic admin and staff both completed browser login
+and separate MFA enrolment. The staff role was observed being redirected away
+from `/admin/users` to `/admin/reservations`. Production was not changed.
+Production-schema parity, hosted vendor flows and Sentry acceptance remain open.
 
 This runbook creates an isolated test system. It never copies production data,
 never reuses production Supabase credentials, and never permits test mail to
@@ -204,18 +210,34 @@ assertion, then remove the break.
 
 ## 8. Final acceptance checklist
 
-- [ ] `npm run check:migration-replay` passes locally.
-- [ ] `npm run staging:reset` passes twice consecutively.
+- [x] `npm run check:migration-replay` passes locally (31 August 2026).
+- [x] `npm run staging:reset` passes twice consecutively from current `main`
+  (44 migrations, 19 September 2026).
 - [ ] `npm run check:schema:parity` reports equality or every difference is documented.
-- [ ] Synthetic admin and staff can log in and enrol MFA.
-- [ ] Staff is refused administrator-only actions.
+- [x] Synthetic admin and staff can log in and enrol separate MFA factors
+  (19 September 2026).
+- [x] Staff is refused administrator-only user management: `/admin/users`
+  redirects to `/admin/reservations`, and no Users navigation is rendered
+  (19 September 2026).
 - [ ] Browser booking succeeds: quote → reservation → redirected email.
-- [ ] Document upload and signed download work in `reservation-documents`.
+- [x] Document upload and signed download work in `reservation-documents`
+  (31 August 2026). Six hosted checks prove the bucket is private with its
+  10 MB/image-and-PDF contract, a signed upload accepts a synthetic PDF,
+  anonymous download is refused, the admin list returns it, a five-minute
+  signed URL returns the exact bytes, and deletion invalidates access and
+  leaves no object behind. The first run failed because the list exposed the
+  internal timestamped object key as the staff-facing filename; that display
+  defect was fixed before the acceptance item was closed.
 - [ ] Stripe test-mode webhook and payment flow work on the stable branch alias.
 - [ ] AADE sandbox flow is tested when sandbox credentials exist.
 - [ ] Manual morning briefing returns successfully without reaching production Telegram.
 - [ ] Sentry receives browser, server and proxy errors with raw-event privacy inspected.
-- [ ] Staging e2e CI passes and has been observed failing on a deliberate break.
+- [x] Staging e2e CI passes and has been observed failing on a known-bad prior
+  revision (runs `33413251647` and `33398661882`, 31 August 2026).
+- [x] The expanded hosted commercial-path suite passes 84/84 against staging
+  with transport-level mail suppression (local unrestricted run, 1 September
+  2026). A first attempt from the managed DNS sandbox failed with `ENOTFOUND`;
+  rerunning with outbound access isolated that as a runner limitation.
 
 No checkbox involving a hosted service is complete merely because the code for
 it exists. Record the date and evidence when the owner performs each one.
@@ -270,3 +292,77 @@ Final local verification against that reconciled state:
 - Playwright passed 70 Chromium/Firefox checks, with four rate-dependent checks
   skipped because the isolated build deliberately used placeholder Supabase
   credentials.
+
+## 11. Hosted staging activation — 31 August 2026
+
+The owner created staging project `fzycvstifmltxybffinq` and ran the guarded
+reset twice. Both runs replayed 39 migrations and finished with the same
+synthetic state: 29 vehicles, five customers and six reservations; both
+synthetic Auth roles verified; anonymous reads and writes to sensitive tables
+returned 401; public rates and extras remained read-only; residual grants were
+zero; the private document bucket existed; and the schema check matched 391
+columns across 29 tables in both directions against the declared migration
+state. No production data was copied.
+
+The four §7 values were then installed as encrypted repository secrets in
+`anadyongr-droid/anadyon`. Their values were not printed or committed. Rerunning
+Actions workflow `33398661882` proved the staging job was no longer skipped:
+the normal build stayed green and the hosted e2e phase failed 15 of 78 checks.
+That was useful evidence, not a database failure. All 22 security checks and
+all readiness checks passed. The failures identified stale test contracts:
+
+- direct route-handler tests had no Next.js request context for `after()`;
+- mail mocks predated the audited-mail recipient export and normalised result;
+- the fake Resend provider reused one message id, unlike the real provider;
+- one test expected atomic replay to duplicate a quote, contradicting the
+  deployed idempotency rule;
+- two admin tests tried to confirm bookings without the payment attestation the
+  current workflow deliberately requires.
+
+The harness now queues and drains post-response work, models unique provider
+ids, and asserts the current booking/payment contracts. Against the isolated
+hosted project it passed 78/78 locally, then GitHub run `33413251647` passed the
+same credentialled staging job after its normal build gate. Together with the
+15-failure report from run `33398661882`, this records both sides of the gate
+without manufacturing an artificial failure. Preview scoping, browser MFA,
+Stripe, AADE, the morning briefing and Sentry remain separate hosted acceptance
+items; none is implied complete by the database or CI evidence above. The
+private reservation-document lifecycle was subsequently closed on 31 August by
+six destructive-but-self-cleaning checks against synthetic staging data; no
+production object or customer record was read or written.
+
+## 12. Sign-off continuation — 1 September 2026
+
+The full hosted e2e suite passed 84/84 against the isolated project. It covered
+the quote and booking path, idempotent replay, conversion, lifecycle,
+availability and statutory guards, fleet/customer operations, least privilege,
+schema-readiness assertions and private document lifecycle. Resend was replaced
+at module level and the fallback recipient remained the reserved `.invalid`
+address, so no message left the test process.
+
+Two read-only RPC presence calls then established that migration 041 is not yet
+on staging: both `handover_actor_role` and `finalise_check_out_impl` returned
+`PGRST202`. Migration 040's seven tables are present. Migration 042 entered
+`main` later, in PR #93, so it is necessarily absent from the project last reset
+before that merge as well. This explains why repository-schema parity cannot
+pass yet and makes a guarded reset from current `main` the preferred owner-only
+database action: it applies 041 and 042 in order and reruns all fixture, grant,
+bucket, role and drift checks. Applying both paste files manually is the
+fallback, not an action for Codex.
+
+Vercel reports the `main` production deployment at commit `93ee45a` as `READY`.
+Preview runtime logs contain no error or fatal entries in the latest 24-hour
+window. Environment-variable scopes were not marked verified: the available
+Vercel API does not expose them, and the browser session was not signed in.
+
+The permanent `staging` branch was created from `93ee45a`; an empty marker
+commit (`c6082a2`) triggered its first deployment. Vercel reports that deployment
+as `READY`, with no alias error, at the protected stable branch alias
+`anadyon-git-staging-anadyon.vercel.app`. Vendor test callbacks may use that
+alias after Preview variables have been inspected and confirmed to target only
+the staging vendors and database.
+
+Production observability exposed a separate operational issue, not a staging
+failure: the morning briefing logged `invalid_grant` for Gmail reply detection
+and email sync on 31 August. Refreshing the production Gmail OAuth grant belongs
+in the operational queue and must not be disguised as part of staging sign-off.

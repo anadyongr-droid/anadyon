@@ -204,6 +204,58 @@ async function checkBackupFreshness(): Promise<CheckResult> {
  * which is exactly why they are checked here — a DNS record nobody looks at is
  * how a domain quietly stops being defensible.
  */
+/**
+ * The services that send mail as this domain, and the SPF tokens that
+ * authorise each.
+ *
+ * Resend delivers over Amazon SES, so `include:amazonses.com` is what actually
+ * appears in a working record; the Resend-branded includes are accepted too
+ * because Resend has published both over time.
+ */
+const SPF_SENDERS: Array<{ label: string; why: string; tokens: string[] }> = [
+  {
+    label: "Resend",
+    why: "every booking confirmation is sent through it, from this domain",
+    tokens: ["amazonses.com", "spf.resend.com", "_spf.resend.com"],
+  },
+];
+
+/**
+ * What is wrong with an SPF record, if anything.
+ *
+ * Pure, and exported, because the interesting failure is not "is there a
+ * record" but "does the record authorise the thing that actually sends" —
+ * and that question is worth testing against real strings rather than against
+ * whatever DNS happens to return today.
+ *
+ * It exists in this shape because the check it replaces passed while the domain
+ * was misconfigured: on 11 September 2026 the live record was
+ * `v=spf1 +mx include:_spf.fastmail.gr -all`, which has no `+a` and so raised
+ * nothing, while Resend — the sender of every booking confirmation — was absent
+ * from it. Those emails hard-failed SPF and survived on DKIM alone, with no
+ * fallback if the key were ever rotated wrongly. See docs/EMAIL-DELIVERABILITY.md.
+ */
+export function spfProblems(spf: string | undefined): string[] {
+  if (!spf) return ["no SPF record"];
+  const problems: string[] = [];
+
+  if (/(^|\s)[+]?a(\s|$)/.test(spf)) {
+    problems.push("SPF still has `+a`, which now authorises Vercel's shared IP to send mail");
+  }
+  if (/(^|\s)[+]all(\s|$)/.test(spf)) {
+    problems.push("SPF ends `+all`, which authorises the entire internet and nullifies the record");
+  }
+
+  for (const sender of SPF_SENDERS) {
+    if (!sender.tokens.some((t) => spf.includes(t))) {
+      problems.push(
+        `SPF does not authorise ${sender.label} — ${sender.why}, so those messages fail SPF and rest on DKIM alone`,
+      );
+    }
+  }
+  return problems;
+}
+
 async function checkMailDns(): Promise<CheckResult> {
   const name = "Mail DNS hardening";
   try {
@@ -213,10 +265,7 @@ async function checkMailDns(): Promise<CheckResult> {
 
     try {
       const spf = flat(await dns.resolveTxt("anadyon.gr")).find((r) => r.startsWith("v=spf1"));
-      if (!spf) problems.push("no SPF record");
-      else if (/(^|\s)[+]?a(\s|$)/.test(spf)) {
-        problems.push("SPF still has `+a`, which now authorises Vercel's shared IP to send mail");
-      }
+      problems.push(...spfProblems(spf));
     } catch { problems.push("SPF could not be resolved"); }
 
     try {
@@ -230,7 +279,7 @@ async function checkMailDns(): Promise<CheckResult> {
 
     return problems.length
       ? { name, ok: false, detail: problems.join("; ") }
-      : { name, ok: true, detail: "SPF scoped to the mail server, DMARC reporting and enforcing" };
+      : { name, ok: true, detail: "SPF scoped and authorises every sender, DMARC reporting and enforcing" };
   } catch (err) {
     return { name, ok: false, detail: String(err).slice(0, 110) };
   }

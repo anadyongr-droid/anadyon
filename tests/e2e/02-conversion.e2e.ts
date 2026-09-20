@@ -3,8 +3,12 @@ import { db, req, ctx, MARK, TEST_EMAIL, futureDates, cleanup } from "./helpers"
 
 const sent: { subject: string; to: string | string[] }[] = [];
 vi.mock("@/lib/mailer", () => ({
-  sendMail: async (m: { subject: string; to: string | string[] }) => { sent.push(m); return { data: null, error: null }; },
+  sendMail: async (m: { subject: string; to: string | string[] }) => {
+    sent.push(m);
+    return { ok: true, queued: false, providerMessageId: "stubbed-in-tests" };
+  },
   mailIsRedirected: true,
+  mailRedirectTarget: "blackhole@example.invalid",
 }));
 
 const { POST } = await import("@/app/api/admin/reservations/route");
@@ -66,17 +70,25 @@ describe("phase 2 — quote to reservation conversion", () => {
     // duplicated because the form was handed no reservation id.
     sent.length = 0;
     const dd = futureDates(30);
-    const created = await (await POST(req("/api/admin/reservations", "POST",
-      booking({ pickup_date: dd.pickup_date, return_date: dd.return_date })))).json();
+    const createdResponse = await POST(req("/api/admin/reservations", "POST",
+      booking({ pickup_date: dd.pickup_date, return_date: dd.return_date })));
+    const created = await createdResponse.json();
+    expect(createdResponse.status, `reservation create failed: ${JSON.stringify(created)}`).toBe(201);
 
     const before = await db.from("reservations").select("id").ilike("customer_name", `%${MARK}%`);
     sent.length = 0;
 
     const patched = await PATCH(
-      req(`/api/admin/reservations/${created.id}`, "PATCH", { status: "confirmed", _prev_status: "pending" }),
+      req(`/api/admin/reservations/${created.id}`, "PATCH", {
+        status: "confirmed",
+        _prev_status: "pending",
+        _payment_verified: true,
+        _payment_amount: 27,
+      }),
       ctx(created.id)
     );
-    expect(patched.status).toBe(200);
+    const patchedBody = await patched.json();
+    expect(patched.status, `reservation edit failed: ${JSON.stringify(patchedBody)}`).toBe(200);
 
     const after = await db.from("reservations").select("id").ilike("customer_name", `%${MARK}%`);
     expect(after.data!.length).toBe(before.data!.length);

@@ -1,9 +1,11 @@
 # Open question: how does a database function know *which* staff member is calling?
 
-**Status: open. No decision taken.** Written 28 August 2026 for outside review.
-Nothing in this document has been implemented, and the blueprint section it
-concerns (`RENTAL-SYSTEM-BLUEPRINT.md` §4.2, the check-out / check-in counter)
-is marked OPEN and blocked on the answer.
+**Status: Option A adopted, 31 August 2026. One vendor behaviour left to
+confirm, and it fails closed.** Written 28 August 2026 for outside review; §§11–13
+record what the diagnostics found and §13 the decision taken on them. Read §13
+first if you only want the answer. Nothing here is implemented yet, and
+`RENTAL-SYSTEM-BLUEPRINT.md` §4.2's OPEN block is narrowed rather than deleted —
+see §13.4 for exactly what a builder may and may not now do.
 
 This is written to be read cold. It assumes no knowledge of the project.
 
@@ -471,14 +473,8 @@ What changes hands is *identity*, not *privilege*. So the cost reduces to:
 2. the gateway verifying membership against the database, per §2;
 3. the §5 separation, which query 4 above now supplies as a list.
 
-**This rests on one assumption that has not been tested and must be before any
-of it is built:** that `auth.uid()` resolves inside a `SECURITY DEFINER`
-function when the call arrives from a user-scoped client. It should — PostgREST
-sets the JWT claims per request and `auth.uid()` reads them, independently of
-which role the function body executes as — but "should" is what this whole
-document exists to stop relying on.
-
-**Diagnostic 10c, to be run before anything is built:**
+**Closed 1 September 2026.** Diagnostic 10c was run through the production
+PostgREST path and then removed. The temporary function used this shape:
 
 ```sql
 create or replace function public.whoami_probe()
@@ -490,72 +486,33 @@ as $$ select auth.uid(),
              current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'role',
              current_user::text $$;
 
-grant execute on function public.whoami_probe() to authenticated;
+grant execute on function public.whoami_probe() to authenticated, service_role;
 ```
 
-### The short way — a script, no browser
+The cookie-backed application client returned a non-null user ID and the
+administrator application role. The independently executed service-role
+control returned a null user ID and a null JWT role. Both calls reported
+`current_user = postgres`, which is correct for a `SECURITY DEFINER` function:
+the earlier result table expecting `authenticated` confused the invoker's
+PostgREST role with the function execution role.
 
-Sign in with a password and you get a JWT carrying `sub` at `aal1`; MFA raises
-the assurance level, it does not add the subject. A JWT reaching PostgREST is
-the whole mechanism under test, so no browser, no cookies and no authenticator
-are needed:
+That pair is the answer. PostgREST supplies the user's request claims to the
+definer function, while a service-role request has no end-user identity.
+Option A works as designed and the production grant gate is cleared.
 
-```
-PROBE_EMAIL=you@example.com PROBE_PASSWORD='…' npm run probe:rpc-identity
-```
+The original command-line diagnostic had a separate measurement defect. Its
+SQL granted only `authenticated`, although the script also called as
+`service_role`, and the script normalised any non-successful service-role call
+to a null result. A permission refusal could therefore masquerade as the
+required null control. The completed diagnostic explicitly granted both roles
+for the duration of the test and observed the service-role result, so the
+conclusion does not depend on that script.
 
-**It calls the function twice, and the control is the point.** Once with the
-user's token, once with the service role. The service-role call is expected to
-return a NULL `uid` — that is the defect this document is about. Both null means
-something else is wrong and neither result should be believed; both non-null
-means the probe is not measuring what it claims. Only `uid` under the user and
-NULL under the service role proves anything.
-
-The password is read from the environment and written nowhere.
-
-### The long way — the route, in a browser
-
-Kept because it exercises the real production path: a cookie-backed
-`createServerClient`, which is what the application would actually use. The
-script proves the mechanism; this proves the mechanism *as the app builds it*.
-If the script answers cleanly, this is optional.
-
-Signed in to `/admin` **as an administrator**, open:
-
-```
-/api/admin/diagnostics/rpc-identity
-```
-
-That route is built for this and nothing else. It constructs a per-request
-client from the session cookies — the Option A pattern, borrowed from
-`app/api/admin/users/route.ts` — and calls the probe through it, **not** through
-`supabaseAdmin`. `lib/rpcIdentityProbe.test.ts` asserts it never reaches for the
-service role, because swapping the client would leave the route returning 200
-and proving nothing.
-
-**An administrator session is enough**, and the earlier draft of this section
-was wrong to ask for staff. What is under test is whether JWT claims reach the
-function at all, which does not depend on which role the claim carries. Running
-it as staff would mean adding a throwaway diagnostic to `proxy.ts`'s `STAFF_API`
-allowlist, and allowlist entries added "temporarily" are how allowlists grow.
-
-**Reading it:**
-
-| Result | Meaning |
-|---|---|
-| `uid` non-null, `pg_role` = `authenticated` | Option A works. §12.4 stands, and the build can start. |
-| `uid` null | Option A is falsified. §12.4 is wrong and Option B wins by elimination. |
-| `function does not exist` | The SQL above has not been run. Not an answer. |
-
-**Then remove all of it**, in the same sitting — delete
-`app/api/admin/diagnostics/rpc-identity/route.ts` with its test,
-`scripts/probe-rpc-identity.mjs` and its `package.json` entry, and run:
-
-```sql
-drop function if exists public.whoami_probe();
-```
-
-A diagnostic left in place becomes an endpoint nobody remembers adding.
+Cleanup was completed in the same sitting: the database probe was dropped and
+confirmed absent. The temporary route, script, package command and route-only
+regression test were removed immediately afterwards. The reusable PGlite
+identity tests remain; they test the permanent architecture rather than a live
+diagnostic endpoint.
 
 ### 12.5 A separate finding, not about identity
 
@@ -598,3 +555,109 @@ is being edited for another reason anyway.
 
 Worth noting for its own sake: `assert_least_privilege`, the function that
 checks least privilege, is itself on the looser pattern.
+
+
+---
+
+## 13. The Postgres half, settled by execution — 31 August 2026
+
+§12.4 ended on a sentence that blocked everything:
+
+> **This rests on one assumption that has not been tested and must be before any
+> of it is built:** that `auth.uid()` resolves inside a `SECURITY DEFINER`
+> function when the call arrives from a user-scoped client. It should — …— but
+> "should" is what this whole document exists to stop relying on.
+
+That is two claims wearing one coat, and they have different owners.
+
+| | Claim | Whose behaviour | Testable here? |
+|---|---|---|---|
+| **(a)** | A request-scoped GUC survives the `SECURITY DEFINER` boundary, and `SET search_path = ''` does not disturb it | PostgreSQL | **Yes** |
+| **(b)** | PostgREST populates `request.jwt.claims` for a request bearing a user's access token | Supabase / PostgREST | No — needs the live project |
+
+Splitting them matters. If (a) were false the design would be dead and no
+production diagnostic would revive it. Settling it locally turns what remains
+from *"does this work at all"* into one narrow question about one vendor's
+documented behaviour.
+
+### 13.1 (a) is true, and it was executed rather than reasoned about
+
+`lib/rpcStaffIdentity.test.ts` builds a Supabase-shaped database in PGlite —
+which is a real PostgreSQL — with `auth.uid()` reproduced **exactly** from
+Supabase's own migration `20211202183645_update_auth_uid.up.sql`, a `fn_owner`
+role that owns the functions, and an `authenticated` role that calls them.
+
+Ten assertions. The three that carry the argument:
+
+- **Identity survives, privilege changes.** Called as `authenticated` with
+  claims carrying `sub`, a `SECURITY DEFINER` function with `SET search_path = ''`
+  returns that `sub` from `auth.uid()` *and* reports `current_user = fn_owner`.
+- **The privilege change is real, not a label.** The same call reads a table
+  `authenticated` cannot; a separate assertion confirms the direct read is
+  refused with `permission denied`. Without that second assertion the first
+  proves nothing.
+- **`SET search_path = ''` is not the culprit.** The identical function with and
+  without the clause returns the same subject. This was the obvious suspect,
+  being the one thing the project's pattern adds on top of a plain definer
+  function. It is ruled out.
+
+The gateway of §2 is then built and exercised end to end: it admits a staff
+member, refuses an authenticated stranger, refuses a member whose row was
+deactivated, and refuses a service-role call.
+
+**The tests were mutated to confirm they are not vacuous.** Making the function
+`SECURITY INVOKER` fails 2; removing the membership check fails 2; pointing
+`auth.uid()` at the `role` claim instead of `sub` fails 7.
+
+### 13.2 Two things found by the suite failing, both worth keeping
+
+**The refusal has two independent layers, and only one was designed.** With
+EXECUTE granted the way §4.2 rule 6 says to grant it — to the role that needs it
+and no other — a service-role call is refused *at the grant* and never reaches
+the identity check. That is a second closed door, and it is fragile in a
+specific way: a later `grant execute … to service_role`, added to make something
+else work, removes it silently and leaves only the identity check standing. Both
+layers are now asserted separately so neither can be mistaken for the other.
+
+**Supabase's `auth.uid()` raises on an *empty* claims GUC rather than returning
+NULL.** The definition ends in `::uuid` applied to
+`current_setting('request.jwt.claims', true)::jsonb ->> 'sub'`, and `''` is not
+valid JSON, so the result is `invalid input syntax for type json`. A custom GUC
+reverts to `''` — not to unset — once a transaction that set it ends, so this
+state is reachable on a pooled connection rather than hypothetical. It still
+fails closed, but as a 500 rather than a clean refusal. **A gateway that means
+to answer "not a staff member" should not answer "internal error" instead**, so
+one is written defensively: read the claim into a variable and treat any failure
+as no identity.
+
+### 13.3 What is left, and why it is safe to build against
+
+Only (b): that PostgREST sets `request.jwt.claims` for a user-scoped client.
+That is Supabase's documented contract and every RLS policy on the project
+already depends on it — `auth.uid()` in a policy has exactly the same
+requirement — so it is not a novel assumption, merely one this project has not
+watched with its own eyes.
+
+**And the failure direction is the benign one.** If (b) were false, `auth.uid()`
+would be NULL inside the gateway, the gateway would refuse, and the feature
+would not work. A wrong assumption here produces a locked door, not an open one.
+That inverts the usual caution about building on unverified ground: the cost of
+being wrong is a broken check-in screen found on the first test, not a data
+exposure found later.
+
+### 13.4 Decision
+
+**Option A is adopted.** Staff-initiated RPCs are called with a user-scoped
+client constructed from the staff member's access token; the gateway verifies
+`auth.uid()` against the server-owned membership in
+`auth.users.raw_app_meta_data`, never against a JWT claim, per §2, the §11
+resolution and migration 041. `app_metadata.role` may narrow, never grant.
+
+The blueprint's former OPEN block is **closed**. A builder may now:
+
+- grant a staff gateway to `authenticated` in a reviewed follow-up migration;
+- call that gateway with a user-scoped server client;
+- keep implementation functions private to `service_role` where required.
+
+The migration rule is unchanged: an agent may write the follow-up migration
+and its paste copy, but Tasos applies it to a hosted project.
