@@ -23,11 +23,33 @@ const STATEMENTS = readFileSync("DEFINING-STATEMENTS.md", "utf8");
 const CLAUDE_MD = readFileSync("CLAUDE.md", "utf8");
 
 describe("governance wiring", () => {
-  it("CLAUDE.md still pulls in AGENTS.md", () => {
-    // If this stops being true the whole premise changes: AGENTS.md would no
-    // longer be the auto-loaded file, and the assertions below would be
-    // guarding the wrong document.
-    expect(CLAUDE_MD).toContain("@AGENTS.md");
+  it("CLAUDE.md loads both governing documents", () => {
+    // Tasos, 20 September 2026: every principle binds, non-stop, without
+    // exceptions. The only way to mean that is to load them — a principle an
+    // agent cannot see is not a principle. Until that day only AGENTS.md
+    // loaded, and five of the thirteen were cited nowhere in it, among them
+    // "Pricing is calculated in one place" and "Customer data is not exposed by
+    // default".
+    expect(CLAUDE_MD, "CLAUDE.md must import AGENTS.md").toContain("@AGENTS.md");
+    expect(
+      CLAUDE_MD,
+      "CLAUDE.md must import DEFINING-STATEMENTS.md so every principle binds",
+    ).toContain("@DEFINING-STATEMENTS.md");
+  });
+
+  it("no principle has been dropped or renumbered", () => {
+    // Loading the file is worth nothing if a principle quietly leaves it. The
+    // numbering must stay contiguous from 1: a gap means one was deleted, and a
+    // deletion that renumbers its successors silently rewrites every reference
+    // to them elsewhere in the repository.
+    const found = [...STATEMENTS.matchAll(/^##\s*(\d+)\./gm)].map((m) => Number(m[1]));
+    expect(found.length, "DEFINING-STATEMENTS.md defines no numbered principles").toBeGreaterThan(0);
+
+    const expected = Array.from({ length: found.length }, (_, i) => i + 1);
+    expect(found, "principle numbers must run 1..N with no gaps or repeats").toEqual(expected);
+
+    // A floor, so quietly emptying the file fails rather than passing trivially.
+    expect(found.length).toBeGreaterThanOrEqual(13);
   });
 
   it("every DEFINING-STATEMENTS section AGENTS.md cites actually exists", () => {
