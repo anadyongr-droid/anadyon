@@ -166,6 +166,17 @@ Leave Gmail, Telegram, Twilio, Anthropic, Apify, backup and Wise variables unset
 unless that integration is under an explicit sandbox test. In particular,
 staging must not post the morning briefing to the production Telegram group.
 
+**Enforced boundary (20 September):** production credentials must never be
+scoped to general Preview. Only the `staging` Git branch may receive server-side
+test credentials, and its Supabase URL must name `fzycvstifmltxybffinq`.
+`npm run build` now checks this before Next.js starts: general previews fail if
+they receive Supabase or vendor server credentials; staging fails if it receives
+Gmail, Telegram, Twilio, Anthropic, Apify or Wise values, a live Stripe key, an
+AADE production flag, or the wrong Supabase project. The Vercel dashboard was
+re-scoped on 20 September after a live audit found production credentials in
+general Preview. Environment changes affect new deployments only, so older
+Preview artifacts must be deleted after a clean staging replacement is ready.
+
 Preview deployments do not run Vercel crons. Trigger the briefing by hand,
 against the stable branch alias:
 
@@ -508,3 +519,10 @@ brings that forward, and **no item requires it.**
   `Cache-Control: no-store`, and never returns an environment-variable value or
   Supabase URL. Hosted acceptance remains unrun until this change is merged and
   deployed.
+- **Item 5 exposed and closed a live boundary failure.** Vercel metadata showed
+  that general Preview inherited production Supabase and vendor credentials.
+  Production values were narrowed to Production only; the `staging` branch kept
+  only its isolated Supabase URL, anon key and service-role key. A build-time
+  policy now makes recurrence a build failure. Existing Preview artifacts retain
+  their build-time snapshot and are tracked for deletion under E15 after the
+  clean replacement staging deployment is verified.
