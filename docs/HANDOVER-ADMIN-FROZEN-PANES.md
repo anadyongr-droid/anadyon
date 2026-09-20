@@ -1,8 +1,13 @@
 # Handover — admin table headers and first column will not freeze
 
-**Written:** 25 August 2026 · **Last verified:** 31 August 2026 ·
-**Status:** the current implementation passes real authenticated Chromium and
-iPad WebKit emulation; the original physical-device report is not reproduced.
+**Written:** 25 August 2026 · **Last verified:** 20 September 2026 ·
+**Status:** closed. The current implementation passes the focused matrix; the
+original physical-device report is not reproduced.
+
+The 20 September rerun passed **32/32** on iPad WebKit, desktop WebKit, Firefox
+and Chromium. The deliberately clipped control still proves the instrument can
+detect the fault. Do not change the runtime implementation without a new
+physical-device recording or a reproducible failing case.
 
 Read [`README.md`](README.md) first, and
 [`RENTAL-SYSTEM-BLUEPRINT.md`](RENTAL-SYSTEM-BLUEPRINT.md) for why the admin is
