@@ -11,7 +11,12 @@ export function getStripe(): Stripe {
       // package.json to a newer SDK and reports the error inverted, and
       // following it breaks the build for everyone else. Run `npm ci` instead.
       // This literal moves only when the lockfile's stripe version moves.
-      apiVersion: "2026-07-29.dahlia",
+      //
+      // Moved 20 September 2026 with stripe 22.5.0 -> 22.6.2, which is the
+      // condition above rather than an exception to it. On 19 September this
+      // same edit was made against a lockfile still pinning 22.5.0 and had to
+      // be reverted; the difference is the lockfile, not the literal.
+      apiVersion: "2026-08-26.dahlia",
     });
   }
   return _stripe;
