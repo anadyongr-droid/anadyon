@@ -5,7 +5,7 @@ supplied by Tasos, covering one car and two motorbikes across two insurers.
 This document is the reference for what may be offered, promised and published.
 `DEFINING-STATEMENTS.md` §10 makes that binding.
 
-**Last verified:** 20 September 2026, Codex — official Euroins rental-car IPID and public motor terms located and read through the search index; the exact terms edition incorporated into policy 9190600829 still requires the broker (§7).
+**Last verified:** 20 September 2026, Codex — official Euroins rental-car IPID and public motor terms located and read through the search index; the exact terms edition incorporated into policy 9190600829 still requires the broker (§7). Dated expiries re-checked against the calendar 20 September 2026, Claude — see F2.
 
 **Scope caveat, stated once and applying throughout.** All three documents are
 **certificates** — the schedule of what is covered, for how much, at what
@@ -43,10 +43,21 @@ September 2025 copy that had been the only evidence held. It was a stale copy,
 not an uninsured bike.
 
 **Both motorbikes now expire on the same day, 11 September 2026**, and the car
-three weeks later. Expiry is no longer tracked in this document: it belongs in
-the vehicle record, where `lib/fleetStatus.ts` warns 30 days ahead and the
-availability check refuses to rent a lapsed vehicle. See open item **F1** —
-the machinery exists and is inert until the dates are entered.
+three weeks later — about 2 October. Expiry is no longer tracked in this
+document: it belongs in the vehicle record, where `lib/fleetStatus.ts` warns 30
+days ahead and the availability check refuses to rent a lapsed vehicle. See open
+item **F1** — the machinery exists and is inert until the dates are entered.
+
+> **Checked against the calendar on 20 September 2026 and escalated as F2.**
+> The motorbike date above passed nine days ago and the car's is about twelve
+> days away, and **no document in this repository records a renewal**. That is
+> not a claim the bikes are uninsured — Tasos renews directly and they are very
+> likely current. It is a claim that nothing here would know either way, which
+> is the point: because F1's dates were never entered, `fleetStatus.ts` scores
+> those vehicles `unknown`, `rentalBar` bars only on `expired`, and a vehicle
+> with no insurance date on file rents with no statutory check at all. The
+> single case the machinery cannot catch is the one now live. Entering the
+> renewal dates closes it permanently.
 
 All three carry the same statutory warning: under Law 4261/2014 art. 169 there
 is **no automatic renewal**, the premium must be paid **before** expiry, and
