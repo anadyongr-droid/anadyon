@@ -11,6 +11,13 @@ export function redactDatabaseCredentials(value, knownUrls = []) {
     redacted = redacted.replaceAll(secret, REDACTED_DATABASE_URL);
   }
 
+  // Cover malformed schemes too: third-party parsers may partially normalise
+  // a pasted URL before returning it, defeating exact-value replacement.
+  redacted = redacted.replace(
+    /\b[a-z][a-z0-9+.-]*:\/\/[^\s'"`:@/]+:[^@\s'"`]+@[^\s'"`]+/gi,
+    REDACTED_DATABASE_URL,
+  );
+
   // Defence in depth: redact PostgreSQL URLs the caller did not know about.
   return redacted.replace(
     /\bpostgres(?:ql)?:\/\/[^\s'"`]+/gi,

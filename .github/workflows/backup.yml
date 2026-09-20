@@ -56,9 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dump
-          supabase db dump --db-url "$SUPABASE_DB_URL" -f dump/roles.sql  --role-only
-          supabase db dump --db-url "$SUPABASE_DB_URL" -f dump/schema.sql
-          supabase db dump --db-url "$SUPABASE_DB_URL" -f dump/data.sql   --data-only --use-copy
+          node scripts/safe-supabase-backup.mjs
 
       # A dump that silently produced nothing is worse than a failed job: it
       # uploads, looks successful, and is discovered empty on the day it is

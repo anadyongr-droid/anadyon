@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { parseEnvFile, validateStagingTarget } from "./staging-safety.mjs";
 import { seedStagingAuth } from "./seed-staging-auth.mjs";
+import { redactDatabaseCredentials, schemaDumpFailureMessage } from "./schema-parity-lib.mjs";
 
 const root = join(import.meta.dirname, "..");
 const stagingFile = parseEnvFile(join(root, ".env.staging.local"));
@@ -25,8 +26,7 @@ if (!existsSync(cli)) {
 console.log(`Reset target verified three ways: ${target.ref} (${target.apiUrl}).`);
 console.log("This command drops the hosted STAGING database, replays every migration, and loads synthetic fixtures.");
 
-try {
-  execFileSync(cli, [
+const reset = spawnSync(cli, [
     "db",
     "reset",
     "--db-url",
@@ -34,9 +34,16 @@ try {
     "--sql-paths",
     "seeds/staging.sql",
     "--yes",
-  ], { cwd: root, stdio: "inherit" });
-} catch {
-  throw new Error("The hosted staging reset failed; database credentials were redacted from this error");
+  ], { cwd: root, encoding: "utf8", maxBuffer: 20 * 1024 * 1024 });
+if (reset.error || reset.status !== 0) {
+  throw new Error(schemaDumpFailureMessage("hosted staging reset", reset, [target.dbUrl]));
+}
+const resetProgress = redactDatabaseCredentials(
+  [reset.stdout, reset.stderr].filter(Boolean).join("\n"),
+  [target.dbUrl],
+).trim();
+if (resetProgress) {
+  console.log(resetProgress);
 }
 
 await seedStagingAuth(env);
