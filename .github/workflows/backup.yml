@@ -27,6 +27,16 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      # The repository is needed because the dump runs through
+      # scripts/safe-supabase-backup.mjs. Until #142 every step here was inline
+      # shell, so this job had never checked anything out — and #142 changed the
+      # dump to call a repository file without adding this step. The next
+      # nightly run failed with "Cannot find module .../safe-supabase-backup.mjs"
+      # before it reached the database. tests/workflowCheckout.test.ts now fails
+      # if a workflow runs a repository script from a job that has no checkout.
+      - name: Check out the backup scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       # Pinned to a tagged release. The previous pin was the head of the v1
       # *branch*, which is a moving target wearing a SHA's clothes: the SHA
       # froze what we got, but nothing recorded which release it was, so a
