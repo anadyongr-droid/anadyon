@@ -48,10 +48,25 @@ while a fourth had no PR at all. `lib/actionPinParity.test.ts` now fails on a
 split pin. **#87 (TypeScript 7) stays open and is blocked upstream** — `tsc`
 passes; `typescript-eslint` refuses to load. Recorded on `OPEN-ITEMS.md` R2.
 
-**Two new open items.** **E11** — a cancelled staging E2E check is grey, not
+**The queue's own load then exposed a durable bug in the end-to-end rig**
+(#135). The staging suite failed with 429 against a diff of one workflow file:
+the limiter is database-backed on purpose, but the test's IP counter restarts
+every run, so the buckets accumulate. The replay case spends two requests on
+one address where every other case spends one, so it alone breaks after five
+runs in the window — and the queue put six through. The remedy was already in
+the file, written for one address and never extended.
+
+**Three new open items.** **E11** — a cancelled staging E2E check is grey, not
 red, so a pull request whose E2E never ran does not read as failing; seen on
 #131. **E12** — which Node major Vercel runs has not been confirmed since
-19 August, and only Tasos can read it.
+19 August, and only Tasos can read it. **R7** — with branch protection strict
+and two agents merging, a stale branch is reported as `405 Required status
+check "build" is expected`, which reads as a missing check; the real signal is
+`mergeable_state: behind`.
+
+**Codex merged #134 the same afternoon**, making the staging schema-parity
+check understand the pending 042–045 migrations — item 2 of the runbook §13
+plan, and the one that turns a check guaranteed to fail back into a useful one.
 
 **Also closed today:** the admin frozen-panes defect (W5), on evidence rather
 than a fix — the existing implementation passed all 32 checks including a

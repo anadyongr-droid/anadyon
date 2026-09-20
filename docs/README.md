@@ -99,13 +99,13 @@ Recorded here rather than fixed, because fixing it was not what was asked.
 
 | PR | What | Waiting on |
 |---|---|---|
-| **#131** | `@types/node` matched to the Node 24 the project runs, replacing #85's ^26 | CI, then merge |
-| **#132** | Every Action in CI moved to the node24 runtime, replacing #78/#79/#80 — plus `actions/cache`, which was node20 with no PR | CI, then merge |
-| **#133** | `supabase/setup-cli` pinned to a tagged v3.0.0, replacing #81. Verified by dispatching the backup workflow, since no PR's CI runs it | Merge |
-| #87 | TypeScript 7.0.2 | **Nothing we can do.** `tsc` passes; `typescript-eslint` refuses to load against TS 7 and caps at `<6.1.0` two levels down. Stays open until upstream moves |
-| #78–#81, #85 | Superseded by #131–#133 | Close as each replacement merges |
+| #87 | TypeScript 7.0.2 | **Nothing we can do.** `tsc` passes against this codebase; `typescript-eslint` refuses to load against TS 7 and caps at `<6.1.0` two levels down through `eslint-config-next`. Tracked at typescript-eslint#10940. Stays open until upstream moves — do not close it |
 
-Every branch listed here on 19 September is now resolved. `codex/incident-admin-middleware-timeout` was closed on 20 September — its incident record was already on `main`, #121 supplied the missing outcome, and the obsolete remote branches were deleted. Confirmed gone from `origin` on 20 September. `AGENTS.md` still names it under "where the remaining work is defined"; that line is stale and is the next thing to correct there.
+Everything else is merged. On 20 September #130, #131, #132, #133 and #135
+landed, and #78, #79, #80, #81, #83 and #85 were closed as superseded with the
+reason recorded on each. **No node20 GitHub Action remains in the repository.**
+
+Every branch listed here on 19 September is now resolved. `codex/incident-admin-middleware-timeout` was closed on 20 September — its incident record was already on `main`, #121 supplied the missing outcome, and the obsolete remote branches were deleted. Confirmed gone from `origin` on 20 September. `AGENTS.md` named it too, under "where the remaining work is defined", and that bullet is corrected in the same change as this one — it no longer lists open branches or pull requests at all, because a file that changes monthly should not carry a list that changes daily.
 
 ### Waiting on a human
 
