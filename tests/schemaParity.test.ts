@@ -125,6 +125,16 @@ describe("schema parity credential safety", () => {
     expect(redacted).toBe("unexpected [REDACTED_DATABASE_URL]");
   });
 
+  it("redacts credential URLs even when the scheme is malformed", () => {
+    const malformed =
+      "postpostgresql://postgres.project:do-not-print@pooler.example.com:5432/postgres";
+    const redacted = redactDatabaseCredentials(`failed to parse ${malformed}`);
+
+    expect(redacted).toBe("failed to parse [REDACTED_DATABASE_URL]");
+    expect(redacted).not.toContain("do-not-print");
+    expect(redacted).not.toContain("pooler.example.com");
+  });
+
   it("reports a labelled dump failure without reproducing command arguments", () => {
     const message = schemaDumpFailureMessage(
       "production",

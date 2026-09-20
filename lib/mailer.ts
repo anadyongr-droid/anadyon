@@ -1,7 +1,14 @@
 import { randomUUID } from "crypto";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resend: Resend | null = null;
+
+function resendClient(): Resend | null {
+  const key = process.env.RESEND_API_KEY?.trim();
+  if (!key) return null;
+  resend ??= new Resend(key);
+  return resend;
+}
 
 /**
  * When MAIL_REDIRECT_TO is set, every message is delivered to that one address
@@ -67,9 +74,11 @@ async function attempt(
   options: SendOptions = {},
 ): Promise<{ ok: true; providerMessageId: string } | { ok: false; reason: string }> {
   try {
+    const client = resendClient();
+    if (!client) return { ok: false, reason: "RESEND_API_KEY is not configured" };
     const sent = await Promise.race([
-      resend.emails.send(
-        addressed(mail) as Parameters<typeof resend.emails.send>[0],
+      client.emails.send(
+        addressed(mail) as Parameters<typeof client.emails.send>[0],
         options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : undefined,
       ),
       new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`no answer within ${TIMEOUT_MS}ms`)), TIMEOUT_MS)),

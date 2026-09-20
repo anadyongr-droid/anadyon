@@ -40,7 +40,20 @@ const mail = { from: "a@anadyon.gr", to: "guest@example.com", subject: "Quote AN
 describe("sendMail", () => {
   beforeEach(() => {
     queued.length = 0; telegrams.length = 0; providerCalls.length = 0; vi.resetModules();
+    process.env.RESEND_API_KEY = "re_test_mailer";
     sendImpl = async () => ({ data: { id: "1" }, error: null });
+  });
+
+  it("can be imported without a Resend key and fails safely only when sending", async () => {
+    delete process.env.RESEND_API_KEY;
+    const { sendMail } = await import("./mailer");
+
+    await expect(sendMail(mail)).resolves.toMatchObject({
+      ok: false,
+      queued: true,
+      reason: "RESEND_API_KEY is not configured",
+    });
+    expect(providerCalls).toHaveLength(0);
   });
 
   it("reports delivery only when Resend actually accepted it", async () => {

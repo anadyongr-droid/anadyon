@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "prebuild": "node scripts/check-deployment-boundary.mjs",
     "dev": "next dev",
     "build": "next build",
     "build:verify": "next build --webpack",
