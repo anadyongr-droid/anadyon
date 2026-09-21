@@ -105,7 +105,19 @@ export function describeDatabaseUrlShape(raw) {
     "unreplaced placeholder",
     /\[|\]/.test(value) ? "YES — [YOUR-PASSWORD] brackets are still present" : "no",
   );
-  say("scheme", /^postgres(ql)?:\/\//i.test(value) ? "postgresql:// or postgres://" : "MISSING or wrong");
+  // The scheme is a protocol token from a fixed vocabulary, not secret, so an
+  // unexpected one is named outright. "MISSING or wrong" identified the fault
+  // on 21 September but not which fault, which cost another round trip.
+  const schemeMatch = /^([A-Za-z][A-Za-z0-9+.-]*):\/\//.exec(value);
+  const scheme = schemeMatch?.[1];
+  say(
+    "scheme",
+    /^postgres(ql)?$/i.test(scheme ?? "")
+      ? `${scheme}:// — correct`
+      : scheme
+        ? `"${scheme}://" — WRONG, expected postgresql:// or postgres://`
+        : "MISSING — the value does not begin with a scheme",
+  );
   say("@ count", String((value.match(/@/g) ?? []).length) + " (expected 1)");
 
   let parsed;

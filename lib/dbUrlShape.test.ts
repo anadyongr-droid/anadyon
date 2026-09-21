@@ -35,6 +35,7 @@ describe("connection string shape report", () => {
   it("reports a well-formed URL as sound", () => {
     const report = describeDatabaseUrlShape(sample).join("\n");
     expect(report).toContain("parses as a URL: yes");
+    expect(report).toContain("scheme: postgresql:// — correct");
     expect(report).toContain("password characters: letters and digits only");
     expect(report).toContain("host: a supabase.co direct host");
     expect(report).toContain("database path: /postgres");
@@ -46,6 +47,7 @@ describe("connection string shape report", () => {
     ["wrapping quotes", `"postgresql://postgres:abc@db.x.supabase.co:5432/postgres"`, "wrapping quotes: YES"],
     ["a psql command", `psql "postgresql://postgres:abc@db.x.supabase.co:5432/postgres"`, "starts with psql: YES"],
     ["a missing scheme", `db.x.supabase.co:5432/postgres`, "scheme: MISSING"],
+    ["a misspelled scheme", `postgressql://postgres:abc@db.x.supabase.co:5432/postgres`, 'scheme: "postgressql://" — WRONG'],
     ["an internal space", `postgresql://postgres:ab c@db.x.supabase.co:5432/postgres`, "whitespace inside: YES"],
   ])("names %s", (_label, value, expected) => {
     expect(describeDatabaseUrlShape(value).join("\n")).toContain(expected);
