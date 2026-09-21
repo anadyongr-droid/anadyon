@@ -16,7 +16,7 @@ machine or a six-month gap.
 
 ## Where things stand — 2 September 2026
 
-**Last verified:** 20 September 2026, Claude.
+**Last verified:** 21 September 2026, Claude.
 
 **Read this section before opening anything else, and before researching
 anything.** It exists because an agent spent a working session re-deriving
@@ -99,7 +99,9 @@ Recorded here rather than fixed, because fixing it was not what was asked.
 
 | PR | What | Waiting on |
 |---|---|---|
-| #87 | TypeScript 7.0.2 | **Nothing we can do.** `tsc` passes against this codebase; `typescript-eslint` refuses to load against TS 7 and caps at `<6.1.0` two levels down through `eslint-config-next`. Tracked at typescript-eslint#10940. Stays open until upstream moves — do not close it |
+| #87 | TypeScript 7.0.2 | **Blocked upstream.** 7.0 is the native Go port and ships with no programmatic API, so typescript-eslint, Volar and Angular are all locked out. A new API is promised for 7.1; typescript-eslint#10940 has no milestone. Do not close it |
+| #150 | ESLint 10 | **Blocked upstream.** ESLint 10 removed `context.getFilename()`; the `eslint-plugin-react` bundled inside `eslint-config-next` still calls it, so every linted file throws |
+| #149 | `@vitest/coverage-v8` 5 | **Needs a vitest major.** Its peer range pins `vitest: "5.0.1"` exactly and we run 4.1.11. Not urgent — coverage is deliberately not a gate |
 
 Everything else is merged. On 20 September #130, #131, #132, #133 and #135
 landed, and #78, #79, #80, #81, #83 and #85 were closed as superseded with the
