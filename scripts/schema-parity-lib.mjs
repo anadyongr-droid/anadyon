@@ -72,6 +72,74 @@ export function redactDatabaseCredentials(value, knownUrls = []) {
 }
 
 /** Build a useful child-process failure without reproducing argv or secrets. */
+/**
+ * What is structurally wrong with a connection URL, without revealing it.
+ *
+ * "failed to parse connection string" tells us the CLI rejected the value and
+ * nothing else, and the value is a secret nobody can read back — so diagnosing
+ * it has meant guessing. On 20 September the guess was percent-encoding; the
+ * password turned out to have no special characters, and the guess had cost a
+ * round trip.
+ *
+ * Every line this produces is a boolean, a count or a fixed label. No part of
+ * the value is ever echoed — not the password, not the host, not the project
+ * ref — and `lib/dbUrlShape.test.ts` asserts that against a URL built from
+ * distinctive markers.
+ */
+export function describeDatabaseUrlShape(raw) {
+  const out = [];
+  const say = (label, value) => out.push(`  ${label}: ${value}`);
+
+  if (typeof raw !== "string" || raw.length === 0) {
+    return ["  present: no"];
+  }
+
+  const value = raw.trim();
+  say("present", "yes");
+  say("length", String(raw.length));
+  say("surrounding whitespace", raw === value ? "no" : "YES — trim it");
+  say("whitespace inside", /\s/.test(value) ? "YES — a line break or space is in the value" : "no");
+  say("wrapping quotes", /^["'].*["']$/s.test(value) ? "YES — remove them" : "no");
+  say("starts with psql", value.startsWith("psql ") ? "YES — copy the URI, not the psql command" : "no");
+  say(
+    "unreplaced placeholder",
+    /\[|\]/.test(value) ? "YES — [YOUR-PASSWORD] brackets are still present" : "no",
+  );
+  say("scheme", /^postgres(ql)?:\/\//i.test(value) ? "postgresql:// or postgres://" : "MISSING or wrong");
+  say("@ count", String((value.match(/@/g) ?? []).length) + " (expected 1)");
+
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    say("parses as a URL", "NO — this is what the CLI is rejecting");
+    return out;
+  }
+  say("parses as a URL", "yes");
+  say("username present", parsed.username ? "yes" : "NO");
+  say("password present", parsed.password ? `yes (${parsed.password.length} characters)` : "NO");
+  if (parsed.password) {
+    say(
+      "password characters",
+      /^[A-Za-z0-9]+$/.test(parsed.password)
+        ? "letters and digits only"
+        : "contains characters that must be percent-encoded",
+    );
+  }
+  const host = parsed.hostname;
+  say(
+    "host",
+    host.endsWith(".supabase.co")
+      ? "a supabase.co direct host"
+      : host.endsWith(".supabase.com")
+        ? "a supabase.com pooler host"
+        : "NOT a Supabase host",
+  );
+  say("port", parsed.port || "MISSING");
+  say("database path", parsed.pathname === "/postgres" ? "/postgres" : `unexpected (${parsed.pathname.length} characters)`);
+  return out;
+}
+
 export function schemaDumpFailureMessage(label, result, knownUrls = []) {
   const detail = [result?.error?.message, result?.stderr, result?.stdout]
     .filter(Boolean)
