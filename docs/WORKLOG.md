@@ -15,6 +15,38 @@ wrong place.
 
 ---
 
+## 21 September 2026 — Claude, implementer
+
+**Last verified:** 21 September 2026, Claude.
+
+Detail in [`worklog/2026-09-21-claude.md`](worklog/2026-09-21-claude.md).
+
+**Yesterday's guard earned itself overnight.** Seven Dependabot pull requests
+arrived and three split the CodeQL pin exactly as #83 did.
+`lib/actionPinParity.test.ts` failed on all three and named the mismatched
+lines, so CI refused them with nobody looking. Replaced by **#155**.
+
+**A verification trap, recorded so it is not hit twice.** `v4.38.1` is an
+annotated tag: an exact-ref query returns the tag object, not the commit, and
+the difference looks exactly like a bad pin until the tag is peeled with `^{}`.
+Dependabot's SHA was right. Peel before concluding.
+
+**#148 merged** (four minor/patch bumps). **#151 declined** — `@types/node` ^26
+again. **#149** and **#150** left open and blocked upstream: the coverage
+reporter peer-requires an exact vitest 5.0.1, and eslint 10 removed
+`context.getFilename()`, which `eslint-config-next`'s bundled
+`eslint-plugin-react` still calls.
+
+**#156 stops two of these being offered at all** — action updates grouped into
+one pull request, `@types/node` majors ignored with the reasoning in the file.
+The test stays: configuration can be changed by anyone, the test is what fails.
+
+**Not fixed, and needing Tasos:** **E16**, the off-site backup, now two
+consecutive failures on a malformed rotated credential; **F2**, the motorbike
+insurance expiry; **E6**, the Plesk certificate at ~22 days.
+
+---
+
 ## 20 September 2026 — Claude, implementer
 
 **Last verified:** 20 September 2026, Claude.
