@@ -4,6 +4,7 @@ import { Settings, Mail, CheckCircle, AlertTriangle, ExternalLink } from "lucide
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import CompetitorRatesCard from "@/app/admin/components/CompetitorRatesCard";
+import SiteHealthCard from "@/app/admin/components/SiteHealthCard";
 
 function SettingsContent() {
   const searchParams = useSearchParams();
@@ -42,6 +43,9 @@ function SettingsContent() {
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+        {/* First, because it is the one that answers "is anything wrong?" */}
+        <SiteHealthCard />
+
         <CompetitorRatesCard />
 
         {/* Gmail Integration */}
