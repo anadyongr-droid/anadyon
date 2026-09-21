@@ -184,6 +184,12 @@ jobs:
 
       # Only on failure. A nightly "backup succeeded" message trains the reader
       # to ignore the channel, and then the one that matters is skimmed past.
+      # Sent through a script that checks Telegram's answer and fails the
+      # step if the alert did not arrive. The inline curl this replaces had no
+      # --fail and discarded the response, and exited 0 when the token was
+      # missing — so it reported success on four failed runs while Tasos
+      # received nothing. lib/telegram.ts had this right already; the fix had
+      # never reached the workflow.
       - name: Tell someone if it failed
         if: failure()
         env:
@@ -191,13 +197,10 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          [ -z "${TELEGRAM_BOT_TOKEN:-}" ] && exit 0
-          # The message is built in a shell variable first. Writing it inline
-          # across two lines put a bare line inside the YAML block, and the
-          # workflow stopped parsing entirely — which is worse than a broken
-          # alert, because GitHub then refuses to run the job at all.
+          # Built in a variable first, as the previous version was and for the
+          # same reason: writing the message inline across two lines put a bare
+          # line inside the YAML block and the workflow stopped parsing
+          # altogether, which is worse than a broken alert because GitHub then
+          # refuses to run the job at all.
           MSG="❌ <b>Nightly database backup failed</b>"$'\n'"No backup was stored tonight."$'\n'"$RUN_URL"
-          curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
-            -d "chat_id=$TELEGRAM_CHAT_ID" \
-            -d "parse_mode=HTML" \
-            --data-urlencode "text=$MSG" > /dev/null
+          node scripts/send-telegram-alert.mjs "$MSG"
