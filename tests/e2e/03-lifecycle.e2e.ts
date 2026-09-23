@@ -32,7 +32,30 @@ async function makeReservation(offset: number, status = "pending") {
     status, ...(status === "confirmed" ? { _payment_verified: true, _payment_amount: 27 } : {}),
     notes: `Quote ref: LIFECYCLE. ${MARK}`,
   }));
-  return (await res.json()).id as string;
+  const body = await res.json().catch(() => null);
+
+  // Checked here, because an unchecked create does not fail where it happened.
+  //
+  // This returned `undefined` on a failed POST, and every later step then
+  // addressed `/api/admin/reservations/undefined` and got a 404. On
+  // 20 September that turned one create failure into four 404s reported
+  // against the lifecycle routes — which are not where the fault was, and are
+  // the first place anyone would have looked. The real cause, a foreign-key
+  // violation on `reservations_customer_id_fkey`, was only legible because
+  // phase 5 happened to hit it too and phase 5 checks its status.
+  //
+  // So: the same assertion phase 5 already uses, carrying the response body,
+  // which is where the route puts the reason. Open item E14.
+  expect(
+    res.status,
+    `reservation create failed: ${JSON.stringify(body)}`,
+  ).toBeLessThan(400);
+  expect(
+    body?.id,
+    `reservation create returned no id: ${JSON.stringify(body)}`,
+  ).toBeTruthy();
+
+  return body.id as string;
 }
 
 const move = (to: string, from: string) =>
