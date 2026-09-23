@@ -107,6 +107,17 @@ that is not there; read the absence of one as safety and you will miss a table
 that was granted and never policed. **The grant is the boundary; the policy is
 the filter.**
 
+*Platform note, 23 September 2026.* Supabase is removing the automatic Data
+API grant on **30 October 2026**: a table created in `public` will receive no
+privileges for any role unless a `GRANT` says so. That does not change this
+section — it moves the platform's default towards it, since exposure becomes
+opt-in rather than something to revoke afterwards. The practical consequence is
+the mirror image of the rule above: where §6 is about grants that must be
+*removed*, the new default means the grant the application itself needs must be
+*written down*. Nine tables created after migration 023 relied on the automatic
+grant and are closed by migration 046.
+Section 14 of `docs/STAGING-AND-OBSERVABILITY-RUNBOOK.md` has the detail.
+
 *Narrowed 20 September 2026. This section said tables are "never" granted to the
 anonymous role, which the code has deliberately contradicted since migration 023
 for the two pricing tables. An absolute a codebase knowingly breaks is worse
