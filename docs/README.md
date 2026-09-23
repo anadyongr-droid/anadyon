@@ -14,9 +14,9 @@ machine or a six-month gap.
 | [`contract/`](contract/) | The paper rental agreement: the scanned terms page, a full transcription, and a blank printable template |
 | [`WORKLOG.md`](WORKLOG.md) | The most recent day's entry |
 
-## Where things stand — 2 September 2026
+## Where things stand — 23 September 2026
 
-**Last verified:** 21 September 2026, Claude.
+**Last verified:** 23 September 2026, Claude.
 
 **Read this section before opening anything else, and before researching
 anything.** It exists because an agent spent a working session re-deriving
@@ -53,11 +53,16 @@ against production.
 |---|---|---|
 | `rental_handovers` table | 040 | **Applied** |
 | Check-out finalisation | 041 | **Applied** |
-| Check-in finalisation | 042 | Merged (#93). **Not applied** |
-| Correction and voiding, plus the five HTTP routes | 043 | Reconciled with current `main`; supersedes **PR #95** |
-| Insurance surcharge for under-23 drivers | 044 | **Merged** (#118). **Not applied** |
-| Authenticated grants for all four handover gateways | 045 | Written with the route reconciliation. **Not applied** |
+| Check-in finalisation | 042 | Merged (#93), verified on staging. **Not applied to production** — open item M1 |
+| Correction and voiding, plus the five HTTP routes | 043 | Merged (#119), verified on staging. **Not applied** — M2. PR #95 was closed as superseded |
+| Insurance surcharge for under-23 drivers | 044 | Merged (#118), verified on staging. **Not applied** — M3 |
+| Authenticated grants for all four handover gateways | 045 | Merged (#119), verified on staging. **Not applied** — M4 |
+| `service_role` grants for the nine tables created after 023 | 046 | Merged (#167). **Not applied** — M5, and **dated: before 30 October 2026**, when Supabase stops granting new tables automatically |
 | Photo upload saga | — | Not started. Last piece of phase 2 |
+
+The five unapplied migrations are one sitting, not five. 046 in particular is a
+handful of `grant` statements and a no-op on a database that already holds them,
+so it carries no ordering risk against the other four.
 
 **The gateways are enabled for authenticated users by migration 045.**
 `finalise_check_out`, `finalise_check_in`, `correct_handover` and
@@ -66,7 +71,7 @@ Their routes use the caller's cookie-backed Supabase session, so the database
 verifies `auth.uid()` and the server-owned application role itself. Migration
 045 is not yet applied to production.
 
-### Insurance surcharge — in progress, 2 September
+### Insurance surcharge — built and merged 2 September, not yet applied
 
 Requested by Tasos: a daily insurance surcharge of **€5 for every driver under
 23**. Decisions taken while building, so they are not re-litigated:
@@ -115,8 +120,16 @@ Per `AGENTS.md`, agents decide everything else themselves. These genuinely
 cannot be done from here — the full list with steps is in
 `ACTIONS-FOR-TASOS-2026-08-30.md`.
 
-- Applying migrations 042 and 044 (and 043 once #95 merges)
-- The Sentry project, and a staging reset from main
+- **Applying migrations 042 to 046** — all five merged and verified on staging,
+  none applied to production. One sitting. 046 is dated: before 30 October,
+  when Supabase stops granting new tables automatically. Open items M1–M5.
+- **The two Telegram secrets** (E17). The backup's alert has never been able to
+  send: `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` do not exist in GitHub
+  Actions, proven by dispatching the alert test.
+- **Confirming the motorbike insurance was renewed** (F2). The recorded expiry
+  was 11 September and nothing here records a renewal.
+- **Reissuing the Plesk certificate** (E6), and the Sentry project (E1). The
+  staging reset was closed on 19 September.
 - **The insurer's answers** — `DRIVER-AGE-MARKET.md` §5 is five questions to the
   broker, and they decide whether any age limit can actually move. The surcharge
   being built does not depend on them; lowering the age limits does.
