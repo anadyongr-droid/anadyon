@@ -1,6 +1,6 @@
 # Open items
 
-**Last verified:** 21 September 2026, Claude (E18 closed — health checks now have a pull-based surface).
+**Last verified:** 23 September 2026, Claude (M5 added — Supabase removes the automatic Data API grant on 30 October).
 
 **Read this first, every day.** [`DEFINING-STATEMENTS.md` §12](../DEFINING-STATEMENTS.md)
 makes it obligatory for every agent, before picking up a task.
@@ -61,6 +61,7 @@ under `supabase/migrations/paste/`.
 | M2 | **043** — handover correction and voiding | Merged in #119; applied and verified on staging, production pending | Tasos |
 | M3 | **044** — insurance surcharge rate row | Merged in #118; applied and verified on staging, production pending | Tasos |
 | M4 | **045** — grant the four handover gateways | Merged in #119; applied and verified on staging, production pending | Tasos |
+| M5 | **046** — grant `service_role` on the nine tables created after 023 | **DATED — apply before 30 October 2026.** Written 23 Sep, not yet applied anywhere. Production is unaffected either way: those tables already hold the grant Supabase gave them automatically. What it protects is every database built by *replaying* the migrations — the staging reset, `supabase db reset`, a new project, a preview branch — which after 30 October would create `vehicle_blocks`, `vehicle_change_requests` and the seven handover tables with no privileges, leaving the whole of check-out and check-in unreachable by the application. Applying it early costs nothing and is a no-op on a database that already has the grants. Section 14 of [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md). | **Tasos** |
 
 ---
 

@@ -526,3 +526,93 @@ brings that forward, and **no item requires it.**
   policy now makes recurrence a build failure. Existing Preview artifacts retain
   their build-time snapshot and are tracked for deletion under E15 after the
   clean replacement staging deployment is verified.
+
+---
+
+## 14. Supabase removes the automatic Data API grant — 30 October 2026
+
+**Verified against Supabase's own documentation on 23 September 2026**, not
+taken from the notification email. `supabase.com/docs/guides/api/securing-your-api`
+states it plainly: *"Supabase is changing the platform default to revoke these
+automatic grants so that exposure becomes opt-in."* The page carries no date;
+the 30 October date comes from the email to `anadyon.gr@gmail.com`.
+
+### What actually changes
+
+Today a table created in `public` automatically receives `SELECT`, `INSERT`,
+`UPDATE` and `DELETE` for **`anon`, `authenticated` and `service_role`**. After
+30 October it receives nothing unless a `GRANT` says so.
+
+**Existing tables keep their privileges.** Production is unaffected and needs no
+action. That is the whole of the good news, and it is also what makes this easy
+to file as "nothing to do".
+
+### Why it matters here anyway
+
+The exposure is not production. It is **every database built by replaying the
+migrations**: the staging reset (`scripts/reset-staging.mjs`), `supabase db
+reset`, a new project, a preview branch.
+
+This project reaches the database as **`service_role`** through `supabaseAdmin`
+for essentially everything — `DEFINING-STATEMENTS.md` §6 is why: anon and
+authenticated are deliberately revoked, so the service role is the application's
+only route in. A replayed database whose tables carry no `service_role` grant is
+not degraded, it is unusable.
+
+### The gap, as measured on 23 September 2026
+
+Migration **023** grants `all privileges on all tables in schema public to
+service_role`. That covers every table existing **at that moment** and nothing
+created afterwards.
+
+Three tables created later were granted correctly in their own migrations —
+`booking_email_deliveries`, `booking_email_events`, `promo_redemptions` — so the
+convention already existed here. It was applied unevenly. **Nine were not:**
+
+| Table | Created by |
+|---|---|
+| `vehicle_blocks` | `20260828120000_vehicle_blocks.sql` |
+| `vehicle_change_requests` | `20260830120000_vehicle_change_requests.sql` |
+| `inspection_templates` | `20260830230000_rental_handovers.sql` |
+| `inspection_template_views` | ″ |
+| `rental_handovers` | ″ |
+| `handover_photos` | ″ |
+| `handover_damage_observations` | ″ |
+| `handover_damage_photos` | ″ |
+| `rental_handover_events` | ″ |
+
+That is the whole of check-out and check-in — phase 2 — plus vehicle blocking
+and the change-request queue.
+
+### Nothing we already run would have caught it
+
+Worth stating, because both look like they should:
+
+- **`scripts/check-grants.mjs`** asserts that anon, authenticated and PUBLIC
+  hold *nothing*. It checks the **deny** side. A database where `service_role`
+  also holds nothing passes it cleanly.
+- **`npm run check:migration-replay`** replays against PGlite with the Supabase
+  roles stubbed (`scripts/pgliteSupabaseStubs.mjs`), so grants there are inert
+  by construction.
+
+### What was done
+
+- **Migration `20260923120000` / paste copy `046`** grants the four DML
+  privileges on those nine tables to `service_role`. Narrow on purpose: it
+  matches what the platform granted automatically and what the three correct
+  migrations already use, and grants nothing to anon or authenticated. None of
+  the nine carries a sequence.
+- **`lib/serviceRoleGrants.test.ts`** walks the migrations in order, models
+  023's blanket grant as covering everything before it, and fails naming any
+  table created without a grant. It asserts the migration and table counts
+  first, so a regex that stopped matching cannot make it pass by finding
+  nothing.
+
+### The convention from here
+
+**A migration that creates a table in `public` grants it in the same
+migration.** Recorded in `AGENTS.md` beside the rule about never applying one.
+The test enforces it; the convention explains it.
+
+**Last verified:** 23 September 2026, Claude — change confirmed against Supabase
+documentation, gap measured against the migrations, replay passing at 45.

@@ -65,6 +65,17 @@ Each of these cost real production time on this project.
   byte-identical `supabase/migrations/paste/` copy, and hand both to Tasos.
   `lib/migrationPasteParity.test.ts` enforces the pair; a stale copy reached
   production once.
+- **A migration that creates a table in `public` grants it to `service_role` in
+  the same migration.** Supabase removes the automatic Data API grant on
+  **30 October 2026**, after which a replayed migration produces a table the
+  application cannot reach — the staging reset, `supabase db reset`, a new
+  project, a preview branch. Production is unaffected; nine tables created after
+  migration 023 were not, and migration 046 closes them.
+  `lib/serviceRoleGrants.test.ts` fails naming any table that is missing one.
+  The reasoning is in section 14 of
+  `docs/STAGING-AND-OBSERVABILITY-RUNBOOK.md` — written without a § because in
+  this file that symbol means a `DEFINING-STATEMENTS.md` section, and
+  `lib/governanceWiring.test.ts` checks every one of them resolves.
 - **Do only what was asked.** An idea worth having is worth raising, not
   building unasked.
 

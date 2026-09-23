@@ -15,6 +15,36 @@ wrong place.
 
 ---
 
+## 23 September 2026 — Claude, implementer
+
+**Last verified:** 23 September 2026, Claude.
+
+Detail in [`worklog/2026-09-23-claude.md`](worklog/2026-09-23-claude.md) and
+section 14 of
+[`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md).
+
+**Supabase removes the automatic Data API grant on 30 October.** Verified
+against Supabase's own documentation rather than the forwarded email. The
+email's "nothing changes for your existing tables" is true and is also the
+trap: the exposure is every database built by *replaying* the migrations — the
+staging reset, `supabase db reset`, a new project, a preview branch — and this
+project reaches the database only as `service_role`, because §6 revokes the
+other two roles on purpose.
+
+**Nine tables created after migration 023 never got an explicit grant** —
+`vehicle_blocks`, `vehicle_change_requests` and the seven handover tables,
+which is the whole of check-out and check-in. Three later tables were granted
+correctly, so the convention existed and was applied unevenly.
+
+**Neither existing check would have caught it:** `check-grants.mjs` asserts the
+*deny* side only, and `check:migration-replay` stubs the Supabase roles.
+
+Migration **046** written and handed over as **M5**, dated for 30 October.
+`lib/serviceRoleGrants.test.ts` now fails naming any table created without a
+grant. Convention recorded in `AGENTS.md`.
+
+---
+
 ## 21 September 2026 — Claude, implementer
 
 **Last verified:** 21 September 2026, Claude.
