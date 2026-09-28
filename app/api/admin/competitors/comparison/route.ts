@@ -125,6 +125,28 @@ export async function GET() {
     }
   }
 
+  // Sorted here, because the loop above cannot produce calendar order.
+  //
+  // It iterates `rates` on the outside and months on the inside, and `rates`
+  // comes back from `select("*")` with no ORDER BY — so Postgres is free to
+  // return the season rows in any order it likes. A pricing group with three
+  // seasons therefore emitted its months grouped by season rather than by
+  // month: August, then October, then September, which is what was reported
+  // from the screen.
+  //
+  // The months array was already sorted, which is exactly why this was easy to
+  // miss — the sort was real, it was just applied one loop too far in.
+  //
+  // Band order is the declaration order of BANDS (1–2, 3–6, 7+), which is the
+  // order a reader expects a duration column in, not alphabetical.
+  const bandOrder = new Map(BANDS.map((b, i) => [b.key, i]));
+  rows.sort(
+    (a, b) =>
+      a.pricing_group.localeCompare(b.pricing_group) ||
+      a.month - b.month ||
+      (bandOrder.get(a.band) ?? 0) - (bandOrder.get(b.band) ?? 0)
+  );
+
   return NextResponse.json({
     competitors,
     rows,
