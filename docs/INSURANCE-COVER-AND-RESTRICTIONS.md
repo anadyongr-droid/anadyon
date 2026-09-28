@@ -2,12 +2,12 @@
 
 **Read from the policy documents, 2 September 2026.** Three certificates
 supplied by Tasos, covering one car and two motorbikes across two insurers —
-**and, from 28 September 2026, a third insurer and further policies read
+**and, from 28 September 2026, two further insurers and eight policies read
 directly out of the broker's emails: see §1a.**
 This document is the reference for what may be offered, promised and published.
 `DEFINING-STATEMENTS.md` §10 makes that binding.
 
-**Last verified:** 28 September 2026, Claude — two further policies for ΙΜΙ 2840 read from the broker's own PDF attachments, adding **ERGO Ασφαλιστική** as a third insurer this document did not know about (§1a). Earlier: 20 September 2026, Codex — official Euroins rental-car IPID and public motor terms located and read through the search index; the exact terms edition incorporated into policy 9190600829 still requires the broker (§7).
+**Last verified:** 28 September 2026, Claude — eight policies read from the broker's own PDF attachments, taking the fleet's insurers from two to **four** — **ERGO Ασφαλιστική** and **Triglav/Apeiron**, neither of which this document knew about (§1a). Earlier: 20 September 2026, Codex — official Euroins rental-car IPID and public motor terms located and read through the search index; the exact terms edition incorporated into policy 9190600829 still requires the broker (§7).
 
 **Scope caveat, stated once and applying throughout.** All three documents are
 **certificates** — the schedule of what is covered, for how much, at what
@@ -68,7 +68,7 @@ that on a new policy cover starts **one hour after** payment.
 
 ---
 
-## 1a. A third insurer, and what the broker's emails actually hold
+## 1a. Two more insurers, and what the broker's emails actually hold
 
 *Added 28 September 2026, Claude. Read from the broker's PDF attachments in the
 `anadyon.gr@gmail.com` mailbox, not supplied by hand.*
@@ -81,10 +81,62 @@ one earlier search for them failed and reported the opposite: it looked for
 reads **ΑΣΦΑΛΕΙΑ** or **ΑΣΦΑΛΕΙΕΣ**, which Gmail does not stem across. Searching
 the correspondent rather than the vocabulary is the reliable way in.
 
-### ERGO Ασφαλιστική is a third insurer
+### There are four insurers, not two
 
 §1 above says "two insurers". That is wrong, and was wrong because the sample
-was three certificates handed over by hand.
+was three certificates handed over by hand. Reading the broker's own
+attachments finds **two more**:
+
+- **ERGO Ασφαλιστική Μονοπρόσωπη Α.Ε.**, ΑΦΜ 094256484 — product *ERGO My Auto
+  Simple Plus*.
+- **Zavarovalnica Triglav ΑΕ, D.D. — Ελληνικό Υποκατάστημα**, ΑΦΜ 997028646, the
+  Greek branch of the Slovenian insurer, with claims and administration handled
+  by **Apeiron Insurance Project** (ΑΦΜ 800832501) as *ΑΠΟΚΛΕΙΣΤΙΚΟΣ
+  ΣΥΝΕΡΓΑΤΗΣ / ΔΙΑΧΕΙΡΙΣΤΗΣ ΖΗΜΙΩΝ*. Package *STANDARD 21 AUTORENT COVER*, use
+  class *Ι.Χ.Ε. ΕΝΟΙΚΙΑΖΟΜΕΝΑ*. **A claim on these vehicles is notified to
+  Apeiron, not to Triglav**, which is an operational fact nothing here recorded.
+
+### Every policy read from the broker's 2026 emails
+
+Eight policies across four insurers, extracted from the PDFs rather than
+transcribed. Two-digit years are reproduced as the Euroins documents write them.
+
+| Plate | Insurer | Policy | From | To |
+|---|---|---|---|---|
+| ΙΜΙ 2840 | Intersalonica | 217565447 | 16/09/2026 | **16/10/2026** |
+| ΙΜΙ 2840 | ERGO | 2088554551/0001 | 10/08/2026 | 10/09/2026 |
+| ΗΒΙ 467 | ERGO | 2088288865/0001 | 27/07/2026 | **27/10/2026** |
+| ΙΡΜ 6966 | Triglav / Apeiron | 5629993 | 08/07/2026 | **08/10/2026** |
+| ΖΑΖ 9892 | Triglav / Apeiron | 5605069 | 09/05/2026 | 09/08/2026 |
+| ΙΟΗ 8395 | Euroins | 9190596178 | 08/06/26 | 08/09/26 |
+| ΙΟΖ 4176 | Euroins | 9190600829 | 04/07/26 | **04/10/26** |
+| ΙΟΕ 2356 | Euroins | 9190600830 | 04/07/26 | **04/10/26** |
+
+**This corroborates §1 rather than replacing it.** ΙΟΖ 4176 on policy
+**9190600829** to **04/10/2026** is exactly what §1 records for the car from the
+hand-supplied certificate. An independent read reaching the same values is the
+kind of check `DEFINING-STATEMENTS.md` §8 asks for.
+
+**Still unread, and recorded as unread rather than as absent:** the ten
+motorbike policies (6×50cc, 4×125cc) sent on 11 June 2026, whose email is 8.3 MB
+and cannot be retrieved through the session's Gmail connector — that is what the
+`lib/gmail.ts` attachment support is for. And four **scanned images with no text
+layer** (`ΠΛΗΡΩΜΕΣ ΑΣΦΑΛΙΣΤΡΩΝ`, `ΑΠΟΔΕΙΞΗ ΕΞΟΦΛΗΣΗΣ`), which are payment
+receipts rather than policies and would need OCR.
+
+### A line that bears on B6
+
+The Triglav policy carries, on its face:
+
+> `ΕΠΑΣΦΑΛΙΣΤΡΟ ΝΕΟΥ ΟΔΗΓΟΥ: ΟΧΙ / ΝΕΟΥ ΔΙΠΛΩΜΑΤΟΣ: ΟΧΙ`
+
+Explicit fields for the **young-driver** and **new-licence** loadings, both set
+to *no*. §2c reasons about Intersalonica's Articles 18 and 19 from the terms
+booklet; this is a different insurer stating the same two loadings as policy
+fields, and stating that neither was applied. It does not answer B6 — whether
+the rental use class displaces the declaration duty — but it is evidence about
+how these loadings are administered in practice, and the broker should be asked
+about this line specifically.
 
 | | Verified from the contract PDF |
 |---|---|
