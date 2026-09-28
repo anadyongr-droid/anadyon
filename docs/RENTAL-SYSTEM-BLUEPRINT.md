@@ -1283,12 +1283,31 @@ an *encoding of a date*, not a claim about a timezone.
 **What this forbids.** Deriving a calendar date from an instant with
 `getFullYear`/`getMonth`/`getDate`, or with `toLocaleDateString` and no
 `timeZone` — both read the *host's* zone, so the same row renders differently on
-a Vercel server, a laptop in Athens and a phone abroad. That is the defect fixed
-on 28 September: the age of a rate import was computed on the server in UTC
-while the date beside it was formatted in the browser's zone, so the pair could
-disagree by a day. Any new code that shows a date taken from a `timestamptz`
-states `timeZone: "Europe/Athens"` explicitly, or takes it from a server field
-that already did.
+a Vercel server, a laptop in Athens and a phone abroad.
+
+**Two distinct faults were fixed on 28 September, and they are worth keeping
+apart because only one of them involves timezones at all.**
+
+*The one that was actually observed.* The age was `floor(elapsed_ms / 86400000)`
+— pure elapsed time, with **no timezone in it anywhere**. Two imports four hours
+apart either side of midnight print different dates and floor to the same number
+of elapsed days, which is how the Market screen came to show `16 Aug · 42 days
+ago` beside `17 Aug · 42 days ago`. Nothing about the server's zone or the
+viewer's contributed to it. Counting calendar dates instead is the fix.
+
+*The one that was latent.* The date was formatted client-side with no `timeZone`,
+so it rendered in the viewer's zone while the age did not depend on any zone.
+**This only bites when the instant falls within the offset difference of
+midnight**, so it is small for a reader near Greece and large for one far away:
+one hour for a viewer at UTC+2 against Athens at UTC+3, seven hours for a viewer
+in New York. Someone browsing from UTC+2 at midday would have seen exactly the
+same dates as Athens — which is why this fault was invisible in the report that
+prompted the fix, and why it is stated here as a hazard found while fixing
+something else rather than as the cause of anything observed.
+
+Any new code that shows a date taken from a `timestamptz` states
+`timeZone: "Europe/Athens"` explicitly, or takes it from a server field that
+already did.
 
 ### 4.5 Schema debt found while writing this
 
