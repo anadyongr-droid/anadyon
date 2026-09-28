@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { RATE_SOURCES, describeSource, type SourceFreshness } from "@/lib/rateSourceFreshness";
+import { loadRateFreshness } from "@/lib/rateSourceFreshnessQuery";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 
 // Admin-only via proxy.ts.
@@ -32,33 +32,6 @@ const BANDS = [
 ] as const;
 
 /**
- * When each import source was last collected.
- *
- * One query per source, each asking only for the newest row. That is more round
- * trips than a single grouped query, but it is exactly right at any table size:
- * PostgREST caps an unbounded select at 1,000 rows, so reducing a fetched page
- * down to a maximum per source would silently report the wrong date once the
- * table outgrew the cap — and report it with no sign that anything was missing.
- * Four indexed single-row reads cost less than being quietly wrong.
- *
- * The list of sources comes from the importers rather than from the data, so a
- * source that has never run reports "never imported" instead of vanishing.
- */
-async function loadFreshness(now: Date): Promise<SourceFreshness[]> {
-  return Promise.all(
-    RATE_SOURCES.map(async src => {
-      const { data } = await supabaseAdmin
-        .from("competitor_rates")
-        .select("scraped_at")
-        .eq("source", src.source)
-        .order("scraped_at", { ascending: false })
-        .limit(1);
-      return describeSource(src, data?.[0]?.scraped_at ?? null, now);
-    })
-  );
-}
-
-/**
  * Our rate beside each competitor's, for every mapped group.
  *
  * Competitor observations are averaged within a group: a group holds several
@@ -84,7 +57,7 @@ export async function GET() {
     // Deliberately independent of the mapping filter above. How old the data is
     // is a fact about the import, not about whether a category has been mapped
     // yet — and an unmapped import is exactly when "did it even run?" is asked.
-    loadFreshness(now),
+    loadRateFreshness(now),
   ]);
 
   if (observations.error) {
