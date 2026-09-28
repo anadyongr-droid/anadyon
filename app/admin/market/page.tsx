@@ -75,15 +75,6 @@ const FRESHNESS_STYLE: Record<Staleness, { dot: string; text: string }> = {
   never: { dot: "bg-red-500", text: "text-red-700" },
 };
 
-/** "28 Sep 2026" — day-first, as everything else in the admin reads. */
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
 function FreshnessPanel({ sources }: { sources: SourceFreshness[] }) {
   if (!sources.length) return null;
   const summary = summariseFreshness(sources);
@@ -121,8 +112,12 @@ function FreshnessPanel({ sources }: { sources: SourceFreshness[] }) {
             <li key={s.source} className="flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
               <span className="text-gray-700">{s.label}</span>
               <span className={`tabular-nums ${style.text}`}>
-                {s.lastImported
-                  ? `${formatDate(s.lastImported)} · ${relativeAge(s.ageDays)}`
+                {/* Both halves come from the server, computed in the business's
+                    timezone from one clock. Formatting the date here while the
+                    age was computed there is what let "16 Aug" and "17 Aug"
+                    both read as 42 days ago. */}
+                {s.lastImportedLabel
+                  ? `${s.lastImportedLabel} · ${relativeAge(s.ageDays)}`
                   : "never imported"}
               </span>
             </li>

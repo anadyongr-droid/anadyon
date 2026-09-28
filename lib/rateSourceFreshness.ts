@@ -42,7 +42,13 @@ export interface SourceFreshness {
   label: string;
   /** ISO timestamp of the most recent observation, or null if never imported. */
   lastImported: string | null;
-  /** Whole days elapsed, or null if never imported. */
+  /**
+   * The same instant as a date in the business's timezone, formatted server-
+   * side so it cannot disagree with `ageDays` — the two used to be computed
+   * from different clocks.
+   */
+  lastImportedLabel: string | null;
+  /** Whole calendar days, or null if never imported. */
   ageDays: number | null;
   staleness: Staleness;
 }
@@ -59,22 +65,76 @@ export const STALE_AFTER_DAYS = 30;
 const MS_PER_DAY = 86_400_000;
 
 /**
- * Whole days between the import and now.
+ * The fleet is in Zakynthos and so is everyone reading this screen, so a date
+ * and an age are both stated in the island's calendar rather than the viewer's
+ * or the server's. Matches `lib/bookingEmails.ts` and the admin modals.
+ */
+export const BUSINESS_TIME_ZONE = "Europe/Athens";
+
+/** The calendar date a timestamp falls on in a given zone, as UTC midnight. */
+function calendarDay(d: Date, timeZone: string): number {
+  // en-CA formats as YYYY-MM-DD, which is the only reason to choose that locale.
+  const [y, m, day] = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .format(d)
+    .split("-")
+    .map(Number);
+  // Anchoring both ends at UTC midnight makes the subtraction exact: a day that
+  // is 23 or 25 hours long across a DST change still counts as one day.
+  return Date.UTC(y, m - 1, day);
+}
+
+/**
+ * Whole calendar days between the import and now, in the business's timezone.
  *
- * Floored, so "2.9 days ago" reads as 2 rather than 3 — an age shown older than
- * it is would push someone into re-importing needlessly, and one shown younger
- * would let stale data pass. Floor errs toward the second, which is why the
- * banding below is deliberately generous rather than tight.
+ * **Counted in calendar days, not elapsed 24-hour periods, and that is the
+ * whole point.** Elapsed-time arithmetic disagrees with the date printed beside
+ * it: two imports 90 minutes apart either side of midnight show as different
+ * dates but floor to the same number of elapsed days, which is exactly what put
+ * "16 Aug · 42 days ago" next to "17 Aug · 42 days ago" on the Market screen.
+ * One of those is wrong and the reader cannot tell which.
+ *
+ * Counting the dates themselves makes the two agree by construction: if the
+ * dates differ by one, so does the age. It also removes the zone mismatch —
+ * the age was computed on the server in UTC while the date was formatted in the
+ * browser's zone, so the pair could disagree by a day for a viewer outside
+ * Greece even when nothing was near midnight.
  *
  * A timestamp in the future (clock skew between the database and the server)
- * clamps to 0 rather than going negative, which would otherwise render as
- * "-1 days ago".
+ * clamps to 0 rather than going negative, which would render as "-1 days ago".
  */
-export function ageInDays(lastImported: string | null, now: Date): number | null {
+export function ageInDays(
+  lastImported: string | null,
+  now: Date,
+  timeZone: string = BUSINESS_TIME_ZONE
+): number | null {
   if (!lastImported) return null;
   const then = new Date(lastImported);
   if (Number.isNaN(then.getTime())) return null;
-  return Math.max(0, Math.floor((now.getTime() - then.getTime()) / MS_PER_DAY));
+  return Math.max(0, Math.round((calendarDay(now, timeZone) - calendarDay(then, timeZone)) / MS_PER_DAY));
+}
+
+/**
+ * "17 Aug 2026", in the business's timezone.
+ *
+ * Formatted here rather than in the browser so the date and the age are
+ * computed from the same clock. Rendering the date client-side was the other
+ * half of the disagreement above.
+ */
+export function formatImportDate(
+  lastImported: string,
+  timeZone: string = BUSINESS_TIME_ZONE
+): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(lastImported));
 }
 
 export function classifyAge(ageDays: number | null): Staleness {
@@ -87,15 +147,18 @@ export function classifyAge(ageDays: number | null): Staleness {
 export function describeSource(
   src: RateSource,
   lastImported: string | null,
-  now: Date
+  now: Date,
+  timeZone: string = BUSINESS_TIME_ZONE
 ): SourceFreshness {
-  const ageDays = ageInDays(lastImported, now);
+  const ageDays = ageInDays(lastImported, now, timeZone);
+  // A timestamp that failed to parse is reported as never imported rather than
+  // as an age of NaN days.
+  const usable = ageDays === null ? null : lastImported;
   return {
     source: src.source,
     label: src.label,
-    // A timestamp that failed to parse is reported as never imported rather
-    // than as an age of NaN days.
-    lastImported: ageDays === null ? null : lastImported,
+    lastImported: usable,
+    lastImportedLabel: usable === null ? null : formatImportDate(usable, timeZone),
     ageDays,
     staleness: classifyAge(ageDays),
   };
