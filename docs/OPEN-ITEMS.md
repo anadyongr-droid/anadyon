@@ -1,6 +1,8 @@
 # Open items
 
-**Last verified:** 28 September 2026, Claude (W19 opened — audit §5.3 against the code; the competitor-feeds row had sat unbuilt for a month).
+**Last verified:** 28 September 2026, Claude and Codex (W19 opened after audit
+§5.3 against the code; production migrations 042–046 applied and verified,
+with 044 deliberately disabled pending the insurance-policy decision).
 
 **Read this first, every day.** [`DEFINING-STATEMENTS.md` §12](../DEFINING-STATEMENTS.md)
 makes it obligatory for every agent, before picking up a task.
@@ -50,17 +52,17 @@ Verified against the code 2 September 2026, not assumed.
 | B7 | **Two clauses in the signed contract need counsel.** Article 16 grounds data rights in **Law 2472/1997**, repealed and superseded by GDPR and Law 4624/2019, and bundles consent to direct marketing into the rental — not valid consent. Article 15 gives exclusive jurisdiction to the Zakynthos courts, doubtful against EU-domiciled consumers. `CONTRACT-VS-WEBSITE.md` §8 and §9. | Tasos |
 | B4 | **Gate 0 — counsel and the accountant.** Two forwardable briefs, already written. **Now carrying one more question:** article 6β of PD 237/1986 is written as an exclusion, but the compulsory scheme also protects the injured third party — does an excluded claim mean the insurer refuses to pay, or pays the victim and then recovers from us (δικαίωμα αναγωγής)? The difference is whether an excluded claim is a loss borne elsewhere or a debt owed by Anadyon. | Tasos |
 
-## 🗄 Migrations written and awaiting application
+## 🗄 Database migrations and activation gates
 
 Per `AGENTS.md`, agents never apply migrations. Each has a byte-identical copy
 under `supabase/migrations/paste/`.
 
 | # | Migration | Status | Owner |
 |---|---|---|---|
-| M1 | **042** — check-in finalisation | Merged; applied and verified on staging, production pending | Tasos |
-| M2 | **043** — handover correction and voiding | Merged in #119; applied and verified on staging, production pending | Tasos |
-| M3 | **044** — insurance surcharge rate row | Merged in #118; applied and verified on staging, production pending | Tasos |
-| M4 | **045** — grant the four handover gateways | Merged in #119; applied and verified on staging, production pending | Tasos |
+| ~~M1~~ | **042** — check-in finalisation | **Applied to production 28 Sep 2026.** Post-application functional verification remains part of the phase-2 acceptance journey. | Agent |
+| ~~M2~~ | **043** — handover correction and voiding | **Applied to production 28 Sep 2026.** Post-application functional verification remains part of the phase-2 acceptance journey. | Agent |
+| M3 | **044** — insurance surcharge rate row | **Applied to production 28 Sep 2026, but deliberately inactive:** `insurance_surcharge` exists at €5/day with `enabled = false`. Do not activate until B6 and W8 are resolved and Tasos confirms the operating policy. | **Tasos**, after B6/W8 |
+| ~~M4~~ | **045** — grant the four handover gateways | **Applied to production 28 Sep 2026.** Post-application permission and functional verification remains part of the phase-2 acceptance journey. | Agent |
 | M5 | **046** — grant `service_role` on the nine tables created after 023 | **DATED — apply before 30 October 2026.** Written 23 Sep, not yet applied anywhere. Production is unaffected either way: those tables already hold the grant Supabase gave them automatically. What it protects is every database built by *replaying* the migrations — the staging reset, `supabase db reset`, a new project, a preview branch — which after 30 October would create `vehicle_blocks`, `vehicle_change_requests` and the seven handover tables with no privileges, leaving the whole of check-out and check-in unreachable by the application. Applying it early costs nothing and is a no-op on a database that already has the grants. Section 14 of [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md). | **Tasos** |
 
 ---
@@ -161,7 +163,7 @@ Kept briefly so a closed item is not reopened by someone who remembers it as ope
 | RPC staff identity — how does a function know who is calling? | 31 Aug 2026 | Option A adopted, diagnostic run and removed (#94). Production grant gate cleared. |
 | Driver-age contradiction between terms, modal and FAQ (audit B1) | before 2 Sep | `lib/rentalPolicy.ts` single-sources all three. The audit file still reads as open. |
 | Document upload verified against staging | 31 Aug 2026 | Verified. |
-| Young-driver surcharge published but never charged | 2 Sep 2026 | Built at €5/day under 23, `claude/insurance-surcharge`. Migration 044 still to apply — see M3. |
+| Young-driver surcharge implementation | 28 Sep 2026 | Built at €5/day under 23 and migration 044 applied to production. The row is deliberately `enabled = false`, so no surcharge is charged until the insurance-policy decision in B6/W8 is complete and Tasos explicitly activates it — see M3. |
 | **Insurance renewals — car, 125 and 50cc** | 2 Sep 2026 | Tasos is handling the renewals directly. The 125 (ΖΒΒ 0565) certificate was the stale copy it looked like: the current policy is **217443636**, 11 Jun → **11 Sep 2026**. Both motorbikes now expire on the same day. Superseded by F1, which is what puts the dates where the system can act on them. |
 | **B1 — are renters covered as unnamed drivers?** | 2 Sep 2026 | **Yes**, confirmed by Tasos. The single largest risk in the insurance reading, closed. |
 | **B3 — is there own-damage cover we have not been shown?** | 2 Sep 2026 | **Yes**, confirmed by Tasos. The earlier conclusion that FDW was entirely self-insured is **withdrawn**. Replaced by B5: the cover exists, its terms and excess have not been seen, and the waiver's wording depends on them. |

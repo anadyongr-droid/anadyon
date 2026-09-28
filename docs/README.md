@@ -53,28 +53,36 @@ against production.
 |---|---|---|
 | `rental_handovers` table | 040 | **Applied** |
 | Check-out finalisation | 041 | **Applied** |
-| Check-in finalisation | 042 | Merged (#93), verified on staging. **Not applied to production** — open item M1 |
-| Correction and voiding, plus the five HTTP routes | 043 | Merged (#119), verified on staging. **Not applied** — M2. PR #95 was closed as superseded |
-| Insurance surcharge for under-23 drivers | 044 | Merged (#118), verified on staging. **Not applied** — M3 |
-| Authenticated grants for all four handover gateways | 045 | Merged (#119), verified on staging. **Not applied** — M4 |
+| Check-in finalisation | 042 | **Applied to production 28 Sep 2026.** Post-application functional verification remains open. |
+| Correction and voiding, plus the five HTTP routes | 043 | **Applied to production 28 Sep 2026.** Post-application functional verification remains open. PR #95 was closed as superseded. |
+| Insurance surcharge for under-23 drivers | 044 | **Applied to production 28 Sep 2026 but deliberately disabled.** The €5/day row exists with `enabled = false`; activation waits for B6/W8 and Tasos's operating-policy decision — M3. |
+| Authenticated grants for all four handover gateways | 045 | **Applied to production 28 Sep 2026.** Post-application permission and functional verification remains open. |
 | `service_role` grants for the nine tables created after 023 | 046 | Merged (#167). **Not applied** — M5, and **dated: before 30 October 2026**, when Supabase stops granting new tables automatically |
 | Photo upload saga | — | Not started. Last piece of phase 2 |
 
-The five unapplied migrations are one sitting, not five. 046 in particular is a
-handful of `grant` statements and a no-op on a database that already holds them,
-so it carries no ordering risk against the other four.
+Only 046 remains unapplied. It is a handful of `grant` statements and a no-op
+on production, which already holds the grants; it protects databases created by
+replaying the migration chain after Supabase changes its defaults.
 
 **The gateways are enabled for authenticated users by migration 045.**
 `finalise_check_out`, `finalise_check_in`, `correct_handover` and
 `void_handover` remain unavailable to `anon`, `service_role` and `PUBLIC`.
 Their routes use the caller's cookie-backed Supabase session, so the database
 verifies `auth.uid()` and the server-owned application role itself. Migration
-045 is not yet applied to production.
+Migration 045 was applied to production on 28 September 2026. Its permission
+and functional acceptance checks still need to be run; application is not the
+same as verification.
 
-### Insurance surcharge — built and merged 2 September, not yet applied
+### Insurance surcharge — installed in production, deliberately inactive
 
 Requested by Tasos: a daily insurance surcharge of **€5 for every driver under
 23**. Decisions taken while building, so they are not re-litigated:
+
+- **Production state as of 28 September:** migration 044 has been applied, but
+  `extras_config.insurance_surcharge` is set to `enabled = false`. New quotes
+  therefore receive no surcharge. Activation is an explicit later decision,
+  gated by B6 and W8 in `OPEN-ITEMS.md`; installing the row did not silently
+  make the pricing policy operational.
 
 - **Age is derivable.** Date of birth is collected and required on the booking
   form, and `app/api/quote/route.ts` already computes exact age on the pick-up
