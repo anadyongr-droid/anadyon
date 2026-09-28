@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { RATE_SOURCES, describeSource, type SourceFreshness } from "@/lib/rateSourceFreshness";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 
 // Admin-only via proxy.ts.
 export const dynamic = "force-dynamic";
+
+interface Observation {
+  competitor: string;
+  competitor_label: string;
+  pricing_group: string | null;
+  pickup_date: string;
+  duration_band: string;
+  price_per_day: number | null;
+}
 
 interface Rate {
   id: string;
@@ -57,27 +67,38 @@ async function loadFreshness(now: Date): Promise<SourceFreshness[]> {
  */
 export async function GET() {
   const now = new Date();
-  const [{ data: rates }, { data: obs, error }, sources] = await Promise.all([
+  const [{ data: rates }, observations, sources] = await Promise.all([
     supabaseAdmin.from("rates").select("*"),
-    supabaseAdmin
-      .from("competitor_rates")
-      .select("competitor, competitor_label, pricing_group, pickup_date, duration_band, price_per_day")
-      .not("pricing_group", "is", null),
+    // Paged, and ordered by the primary key so the pages do not overlap.
+    // Unbounded, this returned at most 1,000 observations and averaged them as
+    // though they were all of them — the comparison would have drifted silently
+    // as the table grew, never failing, just quietly describing a slice.
+    fetchAllRows<Observation>((from, to) =>
+      supabaseAdmin
+        .from("competitor_rates")
+        .select("competitor, competitor_label, pricing_group, pickup_date, duration_band, price_per_day")
+        .not("pricing_group", "is", null)
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
     // Deliberately independent of the mapping filter above. How old the data is
     // is a fact about the import, not about whether a category has been mapped
     // yet — and an unmapped import is exactly when "did it even run?" is asked.
     loadFreshness(now),
   ]);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (observations.error) {
+    return NextResponse.json({ error: observations.error }, { status: 500 });
+  }
+  const obs = observations.rows;
 
   const competitors = [
-    ...new Map((obs ?? []).map(o => [o.competitor, o.competitor_label])).entries(),
+    ...new Map(obs.map(o => [o.competitor, o.competitor_label])).entries(),
   ].map(([slug, label]) => ({ slug, label }));
 
   // Bucket competitor prices by group + month + band
   const buckets = new Map<string, number[]>();
-  for (const o of obs ?? []) {
+  for (const o of obs) {
     if (typeof o.price_per_day !== "number") continue;
     const month = new Date(o.pickup_date).getMonth() + 1;
     const key = `${o.pricing_group}|${month}|${o.duration_band}|${o.competitor}`;
@@ -89,7 +110,7 @@ export async function GET() {
   const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 
   // Only months we actually collected
-  const months = [...new Set((obs ?? []).map(o => new Date(o.pickup_date).getMonth() + 1))].sort(
+  const months = [...new Set(obs.map(o => new Date(o.pickup_date).getMonth() + 1))].sort(
     (a, b) => a - b
   );
   const monthName = (m: number) =>
@@ -134,8 +155,13 @@ export async function GET() {
   return NextResponse.json({
     competitors,
     rows,
-    mapped: (obs ?? []).length,
+    mapped: obs.length,
     sources,
+    // Said out loud rather than left to be inferred. If the page ceiling was
+    // ever reached these figures are computed from part of the data, and a
+    // screen showing partial numbers as though they were complete is the exact
+    // failure the paging was added to remove.
+    truncated: observations.truncated,
     ranAt: now.toISOString(),
   });
 }
