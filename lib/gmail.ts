@@ -65,6 +65,29 @@ export interface ParsedEmail {
   subject: string | null;
   bodyText: string | null;
   receivedAt: Date;
+  /**
+   * What is attached, not the bytes. Downloading every attachment of every
+   * synced message would be most of a sync budget spent on files nobody asked
+   * for — the caller decides which ones matter and calls `fetchAttachment`.
+   */
+  attachments: EmailAttachment[];
+}
+
+export interface EmailAttachment {
+  filename: string;
+  mimeType: string;
+  /**
+   * Gmail's handle for the bytes, fetched separately. Null when the part is
+   * small enough that Gmail returned it inline instead — see `inlineData`.
+   */
+  attachmentId: string | null;
+  sizeBytes: number;
+  /**
+   * base64url bytes, present only for parts Gmail inlined. Both forms occur in
+   * the same mailbox and a reader that handles only `attachmentId` silently
+   * loses the small files.
+   */
+  inlineData: string | null;
 }
 
 /**
@@ -85,7 +108,8 @@ export function parseFromHeader(from: string): { senderName: string | null; send
 
 interface MailPart {
   mimeType?: string;
-  body?: { data?: string };
+  filename?: string | null;
+  body?: { data?: string; attachmentId?: string | null; size?: number | null };
   parts?: MailPart[];
 }
 
@@ -137,6 +161,113 @@ function decodeBody(payload: MailPart): string {
   if (html.trim()) return htmlToText(html);
 
   return decodePart(payload);
+}
+
+/**
+ * Every attached file in a message, at any nesting depth.
+ *
+ * A part is an attachment when it carries a filename. That is the distinction
+ * that matters: `text/plain` and `text/html` body parts never do, and forwarded
+ * mail nests its attachments inside a `message/rfc822` part where a shallow
+ * scan of `payload.parts` does not reach them — which is exactly how the
+ * broker's forwarded policy documents arrive.
+ *
+ * Returns metadata only. The bytes come from `fetchAttachment`, because Gmail
+ * does not include them in a `format: "full"` message: it returns an
+ * `attachmentId` to fetch separately, and only inlines the small ones.
+ */
+export function listAttachments(payload: MailPart | null | undefined): EmailAttachment[] {
+  const found: EmailAttachment[] = [];
+
+  const walk = (part: MailPart) => {
+    const filename = part.filename?.trim();
+    if (filename) {
+      found.push({
+        filename,
+        mimeType: part.mimeType ?? "application/octet-stream",
+        attachmentId: part.body?.attachmentId ?? null,
+        sizeBytes: part.body?.size ?? 0,
+        inlineData: part.body?.attachmentId ? null : part.body?.data ?? null,
+      });
+    }
+    for (const child of part.parts ?? []) walk(child);
+  };
+
+  if (payload) walk(payload);
+  return found;
+}
+
+/**
+ * Ceiling on a single attachment download, in bytes.
+ *
+ * A cap exists because this runs in a serverless function with finite memory
+ * and a request timeout, and one oversized file would take down the whole sync
+ * rather than being skipped. Policy PDFs from the broker run to about a
+ * megabyte, so 8 MB is generous for the real traffic while still refusing a
+ * video somebody attached to a reservation enquiry.
+ */
+export const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Downloads one attachment's bytes, or returns null with a reason logged.
+ *
+ * Null rather than a throw: a single unreadable attachment must not fail the
+ * message it came with, let alone the sync run around it. Callers that need to
+ * distinguish "no bytes" from "not attempted" have the metadata already.
+ *
+ * `client` is injectable so the size and decoding rules can be tested without
+ * a live mailbox; it defaults to the stored-token client.
+ */
+export async function fetchAttachment(
+  messageId: string,
+  attachment: EmailAttachment,
+  options: {
+    maxBytes?: number;
+    client?: { users: { messages: { attachments: { get: (params: {
+      userId: string; messageId: string; id: string;
+    }) => Promise<{ data: { data?: string | null; size?: number | null } }> } } } } | null;
+  } = {}
+): Promise<Buffer | null> {
+  const maxBytes = options.maxBytes ?? MAX_ATTACHMENT_BYTES;
+
+  // Checked before the request, so an oversized file costs nothing to refuse.
+  if (attachment.sizeBytes > maxBytes) {
+    console.warn(
+      `[gmail] skipping ${attachment.filename}: ${attachment.sizeBytes} bytes exceeds ${maxBytes}`
+    );
+    return null;
+  }
+
+  if (attachment.inlineData) {
+    return Buffer.from(attachment.inlineData, "base64url");
+  }
+
+  if (!attachment.attachmentId) return null;
+
+  const gmail = options.client !== undefined ? options.client : await getGmailClient();
+  if (!gmail) return null;
+
+  try {
+    const res = await gmail.users.messages.attachments.get({
+      userId: "me",
+      messageId,
+      id: attachment.attachmentId,
+    });
+    const data = res.data.data;
+    if (!data) return null;
+
+    // Gmail's `size` is advisory and the metadata one was already checked; this
+    // guards the case where the returned body is larger than announced.
+    const buf = Buffer.from(data, "base64url");
+    if (buf.byteLength > maxBytes) {
+      console.warn(`[gmail] discarding ${attachment.filename}: ${buf.byteLength} bytes over cap`);
+      return null;
+    }
+    return buf;
+  } catch (err) {
+    console.error(`[gmail] could not fetch attachment ${attachment.filename}`, err);
+    return null;
+  }
 }
 
 /** How many messages one sync run will classify — bounded to fit the serverless time limit. */
@@ -230,6 +361,7 @@ export async function fetchNewEmails(): Promise<FetchResult> {
         subject: get("subject"),
         bodyText: decodeBody(detail.data.payload as Parameters<typeof decodeBody>[0] ?? {}),
         receivedAt: internalDate,
+        attachments: listAttachments(detail.data.payload as MailPart | undefined),
       });
     } catch (err) {
       console.error("Failed to fetch email", msg.id, err);
