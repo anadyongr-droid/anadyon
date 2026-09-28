@@ -1328,12 +1328,33 @@ succeeds.**
 | **Wise** | *Corrected 28 August — this was wrongly folded in with Stripe above.* **Wise has no webhook.** `lib/wise.ts` says so in the file itself: a deposit link is a constructed URL, "Wise does not call back when the money arrives, so a reservation paid this way has to be reconciled rather than confirming itself." There is nothing to fail closed, because nothing calls back. The failure mode is therefore silence, and the answer is a reconciliation task that is *visible and ages* — an unreconciled Wise deposit must appear as outstanding work, not sit unnoticed until someone checks the bank. |
 | **SMS** | Non-blocking, but recorded and visible. A confirmation SMS that fails must not block a booking — and must not vanish either. *Corrected 28 August: this said "degrade silently", which contradicts this section's own closing rule that degraded state is shown rather than hidden.* A failed message is logged against the reservation and surfaced the way a failed email already is, so "we texted them" can be checked rather than assumed. |
 | **AADE** | Queue for resubmission and surface the backlog. A statutory submission that failed is an operational task, not a lost message. |
-| **Competitor feeds** | Show the data's age. Stale rates presented as current are worse than no rates. |
+| **Competitor feeds** | Show the data's age. Stale rates presented as current are worse than no rates. **Built 28 September 2026** — Admin → Market carries a freshness panel per import source; `lib/rateSourceFreshness.ts`. See the note below. |
 
 **Two rules that apply everywhere.** Every external call carries a timeout —
 an unbounded call is an outage waiting for a slow day. And degraded state is
 shown, not hidden: the operator needs to know the difference between quiet and
 broken, which is precisely the distinction the August incident destroyed.
+
+**The competitor-feeds row sat unbuilt for a month, and that is worth recording
+rather than quietly ticking off.** *Added 28 September 2026, Claude, after Tasos
+asked on the Market screen "I don't see when we last imported the rates" and
+then asked whether we had already decided this. We had — here, on 27 August —
+and nobody had built it.*
+
+The measurement was never missing: `competitor_rates.scraped_at` has been
+written since migration 004. What was missing was any surface that showed it, so
+a comparison against August observations read exactly like one against this
+morning's — the precise failure this row names.
+
+**How it was missed is the reusable part.** The Market screen and this rule were
+written by different passes that never met. The screen shipped as its own
+feature; this row was written later as a general principle about degraded state,
+inside a table otherwise about Supabase, Stripe and Resend. Nobody re-read the
+dependency table while building Market, and a rule in a table nobody re-reads is
+a rule that does not exist. `DEFINING-STATEMENTS.md` §9 covers searching the
+docs before *researching* a subject; this is the same failure one step later —
+searching them before *building* one. Before adding a screen, read what §5.3
+says the thing it depends on must do when that dependency is stale or down.
 
 **Not covered here:** there is no failover *target*. Supabase Free has no
 replica and the project has no second region. This section is about behaving
