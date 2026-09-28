@@ -1957,6 +1957,66 @@ currently unowned.
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 
+### 25 September 2026 — Jev (TypeSafe AI) evaluated and declined for now
+
+**Decision: Anadyon does not integrate Jev.** Not a judgement that it is a bad
+model — a judgement that the one workload it could serve here is too small for
+the trade it asks, and that the trade includes customer personal data.
+
+Jev is TypeSafe AI's "System One" model, in limited early access since
+15 September 2026. It does not generate text. It takes unstructured state plus a
+typed schema and returns three primitives — `Choice` (pick an option, with
+per-option probabilities), `Score` (rate against ordered levels) and `Noul`
+(yes/no as a probability) — in 70–500ms, at $0.042 per million input tokens with
+output free. The vendor claims 40–200× faster and 40–400× cheaper than frontier
+LLMs on those tasks.
+
+**Why it does not fit the one AI surface we have.** `lib/emailClassifier.ts`
+produces five fields per inbound email. Jev's primitives cover two of them:
+`category` is a `Choice`, `urgency` is a `Score`. The other three —
+`greek_summary`, `suggested_action`, `reservation_date` — are generated text,
+and Jev does not generate text. So Jev would not replace the Claude call, it
+would sit in front of it: two vendors, two API keys, two rate limits and two
+failure modes on a path that currently has one, to save part of a bill that is
+single-digit euros a month. A 400× multiple on a small number is still a small
+number.
+
+**Three things to hold on to, because the marketing blurs them.**
+
+- *"Cannot hallucinate"* is a claim about **type validity, not correctness**. Jev
+  cannot return a category outside our seven. It can absolutely return the wrong
+  one of the seven. Our `normalise()` already coerces invalid categories to
+  `Other`, so we have the type guarantee; what we would be buying is speed, not
+  accuracy.
+- **Every published performance figure is self-tested.** The vendor says so, and
+  describes its own numbers as "likely to sit at the high end of real-world
+  results". No independent classification-accuracy benchmark existed at the date
+  of this entry. Per §8 that makes the quality claim unverified, not false.
+- **Latency is not our constraint, and where it is, Jev is not the cheapest
+  fix.** Classification runs inside `syncEmails` under a 20–45s budget, so
+  per-email latency does cap backlog throughput. But the Greek summary still
+  needs a text model, so Jev only lifts that cap if summaries are also deferred
+  to read time — a design change. Batching the existing calls, or a smaller
+  Claude model, fixes the same ceiling without a new vendor.
+
+**The blocking concern is data protection, not engineering.** The classifier
+sends customer correspondence — names, itineraries, complaints, occasionally
+passport and payment discussion — to whatever model classifies it. Anthropic is
+an established processor with published terms. Adding a ten-day-old US company,
+West-Coast hosted, with no DPA or EU data-handling position we have read, as a
+processor of customer email is a GDPR decision about the customer relationship,
+not a library choice. It is not an agent's to take alone.
+
+**Revisit when all three hold:** general availability rather than a waitlist; a
+published third-party accuracy benchmark on a classification task; and a data
+processing agreement with a stated EU position. Until then this entry is the
+answer, so the question is not researched again (§9).
+
+**Acted on instead, and separately:** `lib/emailClassifier.ts` is pinned to
+`claude-sonnet-4-6` with the comment "Matches the model the Make.com scenario
+used" — parity with a system we no longer run. Its successor is both newer and
+cheaper. Raised with Tasos; not changed unasked.
+
 ### 19 September 2026 — two DNS decisions, one of them a correction
 
 **Decision: Vercel's nameservers are declined.** Vercel emailed inviting us to

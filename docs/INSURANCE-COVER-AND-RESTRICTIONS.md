@@ -1,11 +1,13 @@
 # What the fleet is actually insured for
 
 **Read from the policy documents, 2 September 2026.** Three certificates
-supplied by Tasos, covering one car and two motorbikes across two insurers.
+supplied by Tasos, covering one car and two motorbikes across two insurers —
+**and, from 28 September 2026, a third insurer and further policies read
+directly out of the broker's emails: see §1a.**
 This document is the reference for what may be offered, promised and published.
 `DEFINING-STATEMENTS.md` §10 makes that binding.
 
-**Last verified:** 20 September 2026, Codex — official Euroins rental-car IPID and public motor terms located and read through the search index; the exact terms edition incorporated into policy 9190600829 still requires the broker (§7). Dated expiries re-checked against the calendar 20 September 2026, Claude — see F2.
+**Last verified:** 28 September 2026, Claude — two further policies for ΙΜΙ 2840 read from the broker's own PDF attachments, adding **ERGO Ασφαλιστική** as a third insurer this document did not know about (§1a). Earlier: 20 September 2026, Codex — official Euroins rental-car IPID and public motor terms located and read through the search index; the exact terms edition incorporated into policy 9190600829 still requires the broker (§7).
 
 **Scope caveat, stated once and applying throughout.** All three documents are
 **certificates** — the schedule of what is covered, for how much, at what
@@ -63,6 +65,92 @@ All three carry the same statutory warning: under Law 4261/2014 art. 169 there
 is **no automatic renewal**, the premium must be paid **before** expiry, and
 non-payment dissolves the policy **with no notice given**. Intersalonica adds
 that on a new policy cover starts **one hour after** payment.
+
+---
+
+## 1a. A third insurer, and what the broker's emails actually hold
+
+*Added 28 September 2026, Claude. Read from the broker's PDF attachments in the
+`anadyon.gr@gmail.com` mailbox, not supplied by hand.*
+
+**The policies live in email, as attachments from the broker
+`kexpress2007@gmail.com` — Κ.ΕΞΠΡΕΣΣ ΜΕΠΕ, Zakynthos** (201 threads, of which
+nine in 2026 carry attachments). This was not previously recorded anywhere, and
+one earlier search for them failed and reported the opposite: it looked for
+*ασφάλιση / ασφαλιστήριο / συμβόλαιο* while every one of the broker's subjects
+reads **ΑΣΦΑΛΕΙΑ** or **ΑΣΦΑΛΕΙΕΣ**, which Gmail does not stem across. Searching
+the correspondent rather than the vocabulary is the reliable way in.
+
+### ERGO Ασφαλιστική is a third insurer
+
+§1 above says "two insurers". That is wrong, and was wrong because the sample
+was three certificates handed over by hand.
+
+| | Verified from the contract PDF |
+|---|---|
+| **Plate** | ΙΜΙ 2840 |
+| **Vehicle** | Hyundai i10 1.2i 16V, 2009, 1,248cc, 9hp, 5 seats |
+| **Insurer** | **ERGO Ασφαλιστική Μονοπρόσωπη Α.Ε.**, ΑΦΜ 094256484 |
+| **Product** | ERGO My Auto Simple Plus |
+| **Policy no.** | 2088554551/0001 |
+| **Cover** | **10/08/2026 10:22 → 10/09/2026 23:59** |
+| **Premium** | €25.00 gross (€16.97 net + €4.36 fee + €3.19 tax + €0.48 ΕΚ) |
+
+The same vehicle is then insured by **Intersalonica**, policy **217565447**,
+**16/09/2026 13:46 → 16/10/2026 23:59**, issued 16/09/2026 — a
+Πολυασφαλιστήριο naming the same ΑΦΜ 800569811.
+
+**So ΙΜΙ 2840 is a car this document had never listed, on an insurer this
+document had never named, moving between insurers month to month.**
+
+### Three consequences, each verified rather than inferred
+
+**Terms are one month, not three.** Both ΙΜΙ 2840 policies run a single month.
+§1's "3 months" holds for the three hand-supplied certificates and is not a
+property of the fleet. Anything built on a quarterly renewal rhythm — a reminder
+cadence, a stop-sell lead time — must not assume it.
+
+**There is an apparent six-day gap, and it is not asserted as one.** ERGO ends
+10/09/2026 23:59; Intersalonica begins 16/09/2026 13:46. Nothing read so far
+covers 11–16 September. This is **not** a claim that the car was uninsured — a
+policy may exist that has not been read, and the broker's 15 September
+"ΠΛΗΡΩΜΕΣ ΑΣΦΑΛΙΣΤΡΩΝ" email is unread at the time of writing. It is a claim
+that the documents in hand do not cover those days, which is a question for the
+broker (§6).
+
+**No own-damage cover, now confirmed from contracts rather than reasoned.**
+§4.1 concluded there is no collision own-damage anywhere in the fleet. Both
+ΙΜΙ 2840 policies confirm it directly: ERGO covers only forest fire (€2,856),
+flood (€2,856, €250 excess) and earthquake (€5,000); Intersalonica the same
+three at €2,900 each. Neither carries general own damage. **The €5.00/day Full
+Damage Waiver therefore stands against no insurance on this vehicle either** —
+which strengthens §4.1 and open item N1 rather than changing them.
+
+### Bicycles carry no insurance at all
+
+*Stated by Tasos, 28 September 2026.* The bicycle fleet is uninsured — there is
+no policy behind it, from any insurer. It is recorded here because its absence
+is otherwise indistinguishable from a policy nobody has found yet, and because
+anything published about bicycles must say what §10 requires: where cover is
+absent, the wording says so plainly rather than going quiet.
+
+### Minor, worth one word to the broker
+
+The ERGO policy names the insured **"ΑΝΑΔΙΩΝ Ι.Κ.Ε."** — a misspelling of
+ΑΝΑΔΥΩΝ. The ΑΦΜ (800569811) is correct, so this is very likely harmless, but a
+name mismatch on a claim is the kind of thing that costs a day.
+
+### Reading these is now mechanical
+
+The Gmail connector exposes attachment metadata but no download. The route that
+works: fetch the message `RAW`, decode the MIME, extract the PDF, read it with
+`pypdf`, and regex the fields (`ΑΡ. ΚΥΚΛΟΦ.`, `ΑΡΙΘΜΟΣ ΠΟΛΥΑΣΦΑΛΙΣΤΗΡΙΟΥ`,
+`ΔΙΑΡΚΕΙΑ ΑΣΦΑΛΙΣΗΣ ΑΠΟ/ΜΕΧΡΙ`). ERGO and Intersalonica use different layouts,
+so a per-insurer pattern is needed rather than one regex. **This also revives
+the F2 automation**: `lib/gmail.ts` can fetch attachments through the same API —
+it simply does not today — so a pipeline that proposes into
+`vehicle_change_requests` is viable after all. The blocker reported earlier was
+an artefact of the connector, not of the architecture.
 
 ---
 
