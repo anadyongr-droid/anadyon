@@ -2050,6 +2050,16 @@ currently unowned.
 
 ## 10. Revision history and what has shipped
 
+### 28 September 2026 — Google Search Console verification file
+
+Tasos explicitly authorised adding and publishing his supplied Google HTML
+verification file. Serve `googlea0de2b52267ebab7.html` unchanged from `public/`
+at the root of `https://anadyon.gr/`, and retain it for ongoing ownership checks.
+This implements open item E8; verification in Google and the report exports
+remain Tasos's next steps. No application routing or customer behaviour changes
+are needed.
+
+
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
 

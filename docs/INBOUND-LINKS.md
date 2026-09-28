@@ -1,6 +1,6 @@
 # Inbound links, broken URLs and the 404 page
 
-**Last verified: 19 September 2026**
+**Last verified: 28 September 2026** — verification-file preparation only; earlier research retains its dated evidence.
 Owner: agents, except where it says Tasos.
 
 ## Why this document exists
@@ -252,3 +252,13 @@ npm run check:links -- --base https://anadyon.gr     # production
 - `docs/audits/2026-08-18-prelaunch.md` and `docs/audits/2026-08-19-post-launch.md`
   — both recommended Search Console and Bing; neither was closed out.
 - `next.config.ts` — the canonical-host redirects that this sits beside.
+
+## Search Console verification — 28 September 2026
+
+Tasos selected the URL-prefix property `https://anadyon.gr/`, which requested
+ownership verification, and supplied `googlea0de2b52267ebab7.html`. With his
+explicit approval, its unchanged contents are added to `public/` for publication
+at `https://anadyon.gr/googlea0de2b52267ebab7.html`. Retain the file permanently.
+Deployment and Google verification are not yet confirmed in this entry. Once
+the live URL returns the supplied content, Tasos can click **Verify**, then
+export the 404 and Links reports (E8) and perform URL Inspection (E19).
