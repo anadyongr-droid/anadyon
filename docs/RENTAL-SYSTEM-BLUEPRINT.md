@@ -1234,6 +1234,62 @@ Utilisation must exclude days a vehicle was retired, in maintenance or blocked �
 otherwise a car off the road drags the average down and hides the performance of
 the ones working.
 
+### 4.4a Time: one anchor for instants, another for dates, and why that is not a contradiction
+
+*Added 28 September 2026, after Tasos asked "is UTC our anchor time or Athens?"
+and the honest answer was that the code has been consistent about it and nothing
+had ever written the rule down. Reconstructing a convention from its call sites
+is exactly what §9 exists to prevent.*
+
+**There are two kinds of time value here and they take different anchors.**
+
+**An instant — a moment something happened.** `scraped_at`, `created_at`,
+`received_at`, `reviewed_at`. Stored as `timestamptz`, which is an absolute
+point on the timeline; Postgres holds it in UTC, but the value carries no
+timezone of its own. **The anchor for storage is UTC, and it is not a choice —
+it is what "an instant" means.**
+
+**A date with no time — a day in the life of the business.** A pickup date, a
+season boundary, an insurance or KTEO expiry. `2026-08-17` means that day in
+Zakynthos, whoever is looking and from wherever. It is not an instant and has no
+"correct" UTC moment. It is encoded as **UTC midnight as a container** —
+`parseDateOnlyUtc` in `lib/pricing.ts` — so that adding a day is exact and free
+of daylight-saving arithmetic.
+
+**The rule that follows.** *An instant is stored in UTC and interpreted in
+`Europe/Athens` whenever a person reads it as a date. A date-only value is
+timezone-free, encoded at UTC midnight, and never converted.*
+
+**Where each applies, with the live examples:**
+
+| Value | Kind | Anchor |
+|---|---|---|
+| `competitor_rates.scraped_at` | instant | stored UTC; shown and aged in `Europe/Athens` (`lib/rateSourceFreshness.ts`) |
+| `emails.received_at` | instant | stored UTC |
+| pickup / dropoff date | date-only | UTC-midnight container (`parseDateOnlyUtc`) |
+| season month boundaries | date-only | UTC-midnight container; `calcVehicleSegments` reads the month back with `timeZone: "UTC"` |
+| `vehicles.insurance_expiry`, `kteo_expiry` | date-only | a calendar day, compared against the pick-up date |
+| booking-confirmation times | instant | rendered `Europe/Athens` (`lib/bookingEmails.ts`) |
+
+**The two places `UTC` appears are not a competing anchor**, and this is the
+part that reads as a contradiction until it is said plainly. `calcVehicleSegments`
+formatting a month with `timeZone: "UTC"` is reading a month back out of a
+UTC-midnight container — using `Europe/Athens` there would shift the date back a
+day and bill the wrong season. And `rateSourceFreshness.calendarDay` converts an
+instant to its Athens calendar date **first**, then re-encodes that date at UTC
+midnight purely so the subtraction of two dates is exact. In both cases UTC is
+an *encoding of a date*, not a claim about a timezone.
+
+**What this forbids.** Deriving a calendar date from an instant with
+`getFullYear`/`getMonth`/`getDate`, or with `toLocaleDateString` and no
+`timeZone` — both read the *host's* zone, so the same row renders differently on
+a Vercel server, a laptop in Athens and a phone abroad. That is the defect fixed
+on 28 September: the age of a rate import was computed on the server in UTC
+while the date beside it was formatted in the browser's zone, so the pair could
+disagree by a day. Any new code that shows a date taken from a `timestamptz`
+states `timeZone: "Europe/Athens"` explicitly, or takes it from a server field
+that already did.
+
 ### 4.5 Schema debt found while writing this
 
 `driving_licence_number` is the only column in the repository baseline and the
