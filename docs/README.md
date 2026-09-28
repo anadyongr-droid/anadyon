@@ -53,25 +53,28 @@ against production.
 |---|---|---|
 | `rental_handovers` table | 040 | **Applied** |
 | Check-out finalisation | 041 | **Applied** |
-| Check-in finalisation | 042 | **Applied to production 28 Sep 2026.** Post-application functional verification remains open. |
-| Correction and voiding, plus the five HTTP routes | 043 | **Applied to production 28 Sep 2026.** Post-application functional verification remains open. PR #95 was closed as superseded. |
+| Check-in finalisation | 042 | **Applied to production 28 Sep 2026; both functions verified present.** The authenticated browser journey remains open. |
+| Correction and voiding, plus the five HTTP routes | 043 | **Applied to production 28 Sep 2026; all five functions verified present.** The authenticated browser journey remains open. PR #95 was closed as superseded. |
 | Insurance surcharge for under-23 drivers | 044 | **Applied to production 28 Sep 2026 but deliberately disabled.** The €5/day row exists with `enabled = false`; activation waits for B6/W8 and Tasos's operating-policy decision — M3. |
-| Authenticated grants for all four handover gateways | 045 | **Applied to production 28 Sep 2026.** Post-application permission and functional verification remains open. |
-| `service_role` grants for the nine tables created after 023 | 046 | Merged (#167). **Not applied** — M5, and **dated: before 30 October 2026**, when Supabase stops granting new tables automatically |
+| Authenticated grants for all four handover gateways | 045 | **Applied and permission-verified in production 28 Sep 2026.** Only `authenticated` can execute them; the browser journey remains open. |
+| `service_role` grants for the nine tables created after 023 | 046 | **Applied and verified in production 28 Sep 2026.** All nine tables hold all four required DML grants. |
 | Photo upload saga | — | Not started. Last piece of phase 2 |
 
-Only 046 remains unapplied. It is a handful of `grant` statements and a no-op
-on production, which already holds the grants; it protects databases created by
-replaying the migration chain after Supabase changes its defaults.
+All migrations through 046 are now applied to production. Catalogue-level
+verification passed: 042's two functions and 043's five functions exist; 045's
+four gateways are executable only by `authenticated`; and all nine tables in
+046 carry the four required `service_role` DML grants. The remaining phase-2
+gate is the authenticated browser journey, not another database migration.
 
 **The gateways are enabled for authenticated users by migration 045.**
 `finalise_check_out`, `finalise_check_in`, `correct_handover` and
 `void_handover` remain unavailable to `anon`, `service_role` and `PUBLIC`.
 Their routes use the caller's cookie-backed Supabase session, so the database
 verifies `auth.uid()` and the server-owned application role itself. Migration
-Migration 045 was applied to production on 28 September 2026. Its permission
-and functional acceptance checks still need to be run; application is not the
-same as verification.
+045 was applied to production on 28 September 2026 and its database
+permissions were verified. The authenticated functional acceptance journey
+still needs to be run; catalogue verification is not the same as exercising the
+complete staff workflow.
 
 ### Insurance surcharge — installed in production, deliberately inactive
 

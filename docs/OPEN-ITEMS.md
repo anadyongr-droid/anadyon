@@ -1,8 +1,9 @@
 # Open items
 
 **Last verified:** 28 September 2026, Claude and Codex (W19 opened after audit
-§5.3 against the code; production migrations 042–046 applied and verified,
-with 044 deliberately disabled pending the insurance-policy decision).
+§5.3 against the code; production migrations 042–046 applied and their
+database objects/permissions verified; 044 remains deliberately disabled
+pending the insurance-policy decision).
 
 **Read this first, every day.** [`DEFINING-STATEMENTS.md` §12](../DEFINING-STATEMENTS.md)
 makes it obligatory for every agent, before picking up a task.
@@ -59,11 +60,11 @@ under `supabase/migrations/paste/`.
 
 | # | Migration | Status | Owner |
 |---|---|---|---|
-| ~~M1~~ | **042** — check-in finalisation | **Applied to production 28 Sep 2026.** Post-application functional verification remains part of the phase-2 acceptance journey. | Agent |
-| ~~M2~~ | **043** — handover correction and voiding | **Applied to production 28 Sep 2026.** Post-application functional verification remains part of the phase-2 acceptance journey. | Agent |
+| ~~M1~~ | **042** — check-in finalisation | **Applied to production 28 Sep 2026; both functions verified present.** The authenticated browser journey remains part of phase-2 acceptance. | Agent |
+| ~~M2~~ | **043** — handover correction and voiding | **Applied to production 28 Sep 2026; all five functions verified present.** The authenticated browser journey remains part of phase-2 acceptance. | Agent |
 | M3 | **044** — insurance surcharge rate row | **Applied to production 28 Sep 2026, but deliberately inactive:** `insurance_surcharge` exists at €5/day with `enabled = false`. Do not activate until B6 and W8 are resolved and Tasos confirms the operating policy. | **Tasos**, after B6/W8 |
-| ~~M4~~ | **045** — grant the four handover gateways | **Applied to production 28 Sep 2026.** Post-application permission and functional verification remains part of the phase-2 acceptance journey. | Agent |
-| M5 | **046** — grant `service_role` on the nine tables created after 023 | **DATED — apply before 30 October 2026.** Written 23 Sep, not yet applied anywhere. Production is unaffected either way: those tables already hold the grant Supabase gave them automatically. What it protects is every database built by *replaying* the migrations — the staging reset, `supabase db reset`, a new project, a preview branch — which after 30 October would create `vehicle_blocks`, `vehicle_change_requests` and the seven handover tables with no privileges, leaving the whole of check-out and check-in unreachable by the application. Applying it early costs nothing and is a no-op on a database that already has the grants. Section 14 of [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md). | **Tasos** |
+| ~~M4~~ | **045** — grant the four handover gateways | **Applied and verified in production 28 Sep 2026.** All four exist; only `authenticated` can execute them, while `anon`, `service_role` and `PUBLIC` cannot. The authenticated browser journey remains part of phase-2 acceptance. | Agent |
+| ~~M5~~ | **046** — grant `service_role` on the nine tables created after 023 | **Applied and verified in production 28 Sep 2026.** All nine tables carry `SELECT`, `INSERT`, `UPDATE` and `DELETE` for `service_role`, protecting future migration replays from Supabase's 30 October default change. Section 14 of [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md). | Agent |
 
 ---
 
