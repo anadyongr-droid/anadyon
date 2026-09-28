@@ -1,7 +1,14 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { BarChart3, PencilLine, Save, X } from "lucide-react";
 import type { Rate } from "@/lib/pricing";
+import {
+  relativeAge,
+  summariseFreshness,
+  type SourceFreshness,
+  type Staleness,
+} from "@/lib/rateSourceFreshness";
 import { useIsAdmin } from "../RoleContext";
 
 type RateField = "rate_1_2" | "rate_3_6" | "rate_7plus";
@@ -56,6 +63,84 @@ const GROUP_LABEL: Record<string, string> = {
   bike: "Bicycle",
 };
 
+/**
+ * The comparison is only as current as the observations behind it, and the
+ * screen gave no way to tell. Amber and red are deliberate: an admin reading
+ * prices off a three-month-old pass should see that before they act on it.
+ */
+const FRESHNESS_STYLE: Record<Staleness, { dot: string; text: string }> = {
+  fresh: { dot: "bg-emerald-500", text: "text-gray-700" },
+  ageing: { dot: "bg-amber-500", text: "text-amber-700" },
+  stale: { dot: "bg-red-500", text: "text-red-700" },
+  never: { dot: "bg-red-500", text: "text-red-700" },
+};
+
+/** "28 Sep 2026" — day-first, as everything else in the admin reads. */
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function FreshnessPanel({ sources }: { sources: SourceFreshness[] }) {
+  if (!sources.length) return null;
+  const summary = summariseFreshness(sources);
+  const headline = FRESHNESS_STYLE[summary.staleness];
+
+  return (
+    <section
+      aria-labelledby="rate-freshness-heading"
+      className="bg-white rounded-xl border border-gray-200 mb-6"
+    >
+      <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className={`h-2 w-2 rounded-full ${headline.dot}`} aria-hidden="true" />
+          <h2 id="rate-freshness-heading" className="font-semibold text-gray-900 text-sm">
+            Competitor rates last imported
+          </h2>
+          <span className={`text-sm font-medium ${headline.text}`}>
+            {summary.neverImported.length
+              ? `${summary.neverImported.length} source${summary.neverImported.length > 1 ? "s" : ""} never imported`
+              : relativeAge(summary.oldestAgeDays)}
+          </span>
+        </div>
+        <Link
+          href="/admin/settings"
+          className="text-xs font-medium text-blue-700 underline underline-offset-2 hover:text-blue-800"
+        >
+          Import rates
+        </Link>
+      </div>
+
+      <ul className="px-5 py-3 space-y-1.5">
+        {sources.map(s => {
+          const style = FRESHNESS_STYLE[s.staleness];
+          return (
+            <li key={s.source} className="flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
+              <span className="text-gray-700">{s.label}</span>
+              <span className={`tabular-nums ${style.text}`}>
+                {s.lastImported
+                  ? `${formatDate(s.lastImported)} · ${relativeAge(s.ageDays)}`
+                  : "never imported"}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <p className="px-5 pb-3 text-xs text-gray-600">
+        {/* The oldest source, not the newest: the table below mixes every source
+            into one grid, so re-importing EzCar this morning does not make a
+            months-old Faros column current. */}
+        The age above is the <strong>oldest</strong> source, because the comparison below
+        draws on all of them at once.
+      </p>
+    </section>
+  );
+}
+
 export default function MarketPage() {
   // Presentation only — proxy.ts refuses the underlying PATCHes from staff
   // regardless. Here so they are not offered edits that cannot save.
@@ -63,6 +148,7 @@ export default function MarketPage() {
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [rows, setRows] = useState<CompareRow[]>([]);
   const [competitors, setCompetitors] = useState<{ slug: string; label: string }[]>([]);
+  const [sources, setSources] = useState<SourceFreshness[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -84,6 +170,7 @@ export default function MarketPage() {
     const d = await res.json();
     setRows(d.rows ?? []);
     setCompetitors(d.competitors ?? []);
+    setSources(d.sources ?? []);
   }, []);
 
   useEffect(() => {
@@ -260,6 +347,8 @@ export default function MarketPage() {
         Cars and scooters from EzCar, bicycles from Podilatadiko, international brands from
         CarRentals.com. Each comparison covers only the categories mapped at the foot of this page.
       </p>
+
+      <FreshnessPanel sources={sources} />
 
       {/* Comparison */}
       <h2 className="font-semibold text-gray-900 text-sm mb-3">Comparison</h2>
