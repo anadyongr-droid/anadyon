@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { startFarosRun, getRunStatus, ingestFarosDataset } from "@/lib/farosRates";
+import { recordImportCompleted } from "@/lib/rateImportLog";
 
 // Admin-only via proxy.ts.
 export const maxDuration = 60;
@@ -66,6 +67,8 @@ export async function GET() {
     }
 
     const result = await ingestFarosDataset(token, datasetId || run.datasetId);
+    // The ingest is what makes the prices real, not the Apify run finishing.
+    await recordImportCompleted("faros");
     await supabaseAdmin.from("system_settings").upsert({
       key: RUN_KEY,
       value: JSON.stringify({ ...run, ingested: true }),
