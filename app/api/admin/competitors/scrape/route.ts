@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import {
   buildTaskMatrix,
+  taskMatrixShape,
   runScrapeTask,
   CRAWL_DELAY_MS,
   type TaskResult,
@@ -31,20 +32,47 @@ function pickupDates(): Date[] {
   ];
 }
 
-async function readCursor(): Promise<number> {
+/**
+ * The saved position in the task matrix, and the matrix it was taken against.
+ *
+ * The shape is stored with it because the cursor is an index and means nothing
+ * on its own: interleaving the bike searches, adding a tenant or changing the
+ * sampled durations all move what a given index refers to. Resuming into the
+ * wrong search would skip some and repeat others while the progress count went
+ * on looking complete.
+ */
+async function readCursor(): Promise<{ cursor: number; shape: string | null }> {
   const { data } = await supabaseAdmin
     .from("system_settings")
     .select("value")
     .eq("key", CURSOR_KEY)
     .maybeSingle();
-  const n = parseInt(data?.value ?? "0", 10);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
+
+  const raw = data?.value ?? "";
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") {
+      const n = Number(parsed.cursor);
+      return {
+        cursor: Number.isFinite(n) && n >= 0 ? n : 0,
+        shape: typeof parsed.shape === "string" ? parsed.shape : null,
+      };
+    }
+  } catch {
+    // Falls through to the bare-integer form below.
+  }
+
+  // The value was a bare integer before the shape was recorded. Read as a
+  // position with an unknown shape, which restarts the pass once — the safe
+  // direction, since that cursor was taken against the old bikes-last order.
+  const n = parseInt(raw || "0", 10);
+  return { cursor: Number.isFinite(n) && n >= 0 ? n : 0, shape: null };
 }
 
-async function writeCursor(value: number): Promise<void> {
+async function writeCursor(cursor: number, shape: string): Promise<void> {
   await supabaseAdmin.from("system_settings").upsert({
     key: CURSOR_KEY,
-    value: String(value),
+    value: JSON.stringify({ cursor, shape }),
     updated_at: new Date().toISOString(),
   });
 }
@@ -55,7 +83,15 @@ export async function POST(req: NextRequest) {
   const restart = new URL(req.url).searchParams.get("restart") === "1";
 
   const tasks = buildTaskMatrix(pickupDates());
-  let cursor = restart ? 0 : await readCursor();
+  const shape = taskMatrixShape(tasks);
+
+  const saved = restart ? { cursor: 0, shape } : await readCursor();
+  // A cursor taken against a different matrix points at a different search, so
+  // it is discarded rather than trusted. Restarting costs one repeated pass;
+  // resuming into the wrong index skips searches silently.
+  const resumable = saved.shape === shape;
+  let cursor = resumable ? saved.cursor : 0;
+  const restarted = !restart && !resumable && saved.cursor > 0;
 
   if (cursor >= tasks.length) {
     return NextResponse.json({
@@ -76,7 +112,7 @@ export async function POST(req: NextRequest) {
     results.push(await runScrapeTask(tasks[cursor]));
   }
 
-  await writeCursor(cursor);
+  await writeCursor(cursor, shape);
 
   const done = cursor >= tasks.length;
   const errors = results.filter(r => r.error).map(r => `${r.competitor} ${r.pickup} ${r.days}d: ${r.error}`);
@@ -107,6 +143,9 @@ export async function POST(req: NextRequest) {
     total: tasks.length,
     completed: cursor,
     remaining: Math.max(0, tasks.length - cursor),
+    // Said out loud: a pass that silently restarted would otherwise look like
+    // one that had simply made no progress since the last call.
+    restarted,
     stored: results.reduce((sum, r) => sum + r.stored, 0) + (bicycles?.stored ?? 0),
     bicycles: bicycles ? { models: bicycles.models, stored: bicycles.stored, segments: bicycles.segments } : null,
     errors,
@@ -117,7 +156,10 @@ export async function POST(req: NextRequest) {
 /** Progress without performing any requests. */
 export async function GET() {
   const tasks = buildTaskMatrix(pickupDates());
-  const cursor = await readCursor();
+  const shape = taskMatrixShape(tasks);
+  const saved = await readCursor();
+  // Progress against a matrix this cursor was not taken from is not progress.
+  const cursor = saved.shape === shape ? saved.cursor : 0;
 
   const { count } = await supabaseAdmin
     .from("competitor_rates")

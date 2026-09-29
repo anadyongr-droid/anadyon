@@ -154,6 +154,76 @@ direct. Worth building; see §7.1 and phase 4.
 
 ---
 
+### 1.6a Where motorbike rates can actually be collected — the survey
+
+*Added 29 September 2026, answering open item W22 ("find motorbike rental rates
+in the local market and build two scrapers"). The survey is the deliverable; the
+two scrapers were **not** built, and the last part of this section says exactly
+why and what would unblock each one.*
+
+**The finding, in one line: almost nobody on Zakynthos publishes motorbike
+prices in a form a plain HTTP request can read.** Every candidate below was
+opened and checked; none of this is inferred from a summary.
+
+| Source | Motorbike rates reachable? | Evidence |
+|---|---|---|
+| **Ionian Rentals** (EzCar) | **Yes — already collected** | `hasBikes: true`; three scooters. Plain HTML, no challenge. The one we have. |
+| **Motor Club Zante** (EzCar) | No fleet | `hasBikes: false` — the platform returns an empty set for bikes. |
+| **Auto Traffic Rentals** | **No prices published at all** | Has the cleanest category structure found anywhere — separate 50cc, 125cc, 300cc and 400cc scooter pages — but every page is an enquiry form. No currency symbol appears on the 50cc page. |
+| **ZanteWay Rentals** | No | `moto-atvs.php` lists four scooters and prints *"From 0.00 € / Day"* against each. The figures come from a booking engine the page does not carry. |
+| **Famozo Rentals** | Behind a private API | Real booking engine with an explicit `vtype=scooter` and eleven pickup locations. Results are rendered client-side from `wp-content/plugins/iosrt-api-client/client/ajax.php`, which answers *"Invalid request!"* to every parameter shape tried. The client JS is deferred by an optimiser and never appears in the served HTML. |
+| **Riderly** (and its white-label `motorbike.tcs.ch`) | Behind Cloudflare | A motorbike marketplace carrying several Zakynthos suppliers with per-day prices and a clean 50cc/125cc split — the richest source found. Returns **403** to any non-browser request, including a rendering fetch. |
+| **RentBikeCarZante** | Behind a JS challenge | Even `robots.txt` returns an interstitial that reloads itself after five seconds. |
+| **AutoLux · Autoway · Smart Rentals · 1-Way** | No motorbikes, or no prices | Autoway and Smart Rentals mention no scooters at all; AutoLux and 1-Way answered `202` with a near-empty body. |
+
+**Two things this rules out, so they are not tried again.**
+
+- **Adding more EzCar tenants is not free coverage.** §1.6 names EasyRent Zante,
+  Zakynthos Car Rentals, EuroAlfa, Acteon and Syros 4 Seasons as tenants of the
+  same platform, which made this look like the cheapest possible win: the
+  scraper exists, is tested and is already rate-limited. **The tenant paths are
+  not derivable.** Every plausible slug returns 404, and the vendor's own
+  clients page renders its customer list as a JavaScript logo slider with no
+  links. Getting them means asking ZanteWeb, or reading a slug off one of those
+  companies' own booking links.
+- **Static tariff pages, the Podilatadiko pattern, do not exist for motorbikes
+  here.** That scraper works because a specialist shop publishes a price list.
+  General rental firms on this island quote through an engine instead.
+
+**What the two scrapers would cost, and why neither was written blind.**
+
+Both remaining candidates need a browser, which means Apify — the same
+dependency Faros already carries, so no new vendor, but real spend per run and
+CarRentals' residential proxies are billed by traffic.
+
+- **Riderly** is the higher value: one scraper, several suppliers, both engine
+  classes, and prices already normalised to euros per day. It needs a browser
+  run to get past Cloudflare.
+- **Famozo** is the lower-risk shape — plain HTTP, no challenge — but its API
+  contract has to be recovered from an obfuscated client first.
+
+**Neither parser was written**, and that is the deliberate part. This sandbox
+cannot render either page: the agent proxy's certificate is not in Playwright's
+Chromium trust store, so the browser fetch fails with
+`ERR_CERT_AUTHORITY_INVALID`, and disabling verification is not an option.
+Writing a parser against markup nobody has seen produces exactly the artefact
+`DEFINING-STATEMENTS.md` §8 exists to prevent — one that passes its own tests,
+because the tests were written from the same guess, and fails on contact with
+the real page.
+
+**What would unblock each, concretely.** For Riderly: one Apify browser run
+against a Zakynthos listing URL, with the returned HTML saved — the parser can
+then be written and tested against a real fixture, as `parseBikePage` was.
+For Famozo: one browser session with the network tab recorded, to capture the
+`ajax.php` request body the booking form actually sends.
+
+**Source:** fetched 29 September 2026 — `autotrafficrentals.com` (robots.txt,
+`/scooters-atvs/scooters/50cc-scooters/`), `zantewayrentals.com/moto-atvs.php`,
+`famozorentals.com` (booking form, `ajax.php`), `riderly.com` (robots.txt, a
+detail page), `motorbike.tcs.ch`, `ezcar.gr/en-clients.php`.
+
+---
+
 ### 1.7 The 2026 entrants — **CarCEO Pro**, **HQ Rental**, **Rentware**
 
 *Added 25 August 2026.* Three systems absent from the original survey. Two of
