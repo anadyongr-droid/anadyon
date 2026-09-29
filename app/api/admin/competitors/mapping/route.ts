@@ -5,6 +5,22 @@ import { fetchAllRows } from "@/lib/fetchAllRows";
 // Admin-only via proxy.ts.
 export const dynamic = "force-dynamic";
 
+/**
+ * What a competitor category with no group code is shown as.
+ *
+ * Three of the four importers write `car_group` null when the source does not
+ * publish a category code — EzCar for its scooters, Faros and CarRentals when
+ * the field is absent — so the mapping table needs something to display and
+ * something to key a saved decision on. A sentinel string is fine for both.
+ *
+ * **It is not fine to send back to the database as a value**, and doing so was
+ * a real defect: `.eq("car_group", "?")` never matches a NULL row, so these
+ * categories could be mapped in the UI, saved, reported as "0 observations
+ * classified", and never appear in the comparison. Scooters were the visible
+ * casualty, because a car-group code is a car concept.
+ */
+export const UNGROUPED = "?";
+
 interface ObservationRow {
   competitor: string;
   competitor_label: string;
@@ -73,13 +89,13 @@ export async function GET() {
 
   const grouped = new Map<string, GroupRow>();
   for (const r of rates) {
-    const key = `${r.competitor}::${r.car_group ?? "?"}`;
+    const key = `${r.competitor}::${r.car_group ?? UNGROUPED}`;
     let row = grouped.get(key);
     if (!row) {
       row = {
         competitor: r.competitor,
         competitor_label: r.competitor_label,
-        car_group: r.car_group ?? "?",
+        car_group: r.car_group ?? UNGROUPED,
         samples: [],
         transmission: normaliseTransmission(r.transmission),
         observations: 0,
@@ -135,11 +151,17 @@ export async function PATCH(req: NextRequest) {
   let updated = 0;
   for (const m of mappings) {
     const value = m.pricing_group && m.pricing_group !== "ignore" ? m.pricing_group : null;
-    const { error, count } = await supabaseAdmin
+    // A null group has to be matched with `is`, not `eq`. SQL's = never
+    // matches NULL, so the sentinel the UI displays cannot be sent back as a
+    // literal — that update silently affected no rows.
+    const query = supabaseAdmin
       .from("competitor_rates")
       .update({ pricing_group: value }, { count: "exact" })
-      .eq("competitor", m.competitor)
-      .eq("car_group", m.car_group);
+      .eq("competitor", m.competitor);
+    const { error, count } =
+      m.car_group === UNGROUPED
+        ? await query.is("car_group", null)
+        : await query.eq("car_group", m.car_group);
     if (!error) updated += count ?? 0;
   }
 

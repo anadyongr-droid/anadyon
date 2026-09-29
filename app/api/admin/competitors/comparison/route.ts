@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { RATE_SOURCES, describeSource, type SourceFreshness } from "@/lib/rateSourceFreshness";
+import { loadRateFreshness } from "@/lib/rateSourceFreshnessQuery";
 import { fetchAllRows } from "@/lib/fetchAllRows";
 
 // Admin-only via proxy.ts.
@@ -32,33 +32,6 @@ const BANDS = [
 ] as const;
 
 /**
- * When each import source was last collected.
- *
- * One query per source, each asking only for the newest row. That is more round
- * trips than a single grouped query, but it is exactly right at any table size:
- * PostgREST caps an unbounded select at 1,000 rows, so reducing a fetched page
- * down to a maximum per source would silently report the wrong date once the
- * table outgrew the cap — and report it with no sign that anything was missing.
- * Four indexed single-row reads cost less than being quietly wrong.
- *
- * The list of sources comes from the importers rather than from the data, so a
- * source that has never run reports "never imported" instead of vanishing.
- */
-async function loadFreshness(now: Date): Promise<SourceFreshness[]> {
-  return Promise.all(
-    RATE_SOURCES.map(async src => {
-      const { data } = await supabaseAdmin
-        .from("competitor_rates")
-        .select("scraped_at")
-        .eq("source", src.source)
-        .order("scraped_at", { ascending: false })
-        .limit(1);
-      return describeSource(src, data?.[0]?.scraped_at ?? null, now);
-    })
-  );
-}
-
-/**
  * Our rate beside each competitor's, for every mapped group.
  *
  * Competitor observations are averaged within a group: a group holds several
@@ -84,7 +57,7 @@ export async function GET() {
     // Deliberately independent of the mapping filter above. How old the data is
     // is a fact about the import, not about whether a category has been mapped
     // yet — and an unmapped import is exactly when "did it even run?" is asked.
-    loadFreshness(now),
+    loadRateFreshness(now),
   ]);
 
   if (observations.error) {
@@ -151,6 +124,28 @@ export async function GET() {
       }
     }
   }
+
+  // Sorted here, because the loop above cannot produce calendar order.
+  //
+  // It iterates `rates` on the outside and months on the inside, and `rates`
+  // comes back from `select("*")` with no ORDER BY — so Postgres is free to
+  // return the season rows in any order it likes. A pricing group with three
+  // seasons therefore emitted its months grouped by season rather than by
+  // month: August, then October, then September, which is what was reported
+  // from the screen.
+  //
+  // The months array was already sorted, which is exactly why this was easy to
+  // miss — the sort was real, it was just applied one loop too far in.
+  //
+  // Band order is the declaration order of BANDS (1–2, 3–6, 7+), which is the
+  // order a reader expects a duration column in, not alphabetical.
+  const bandOrder = new Map(BANDS.map((b, i) => [b.key, i]));
+  rows.sort(
+    (a, b) =>
+      a.pricing_group.localeCompare(b.pricing_group) ||
+      a.month - b.month ||
+      (bandOrder.get(a.band) ?? 0) - (bandOrder.get(b.band) ?? 0)
+  );
 
   return NextResponse.json({
     competitors,

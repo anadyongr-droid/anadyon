@@ -1,6 +1,32 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { BarChart3, Download } from "lucide-react";
+import { relativeAge, type SourceFreshness } from "@/lib/rateSourceFreshness";
+
+/**
+ * "Imported 17 Aug 2026 · 42 days ago", beside the button that does the
+ * importing.
+ *
+ * The Market screen already carries these dates, but the decision to press a
+ * button is taken here — and being on the wrong screen to see whether a source
+ * is stale is how three of the four came to sit two months old while looking
+ * fine. The date is formatted server-side and the age counted in calendar days
+ * in Europe/Athens, so this cannot disagree with the Market panel.
+ */
+function LastImported({ source }: { source: SourceFreshness | undefined }) {
+  if (!source) return null;
+  const tone =
+    source.staleness === "fresh" ? "text-gray-600"
+    : source.staleness === "ageing" ? "text-amber-700"
+    : "text-red-700";
+  return (
+    <div className={`text-xs mt-1.5 ${tone}`}>
+      {source.lastImportedLabel
+        ? `Imported ${source.lastImportedLabel} · ${relativeAge(source.ageDays)}`
+        : "Never imported"}
+    </div>
+  );
+}
 
 interface Progress {
   total: number;
@@ -26,6 +52,8 @@ export default function CompetitorRatesCard() {
   const [farosRunning, setFarosRunning] = useState(false);
   const [cr, setCr] = useState<string | null>(null);
   const [crRunning, setCrRunning] = useState(false);
+  const [sources, setSources] = useState<SourceFreshness[]>([]);
+  const bySource = (s: string) => sources.find(x => x.source === s);
 
   const refresh = useCallback(async () => {
     try {
@@ -33,6 +61,14 @@ export default function CompetitorRatesCard() {
       if (res.ok) setProgress(await res.json());
     } catch {
       // leave the last known progress in place
+    }
+    try {
+      // Its own request: a failed progress read must not also blank the dates,
+      // and a failed dates read must not hide the progress bar.
+      const res = await fetch("/api/admin/competitors/freshness", { cache: "no-store" });
+      if (res.ok) setSources((await res.json()).sources ?? []);
+    } catch {
+      // leave the last known dates in place
     }
   }, []);
 
@@ -152,6 +188,11 @@ export default function CompetitorRatesCard() {
                 {progress.done && progress.completed > 0 && " · complete"}
               </div>
             )}
+            <LastImported source={bySource("ezcar")} />
+            <div className="text-xs text-gray-600 mt-1">
+              Bicycles (Podilatadiko), collected at the end of this same pass:
+            </div>
+            <LastImported source={bySource("podilatadiko")} />
             {bikes && <div className="text-xs text-gray-500 mt-1">{bikes}</div>}
             {error && <div className="text-xs text-red-600 mt-1.5">{error}</div>}
           </div>
@@ -190,6 +231,7 @@ export default function CompetitorRatesCard() {
             minimum, so the 1–2 day column uses their 3-day rate divided by three — a conservative
             stand-in, not a like-for-like quote.
           </div>
+          <LastImported source={bySource("faros")} />
           {faros && <div className="text-xs text-gray-500 mt-1.5">{faros}</div>}
         </div>
         <button
@@ -211,6 +253,7 @@ export default function CompetitorRatesCard() {
             Runs through residential proxies — billed by traffic, but the only way past their
             rate limit.
           </div>
+          <LastImported source={bySource("carrentals")} />
           {cr && <div className="text-xs text-gray-500 mt-1.5">{cr}</div>}
         </div>
         <button

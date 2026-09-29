@@ -29,7 +29,10 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        # No run link. This message says "no action needed" in its own text, so
+        # a URL on the end is the one line guaranteed to be irrelevant — and a
+        # channel whose messages carry unusable links teaches the reader to skim
+        # them, which is the habit the failure alert depends on not existing.
         run: |
-          MSG="✅ <b>Alert channel test</b>"$'\n'"This is a test, no action needed. If you can read this, backup failure alerts can reach you."$'\n'"$RUN_URL"
+          MSG="✅ <b>Alert channel test</b>"$'\n'"This is a test, no action needed. If you can read this, backup failure alerts can reach you."
           node scripts/send-telegram-alert.mjs "$MSG"
