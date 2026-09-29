@@ -15,6 +15,76 @@ wrong place.
 
 ---
 
+## 28–29 September 2026 — Claude and Codex, implementers
+
+**Last verified:** 29 September 2026, Claude.
+
+Two days taken together, because the work ran across midnight and the second
+day's merge carried the first day's commits.
+
+**Agent summaries:** [`2026-09-28-claude.md`](worklog/2026-09-28-claude.md),
+[`2026-09-29-claude.md`](worklog/2026-09-29-claude.md),
+[`2026-09-28-codex.md`](worklog/2026-09-28-codex.md).
+
+**Merged:** #172, #173, #175, #178 (Claude); #174, #176 (Codex).
+
+### The theme of both days: measurements that existed and were never shown
+
+Four separate faults turned out to be the same shape — the system knew something
+and no surface asked it.
+
+- `competitor_rates.scraped_at` had recorded every import since migration 004.
+  Nothing displayed it, so a comparison against August observations read exactly
+  like one against this morning's. Blueprint **§5.3 had required this since
+  27 August**; it was built a month later, and only because Tasos asked. **W19**
+  now audits that whole table, since Wise, SMS, AADE, Storage and Supabase data
+  carry rules of the same shape that nobody has checked for an implementation.
+- Motorbike rates had been collected for weeks and **could never be mapped**: the
+  mapping screen shows a null `car_group` as `"?"` and the save sent that back as
+  `.eq("car_group", "?")`, which never matches NULL. Zero rows updated, reported
+  as *"Saved — 0 observations classified"*, silent.
+- Two routes read `competitor_rates` unbounded, and PostgREST caps that at 1,000
+  rows **silently** — so averages, diff percentages and price ranges were computed
+  over an arbitrary slice with nothing to show rows were missing.
+- `lib/gmail.ts` walked the MIME tree for text only, so every insurance
+  certificate the business holds was invisible to the system meant to track
+  cover expiry.
+
+### Insurance: two more insurers, found by reading the broker's mailbox
+
+`INSURANCE-COVER-AND-RESTRICTIONS.md` **§1a**. The fleet uses **four** insurers,
+not two: **ERGO** and **Triglav** (underwritten by Zavarovalnica Triglav's Greek
+branch, **administered by Apeiron** — a claim goes to Apeiron, not the
+underwriter) join Intersalonica and Euroins. Eight 2026 policies read from the
+broker's own PDFs, one of which corroborates the hand-supplied certificate
+exactly. Terms are **one month**, not the three §1 recorded. `lib/insurancePolicy.ts`
+parses all four layouts.
+
+### Decisions
+
+- **Jev (TypeSafe AI) declined** — blueprint §10, with three conditions for
+  revisiting. The blocking reason is data protection, not engineering.
+- **Time anchor stated** — blueprint **§4.4a**. The code had been consistent since
+  August and nothing had written it down, so the answer could only be
+  reconstructed from call sites.
+
+### Corrections worth keeping
+
+Six, recorded in the agent summaries rather than repeated here. Two have a reusable
+lesson: **search the correspondent, not the vocabulary** (a search for
+*ασφάλιση* missed every broker email, all of which say **ΑΣΦΑΛΕΙΑ**), and a
+**mutation test that applies no mutation reports a clean pass** — the same
+vacuous-success shape as a regression test whose anchor has moved.
+
+### Open, and dated
+
+**ΙΟΖ 4176's insurance expires 4 October.** The date is now verified from two
+independent sources and is still not in the vehicle record, so `fleetStatus`
+scores it `unknown` and will not bar a rental. **F1** remains the highest-value
+thing Tasos can do.
+
+---
+
 ## 23 September 2026 — Claude, implementer
 
 **Last verified:** 23 September 2026, Claude.
