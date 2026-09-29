@@ -16,7 +16,9 @@ machine or a six-month gap.
 
 ## Where things stand — 23 September 2026
 
-**Last verified:** 23 September 2026, Claude.
+**Last verified:** 29 September 2026, Claude — the pull request table below
+and the merge of #181; the rest of the status section was last checked on
+23 September and is carried forward unchanged.
 
 **Read this section before opening anything else, and before researching
 anything.** It exists because an agent spent a working session re-deriving
@@ -118,8 +120,10 @@ Recorded here rather than fixed, because fixing it was not what was asked.
 | #87 | TypeScript 7.0.2 | **Blocked upstream.** 7.0 is the native Go port and ships with no programmatic API, so typescript-eslint, Volar and Angular are all locked out. A new API is promised for 7.1; typescript-eslint#10940 has no milestone. Do not close it |
 | #150 | ESLint 10 | **Blocked upstream.** ESLint 10 removed `context.getFilename()`; the `eslint-plugin-react` bundled inside `eslint-config-next` still calls it, so every linted file throws |
 | #149 | `@vitest/coverage-v8` 5 | **Needs a vitest major.** Its peer range pins `vitest: "5.0.1"` exactly and we run 4.1.11. Not urgent — coverage is deliberately not a gate |
+| #182 | The Market repricing control, abandoned-run recovery, the scooter ordering fix and the motorbike survey | **Opened 29 September, in CI.** Closes W20 and W21 and narrows W22 |
 
-Everything else is merged. On 20 September #130, #131, #132, #133 and #135
+Everything else is merged. #181 merged on 29 September — the import log, the
+degraded-state fix on both freshness surfaces, and the repricing engine. On 20 September #130, #131, #132, #133 and #135
 landed, and #78, #79, #80, #81, #83 and #85 were closed as superseded with the
 reason recorded on each. **No node20 GitHub Action remains in the repository.**
 
