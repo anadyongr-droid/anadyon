@@ -8,6 +8,21 @@ updates:
       time: "04:00"
       timezone: Europe/Athens
     open-pull-requests-limit: 5
+    ignore:
+      # @types/node must match the Node major that CI and Vercel actually run,
+      # and it is the one dependency where a newer version is the wrong
+      # direction: types ahead of the runtime let tsc accept an API the
+      # deployed Node does not have, and the failure surfaces in production
+      # rather than at compile time. Dependabot has no way to know which Node
+      # we run, so it offers the newest and will keep offering it — ^26 was
+      # declined on 20 September as #85 and arrived again overnight as #151.
+      #
+      # Majors are therefore raised here deliberately, together with the CI
+      # pin and the Vercel setting, which is what audit finding M-05 asked
+      # for. Minor and patch updates still come through normally.
+      - dependency-name: "@types/node"
+        update-types:
+          - version-update:semver-major
     groups:
       production-minor-and-patch:
         dependency-type: production
@@ -28,3 +43,21 @@ updates:
       time: "04:30"
       timezone: Europe/Athens
     open-pull-requests-limit: 5
+    # One pull request for all action updates, because several of the actions
+    # we pin are not independent of each other.
+    #
+    # github/codeql-action ships init, autobuild and analyze from one
+    # repository at one tag, and init downloads the bundle analyze reads.
+    # Ungrouped, Dependabot treats each path as its own dependency and opens
+    # three pull requests, each moving one step and leaving the other two
+    # behind — a mismatched scanner, and one that fails quietly rather than
+    # loudly. It did exactly that on 31 August (#83) and again overnight on
+    # 21 September (#152, #153, #154).
+    #
+    # lib/actionPinParity.test.ts catches the split and did catch it both
+    # times. This stops it being offered in the first place, which is cheaper
+    # than catching it every week.
+    groups:
+      github-actions:
+        patterns:
+          - "*"

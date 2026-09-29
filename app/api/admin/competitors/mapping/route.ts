@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 
 // Admin-only via proxy.ts.
 export const dynamic = "force-dynamic";
+
+interface ObservationRow {
+  competitor: string;
+  competitor_label: string;
+  car_group: string | null;
+  manufacturer: string | null;
+  vehicle_name: string | null;
+  price_per_day: number | null;
+  transmission: string | null;
+}
 
 export interface GroupRow {
   competitor: string;
@@ -31,21 +42,37 @@ function normaliseTransmission(value: string | null | undefined): string | null 
 
 /** Groups observed in the collected data, with any mapping already assigned. */
 export async function GET() {
-  const [{ data: rates, error }, { data: map }] = await Promise.all([
-    supabaseAdmin
-      .from("competitor_rates")
-      .select("competitor, competitor_label, car_group, manufacturer, vehicle_name, price_per_day, transmission"),
+  // Paged and ordered by the primary key. Unbounded, this read at most 1,000 of
+  // the observations and then reported an observation count, a minimum and a
+  // maximum price per group from that slice — numbers that are wrong in a way
+  // nothing on the screen could reveal, since a capped response is
+  // indistinguishable from a complete one.
+  //
+  // competitor_group_map is left unpaged on purpose: it holds one row per
+  // (competitor, car_group), a few dozen in total, and its own primary key bounds
+  // it. Paging it would be ceremony without a hazard behind it.
+  const [observations, { data: map }] = await Promise.all([
+    fetchAllRows<ObservationRow>((from, to) =>
+      supabaseAdmin
+        .from("competitor_rates")
+        .select("competitor, competitor_label, car_group, manufacturer, vehicle_name, price_per_day, transmission")
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
     supabaseAdmin.from("competitor_group_map").select("competitor, car_group, pricing_group"),
   ]);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (observations.error) {
+    return NextResponse.json({ error: observations.error }, { status: 500 });
+  }
+  const rates = observations.rows;
 
   const assigned = new Map(
     (map ?? []).map(m => [`${m.competitor}::${m.car_group}`, m.pricing_group as string | null])
   );
 
   const grouped = new Map<string, GroupRow>();
-  for (const r of rates ?? []) {
+  for (const r of rates) {
     const key = `${r.competitor}::${r.car_group ?? "?"}`;
     let row = grouped.get(key);
     if (!row) {
@@ -80,7 +107,7 @@ export async function GET() {
       a.car_group.localeCompare(b.car_group)
   );
 
-  return NextResponse.json({ groups });
+  return NextResponse.json({ groups, truncated: observations.truncated });
 }
 
 /** Saves mappings and applies them to the stored observations. */

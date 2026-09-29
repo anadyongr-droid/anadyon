@@ -106,6 +106,19 @@ Supply the two database URLs only for this read-only check:
 PRODUCTION_SUPABASE_DB_URL=production_url STAGING_SUPABASE_DB_URL=staging_url npm run check:schema:parity
 ```
 
+The checker validates that the Supabase CLI and a running Docker Desktop are
+available **before it reads either URL**. Child-process output is captured and
+every known or incidental PostgreSQL URL is redacted before a diagnostic can
+reach the terminal. Never replace the captured runner with `execFileSync(...,
+{ stdio: "inherit" })`: Node includes the complete failing command in the
+exception, and `--db-url` contains the database password.
+
+This safeguard was added after the first hosted attempt on 20 September failed
+the Docker prerequisite and Node reproduced the production connection string
+in its uncaught exception. No database was reached and staging was not
+attempted, but the production database password required rotation. Regression
+tests now simulate that exact failure and fail if a URL or password survives.
+
 The command dumps only the `public` schema and never dumps rows. Equal SHA-256
 output is a pass. While 042–045 remain pending on production, it classifies
 complete SQL statements against `scripts/schema-parity-pending.json`: only the
@@ -152,6 +165,17 @@ Never edit the corresponding Production value during staging setup.
 Leave Gmail, Telegram, Twilio, Anthropic, Apify, backup and Wise variables unset
 unless that integration is under an explicit sandbox test. In particular,
 staging must not post the morning briefing to the production Telegram group.
+
+**Enforced boundary (20 September):** production credentials must never be
+scoped to general Preview. Only the `staging` Git branch may receive server-side
+test credentials, and its Supabase URL must name `fzycvstifmltxybffinq`.
+`npm run build` now checks this before Next.js starts: general previews fail if
+they receive Supabase or vendor server credentials; staging fails if it receives
+Gmail, Telegram, Twilio, Anthropic, Apify or Wise values, a live Stripe key, an
+AADE production flag, or the wrong Supabase project. The Vercel dashboard was
+re-scoped on 20 September after a live audit found production credentials in
+general Preview. Environment changes affect new deployments only, so older
+Preview artifacts must be deleted after a clean staging replacement is ready.
 
 Preview deployments do not run Vercel crons. Trigger the briefing by hand,
 against the stable branch alias:
@@ -495,3 +519,100 @@ brings that forward, and **no item requires it.**
   `Cache-Control: no-store`, and never returns an environment-variable value or
   Supabase URL. Hosted acceptance remains unrun until this change is merged and
   deployed.
+- **Item 5 exposed and closed a live boundary failure.** Vercel metadata showed
+  that general Preview inherited production Supabase and vendor credentials.
+  Production values were narrowed to Production only; the `staging` branch kept
+  only its isolated Supabase URL, anon key and service-role key. A build-time
+  policy now makes recurrence a build failure. Existing Preview artifacts retain
+  their build-time snapshot and are tracked for deletion under E15 after the
+  clean replacement staging deployment is verified.
+
+---
+
+## 14. Supabase removes the automatic Data API grant — 30 October 2026
+
+**Verified against Supabase's own documentation on 23 September 2026**, not
+taken from the notification email. `supabase.com/docs/guides/api/securing-your-api`
+states it plainly: *"Supabase is changing the platform default to revoke these
+automatic grants so that exposure becomes opt-in."* The page carries no date;
+the 30 October date comes from the email to `anadyon.gr@gmail.com`.
+
+### What actually changes
+
+Today a table created in `public` automatically receives `SELECT`, `INSERT`,
+`UPDATE` and `DELETE` for **`anon`, `authenticated` and `service_role`**. After
+30 October it receives nothing unless a `GRANT` says so.
+
+**Existing tables keep their privileges.** Production is unaffected and needs no
+action. That is the whole of the good news, and it is also what makes this easy
+to file as "nothing to do".
+
+### Why it matters here anyway
+
+The exposure is not production. It is **every database built by replaying the
+migrations**: the staging reset (`scripts/reset-staging.mjs`), `supabase db
+reset`, a new project, a preview branch.
+
+This project reaches the database as **`service_role`** through `supabaseAdmin`
+for essentially everything — `DEFINING-STATEMENTS.md` §6 is why: anon and
+authenticated are deliberately revoked, so the service role is the application's
+only route in. A replayed database whose tables carry no `service_role` grant is
+not degraded, it is unusable.
+
+### The gap, as measured on 23 September 2026
+
+Migration **023** grants `all privileges on all tables in schema public to
+service_role`. That covers every table existing **at that moment** and nothing
+created afterwards.
+
+Three tables created later were granted correctly in their own migrations —
+`booking_email_deliveries`, `booking_email_events`, `promo_redemptions` — so the
+convention already existed here. It was applied unevenly. **Nine were not:**
+
+| Table | Created by |
+|---|---|
+| `vehicle_blocks` | `20260828120000_vehicle_blocks.sql` |
+| `vehicle_change_requests` | `20260830120000_vehicle_change_requests.sql` |
+| `inspection_templates` | `20260830230000_rental_handovers.sql` |
+| `inspection_template_views` | ″ |
+| `rental_handovers` | ″ |
+| `handover_photos` | ″ |
+| `handover_damage_observations` | ″ |
+| `handover_damage_photos` | ″ |
+| `rental_handover_events` | ″ |
+
+That is the whole of check-out and check-in — phase 2 — plus vehicle blocking
+and the change-request queue.
+
+### Nothing we already run would have caught it
+
+Worth stating, because both look like they should:
+
+- **`scripts/check-grants.mjs`** asserts that anon, authenticated and PUBLIC
+  hold *nothing*. It checks the **deny** side. A database where `service_role`
+  also holds nothing passes it cleanly.
+- **`npm run check:migration-replay`** replays against PGlite with the Supabase
+  roles stubbed (`scripts/pgliteSupabaseStubs.mjs`), so grants there are inert
+  by construction.
+
+### What was done
+
+- **Migration `20260923120000` / paste copy `046`** grants the four DML
+  privileges on those nine tables to `service_role`. Narrow on purpose: it
+  matches what the platform granted automatically and what the three correct
+  migrations already use, and grants nothing to anon or authenticated. None of
+  the nine carries a sequence.
+- **`lib/serviceRoleGrants.test.ts`** walks the migrations in order, models
+  023's blanket grant as covering everything before it, and fails naming any
+  table created without a grant. It asserts the migration and table counts
+  first, so a regex that stopped matching cannot make it pass by finding
+  nothing.
+
+### The convention from here
+
+**A migration that creates a table in `public` grants it in the same
+migration.** Recorded in `AGENTS.md` beside the rule about never applying one.
+The test enforces it; the convention explains it.
+
+**Last verified:** 23 September 2026, Claude — change confirmed against Supabase
+documentation, gap measured against the migrations, replay passing at 45.

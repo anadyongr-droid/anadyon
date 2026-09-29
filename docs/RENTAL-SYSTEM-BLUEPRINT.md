@@ -1234,6 +1234,81 @@ Utilisation must exclude days a vehicle was retired, in maintenance or blocked �
 otherwise a car off the road drags the average down and hides the performance of
 the ones working.
 
+### 4.4a Time: one anchor for instants, another for dates, and why that is not a contradiction
+
+*Added 28 September 2026, after Tasos asked "is UTC our anchor time or Athens?"
+and the honest answer was that the code has been consistent about it and nothing
+had ever written the rule down. Reconstructing a convention from its call sites
+is exactly what §9 exists to prevent.*
+
+**There are two kinds of time value here and they take different anchors.**
+
+**An instant — a moment something happened.** `scraped_at`, `created_at`,
+`received_at`, `reviewed_at`. Stored as `timestamptz`, which is an absolute
+point on the timeline; Postgres holds it in UTC, but the value carries no
+timezone of its own. **The anchor for storage is UTC, and it is not a choice —
+it is what "an instant" means.**
+
+**A date with no time — a day in the life of the business.** A pickup date, a
+season boundary, an insurance or KTEO expiry. `2026-08-17` means that day in
+Zakynthos, whoever is looking and from wherever. It is not an instant and has no
+"correct" UTC moment. It is encoded as **UTC midnight as a container** —
+`parseDateOnlyUtc` in `lib/pricing.ts` — so that adding a day is exact and free
+of daylight-saving arithmetic.
+
+**The rule that follows.** *An instant is stored in UTC and interpreted in
+`Europe/Athens` whenever a person reads it as a date. A date-only value is
+timezone-free, encoded at UTC midnight, and never converted.*
+
+**Where each applies, with the live examples:**
+
+| Value | Kind | Anchor |
+|---|---|---|
+| `competitor_rates.scraped_at` | instant | stored UTC; shown and aged in `Europe/Athens` (`lib/rateSourceFreshness.ts`) |
+| `emails.received_at` | instant | stored UTC |
+| pickup / dropoff date | date-only | UTC-midnight container (`parseDateOnlyUtc`) |
+| season month boundaries | date-only | UTC-midnight container; `calcVehicleSegments` reads the month back with `timeZone: "UTC"` |
+| `vehicles.insurance_expiry`, `kteo_expiry` | date-only | a calendar day, compared against the pick-up date |
+| booking-confirmation times | instant | rendered `Europe/Athens` (`lib/bookingEmails.ts`) |
+
+**The two places `UTC` appears are not a competing anchor**, and this is the
+part that reads as a contradiction until it is said plainly. `calcVehicleSegments`
+formatting a month with `timeZone: "UTC"` is reading a month back out of a
+UTC-midnight container — using `Europe/Athens` there would shift the date back a
+day and bill the wrong season. And `rateSourceFreshness.calendarDay` converts an
+instant to its Athens calendar date **first**, then re-encodes that date at UTC
+midnight purely so the subtraction of two dates is exact. In both cases UTC is
+an *encoding of a date*, not a claim about a timezone.
+
+**What this forbids.** Deriving a calendar date from an instant with
+`getFullYear`/`getMonth`/`getDate`, or with `toLocaleDateString` and no
+`timeZone` — both read the *host's* zone, so the same row renders differently on
+a Vercel server, a laptop in Athens and a phone abroad.
+
+**Two distinct faults were fixed on 28 September, and they are worth keeping
+apart because only one of them involves timezones at all.**
+
+*The one that was actually observed.* The age was `floor(elapsed_ms / 86400000)`
+— pure elapsed time, with **no timezone in it anywhere**. Two imports four hours
+apart either side of midnight print different dates and floor to the same number
+of elapsed days, which is how the Market screen came to show `16 Aug · 42 days
+ago` beside `17 Aug · 42 days ago`. Nothing about the server's zone or the
+viewer's contributed to it. Counting calendar dates instead is the fix.
+
+*The one that was latent.* The date was formatted client-side with no `timeZone`,
+so it rendered in the viewer's zone while the age did not depend on any zone.
+**This only bites when the instant falls within the offset difference of
+midnight**, so it is small for a reader near Greece and large for one far away:
+one hour for a viewer at UTC+2 against Athens at UTC+3, seven hours for a viewer
+in New York. Someone browsing from UTC+2 at midday would have seen exactly the
+same dates as Athens — which is why this fault was invisible in the report that
+prompted the fix, and why it is stated here as a hazard found while fixing
+something else rather than as the cause of anything observed.
+
+Any new code that shows a date taken from a `timestamptz` states
+`timeZone: "Europe/Athens"` explicitly, or takes it from a server field that
+already did.
+
 ### 4.5 Schema debt found while writing this
 
 `driving_licence_number` is the only column in the repository baseline and the
@@ -1328,12 +1403,33 @@ succeeds.**
 | **Wise** | *Corrected 28 August — this was wrongly folded in with Stripe above.* **Wise has no webhook.** `lib/wise.ts` says so in the file itself: a deposit link is a constructed URL, "Wise does not call back when the money arrives, so a reservation paid this way has to be reconciled rather than confirming itself." There is nothing to fail closed, because nothing calls back. The failure mode is therefore silence, and the answer is a reconciliation task that is *visible and ages* — an unreconciled Wise deposit must appear as outstanding work, not sit unnoticed until someone checks the bank. |
 | **SMS** | Non-blocking, but recorded and visible. A confirmation SMS that fails must not block a booking — and must not vanish either. *Corrected 28 August: this said "degrade silently", which contradicts this section's own closing rule that degraded state is shown rather than hidden.* A failed message is logged against the reservation and surfaced the way a failed email already is, so "we texted them" can be checked rather than assumed. |
 | **AADE** | Queue for resubmission and surface the backlog. A statutory submission that failed is an operational task, not a lost message. |
-| **Competitor feeds** | Show the data's age. Stale rates presented as current are worse than no rates. |
+| **Competitor feeds** | Show the data's age. Stale rates presented as current are worse than no rates. **Built 28 September 2026** — Admin → Market carries a freshness panel per import source; `lib/rateSourceFreshness.ts`. See the note below. |
 
 **Two rules that apply everywhere.** Every external call carries a timeout —
 an unbounded call is an outage waiting for a slow day. And degraded state is
 shown, not hidden: the operator needs to know the difference between quiet and
 broken, which is precisely the distinction the August incident destroyed.
+
+**The competitor-feeds row sat unbuilt for a month, and that is worth recording
+rather than quietly ticking off.** *Added 28 September 2026, Claude, after Tasos
+asked on the Market screen "I don't see when we last imported the rates" and
+then asked whether we had already decided this. We had — here, on 27 August —
+and nobody had built it.*
+
+The measurement was never missing: `competitor_rates.scraped_at` has been
+written since migration 004. What was missing was any surface that showed it, so
+a comparison against August observations read exactly like one against this
+morning's — the precise failure this row names.
+
+**How it was missed is the reusable part.** The Market screen and this rule were
+written by different passes that never met. The screen shipped as its own
+feature; this row was written later as a general principle about degraded state,
+inside a table otherwise about Supabase, Stripe and Resend. Nobody re-read the
+dependency table while building Market, and a rule in a table nobody re-reads is
+a rule that does not exist. `DEFINING-STATEMENTS.md` §9 covers searching the
+docs before *researching* a subject; this is the same failure one step later —
+searching them before *building* one. Before adding a screen, read what §5.3
+says the thing it depends on must do when that dependency is stale or down.
 
 **Not covered here:** there is no failover *target*. Supabase Free has no
 replica and the project has no second region. This section is about behaving
@@ -1954,8 +2050,78 @@ currently unowned.
 
 ## 10. Revision history and what has shipped
 
+### 28 September 2026 — Google Search Console verification file
+
+Tasos explicitly authorised adding and publishing his supplied Google HTML
+verification file. Serve `googlea0de2b52267ebab7.html` unchanged from `public/`
+at the root of `https://anadyon.gr/`, and retain it for ongoing ownership checks.
+This implements open item E8; verification in Google and the report exports
+remain Tasos's next steps. No application routing or customer behaviour changes
+are needed.
+
+
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
+
+### 25 September 2026 — Jev (TypeSafe AI) evaluated and declined for now
+
+**Decision: Anadyon does not integrate Jev.** Not a judgement that it is a bad
+model — a judgement that the one workload it could serve here is too small for
+the trade it asks, and that the trade includes customer personal data.
+
+Jev is TypeSafe AI's "System One" model, in limited early access since
+15 September 2026. It does not generate text. It takes unstructured state plus a
+typed schema and returns three primitives — `Choice` (pick an option, with
+per-option probabilities), `Score` (rate against ordered levels) and `Noul`
+(yes/no as a probability) — in 70–500ms, at $0.042 per million input tokens with
+output free. The vendor claims 40–200× faster and 40–400× cheaper than frontier
+LLMs on those tasks.
+
+**Why it does not fit the one AI surface we have.** `lib/emailClassifier.ts`
+produces five fields per inbound email. Jev's primitives cover two of them:
+`category` is a `Choice`, `urgency` is a `Score`. The other three —
+`greek_summary`, `suggested_action`, `reservation_date` — are generated text,
+and Jev does not generate text. So Jev would not replace the Claude call, it
+would sit in front of it: two vendors, two API keys, two rate limits and two
+failure modes on a path that currently has one, to save part of a bill that is
+single-digit euros a month. A 400× multiple on a small number is still a small
+number.
+
+**Three things to hold on to, because the marketing blurs them.**
+
+- *"Cannot hallucinate"* is a claim about **type validity, not correctness**. Jev
+  cannot return a category outside our seven. It can absolutely return the wrong
+  one of the seven. Our `normalise()` already coerces invalid categories to
+  `Other`, so we have the type guarantee; what we would be buying is speed, not
+  accuracy.
+- **Every published performance figure is self-tested.** The vendor says so, and
+  describes its own numbers as "likely to sit at the high end of real-world
+  results". No independent classification-accuracy benchmark existed at the date
+  of this entry. Per §8 that makes the quality claim unverified, not false.
+- **Latency is not our constraint, and where it is, Jev is not the cheapest
+  fix.** Classification runs inside `syncEmails` under a 20–45s budget, so
+  per-email latency does cap backlog throughput. But the Greek summary still
+  needs a text model, so Jev only lifts that cap if summaries are also deferred
+  to read time — a design change. Batching the existing calls, or a smaller
+  Claude model, fixes the same ceiling without a new vendor.
+
+**The blocking concern is data protection, not engineering.** The classifier
+sends customer correspondence — names, itineraries, complaints, occasionally
+passport and payment discussion — to whatever model classifies it. Anthropic is
+an established processor with published terms. Adding a ten-day-old US company,
+West-Coast hosted, with no DPA or EU data-handling position we have read, as a
+processor of customer email is a GDPR decision about the customer relationship,
+not a library choice. It is not an agent's to take alone.
+
+**Revisit when all three hold:** general availability rather than a waitlist; a
+published third-party accuracy benchmark on a classification task; and a data
+processing agreement with a stated EU position. Until then this entry is the
+answer, so the question is not researched again (§9).
+
+**Acted on instead, and separately:** `lib/emailClassifier.ts` is pinned to
+`claude-sonnet-4-6` with the comment "Matches the model the Make.com scenario
+used" — parity with a system we no longer run. Its successor is both newer and
+cheaper. Raised with Tasos; not changed unasked.
 
 ### 19 September 2026 — two DNS decisions, one of them a correction
 

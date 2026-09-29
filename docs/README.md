@@ -14,9 +14,9 @@ machine or a six-month gap.
 | [`contract/`](contract/) | The paper rental agreement: the scanned terms page, a full transcription, and a blank printable template |
 | [`WORKLOG.md`](WORKLOG.md) | The most recent day's entry |
 
-## Where things stand — 2 September 2026
+## Where things stand — 23 September 2026
 
-**Last verified:** 2 September 2026, Claude.
+**Last verified:** 23 September 2026, Claude.
 
 **Read this section before opening anything else, and before researching
 anything.** It exists because an agent spent a working session re-deriving
@@ -53,23 +53,39 @@ against production.
 |---|---|---|
 | `rental_handovers` table | 040 | **Applied** |
 | Check-out finalisation | 041 | **Applied** |
-| Check-in finalisation | 042 | Merged (#93). **Not applied** |
-| Correction and voiding, plus the five HTTP routes | 043 | Reconciled with current `main`; supersedes **PR #95** |
-| Insurance surcharge for under-23 drivers | 044 | **Merged** (#118). **Not applied** |
-| Authenticated grants for all four handover gateways | 045 | Written with the route reconciliation. **Not applied** |
+| Check-in finalisation | 042 | **Applied to production 28 Sep 2026; both functions verified present.** The authenticated browser journey remains open. |
+| Correction and voiding, plus the five HTTP routes | 043 | **Applied to production 28 Sep 2026; all five functions verified present.** The authenticated browser journey remains open. PR #95 was closed as superseded. |
+| Insurance surcharge for under-23 drivers | 044 | **Applied to production 28 Sep 2026 but deliberately disabled.** The €5/day row exists with `enabled = false`; activation waits for B6/W8 and Tasos's operating-policy decision — M3. |
+| Authenticated grants for all four handover gateways | 045 | **Applied and permission-verified in production 28 Sep 2026.** Only `authenticated` can execute them; the browser journey remains open. |
+| `service_role` grants for the nine tables created after 023 | 046 | **Applied and verified in production 28 Sep 2026.** All nine tables hold all four required DML grants. |
 | Photo upload saga | — | Not started. Last piece of phase 2 |
+
+All migrations through 046 are now applied to production. Catalogue-level
+verification passed: 042's two functions and 043's five functions exist; 045's
+four gateways are executable only by `authenticated`; and all nine tables in
+046 carry the four required `service_role` DML grants. The remaining phase-2
+gate is the authenticated browser journey, not another database migration.
 
 **The gateways are enabled for authenticated users by migration 045.**
 `finalise_check_out`, `finalise_check_in`, `correct_handover` and
 `void_handover` remain unavailable to `anon`, `service_role` and `PUBLIC`.
 Their routes use the caller's cookie-backed Supabase session, so the database
 verifies `auth.uid()` and the server-owned application role itself. Migration
-045 is not yet applied to production.
+045 was applied to production on 28 September 2026 and its database
+permissions were verified. The authenticated functional acceptance journey
+still needs to be run; catalogue verification is not the same as exercising the
+complete staff workflow.
 
-### Insurance surcharge — in progress, 2 September
+### Insurance surcharge — installed in production, deliberately inactive
 
 Requested by Tasos: a daily insurance surcharge of **€5 for every driver under
 23**. Decisions taken while building, so they are not re-litigated:
+
+- **Production state as of 28 September:** migration 044 has been applied, but
+  `extras_config.insurance_surcharge` is set to `enabled = false`. New quotes
+  therefore receive no surcharge. Activation is an explicit later decision,
+  gated by B6 and W8 in `OPEN-ITEMS.md`; installing the row did not silently
+  make the pricing policy operational.
 
 - **Age is derivable.** Date of birth is collected and required on the booking
   form, and `app/api/quote/route.ts` already computes exact age on the pick-up
@@ -99,15 +115,15 @@ Recorded here rather than fixed, because fixing it was not what was asked.
 
 | PR | What | Waiting on |
 |---|---|---|
-| **#95** | Phase 2 correction and voiding, plus the HTTP surface | Review/merge |
-| **#96** | Dependabot production group, 11 updates | CI. Needed a Stripe `apiVersion` fix, pushed |
-| **#98** | Sandbox disk runbook | Review/merge |
-| **#99** | Driver age market research | Review/merge |
-| #83, #78–#81 | GitHub Actions and CodeQL majors | Take one at a time |
-| #85, #86, #87 | `@types/node` 26, googleapis 176, TypeScript 7 | TypeScript 7 last — it is the one likely to break |
-| #16, #31, #58, #71 | Stale, three of them drafts, oldest from 22 August | A decision to finish or close them |
+| #87 | TypeScript 7.0.2 | **Blocked upstream.** 7.0 is the native Go port and ships with no programmatic API, so typescript-eslint, Volar and Angular are all locked out. A new API is promised for 7.1; typescript-eslint#10940 has no milestone. Do not close it |
+| #150 | ESLint 10 | **Blocked upstream.** ESLint 10 removed `context.getFilename()`; the `eslint-plugin-react` bundled inside `eslint-config-next` still calls it, so every linted file throws |
+| #149 | `@vitest/coverage-v8` 5 | **Needs a vitest major.** Its peer range pins `vitest: "5.0.1"` exactly and we run 4.1.11. Not urgent — coverage is deliberately not a gate |
 
-`codex/incident-admin-middleware-timeout` has never been merged and has no PR.
+Everything else is merged. On 20 September #130, #131, #132, #133 and #135
+landed, and #78, #79, #80, #81, #83 and #85 were closed as superseded with the
+reason recorded on each. **No node20 GitHub Action remains in the repository.**
+
+Every branch listed here on 19 September is now resolved. `codex/incident-admin-middleware-timeout` was closed on 20 September — its incident record was already on `main`, #121 supplied the missing outcome, and the obsolete remote branches were deleted. Confirmed gone from `origin` on 20 September. `AGENTS.md` named it too, under "where the remaining work is defined", and that bullet is corrected in the same change as this one — it no longer lists open branches or pull requests at all, because a file that changes monthly should not carry a list that changes daily.
 
 ### Waiting on a human
 
@@ -115,8 +131,16 @@ Per `AGENTS.md`, agents decide everything else themselves. These genuinely
 cannot be done from here — the full list with steps is in
 `ACTIONS-FOR-TASOS-2026-08-30.md`.
 
-- Applying migrations 042 and 044 (and 043 once #95 merges)
-- The Sentry project, and a staging reset from main
+- **Applying migrations 042 to 046** — all five merged and verified on staging,
+  none applied to production. One sitting. 046 is dated: before 30 October,
+  when Supabase stops granting new tables automatically. Open items M1–M5.
+- **The two Telegram secrets** (E17). The backup's alert has never been able to
+  send: `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` do not exist in GitHub
+  Actions, proven by dispatching the alert test.
+- **Confirming the motorbike insurance was renewed** (F2). The recorded expiry
+  was 11 September and nothing here records a renewal.
+- **Reissuing the Plesk certificate** (E6), and the Sentry project (E1). The
+  staging reset was closed on 19 September.
 - **The insurer's answers** — `DRIVER-AGE-MARKET.md` §5 is five questions to the
   broker, and they decide whether any age limit can actually move. The surcharge
   being built does not depend on them; lowering the age limits does.

@@ -65,6 +65,17 @@ Each of these cost real production time on this project.
   byte-identical `supabase/migrations/paste/` copy, and hand both to Tasos.
   `lib/migrationPasteParity.test.ts` enforces the pair; a stale copy reached
   production once.
+- **A migration that creates a table in `public` grants it to `service_role` in
+  the same migration.** Supabase removes the automatic Data API grant on
+  **30 October 2026**, after which a replayed migration produces a table the
+  application cannot reach — the staging reset, `supabase db reset`, a new
+  project, a preview branch. Production is unaffected; nine tables created after
+  migration 023 were not, and migration 046 closes them.
+  `lib/serviceRoleGrants.test.ts` fails naming any table that is missing one.
+  The reasoning is in section 14 of
+  `docs/STAGING-AND-OBSERVABILITY-RUNBOOK.md` — written without a § because in
+  this file that symbol means a `DEFINING-STATEMENTS.md` section, and
+  `lib/governanceWiring.test.ts` checks every one of them resolves.
 - **Do only what was asked.** An idea worth having is worth raising, not
   building unasked.
 
@@ -196,10 +207,17 @@ than a full volume.
 - `docs/audits/` — the ten review areas and what each audit did *not* cover.
   Areas 2 (design) and 5 (content and legal) are ungraded; area 5 held a
   blocker.
-- `docs/HANDOVER-ADMIN-FROZEN-PANES.md` — open UI defect, with three disproved
-  theories recorded so they are not retried.
-- Open PRs: #16 gated NBG payments, #31 incident closure.
-- `codex/incident-admin-middleware-timeout` has never been merged and has no PR.
+- `docs/HANDOVER-ADMIN-FROZEN-PANES.md` — **closed 20 September**, kept for its
+  three disproved theories so they are not retried. The implementation passed
+  all 32 focused checks, including a deliberately broken control proving the
+  instrument detects clipping.
+- **Open PRs and stale branches are not listed here.** They were, and the list
+  named #16, #31 and `codex/incident-admin-middleware-timeout` for weeks after
+  all three were resolved — a file that changes daily does not belong in one
+  that changes monthly. [`docs/OPEN-ITEMS.md`](docs/OPEN-ITEMS.md) is the live
+  list and the status table at the top of [`docs/README.md`](docs/README.md)
+  carries the current pull requests. Both are refreshed by the close-of-day
+  pass; this file is not.
 
 Before starting any of it, check whether the blueprint already answers the
 question. It usually does.

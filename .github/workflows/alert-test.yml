@@ -1,0 +1,35 @@
+name: Test the Telegram alert
+
+# Alerting that is never exercised is not alerting. The nightly backup's alert
+# sat unfired for weeks and reported success on four failed runs while nothing
+# arrived, because the only thing claiming it worked was the step's own exit
+# code. This sends one real message on demand, so "is the alert channel alive?"
+# is a question with an answer rather than an assumption.
+#
+# Manual only. Nothing schedules it, so it cannot become noise.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  alert-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out the alert script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The script fails the step when Telegram does not confirm delivery, so a
+      # green run here means a message genuinely arrived in the chat — not that
+      # a request was sent and ignored.
+      - name: Send a test alert
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          MSG="✅ <b>Alert channel test</b>"$'\n'"This is a test, no action needed. If you can read this, backup failure alerts can reach you."$'\n'"$RUN_URL"
+          node scripts/send-telegram-alert.mjs "$MSG"
