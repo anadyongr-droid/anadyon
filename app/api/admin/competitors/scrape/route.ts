@@ -7,6 +7,7 @@ import {
   type TaskResult,
 } from "@/lib/competitorRates";
 import { collectPodilatadiko, type PodilatadikoResult } from "@/lib/podilatadikoRates";
+import { recordImportCompleted } from "@/lib/rateImportLog";
 
 // Admin-only: proxy.ts admits only admins to /api/admin/competitors/*.
 export const maxDuration = 60;
@@ -89,9 +90,15 @@ export async function POST(req: NextRequest) {
     try {
       bicycles = await collectPodilatadiko();
       errors.push(...bicycles.errors);
+      await recordImportCompleted("podilatadiko");
     } catch (err) {
       errors.push(`Podilatadiko: ${err instanceof Error ? err.message : "collection failed"}`);
     }
+    // Recorded only here, on the call that completes the matrix. A partial
+    // batch has refreshed some searches and not others, and dating the import
+    // from it would overstate how current the prices are - which is the defect
+    // this log replaces.
+    await recordImportCompleted("ezcar");
   }
 
   return NextResponse.json({

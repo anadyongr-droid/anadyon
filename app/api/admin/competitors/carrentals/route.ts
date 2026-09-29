@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { planRuns, startRun, getRunStatus, ingestDataset, usdToEur, type PlannedRun } from "@/lib/carRentalsRates";
+import { recordImportCompleted } from "@/lib/rateImportLog";
 
 // Admin-only via proxy.ts.
 export const maxDuration = 60;
@@ -88,6 +89,7 @@ export async function GET() {
 
       if (status === "SUCCEEDED") {
         current.stored = await ingestDataset(token, datasetId || current.datasetId!, current, rate);
+        await recordImportCompleted("carrentals");
       } else {
         current.error = `${current.checkIn} ${current.days}d: run ${status}`;
       }

@@ -76,7 +76,16 @@ const FRESHNESS_STYLE: Record<Staleness, { dot: string; text: string }> = {
 };
 
 function FreshnessPanel({ sources }: { sources: SourceFreshness[] }) {
-  if (!sources.length) return null;
+  // Rendered even when the request came back empty. Returning null here hid the
+  // panel entirely on a failure, which looks identical to a screen that never
+  // had one - the failure mode §5.3 exists to prevent.
+  if (!sources.length) {
+    return (
+      <section className="bg-white rounded-xl border border-gray-200 mb-6 px-5 py-3 text-sm text-amber-700">
+        Could not read when the competitor rates were last imported.
+      </section>
+    );
+  }
   const summary = summariseFreshness(sources);
   const headline = FRESHNESS_STYLE[summary.staleness];
 
