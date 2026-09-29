@@ -86,24 +86,27 @@ $$ LANGUAGE sql;`;
     expect(canonical).toContain("SELECT '-- retained'");
   });
 
-  it("accepts exactly the repository's declared 042–045 boundary", () => {
+  it("accepts matching schemas after migrations 042–046 reached production", () => {
     const repositoryManifest = JSON.parse(
       readFileSync(join(process.cwd(), "scripts/schema-parity-pending.json"), "utf8"),
     );
     const common = "CREATE TABLE public.reservations (id uuid);";
-    const staging = `${common}
-CREATE FUNCTION public.finalise_check_in_impl() RETURNS void LANGUAGE sql AS $$ SELECT; $$;
-COMMENT ON FUNCTION public.finalise_check_in_impl() IS 'check-in';
-CREATE FUNCTION public.correct_handover_impl() RETURNS void LANGUAGE sql AS $$ SELECT; $$;
-ALTER FUNCTION public.void_handover(uuid, text) OWNER TO postgres;
-GRANT ALL ON FUNCTION public.finalise_check_out(uuid, timestamp with time zone) TO authenticated;`;
-    const result = classifySchemaDifference(common, staging, repositoryManifest);
-
-    expect(result.ok).toBe(true);
-    expect(new Set(result.expectedStaging.map(({ migration }) => migration))).toEqual(
-      new Set(["042", "043", "045"]),
-    );
+    expect(classifySchemaDifference(common, common, repositoryManifest).ok).toBe(true);
+    expect(repositoryManifest.pendingMigrations).toEqual([]);
   });
+
+  it("no longer excuses a handover function missing from production", () => {
+    const repositoryManifest = JSON.parse(
+      readFileSync(join(process.cwd(), "scripts/schema-parity-pending.json"), "utf8"),
+    );
+    const common = "CREATE TABLE public.reservations (id uuid);";
+    const staging = `${common} CREATE FUNCTION public.finalise_check_in_impl() RETURNS void LANGUAGE sql AS $$ SELECT; $$;`;
+    const result = classifySchemaDifference(common, staging, repositoryManifest);
+    expect(result.ok).toBe(false);
+    expect(result.expectedStaging).toEqual([]);
+    expect(result.unexpectedStaging).toHaveLength(1);
+  });
+
 });
 
 describe("schema parity credential safety", () => {
