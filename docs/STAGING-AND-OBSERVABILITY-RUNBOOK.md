@@ -616,3 +616,55 @@ The test enforces it; the convention explains it.
 
 **Last verified:** 23 September 2026, Claude — change confirmed against Supabase
 documentation, gap measured against the migrations, replay passing at 45.
+
+
+## 15. Staging deployment acceptance — 29 September 2026
+
+**Last verified:** 29 September 2026, Codex (implementer).
+
+Tasos requested completion of staging deployment today. The staging branch's
+four historical commits comprise an empty deployment marker and three merges;
+there is no staging-only application change. Main through `28150c5` was merged
+without conflicts or rewriting staging history. Deployment remains pending
+until the stable alias identifies the new commit.
+
+### Schema evidence and declared limitations
+
+Both Supabase projects report ACTIVE_HEALTHY. Read-only catalogue comparison
+covered 1,098 entries on each side: public columns (types, nullability, defaults),
+function definitions and ACLs, constraints, indexes, policies, table grants and
+RLS flags. It found exactly these ten differences:
+
+- Six `quotes` columns: production permits null `first_name`, `last_name`,
+  `email`, `vehicle_type`, `pickup_date` and `dropoff_date`; staging requires all
+  six. The two date columns are `text` in production and `date` in staging.
+- `check_rate_limit` and `find_available_eligible_vehicle` differ only in
+  explanatory comments and whitespace, confirmed by reading both definitions.
+- Production alone has `quotes` policy `Service role only`, `ALL TO public
+  USING (false)`. This permits no rows; staging's absence also defaults to deny.
+  RLS flags and table grants match. No policy was removed.
+- Staging alone has `quote_rate_limits_blocked_idx` on `blocked_until`, created
+  by the replayed baseline. It is a performance index, not a data constraint.
+
+The six quote differences remain a real compatibility limitation: passing a
+synthetic staging journey does not prove compatibility with nullable/text
+historical production rows. Preserve both schemas pending a separately reviewed
+migration; no production data or schema was changed. The index and deny policy
+remain documented differences, not quietly removed or masked.
+
+Migrations 042–046 are now present in production, so the obsolete 042–045
+exceptions were removed from `schema-parity-pending.json`. New tests first
+failed against the old manifest. The dump checker remains strict: the known
+historical differences are documented here but are **not** suppressed to report
+false equality. The read-only catalogue comparison is evidence independent of
+`npm run check:schema:parity`; the latter has not been run this session.
+
+### Remaining acceptance
+
+- Current stable deployment, credential boundary and public smoke checks: pending.
+- Authenticated browser journey: pending; the Mac was locked when browser
+  access was attempted. Both synthetic users still have their expected role and
+  one verified MFA factor in staging; this is not proof of a current login.
+- Redirected mail, Stripe, AADE and Sentry require their test-account setup and
+  remain unverified. They are not implied by a successful deployment or mocked
+  transport tests. No vendor messages have been sent in this session.

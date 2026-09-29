@@ -2050,6 +2050,18 @@ currently unowned.
 
 ## 10. Revision history and what has shipped
 
+### 29 September 2026 — staging synchronization and parity record
+
+Under the existing staging runbook section 13, merge current main into staging
+while preserving its history; retire the 042–045 pending-migration exceptions
+now that production has them. The live catalogue comparison found six quote
+column differences, two comment-only function differences, a deny policy and
+an index difference. Record them in runbook section 15 without modifying either
+schema or weakening the strict parity checker. Browser and vendor acceptance
+remain separate from build/deployment readiness. Tasos assigned Codex the
+implementer role and authorised today's staging deployment.
+
+
 ### 28 September 2026 — Google Search Console verification file
 
 Tasos explicitly authorised adding and publishing his supplied Google HTML
