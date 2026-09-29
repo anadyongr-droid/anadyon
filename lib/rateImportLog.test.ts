@@ -66,17 +66,44 @@ describe("completion is recorded only when a pass actually completes", () => {
     expect(block).toContain('recordImportCompleted("podilatadiko")');
   });
 
-  it("Faros and CarRentals are recorded on ingest, not on starting the run", () => {
+  it("Faros records only where it has just ingested a dataset", () => {
     // The Apify run finishing is not the same as the prices being stored:
-    // ingestion happens in the polling GET, and an abandoned poll stores
-    // nothing at all.
-    expect(FAROS).toMatch(/ingestFarosDataset[\s\S]{0,200}recordImportCompleted\("faros"\)/);
-    expect(CARRENTALS).toMatch(/ingestDataset[\s\S]{0,200}recordImportCompleted\("carrentals"\)/);
+    // ingestion happens outside the POST that starts the run, and an abandoned
+    // poll stores nothing at all.
+    //
+    // Both call sites are checked rather than one, because abandoned-run
+    // recovery gave the POST an ingest path of its own — it can now collect a
+    // finished run instead of starting another, and that path records too.
+    const records = [...FAROS.matchAll(/recordImportCompleted\(/g)].map(m => m.index!);
+    expect(records.length).toBeGreaterThan(0);
+    for (const at of records) {
+      const before = FAROS.slice(Math.max(0, at - 400), at);
+      expect(before).toContain("ingestFarosDataset");
+    }
   });
 
-  it("nothing is recorded from a POST that only starts a run", () => {
-    const post = FAROS.slice(FAROS.indexOf("export async function POST"), FAROS.indexOf("export async function GET"));
-    expect(post).not.toContain("recordImportCompleted");
+  it("the Faros start path records nothing", () => {
+    // The branch that starts a new run has collected no prices yet. Anchored on
+    // the call that starts one so the slice cannot silently become empty.
+    const start = FAROS.indexOf("await startFarosRun(token)");
+    expect(start).toBeGreaterThan(-1);
+    const tail = FAROS.slice(start, FAROS.indexOf("export async function GET"));
+    expect(tail).toContain("writeStoredRun");
+    expect(tail).not.toContain("recordImportCompleted");
+  });
+
+  it("CarRentals records once the pass is done, not once per search", () => {
+    // Its pass is nine searches. Recording after each one would date the import
+    // from a batch that has refreshed some searches and not others — the exact
+    // overstatement this log replaced.
+    const done = CARRENTALS.indexOf("if (done) {");
+    expect(done).toBeGreaterThan(-1);
+    const block = CARRENTALS.slice(done, CARRENTALS.indexOf("\n  }\n", done));
+    expect(block).toContain('recordImportCompleted("carrentals"');
+
+    // And nowhere else, so a second call cannot creep back into the per-search
+    // branch where it used to live.
+    expect([...CARRENTALS.matchAll(/recordImportCompleted\(/g)]).toHaveLength(1);
   });
 });
 
