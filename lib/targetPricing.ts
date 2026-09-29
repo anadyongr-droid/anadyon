@@ -86,6 +86,20 @@ export interface TargetResult {
   skipped: SkippedRow[];
 }
 
+/**
+ * Why a row was not repriced.
+ *
+ * Named constants rather than inline strings because the screen groups by them.
+ * A literal typed twice is a literal that eventually differs by a hyphen, and
+ * the symptom would be a skip category silently splitting in two.
+ */
+export const SKIP_REASONS = {
+  outsideMonths: "outside the chosen months",
+  noPrice: "no mapped price from this competitor",
+  nonPositive: "their price is zero or negative",
+  roundsToZero: "rounds to zero or below",
+} as const;
+
 /** Rounds to the nearest step, away from zero on a .5 boundary. */
 export function roundToStep(value: number, step: number): number {
   if (!(step > 0)) return Math.round(value * 100) / 100;
@@ -123,20 +137,20 @@ export function computeTargetRates(rows: ComparisonRow[], spec: TargetSpec): Tar
     };
 
     if (wanted.size && !wanted.has(row.month)) {
-      skipped.push({ ...where, reason: "outside the chosen months" });
+      skipped.push({ ...where, reason: SKIP_REASONS.outsideMonths });
       continue;
     }
 
     const theirs = row.competitors.find(c => c.competitor === spec.competitor);
     if (!theirs || theirs.price === null) {
-      skipped.push({ ...where, reason: "no mapped price from this competitor" });
+      skipped.push({ ...where, reason: SKIP_REASONS.noPrice });
       continue;
     }
     if (!(theirs.price > 0)) {
       // A zero or negative would propose a free rental. Refused rather than
       // rounded away, because a price of 0.00 that reaches the rate card is
       // worse than a gap in the proposal.
-      skipped.push({ ...where, reason: "their price is zero or negative" });
+      skipped.push({ ...where, reason: SKIP_REASONS.nonPositive });
       continue;
     }
 
@@ -144,7 +158,7 @@ export function computeTargetRates(rows: ComparisonRow[], spec: TargetSpec): Tar
     const proposed = roundToStep(target, spec.roundTo);
 
     if (!(proposed > 0)) {
-      skipped.push({ ...where, reason: "rounds to zero or below" });
+      skipped.push({ ...where, reason: SKIP_REASONS.roundsToZero });
       continue;
     }
 
@@ -170,8 +184,14 @@ export function computeTargetRates(rows: ComparisonRow[], spec: TargetSpec): Tar
  * Returns a new array; the caller's drafts are not mutated. A rate row not
  * named by any proposal is passed through untouched, so repricing one month
  * never silently rewrites another.
+ *
+ * The constraint is `{ id: string }` and nothing more on purpose. Adding
+ * `& Record<string, unknown>` reads like a harmless description of a rate row,
+ * but an `interface` has no implicit index signature — so it would reject
+ * `Rate` from `lib/pricing.ts`, which is the only thing this is ever called
+ * with. The field write casts anyway.
  */
-export function applyProposals<T extends { id: string } & Record<string, unknown>>(
+export function applyProposals<T extends { id: string }>(
   rates: T[],
   proposals: Proposal[]
 ): T[] {
@@ -210,4 +230,46 @@ export function summariseProposals(result: TargetResult, spec: TargetSpec): stri
   ]
     .filter(Boolean)
     .join(" · ");
+}
+
+export interface SkipTally {
+  reason: string;
+  count: number;
+}
+
+/**
+ * Skips counted by reason, for the screen.
+ *
+ * Listing the rows individually is the wrong shape: repricing one month skips
+ * every row of the other eleven, so the list would be hundreds long and its one
+ * interesting line — a group this competitor does not sell — would be buried in
+ * it.
+ *
+ * "Outside the chosen months" is forced last however large it is, because it is
+ * the operator's own filter doing what they asked. The others are gaps in the
+ * data, and sorting purely by count would put the expected one on top and push
+ * the surprises below the fold.
+ */
+export function summariseSkips(skipped: SkippedRow[]): SkipTally[] {
+  const counts = new Map<string, number>();
+  for (const s of skipped) counts.set(s.reason, (counts.get(s.reason) ?? 0) + 1);
+
+  return [...counts.entries()]
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((a, b) => {
+      const aFilter = a.reason === SKIP_REASONS.outsideMonths ? 1 : 0;
+      const bFilter = b.reason === SKIP_REASONS.outsideMonths ? 1 : 0;
+      // Ties break on the reason so the order is stable across renders rather
+      // than inheriting whatever order the rows happened to arrive in.
+      return aFilter - bFilter || b.count - a.count || a.reason.localeCompare(b.reason);
+    });
+}
+
+/** Every month present in the comparison, in calendar order, for the filter. */
+export function monthsPresent(rows: ComparisonRow[]): { month: number; name: string }[] {
+  const seen = new Map<number, string>();
+  for (const r of rows) if (!seen.has(r.month)) seen.set(r.month, r.month_name);
+  return [...seen.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([month, name]) => ({ month, name }));
 }
