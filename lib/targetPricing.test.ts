@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
+import type { Rate } from "@/lib/pricing";
 import {
   applyProposals,
   computeTargetRates,
+  monthsPresent,
   roundToStep,
   summariseProposals,
+  summariseSkips,
+  SKIP_REASONS,
   type ComparisonRow,
   type TargetSpec,
 } from "./targetPricing";
@@ -204,5 +208,103 @@ describe("the module cannot write a price", () => {
     );
     expect(src).not.toContain("supabaseAdmin");
     expect(src).not.toContain("fetch(");
+  });
+});
+
+describe("skips counted by reason, for the screen", () => {
+  it("puts the operator's own filter last however large it is", () => {
+    // Repricing one month skips every row of the other eleven, so this category
+    // is always the biggest and always the least interesting. Sorting purely by
+    // count would put it on top and push the data gaps below the fold.
+    const rows = [
+      ...Array.from({ length: 40 }, () => row({ month: 9, month_name: "September" })),
+      row({ competitors: [] }),
+      row({ competitors: [{ competitor: FAROS, label: "F", price: 0 }] }),
+    ];
+    const tallies = summariseSkips(computeTargetRates(rows, SPEC).skipped);
+
+    expect(tallies.map(t => t.reason)).toEqual([
+      SKIP_REASONS.noPrice,
+      SKIP_REASONS.nonPositive,
+      SKIP_REASONS.outsideMonths,
+    ]);
+    expect(tallies.at(-1)).toEqual({ reason: SKIP_REASONS.outsideMonths, count: 40 });
+  });
+
+  it("orders the gaps by how many rows they cost", () => {
+    const rows = [
+      row({ competitors: [] }),
+      row({ competitors: [] }),
+      row({ competitors: [{ competitor: FAROS, label: "F", price: 0 }] }),
+    ];
+    const tallies = summariseSkips(computeTargetRates(rows, SPEC).skipped);
+    expect(tallies).toEqual([
+      { reason: SKIP_REASONS.noPrice, count: 2 },
+      { reason: SKIP_REASONS.nonPositive, count: 1 },
+    ]);
+  });
+
+  it("is empty when nothing was skipped", () => {
+    expect(summariseSkips([])).toEqual([]);
+  });
+
+  it("names the same reasons the engine produces", () => {
+    // The screen groups on these strings. If a reason were typed twice and the
+    // copies drifted, the category would silently split in two and nothing else
+    // would notice.
+    const skipped = computeTargetRates(
+      [
+        row({ month: 9 }),
+        row({ competitors: [] }),
+        row({ competitors: [{ competitor: FAROS, label: "F", price: -1 }] }),
+      ],
+      SPEC
+    ).skipped;
+    for (const s of skipped) {
+      expect(Object.values(SKIP_REASONS)).toContain(s.reason);
+    }
+  });
+});
+
+describe("the month filter offered on screen", () => {
+  it("lists each month once, in calendar order", () => {
+    // The comparison arrives sorted by group first, so a group with three
+    // seasons emits its months interleaved with another group's. Taking them in
+    // arrival order would offer October before September.
+    const rows = [
+      row({ month: 10, month_name: "October" }),
+      row({ month: 8, month_name: "August" }),
+      row({ month: 10, month_name: "October" }),
+      row({ month: 9, month_name: "September" }),
+    ];
+    expect(monthsPresent(rows)).toEqual([
+      { month: 8, name: "August" },
+      { month: 9, name: "September" },
+      { month: 10, name: "October" },
+    ]);
+  });
+
+  it("is empty when there is nothing to compare", () => {
+    expect(monthsPresent([])).toEqual([]);
+  });
+});
+
+describe("a rate row from lib/pricing can be repriced", () => {
+  it("accepts an interface, not just an index-signature object", () => {
+    // applyProposals once required `& Record<string, unknown>`, which reads as a
+    // harmless description of a rate row but rejects every `interface` —
+    // including the only type it is ever called with. This fails to compile
+    // rather than at runtime, so it is here to be caught by `tsc`.
+    const rate: Rate = {
+      id: "r1",
+      pricing_group: "car_a",
+      season_name: "High",
+      season_months: [10],
+      rate_1_2: 40,
+      rate_3_6: 30,
+      rate_7plus: 25,
+    };
+    const { proposals } = computeTargetRates([row()], SPEC);
+    expect(applyProposals([rate], proposals)[0].rate_3_6).toBe(24.5);
   });
 });
