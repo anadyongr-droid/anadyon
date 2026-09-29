@@ -205,24 +205,23 @@ describe("the freshness reaches the screen", () => {
   const page = read("app/admin/market/page.tsx");
 
   it("the comparison API returns a per-source freshness list", () => {
-    expect(route).toContain("loadFreshness");
+    // The query moved to lib/rateSourceFreshnessQuery.ts on 28 September so the
+    // Settings card could ask the same question without dragging every
+    // observation across. The route still has to call it and still has to put
+    // the answer in its response.
+    expect(route).toContain("loadRateFreshness");
+    expect(route).toContain('from "@/lib/rateSourceFreshnessQuery"');
     expect(route, "the response must carry `sources`").toMatch(/\bsources,/);
   });
 
   it("freshness is read independently of whether a category is mapped", () => {
-    // The observation query filters on pricing_group; freshness must not, or a
-    // completed import with nothing mapped yet would report as never run.
-    //
-    // The anchor is asserted before slicing on it. Without that, a renamed or
-    // deleted function makes indexOf return -1, the slice yields an empty
-    // string, and "" contains nothing — so this passes while testing nothing.
-    // It did exactly that when run against the unwired code.
-    const start = route.indexOf("async function loadFreshness");
-    expect(start, "loadFreshness is gone — this test no longer checks anything").toBeGreaterThan(-1);
-    const body = route.slice(start);
-    const end = body.indexOf("}\n\n");
-    expect(end, "could not find the end of loadFreshness").toBeGreaterThan(-1);
-    expect(body.slice(0, end)).not.toContain("pricing_group");
+    // The observation query filters on pricing_group; the freshness query must
+    // not, or a completed import with nothing mapped yet reports as never run.
+    // Now asserted against the shared module the query lives in, rather than
+    // against the route that used to hold a private copy of it.
+    const query = read("lib/rateSourceFreshnessQuery.ts");
+    expect(query).toContain("loadRateFreshness");
+    expect(query, "freshness must not filter on the mapping").not.toContain("pricing_group");
   });
 
   it("the Market screen renders it", () => {
