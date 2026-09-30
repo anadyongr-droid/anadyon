@@ -217,6 +217,34 @@ then be written and tested against a real fixture, as `parseBikePage` was.
 For Famozo: one browser session with the network tab recorded, to capture the
 `ajax.php` request body the booking form actually sends.
 
+**Prefer Famozo, on a ground that is not about difficulty.** *Added 30 September
+2026, after Tasos authorised the Apify spend — the recommendation changed before
+it was used.*
+
+Riderly's 403 is Cloudflare bot management, not a stated policy: its
+`robots.txt` allows `/rentals/details/*` and declares `ai-input=yes`. But the
+only way past it is to present as a real browser, and **this codebase rejects
+that in writing, twice.** `lib/competitorRates.ts` and
+`lib/podilatadikoRates.ts` both send `AnadyonRatesBot/1.0` under the comment
+*"Identify honestly rather than impersonating a browser."* A Riderly scraper
+cannot honour that and still work.
+
+That is a different situation from Faros, which also runs through an Apify
+browser: Faros never refused a non-browser client, it simply rendered its prices
+in JavaScript. Rendering a page that will serve you is not the same as
+presenting false identity to a page that has declined to.
+
+**Famozo has neither problem.** It serves over plain HTTP with no challenge, so a
+scraper there identifies honestly like the other three, and it costs nothing per
+run rather than metering a browser. It needs one thing captured once: the
+`ajax.php` request body, from a browser session's network tab.
+
+**So the Apify spend is not what unblocks this.** It would only be needed at
+*runtime*, for Riderly, from Vercel — and choosing Riderly is the decision that
+conflicts with the convention above. Whether to make an exception to
+"identify honestly" for a competitor that has refused us is Tasos's call, not an
+implementation detail, and it is not needed for Famozo at all.
+
 **Source:** fetched 29 September 2026 — `autotrafficrentals.com` (robots.txt,
 `/scooters-atvs/scooters/50cc-scooters/`), `zantewayrentals.com/moto-atvs.php`,
 `famozorentals.com` (booking form, `ajax.php`), `riderly.com` (robots.txt, a
@@ -1463,22 +1491,29 @@ was an instance of.
 **The rule: security fails closed, convenience degrades, money never silently
 succeeds.**
 
-| Dependency | On failure |
-|---|---|
-| **Supabase auth** | Deny. An unresolved role is not a staff role. Already implemented: 8s timeout, `?unavailable=1`, 503. |
-| **Supabase data** | Read paths show a stated error, never an empty list — "no reservations today" and "we cannot reach the database" must never look alike. Write paths refuse and say so. |
-| **Storage** | A handover cannot finalise without its photographs. Hold the draft, let staff retry; do not complete a handover whose evidence did not upload. |
-| **Resend** | Queue and retry. Delivery state is already derived from `booking_email_deliveries`, so a failure is visible rather than assumed — `pending` is never read as sent. |
-| **Stripe** | Never mark paid on a timeout. An unconfirmed payment stays unconfirmed; the webhook is the source of truth, and it is idempotent. |
-| **Wise** | *Corrected 28 August — this was wrongly folded in with Stripe above.* **Wise has no webhook.** `lib/wise.ts` says so in the file itself: a deposit link is a constructed URL, "Wise does not call back when the money arrives, so a reservation paid this way has to be reconciled rather than confirming itself." There is nothing to fail closed, because nothing calls back. The failure mode is therefore silence, and the answer is a reconciliation task that is *visible and ages* — an unreconciled Wise deposit must appear as outstanding work, not sit unnoticed until someone checks the bank. |
-| **SMS** | Non-blocking, but recorded and visible. A confirmation SMS that fails must not block a booking — and must not vanish either. *Corrected 28 August: this said "degrade silently", which contradicts this section's own closing rule that degraded state is shown rather than hidden.* A failed message is logged against the reservation and surfaced the way a failed email already is, so "we texted them" can be checked rather than assumed. |
-| **AADE** | Queue for resubmission and surface the backlog. A statutory submission that failed is an operational task, not a lost message. |
-| **Competitor feeds** | Show the data's age. Stale rates presented as current are worse than no rates. **Built 28 September 2026** — Admin → Market carries a freshness panel per import source; `lib/rateSourceFreshness.ts`. See the note below. |
+| Dependency | On failure | Audited 30 Sep |
+|---|---|---|
+| **Supabase auth** | Deny. An unresolved role is not a staff role. Already implemented: 8s timeout, `?unavailable=1`, 503. | **Built** — `proxy.ts` |
+| **Supabase data** | Read paths show a stated error, never an empty list — "no reservations today" and "we cannot reach the database" must never look alike. Write paths refuse and say so. | **Partly built** — W23 |
+| **Storage** | A handover cannot finalise without its photographs. Hold the draft, let staff retry; do not complete a handover whose evidence did not upload. | **Built** — finalise refuses |
+| **Resend** | Queue and retry. Delivery state is already derived from `booking_email_deliveries`, so a failure is visible rather than assumed — `pending` is never read as sent. | **Built** |
+| **Stripe** | Never mark paid on a timeout. An unconfirmed payment stays unconfirmed; the webhook is the source of truth, and it is idempotent. | **Built** |
+| **Wise** | *Corrected 28 August — this was wrongly folded in with Stripe above.* **Wise has no webhook.** `lib/wise.ts` says so in the file itself: a deposit link is a constructed URL, "Wise does not call back when the money arrives, so a reservation paid this way has to be reconciled rather than confirming itself." There is nothing to fail closed, because nothing calls back. The failure mode is therefore silence, and the answer is a reconciliation task that is *visible and ages* — an unreconciled Wise deposit must appear as outstanding work, not sit unnoticed until someone checks the bank. | **Not built** — W24 |
+| **SMS** | Non-blocking, but recorded and visible. A confirmation SMS that fails must not block a booking — and must not vanish either. *Corrected 28 August: this said "degrade silently", which contradicts this section's own closing rule that degraded state is shown rather than hidden.* A failed message is logged against the reservation and surfaced the way a failed email already is, so "we texted them" can be checked rather than assumed. | **Not built, and it throws** — W25 |
+| **AADE** | Queue for resubmission and surface the backlog. A statutory submission that failed is an operational task, not a lost message. | **Partly built** — W26 |
+| **Competitor feeds** | Show the data's age. Stale rates presented as current are worse than no rates. **Built 28 September 2026** — Admin → Market carries a freshness panel per import source; `lib/rateSourceFreshness.ts`. See the note below. | **Built** |
 
 **Two rules that apply everywhere.** Every external call carries a timeout —
 an unbounded call is an outage waiting for a slow day. And degraded state is
 shown, not hidden: the operator needs to know the difference between quiet and
 broken, which is precisely the distinction the August incident destroyed.
+
+**Both of those were audited too, and the first is mostly not honoured.** Only
+`lib/healthChecks.ts`, `lib/telegram.ts` and `lib/recaptcha.ts` bound their
+external calls; `proxy.ts` bounds the auth call that caused the August incident.
+Twilio, Apify, AADE, Resend and the three rate scrapers all call out with no
+timeout at all — **W27**. The second rule is what rows 2, 6, 7 and 8 above fail,
+each in its own way.
 
 **The competitor-feeds row sat unbuilt for a month, and that is worth recording
 rather than quietly ticking off.** *Added 28 September 2026, Claude, after Tasos
@@ -1500,6 +1535,93 @@ a rule that does not exist. `DEFINING-STATEMENTS.md` §9 covers searching the
 docs before *researching* a subject; this is the same failure one step later —
 searching them before *building* one. Before adding a screen, read what §5.3
 says the thing it depends on must do when that dependency is stale or down.
+
+### 5.3a The row-by-row audit — 30 September 2026
+
+*Open item W19, closed by this section. Raised on 28 September because the
+competitor-feeds row had sat written and unbuilt for a month, and the concern was
+that this was a class rather than an incident. **It was a class.** Five of the
+ten rows are fully built, two are partly built, two are not built at all, and one
+of those two throws an unhandled rejection. Each gap below is its own open item;
+per W19 nothing was fixed inside the audit.*
+
+**Built, verified against the code:**
+
+- **Supabase auth.** `proxy.ts` — `AUTH_TIMEOUT_MS = 8_000`, a 503 on the API
+  path, `?unavailable=1` on the page path. This is the August incident's own fix.
+- **Storage.** `POST /api/admin/handovers/[id]/finalise` refuses a check-out
+  whose required views have no photograph, and names them: *"check-out refused:
+  … 2 required photograph(s) are missing"*. Covered by
+  `app/api/admin/handovers/handovers.test.ts`.
+- **Resend.** The best-implemented row. `booking_email_deliveries` holds the
+  audit trail, `lib/emailWorkflowStage.ts` derives the stage from it rather than
+  assuming, and `deliveryNeedsAttention` puts an explicit banner on the
+  reservation: *"The last customer email was not delivered … The customer may
+  not have received it."*
+- **Stripe.** `app/api/stripe-webhook/route.ts` verifies the signature with
+  `constructEvent`, and idempotency is a `UNIQUE` constraint on
+  `alert_outbox.key` rather than a check that can race — a redelivery collides
+  and returns `{ duplicate: true }` without re-applying the update. The file's
+  own header records that an earlier version re-applied it and overwrote
+  `deposit_paid_at`.
+- **Competitor feeds.** Built 28–29 September; see the note above.
+
+**The four gaps.**
+
+**W23 — Supabase data, on the one screen that matters most.** Eight admin
+screens check `res.ok` and state an error. `app/admin/reservations/page.tsx`
+does not: its loader ends in a `.catch` that deliberately does nothing, leaving
+`reservations` as `[]`, so the table renders **"No reservations found."** That is
+this row's own sentence — *"no reservations today" and "we cannot reach the
+database" must never look alike* — failing on the busiest screen in the admin.
+The comment explains the choice and is half right: not blanking a populated
+table over one dropped background poll is sound. It applies the same silence to
+the **first** load, where there is nothing to preserve and the operator is shown
+a confident denial instead of a fault. `res.ok` is also never checked, so a JSON
+error body is assigned where an array is expected.
+
+**W24 — Wise has no reconciliation surface at all.** `lib/wise.ts` constructs a
+payment URL and `POST /api/admin/wise/deposit-link` returns it. That is the
+whole feature. Nothing records that a Wise deposit is *awaited*, nothing lists
+the ones outstanding, and nothing ages them — so the row's requirement, *"an
+unreconciled Wise deposit must appear as outstanding work, not sit unnoticed
+until someone checks the bank"*, has no implementation whatsoever. This is the
+gap with money on the other side of it.
+
+**W25 — SMS is not merely unbuilt; the route throws.**
+`app/api/admin/sms/route.ts` ends with `await client.messages.create(...)` with
+**no try/catch, no timeout and no record**. A Twilio failure is an unhandled
+rejection: the caller gets a framework 500, nothing is written against the
+reservation, and nothing is surfaced. There is no SMS analogue of
+`booking_email_deliveries`, so the row's *"surfaced the way a failed email
+already is"* has nothing to be surfaced from. Note the irony: the Resend row
+directly above it is the model this row asks to copy.
+
+**W26 — AADE records a failure but never queues or surfaces a backlog.** The
+submit route writes `dcl_status: "error"` on a validation failure, a network
+failure and a non-2xx response, and the reservations list shows a red `!` badge
+for it — so a failure is visible *if you are looking at that reservation*. What
+does not exist is the other half of the row: no resubmission mechanism, no view
+of everything sitting in `dcl_status = 'error'`, no aging. A statutory
+submission that failed is currently a badge, not an operational task.
+
+**W27 — the universal timeout rule is the widest gap of all.** "Every external
+call carries a timeout" is honoured in exactly four places: `lib/healthChecks.ts`,
+`lib/telegram.ts`, `lib/recaptcha.ts` and `proxy.ts`. Twilio, Apify, AADE,
+Resend and all three rate scrapers call out unbounded. The August incident was
+an unbounded call on a slow day, and the fix was applied to that one call rather
+than to the rule it was an instance of — which is precisely the shape of failure
+this whole section was written to name.
+
+**What the audit says about the method, not the rows.** The competitor-feeds row
+was missed because a rule in a table nobody re-reads is a rule that does not
+exist. That diagnosis was right and it was incomplete: the table had *never* been
+read against the code, so nine other rows carried the same risk silently for five
+weeks. A principle written once and never checked is an intention. **The check is
+the artefact** — which is why the verdict now lives in the table itself, with an
+item number beside each gap, rather than in a worklog entry that scrolls away.
+
+---
 
 **Not covered here:** there is no failover *target*. Supabase Free has no
 replica and the project has no second region. This section is about behaving

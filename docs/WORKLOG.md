@@ -15,6 +15,45 @@ wrong place.
 
 ---
 
+## 30 September 2026 — Claude, implementer
+
+**Last verified:** 30 September 2026, Claude.
+
+**Agent summary:** [`2026-09-30-claude.md`](worklog/2026-09-30-claude.md).
+
+Two closures, and both came from reading rather than building.
+
+- **F2 closed by the §12 calendar check.** The dated item said the motorbikes
+  expired 11 September with no record of renewal, and its own text still read
+  *"Today is 20 September"*. Checking it against the calendar meant searching
+  the broker's mailbox, where the answer had been sitting since 29 September:
+  every current expiry, nine motorbikes running to 11 October. Recorded in
+  `INSURANCE-COVER-AND-RESTRICTIONS.md` §1a as the broker's assertion, not as a
+  certificate — it carries dates but no policy numbers, insurers or terms, so B2
+  and B5 still need the PDFs.
+- **W19 closed — the §5.3 dependency table audited row by row.** Blueprint
+  **§5.3a**, and the table now carries a verdict per row. Five built, two partly,
+  two not at all. **W23–W27** opened for the gaps; nothing was fixed inside the
+  audit.
+
+**The audit's own finding is the interesting one.** Competitor-feeds was
+diagnosed on 28 September as "a rule in a table nobody re-reads". That was true
+and incomplete: the table had never been read against the code at all, so nine
+other rows carried the same risk silently for five weeks. One of them —
+`app/api/admin/sms/route.ts` — awaits Twilio with no try/catch, so a failure is
+an unhandled rejection, while the row it is asked to copy sits directly above it
+in the same table. The verdict now lives in the table with an item number beside
+each gap, because a principle checked once in a worklog is a principle that
+scrolls away.
+
+**And a recommendation reversed before it was acted on.** Tasos authorised the
+Apify spend for a motorbike scraper; working out how to use it established that
+the target it was for — Riderly — can only be scraped by presenting as a
+browser, which `lib/competitorRates.ts` and `lib/podilatadikoRates.ts` both
+reject in writing. Famozo needs no browser and no spend. Blueprint §1.6a.
+
+---
+
 ## 29 September 2026 (afternoon) — Claude, implementer
 
 **Last verified:** 29 September 2026, Claude.
