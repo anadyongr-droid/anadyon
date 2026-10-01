@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { buildDclXml, UnfilableError, type DclReservation } from "@/lib/aadeXml";
+import { readDclSubmissionId } from "@/lib/aadeDclResponse";
 import { reportHandledError } from "@/lib/sentryReporting";
 
 // AADE myDATA Digital Client List (DCL) v1.1
@@ -78,7 +79,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const mark = responseText.match(/<mark>([^<]+)<\/mark>/i)?.[1] ?? null;
+  let mark: string;
+  try {
+    mark = readDclSubmissionId(responseText);
+  } catch {
+    await supabaseAdmin.from("reservations").update({ dcl_status: "error" }).eq("id", id);
+    return NextResponse.json(
+      { error: "AADE did not confirm the submission. Check the response before retrying.", detail: responseText },
+      { status: 422 },
+    );
+  }
   await supabaseAdmin
     .from("reservations")
     .update({ dcl_status: "submitted", dcl_mark: mark })

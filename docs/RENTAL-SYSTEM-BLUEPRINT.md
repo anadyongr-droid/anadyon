@@ -3207,6 +3207,20 @@ them and nothing shows it. Tasos asked for the fleet screen to show every
 vehicle state, which it now does — but the staff-facing surface is unbuilt and
 undecided.
 
+### 1 October 2026 — DCL success must be verified
+
+Last verified: 1 October 2026, Codex, staging acceptance.
+
+A sandbox submission displayed success with a null reference. The route checks
+HTTP status only and looks for `mark`; AADE DCL v1.1 §6–7 instead requires
+`statusCode=Success` and `newClientDclID`, and explicitly returns business/XML
+errors with HTTP 200. Correct this bounded response handling before further
+acceptance: parse XML, reject malformed/ambiguous/error responses, require a
+positive identifier, and store that identifier in the existing dcl_mark column.
+Do not change schemas or assert the request XML is compliant. Validate the request
+against the published schema and repeat the sandbox journey separately. No
+production filing or historical record correction is authorized by this fix.
+
 ### 30 August 2026 — AADE, checked against the published schema
 
 **The invoice module would have been rejected on every single filing.** Checked
