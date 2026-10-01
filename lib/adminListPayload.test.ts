@@ -74,13 +74,16 @@ describe("a screen loading two lists is as loaded as its worst response", () => 
  * source — the same approach `lib/rateImportLog.test.ts` takes.
  */
 describe("the reservations screen uses it, and distinguishes the two cases", () => {
-  const page = readFileSync(
+  const raw = readFileSync(
     new URL("../app/admin/reservations/page.tsx", import.meta.url).pathname,
     "utf8"
   );
+  // Imports stripped, so the assertion is about use rather than presence — see
+  // the note in lib/outstandingDeposits.test.ts for why that distinction bit.
+  const page = raw.replace(/^import[\s\S]*?from\s+"[^"]*";$/gm, "");
 
   it("reads its responses through this module", () => {
-    expect(page).toContain("readListPayloads");
+    expect(page).toMatch(/readListPayloads\(/);
   });
 
   it("holds an error state and renders it", () => {
