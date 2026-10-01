@@ -46,6 +46,7 @@ const SCRIPT_SOURCES =
 
 const BASE_CONNECT_SOURCES =
   "'self' https://*.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com";
+process.env.NEXT_PUBLIC_SENTRY_DSN = "https://75f03f5301277f693029a38675d34344@o4512179595968512.ingest.de.sentry.io/4512182981296208";
 const SENTRY_INGEST_ORIGIN = sentryIngestOriginFromDsn(
   process.env.NEXT_PUBLIC_SENTRY_DSN,
 );
@@ -134,6 +135,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  env: { NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN },
   /**
    * One canonical host.
    *

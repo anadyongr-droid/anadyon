@@ -4011,3 +4011,7 @@ record to settle it with.
 **KPIs:** [Nomora](https://www.nomora.io/blog/fleet-reporting-car-rental-maximize-utilization-profit) · [Worco](https://www.worco.io/blog/car-rental-revenue-management-strategies/) · [Camasys](https://www.camasys.com/posts/must-track-kpis-for-car-rental-success)
 
 **Greek obligations:** [ΕΕΑ](https://www.eea.gr/arthra-eea/pos-mporo-na-idryso-etaireia-enoikiasis-aytokiniton/) · [EUGO](https://eugo.gov.gr/services/226431)
+
+### 1 October 2026 — Disposable Sentry acceptance preview
+
+Implement runbook §6 only on codex/sentry-acceptance-20261001: three generic errors, browser/server/proxy. The preview receives only the public Sentry DSN, no vendor or database credentials. Temporary code must not merge to main or staging. Record event IDs and inspect scrubbed payloads, then remove probes from the branch.

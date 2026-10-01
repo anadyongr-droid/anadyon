@@ -257,6 +257,7 @@ function authUnavailable(req: NextRequest, pathname: string) {
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  if (pathname === "/api/admin/sentry-acceptance") throw new Error("Synthetic proxy acceptance");
 
   // Always public
   if (pathname === "/admin/login") return NextResponse.next();
