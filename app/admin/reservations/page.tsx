@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import ReservationModal from "../components/ReservationModal";
 import { deliveryNeedsAttention, deriveWorkflowStage, type DeliveryRow } from "@/lib/emailWorkflowStage";
+import { readListPayloads } from "@/lib/adminListPayload";
 import { reservationRef } from "@/lib/wise";
 
 interface Reservation {
@@ -83,26 +84,50 @@ export default function ReservationsPage() {
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  // W23: a failed *first* load used to leave this screen showing "No
+  // reservations found.", which is §5.3's own forbidden case - a fault and an
+  // empty day reading alike.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   /**
    * @param showSpinner false for the background refresh, so the table does not
    *   flash "Loading…" every half minute while somebody is reading it.
    */
-  function load(showSpinner = true) {
+  async function load(showSpinner = true) {
     if (showSpinner) setLoading(true);
-    Promise.all([
-      fetch("/api/admin/reservations").then((r) => r.json()),
-      fetch("/api/admin/vehicles").then((r) => r.json()),
-    ]).then(([r, v]) => {
-      setReservations(r);
-      setVehicles(v);
+    try {
+      const [resRes, vehRes] = await Promise.all([
+        fetch("/api/admin/reservations"),
+        fetch("/api/admin/vehicles"),
+      ]);
+      const [resBody, vehBody] = await Promise.all([
+        resRes.json().catch(() => null),
+        vehRes.json().catch(() => null),
+      ]);
+      // `res.ok` was never checked and the body was never shape-checked, so a
+      // 500 whose body is {error} went straight into the rows state.
+      const { error } = readListPayloads([
+        { name: "Reservations", res: resRes, body: resBody },
+        { name: "Vehicles", res: vehRes, body: vehBody },
+      ]);
+      if (error) throw new Error(error);
+
+      setReservations(resBody as Reservation[]);
+      setVehicles(vehBody as Vehicle[]);
+      setLoadError(null);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "the request failed";
+      // A failed *background* poll stays quiet, which was the sound half of the
+      // original reasoning: the table already holds rows, and blanking them over
+      // one dropped request is worse than leaving them while the next poll either
+      // succeeds or the age becomes obvious.
+      //
+      // A failed *first* load has nothing to preserve, and silence there is what
+      // produced the confident denial. So only that one is surfaced.
+      if (showSpinner) setLoadError(detail);
+    } finally {
       if (showSpinner) setLoading(false);
-    }).catch(() => {
-      // A failed background poll is not worth showing. The next one will
-      // either succeed or the operator will notice stale data; blanking the
-      // table over one dropped request would be worse than leaving it.
-      if (showSpinner) setLoading(false);
-    });
+    }
   }
 
   useEffect(() => { load(); }, []);
@@ -164,6 +189,26 @@ export default function ReservationsPage() {
 
       {loading ? (
         <div className="text-sm text-gray-600">Loading…</div>
+      ) : loadError ? (
+        /* Deliberately not an empty table. §5.3: the operator needs to know the
+           difference between quiet and broken. */
+        <div
+          role="alert"
+          className="bg-white rounded-xl border border-amber-300 p-6 text-sm text-amber-800"
+        >
+          <p className="font-semibold">The reservations could not be loaded.</p>
+          <p className="mt-1">
+            {loadError}. <strong>This is not an empty list</strong> — nothing is known about
+            today&apos;s bookings until this succeeds.
+          </p>
+          <button
+            type="button"
+            onClick={() => load()}
+            className="mt-3 inline-flex min-h-10 items-center rounded-lg border border-amber-400 bg-white px-4 py-2 text-sm font-semibold text-amber-900 transition hover:bg-amber-50"
+          >
+            Try again
+          </button>
+        </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 admin-table-wrap">
           <table className="admin-table w-full text-sm">
