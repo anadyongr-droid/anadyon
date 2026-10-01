@@ -696,3 +696,9 @@ record remains submitted/null as evidence; no production rows changed.
 
 Sentry search across project environment variables returns no results. Monitoring
 acceptance and the independent staging cron configuration remain open.
+
+### 1 October 2026 — Sentry account onboarding
+
+Last verified: 1 October 2026, Codex.
+
+Confirmed authenticated access to organization `anadyon-ike` and created its Next.js project `javascript-nextjs`. Manual setup displays an EU ingestion DSN. No wizard was run, no paid upgrade selected, and no additional telemetry enabled. Saved NEXT_PUBLIC_SENTRY_DSN, SENTRY_ORG and SENTRY_PROJECT as Config values scoped only to Preview/staging and verified the scope in Vercel. Redeployment and browser/server/proxy test-event verification remain pending; account creation alone does not establish working monitoring.
