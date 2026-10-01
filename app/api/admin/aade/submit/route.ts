@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { buildDclXml, UnfilableError, type DclReservation } from "@/lib/aadeXml";
 import { reportHandledError } from "@/lib/sentryReporting";
+import { TIMEOUTS, boundedFetch } from "@/lib/boundedFetch";
 
 // AADE myDATA Digital Client List (DCL) v1.1
 // Docs: https://www.aade.gr/en/mydata/technical-specifications-digital-client-list-portal-publications
@@ -54,15 +55,20 @@ export async function POST(req: NextRequest) {
 
   let aadeRes: Response;
   try {
-    aadeRes = await fetch(AADE_DCL_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/xml; charset=utf-8",
-        "aade-user-id": aadeUser,
-        "Ocp-Apim-Subscription-Key": aadeKey,
+    aadeRes = await boundedFetch(
+      "AADE DCL submission",
+      AADE_DCL_ENDPOINT,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/xml; charset=utf-8",
+          "aade-user-id": aadeUser,
+          "Ocp-Apim-Subscription-Key": aadeKey,
+        },
+        body: xml,
       },
-      body: xml,
-    });
+      TIMEOUTS.filing,
+    );
   } catch (err) {
     await supabaseAdmin.from("reservations").update({ dcl_status: "error" }).eq("id", id);
     reportHandledError(err, "aade", "submit-dcl");

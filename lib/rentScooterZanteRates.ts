@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { durationBand } from "@/lib/competitorRates";
+import { TIMEOUTS, boundedFetch } from "@/lib/boundedFetch";
 
 /**
  * Scooter rates from Rent Scooter Car Zante (Keri Road, Zakynthos).
@@ -211,18 +212,20 @@ export function seasonPickupDate(month: number, now: Date): string {
 }
 
 async function fetchTariff(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: {
-      // Identify honestly rather than impersonating a browser — the same
-      // position as the other three scrapers, and the reason Riderly was
-      // rejected as a target rather than merely found difficult.
-      "User-Agent": "AnadyonRatesBot/1.0 (+https://anadyon.gr; rate comparison)",
-      Accept: "text/html",
+  const res = await boundedFetch(
+    "Rent Scooter Car Zante tariff",
+    url,
+    {
+      headers: {
+        // Identify honestly rather than impersonating a browser — the same
+        // position as the other three scrapers, and the reason Riderly was
+        // rejected as a target rather than merely found difficult.
+        "User-Agent": "AnadyonRatesBot/1.0 (+https://anadyon.gr; rate comparison)",
+        Accept: "text/html",
+      },
     },
-    // §5.3: every external call carries a timeout. W27 is the wider cleanup;
-    // a new caller should not add to the backlog it describes.
-    signal: AbortSignal.timeout(20_000),
-  });
+    TIMEOUTS.scrape,
+  );
   if (!res.ok) throw new Error(`Rent Scooter Car Zante returned ${res.status}`);
   return res.text();
 }

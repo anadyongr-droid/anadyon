@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase";
+import { TIMEOUTS, boundedFetch } from "@/lib/boundedFetch";
 
 /**
  * Competitor rate collection from the EzCar booking platform.
@@ -211,13 +212,18 @@ export function taskMatrixShape(tasks: ScrapeTask[]): string {
 }
 
 async function fetchResults(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: {
-      // Identify honestly rather than impersonating a browser.
-      "User-Agent": "AnadyonRatesBot/1.0 (+https://anadyon.gr; rate comparison)",
-      Accept: "text/html",
+  const res = await boundedFetch(
+    "EzCar search",
+    url,
+    {
+      headers: {
+        // Identify honestly rather than impersonating a browser.
+        "User-Agent": "AnadyonRatesBot/1.0 (+https://anadyon.gr; rate comparison)",
+        Accept: "text/html",
+      },
     },
-  });
+    TIMEOUTS.scrape,
+  );
   if (!res.ok) throw new Error(`EzCar returned ${res.status}`);
   return res.text();
 }

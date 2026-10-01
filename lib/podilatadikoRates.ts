@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { durationBand } from "@/lib/competitorRates";
+import { TIMEOUTS, boundedFetch } from "@/lib/boundedFetch";
 
 /**
  * Bicycle rates from Podilatadiko (Cycling Center Zakynthos).
@@ -82,13 +83,18 @@ export function parseBikePage(html: string, segment: string): BikeOffer[] {
 }
 
 async function fetchPage(path: string): Promise<string> {
-  const res = await fetch(`${BASE}/${path}/`, {
-    headers: {
-      // Identify honestly rather than impersonating a browser.
-      "User-Agent": "AnadyonRatesBot/1.0 (+https://anadyon.gr; rate comparison)",
-      Accept: "text/html",
+  const res = await boundedFetch(
+    `Podilatadiko ${path}`,
+    `${BASE}/${path}/`,
+    {
+      headers: {
+        // Identify honestly rather than impersonating a browser.
+        "User-Agent": "AnadyonRatesBot/1.0 (+https://anadyon.gr; rate comparison)",
+        Accept: "text/html",
+      },
     },
-  });
+    TIMEOUTS.scrape,
+  );
   if (!res.ok) throw new Error(`Podilatadiko ${path} returned ${res.status}`);
   return res.text();
 }

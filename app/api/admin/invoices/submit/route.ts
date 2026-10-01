@@ -6,6 +6,7 @@ import {
   type InvoiceReservation,
 } from "@/lib/aadeXml";
 import { reportHandledError } from "@/lib/sentryReporting";
+import { TIMEOUTS, boundedFetch } from "@/lib/boundedFetch";
 
 // AADE myDATA e-Invoicing
 // Mandatory from 1 October 2026 (Phase B — all businesses)
@@ -66,15 +67,20 @@ export async function POST(req: NextRequest) {
 
   let aadeRes: Response;
   try {
-    aadeRes = await fetch(MYDATA_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/xml; charset=utf-8",
-        "aade-user-id": aadeUser,
-        "Ocp-Apim-Subscription-Key": aadeKey,
+    aadeRes = await boundedFetch(
+      "AADE myDATA submission",
+      MYDATA_ENDPOINT,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/xml; charset=utf-8",
+          "aade-user-id": aadeUser,
+          "Ocp-Apim-Subscription-Key": aadeKey,
+        },
+        body: xml,
       },
-      body: xml,
-    });
+      TIMEOUTS.filing,
+    );
   } catch (err) {
     await supabaseAdmin.from("reservations").update({ invoice_status: "error" }).eq("id", id);
     reportHandledError(err, "invoice", "submit-mydata");

@@ -1568,6 +1568,11 @@ Twilio, Apify, AADE, Resend and the three rate scrapers all call out with no
 timeout at all — **W27**. The second rule is what rows 2, 6, 7 and 8 above fail,
 each in its own way.
 
+*Closed 1 October: see the W27 entry below. Eleven unbounded calls were found and
+bounded, the rule is now enforced by a test that walks the source rather than by
+this paragraph, and the sentence naming Resend above was wrong — it was already
+bounded.*
+
 **The competitor-feeds row sat unbuilt for a month, and that is worth recording
 rather than quietly ticking off.** *Added 28 September 2026, Claude, after Tasos
 asked on the Market screen "I don't see when we last imported the rates" and
@@ -1665,6 +1670,54 @@ Resend and all three rate scrapers call out unbounded. The August incident was
 an unbounded call on a slow day, and the fix was applied to that one call rather
 than to the rule it was an instance of — which is precisely the shape of failure
 this whole section was written to name.
+
+**W27 closed 1 October, and one line of the paragraph above was wrong.** Eleven
+unbounded server-side calls were found by walking the source rather than by
+re-reading the audit: the six Apify calls, the two AADE filing endpoints, the
+EzCar and Podilatadiko scrapers, and the `open.er-api.com` currency lookup the
+audit had not noticed at all. **Resend was never unbounded** — `lib/mailer.ts`
+has raced every send against an 8s timer since the queued-mail work, so the
+sentence naming it was an unverified claim in a document whose own §8 forbids
+them. Twilio was closed by W25 and the Rent Scooter Car Zante scraper was
+bounded when it was written the same morning.
+
+`lib/boundedFetch.ts` now holds the budgets, named and reasoned once — 8s for a
+vendor API, 30s for a dataset, 20s for a scrape, 25s for a government filing —
+with the ceiling on all of them being Vercel's `maxDuration`, since a timeout
+longer than the platform's own is a comment rather than a timeout.
+
+**The helper is the smaller half.** Adding a timeout to eleven callers is a
+morning's work and it was never what was missing: the rule was *stated* in this
+section and honoured in four files, because nothing checked. So the deliverable
+is `lib/boundedFetch.test.ts`, which walks every server-side `fetch(` in `lib/`
+and `app/api/` and **fails naming any that is unbounded** — proven against a
+newly-added bare caller, not merely against the eleven it was written for. A
+twelfth caller next month cannot quietly reopen this.
+
+Scope is deliberate. Browser `fetch("/api/…")` calls are left alone: a hung
+same-origin request costs one spinner in one tab and the user can reload,
+whereas an unbounded call inside a serverless function holds the invocation open
+until the platform kills it. The four callers that already bound their calls were
+left in the shapes they chose, each fitted to what it does next — a signal passed
+into a closure, a reason string for `alert_outbox`, a `Promise.race` around an
+SDK that takes no signal — because rewriting working code to satisfy a test is
+churn carrying a regression risk. The test accepts any of those; what it does not
+accept is a bare `fetch`. One exemption exists, matched on the line and not the
+file: the `fetch` inside Faros's `buildPageFunction` is a string evaluated in
+Apify's own browser, bounded by `pageFunctionTimeoutSecs`. Matching the line
+matters — the same module makes three real Apify calls that are this rule's
+business, and a file-level exemption silently cleared all three on the first
+attempt.
+
+**What a timeout does not decide.** The helper abandons a slow call and throws;
+it does not choose what happens next, because §5.3's three rules differ per
+caller. A scrape that times out is a skipped source. A Telegram alert is queued.
+**An AADE filing that times out is genuinely ambiguous** — the submission may
+have been accepted with the answer lost — and the route currently records it as
+`error` and answers 502. That does not claim a false success, which is the rule
+that matters, but it does assert a failure that is not established. Recording an
+*unknown* filing distinctly is W26's business, where the backlog view lives,
+and it is noted there rather than invented here.
 
 **What the audit says about the method, not the rows.** The competitor-feeds row
 was missed because a rule in a table nobody re-reads is a rule that does not
