@@ -7,7 +7,7 @@ directly out of the broker's emails: see §1a.**
 This document is the reference for what may be offered, promised and published.
 `DEFINING-STATEMENTS.md` §10 makes that binding.
 
-**Last verified:** 28 September 2026, Claude — eight policies read from the broker's own PDF attachments, taking the fleet's insurers from two to **four** — **ERGO Ασφαλιστική** and **Triglav/Apeiron**, neither of which this document knew about (§1a). Earlier: 20 September 2026, Codex — official Euroins rental-car IPID and public motor terms located and read through the search index; the exact terms edition incorporated into policy 9190600829 still requires the broker (§7).
+**Last verified:** 30 September 2026, Claude — the broker's own list of every currently open policy, received 29 September, recorded in §1a. It closes F2: the motorbikes were renewed and run to 11 October, and it supersedes two rows that were describing lapsed policies as current. Earlier: 28 September 2026, Claude — eight policies read from the broker's own PDF attachments, taking the fleet's insurers from two to **four** — **ERGO Ασφαλιστική** and **Triglav/Apeiron**, neither of which this document knew about (§1a). Earlier: 20 September 2026, Codex — official Euroins rental-car IPID and public motor terms located and read through the search index; the exact terms edition incorporated into policy 9190600829 still requires the broker (§7).
 
 **Scope caveat, stated once and applying throughout.** All three documents are
 **certificates** — the schedule of what is covered, for how much, at what
@@ -111,6 +111,60 @@ transcribed. Two-digit years are reproduced as the Euroins documents write them.
 | ΙΟΗ 8395 | Euroins | 9190596178 | 08/06/26 | 08/09/26 |
 | ΙΟΖ 4176 | Euroins | 9190600829 | 04/07/26 | **04/10/26** |
 | ΙΟΕ 2356 | Euroins | 9190600830 | 04/07/26 | **04/10/26** |
+
+### The broker's own list of what is currently open — 29 September 2026
+
+*Added 30 September 2026, Claude, from the broker's reply in thread
+`ΑΣΦΑΛΕΙΑ ΙΜΙ2840`, sent 29 September at 09:55 in answer to Tasos's 28 September
+request for **all policies open this period**.*
+
+**This is what closed the motorbike question.** Open item F2 escalated the fact
+that §1 recorded both motorbikes expiring **11 September 2026** with nothing on
+file saying they had been renewed. They were. Nine of them now run to
+**11 October 2026**, and the broker lists eleven motorbikes where this document
+knew of two.
+
+| Plate | Expires | Days from 30 Sep |
+|---|---|---:|
+| ΙΟΖ 4176 | **4 October** | **4** |
+| ΙΟΕ 2356 | **4 October** | **4** |
+| ΙΡΜ 6966 | 8 October | 8 |
+| ΖΒΒ 564 · ΖΒΒ 565 · ΖΒΒ 566 · ΖΒΒ 567 | 11 October | 11 |
+| ΗΒΙ 1560 · ΗΒΙ 1569 · ΗΒΙ 1570 · ΗΒΙ 1837 | 11 October | 11 |
+| ΙΜΙ 2840 | 16 October | 16 |
+| ΗΒΙ 467 | 27 October | 27 |
+| ΗΒΙ 1568 | 4 November | 35 |
+| ΖΑΖ 9892 | 9 November | 40 |
+| ΙΟΗ 8395 | 8 December | 69 |
+
+The broker groups the last eleven under the heading **ΜΗΧΑΝΑΚΙΑ** — motorbikes —
+which is also the first record here of **ΗΒΙ 467 being a motorbike** rather than
+a car.
+
+**Read this as the broker's assertion, not as a certificate.** §8 applies: the
+table above is a list of dates typed into an email, where the eight rows earlier
+in this section were read out of policy PDFs. It is the better source for *what
+is current* — it is three weeks newer and it is the answer to a direct question
+about open policies — and the weaker source for *what is covered*, since it
+carries no policy number, insurer or terms. Where the two overlap they agree on
+ΙΟΖ 4176, ΙΟΕ 2356, ΙΡΜ 6966, ΙΜΙ 2840 and ΗΒΙ 467.
+
+**Two rows this supersedes.** The PDFs had **ΖΑΖ 9892** ending 09/08/2026 and
+**ΙΟΗ 8395** ending 08/09/26 — both already past. The broker's list puts them at
+9 November and 8 December, so both were renewed and this document was describing
+lapsed policies as though they were the current ones.
+
+**Seventeen vehicles, and the fleet is twenty-nine.** The other twelve are not
+in the broker's answer to a question that asked for everything open. At least
+one is explained — ΗΒΙ 1568 was described on 15 June as *ΑΣΦΑΛΙΣΜΕΝΟ ΙΔΙΩΤΙΚΟ*,
+privately insured, and ΗΒΙ 1566 as being at the workshop — so some are plausibly
+off-fleet or insured elsewhere. **Which twelve, and why, is not established**,
+and it is the remaining half of F1 rather than a finding of this section.
+
+**This still does not enter the dates into the system**, which is what actually
+switches on the stop-sell. `lib/fleetStatus.ts` scores a vehicle with no
+recorded expiry as `unknown`, and `rentalBar` bars only on `expired` — so every
+one of these vehicles rents today with no statutory check. F1 is where that sits.
 
 **This corroborates §1 rather than replacing it.** ΙΟΖ 4176 on policy
 **9190600829** to **04/10/2026** is exactly what §1 records for the car from the
