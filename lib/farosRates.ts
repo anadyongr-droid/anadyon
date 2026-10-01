@@ -149,11 +149,20 @@ export async function startFarosRun(token: string): Promise<{ runId: string; dat
   return { runId: json.data.id, datasetId: json.data.defaultDatasetId };
 }
 
-export async function getRunStatus(token: string, runId: string): Promise<{ status: string; datasetId: string }> {
+export async function getRunStatus(
+  token: string,
+  runId: string
+): Promise<{ status: string; datasetId: string; finishedAt: string | null }> {
   const res = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${encodeURIComponent(token)}`);
   if (!res.ok) throw new Error(`Apify status failed (${res.status})`);
   const json = await res.json();
-  return { status: json.data.status, datasetId: json.data.defaultDatasetId };
+  // `finishedAt` is what dates a recovered dataset. Without it, a run left
+  // unread overnight would be logged as an import that happened this morning.
+  return {
+    status: json.data.status,
+    datasetId: json.data.defaultDatasetId,
+    finishedAt: json.data.finishedAt ?? null,
+  };
 }
 
 interface FarosVehicle {

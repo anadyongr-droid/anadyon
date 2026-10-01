@@ -14,7 +14,16 @@ import { relativeAge, type SourceFreshness } from "@/lib/rateSourceFreshness";
  * in Europe/Athens, so this cannot disagree with the Market panel.
  */
 function LastImported({ source }: { source: SourceFreshness | undefined }) {
-  if (!source) return null;
+  // Never render nothing.
+  //
+  // This returned null when `source` was undefined, so a failed or empty
+  // freshness request left the card looking exactly as it did before the
+  // feature existed - and that is what Tasos reported as "I still don't see
+  // the import date". Blueprint §5.3 is explicit that degraded state is shown
+  // rather than hidden, and this was built to satisfy §5.3.
+  if (!source) {
+    return <div className="text-xs mt-1.5 text-amber-700">Last import date unavailable</div>;
+  }
   const tone =
     source.staleness === "fresh" ? "text-gray-600"
     : source.staleness === "ageing" ? "text-amber-700"
@@ -24,6 +33,10 @@ function LastImported({ source }: { source: SourceFreshness | undefined }) {
       {source.lastImportedLabel
         ? `Imported ${source.lastImportedLabel} · ${relativeAge(source.ageDays)}`
         : "Never imported"}
+      {source.derived && (
+        // Said out loud: this is the newest stored row, not a recorded run.
+        <span className="text-gray-600"> (from the newest stored price)</span>
+      )}
     </div>
   );
 }

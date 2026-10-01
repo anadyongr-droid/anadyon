@@ -15,6 +15,85 @@ wrong place.
 
 ---
 
+## 30 September 2026 — Claude, implementer
+
+**Last verified:** 30 September 2026, Claude.
+
+**Agent summary:** [`2026-09-30-claude.md`](worklog/2026-09-30-claude.md).
+
+Two closures, and both came from reading rather than building.
+
+- **F2 closed by the §12 calendar check.** The dated item said the motorbikes
+  expired 11 September with no record of renewal, and its own text still read
+  *"Today is 20 September"*. Checking it against the calendar meant searching
+  the broker's mailbox, where the answer had been sitting since 29 September:
+  every current expiry, nine motorbikes running to 11 October. Recorded in
+  `INSURANCE-COVER-AND-RESTRICTIONS.md` §1a as the broker's assertion, not as a
+  certificate — it carries dates but no policy numbers, insurers or terms, so B2
+  and B5 still need the PDFs.
+- **W19 closed — the §5.3 dependency table audited row by row.** Blueprint
+  **§5.3a**, and the table now carries a verdict per row. Five built, two partly,
+  two not at all. **W23–W27** opened for the gaps; nothing was fixed inside the
+  audit.
+
+**The audit's own finding is the interesting one.** Competitor-feeds was
+diagnosed on 28 September as "a rule in a table nobody re-reads". That was true
+and incomplete: the table had never been read against the code at all, so nine
+other rows carried the same risk silently for five weeks. One of them —
+`app/api/admin/sms/route.ts` — awaits Twilio with no try/catch, so a failure is
+an unhandled rejection, while the row it is asked to copy sits directly above it
+in the same table. The verdict now lives in the table with an item number beside
+each gap, because a principle checked once in a worklog is a principle that
+scrolls away.
+
+**And a recommendation reversed before it was acted on.** Tasos authorised the
+Apify spend for a motorbike scraper; working out how to use it established that
+the target it was for — Riderly — can only be scraped by presenting as a
+browser, which `lib/competitorRates.ts` and `lib/podilatadikoRates.ts` both
+reject in writing. Famozo needs no browser and no spend. Blueprint §1.6a.
+
+---
+
+## 29 September 2026 (afternoon) — Claude, implementer
+
+**Last verified:** 29 September 2026, Claude.
+
+**Agent summary:** [`2026-09-29-claude.md`](worklog/2026-09-29-claude.md), second
+section. **Merged:** #181. **Open at close:** #182.
+
+Three open items closed and one narrowed. What they had in common is worth
+naming: each was a case where the system's behaviour was defensible in isolation
+and wrong once you looked at what the operator actually did with it.
+
+- **W21 — the repricing tool is finished.** The engine merged in the morning
+  with nothing on screen able to reach it; `RepricingPanel.tsx` is the control.
+  It proposes and cannot save: no `fetch` of any kind, enforced by a test.
+  **Merging it approved no price** — §13 is unaffected by any of this.
+- **W20 — an abandoned Apify run is now collected rather than restarted.** Both
+  importers ingest in the polling `GET`, so a closed tab stranded a finished run
+  and the next press paid for another. That is why Faros and CarRentals sat at
+  16 August while EzCar refreshed.
+- **The scooters were tasks 19–27 of 27**, so every pass left early collected
+  cars and no bikes. This, not the null-`car_group` bug fixed in #178, is why
+  there was nothing to map. Both were real; only one had been found.
+- **W22 — surveyed, not built.** Almost nobody on Zakynthos publishes motorbike
+  prices over plain HTTP. The two candidates that carry them need a browser, and
+  this sandbox cannot render either page, so writing a parser would have meant
+  guessing at markup. Blueprint **§1.6a** records the evidence and what unblocks
+  each; **`docs/OPEN-ITEMS.md` W22** carries the remaining step.
+
+### A defect introduced and removed the same day
+
+The import log added that morning recorded a completed CarRentals import after
+**each** of its nine searches — the partial-batch overstatement its own header
+forbids. Found while fixing W20, in code written hours earlier. The interesting
+part is that it passed review and a full test run: the two tests covering it
+scanned the source for a `recordImportCompleted` next to an ingest, which was
+true nine times over. A rule stated in a doc comment is not enforced by a test
+that agrees with it loosely.
+
+---
+
 ## 28–29 September 2026 — Claude and Codex, implementers
 
 **Last verified:** 29 September 2026, Claude.

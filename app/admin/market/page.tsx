@@ -9,7 +9,9 @@ import {
   type SourceFreshness,
   type Staleness,
 } from "@/lib/rateSourceFreshness";
+import { applyProposals, type Proposal } from "@/lib/targetPricing";
 import { useIsAdmin } from "../RoleContext";
+import RepricingPanel from "./RepricingPanel";
 
 type RateField = "rate_1_2" | "rate_3_6" | "rate_7plus";
 
@@ -37,7 +39,12 @@ interface CompareRow {
   rate_field: RateField;
   pricing_group: string;
   season_name: string;
+  // `month` and `band` were returned by the comparison API from the start but
+  // never declared here, because nothing on the screen used them. The repricing
+  // panel does: it filters by month and has one rule that keys on the band.
+  month: number;
   month_name: string;
+  band: string;
   band_label: string;
   ours: number;
   competitors: CompCell[];
@@ -76,7 +83,16 @@ const FRESHNESS_STYLE: Record<Staleness, { dot: string; text: string }> = {
 };
 
 function FreshnessPanel({ sources }: { sources: SourceFreshness[] }) {
-  if (!sources.length) return null;
+  // Rendered even when the request came back empty. Returning null here hid the
+  // panel entirely on a failure, which looks identical to a screen that never
+  // had one - the failure mode §5.3 exists to prevent.
+  if (!sources.length) {
+    return (
+      <section className="bg-white rounded-xl border border-gray-200 mb-6 px-5 py-3 text-sm text-amber-700">
+        Could not read when the competitor rates were last imported.
+      </section>
+    );
+  }
   const summary = summariseFreshness(sources);
   const headline = FRESHNESS_STYLE[summary.staleness];
 
@@ -209,19 +225,57 @@ export default function MarketPage() {
     );
   }
 
-  async function startRateEditing() {
-    setRateLoading(true);
-    setRateNote(null);
+  /**
+   * The current rate card, or null if it could not be read.
+   *
+   * Returns the rows rather than only setting state, because the repricing
+   * panel needs them in the same tick: React will not have applied a `setState`
+   * by the time the next line runs, so applying proposals to `rateDrafts` after
+   * loading would reprice whatever was there before — an empty array on the
+   * first use.
+   */
+  async function loadRateDrafts(): Promise<Rate[] | null> {
     const res = await fetch("/api/admin/rates?fresh=1", { cache: "no-store" });
     const data = await res.json();
     if (!res.ok) {
       setRateNote(data.error ?? "Rates could not be loaded.");
-      setRateLoading(false);
-      return;
+      return null;
     }
-    setRateDrafts(data.rates ?? []);
-    setEditingRates(true);
+    return (data.rates ?? []) as Rate[];
+  }
+
+  async function startRateEditing() {
+    setRateLoading(true);
+    setRateNote(null);
+    const loaded = await loadRateDrafts();
+    if (loaded) {
+      setRateDrafts(loaded);
+      setEditingRates(true);
+    }
     setRateLoading(false);
+  }
+
+  /**
+   * Fills the rate editor from a repricing preview. It does not save.
+   *
+   * `DEFINING-STATEMENTS.md` §13 is why this stops here: a price change needs
+   * Tasos's explicit approval of that specific change, so the proposals land in
+   * the same drafts a manual edit uses and the existing Save Rates button is
+   * the only thing that writes.
+   */
+  async function applyRepricing(proposals: Proposal[]) {
+    setRateNote(null);
+    // Reprice what is on screen if the editor is already open — the operator may
+    // have typed a figure by hand, and silently reloading would discard it.
+    const base = editingRates ? rateDrafts : await loadRateDrafts();
+    if (!base) return;
+
+    setRateDrafts(applyProposals(base, proposals));
+    setEditingRates(true);
+    setRateNote(
+      `${proposals.length} rate${proposals.length === 1 ? "" : "s"} filled in. ` +
+        "Check them, then press Save Rates — nothing is written until you do."
+    );
   }
 
   function updateRate(id: string, field: RateField, value: string) {
@@ -344,6 +398,19 @@ export default function MarketPage() {
       </p>
 
       <FreshnessPanel sources={sources} />
+
+      {/* Staff cannot save a rate, so offering them a repricing preview would
+          end at a Save they do not have — the same reason Edit Rates is hidden
+          from them. Hidden entirely rather than disabled: a control that can
+          never do anything is not information. */}
+      {isAdmin && rows.length > 0 && (
+        <RepricingPanel
+          rows={rows}
+          competitors={competitors}
+          onApply={applyRepricing}
+          disabled={rateSaving}
+        />
+      )}
 
       {/* Comparison */}
       <h2 className="font-semibold text-gray-900 text-sm mb-3">Comparison</h2>

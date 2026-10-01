@@ -26,13 +26,15 @@ export interface RateSource {
  * have been imported at least once — a source that has *never* run simply would
  * not appear, which is precisely the case the admin most needs to see. The
  * slugs and labels mirror the importers: `lib/competitorRates.ts`,
- * `lib/farosRates.ts`, `lib/carRentalsRates.ts`, `lib/podilatadikoRates.ts`.
+ * `lib/farosRates.ts`, `lib/carRentalsRates.ts`, `lib/podilatadikoRates.ts`,
+ * `lib/rentScooterZanteRates.ts`.
  */
 export const RATE_SOURCES: RateSource[] = [
   { source: "ezcar", label: "Ionian Rentals & Motor Club Zante" },
   { source: "faros", label: "Faros Rentals" },
   { source: "carrentals", label: "CarRentals.com (majors)" },
   { source: "podilatadiko", label: "Podilatadiko (bicycles)" },
+  { source: "rentscooterzante", label: "Rent Scooter Car Zante (scooters)" },
 ];
 
 export type Staleness = "never" | "fresh" | "ageing" | "stale";
@@ -51,6 +53,16 @@ export interface SourceFreshness {
   /** Whole calendar days, or null if never imported. */
   ageDays: number | null;
   staleness: Staleness;
+  /**
+   * True when the date was inferred from the newest stored row rather than read
+   * from the import log.
+   *
+   * That inference is what made an import run yesterday report as today: rows
+   * are upserted, so re-touching one moves its timestamp without new data
+   * arriving. It remains as a fallback for sources imported before the log
+   * existed, and is flagged rather than presented as a recorded fact.
+   */
+  derived: boolean;
 }
 
 /**
@@ -148,7 +160,8 @@ export function describeSource(
   src: RateSource,
   lastImported: string | null,
   now: Date,
-  timeZone: string = BUSINESS_TIME_ZONE
+  timeZone: string = BUSINESS_TIME_ZONE,
+  derived = false
 ): SourceFreshness {
   const ageDays = ageInDays(lastImported, now, timeZone);
   // A timestamp that failed to parse is reported as never imported rather than
@@ -161,6 +174,7 @@ export function describeSource(
     lastImportedLabel: usable === null ? null : formatImportDate(usable, timeZone),
     ageDays,
     staleness: classifyAge(ageDays),
+    derived: usable === null ? false : derived,
   };
 }
 
