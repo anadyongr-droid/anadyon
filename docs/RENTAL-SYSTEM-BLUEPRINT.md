@@ -1709,6 +1709,61 @@ matters — the same module makes three real Apify calls that are this rule's
 business, and a file-level exemption silently cleared all three on the first
 attempt.
 
+**Three defects in the sweep itself, found by review rather than by me.** All
+three are recorded because each is a *class* of mistake rather than a slip, and
+the class is the useful part.
+
+**A bounded call is not a bounded response.** `fetch` resolves when the response
+*headers* arrive, and the abort signal stays attached to the body stream — so a
+vendor answering inside the budget and then stalling makes `.text()` reject. On
+both AADE routes that read sat *outside* the recovery block, so the rejection
+escaped after `claim_dcl_submission` had already set `dcl_status = 'submitting'`,
+and `001_baseline.sql` refuses to re-claim anything already `submitting`:
+
+```sql
+IF v_status IN ('submitted','submitting') THEN RETURN false;
+```
+
+**The filing would have been permanently unretryable** — every later attempt a
+409, recoverable only by a manual `UPDATE`. The shape pre-dated the timeout (a
+reset connection mid-body did the same) but bounding the call turned a rare
+accident into something the budget itself triggers. The body read now sits inside
+the block that writes the re-claimable `error` status, and
+`lib/filingBodyTimeout.test.ts` asserts both that and the migration's refusal that
+makes the consequence permanent.
+
+**A per-call budget does not bound a route.** `TIMEOUTS.scrape` at 20s is safe
+for one call and unsafe for the route that makes several: the scrape route runs
+four EzCar searches with three *mandatory* 10-second crawl delays under
+`maxDuration = 60`, so 30 seconds are spent sleeping before any call counts, and
+the final batch adds Podilatadiko's three pages and the scooter tariff. The
+platform would kill the invocation **before the cursor is written**, losing the
+batch's progress — a timeout producing no degraded state, which is what this
+section forbids. This was the module's own stated rule ("the ceiling is Vercel's
+`maxDuration`") applied per call and not per route.
+
+No constant fixes it, and that is the point: the call count varies from four to
+eight, so any figure small enough for the worst case is needlessly short for the
+common one and makes a slow-but-working source fail. `routeBudget` therefore
+shares one ceiling and draws it down — counting the crawl delays, holding a
+reserve back for the cursor write, and skipping a call too short to be worth
+starting so the cursor stays where work stopped and the next call resumes there.
+
+**A guard that can be fooled is worse than no guard, because it reports clean.**
+The sweep first read a fixed 14-line window after each `fetch(`, so a bare call
+immediately followed by a properly bounded one passed — the shape a careless
+addition actually takes. It now extracts the parenthesis-balanced call
+expression and matches only that. Writing the fixture for it exposed a second
+false pass of the same class: the expression still contained its own string
+contents, so a URL carrying `signal:` satisfied the pattern. Literals are now
+blanked before matching. Both are fail-first controls, and the scanner is pinned
+by seven fixtures rather than trusted.
+
+A balanced-bracket scan was chosen over a full AST parse deliberately: the test
+suite has no TS parser among its dependencies, and adding one to a guard test is
+a dependency to maintain for the life of the rule. The fixture set is where the
+next mis-read goes.
+
 **What a timeout does not decide.** The helper abandons a slow call and throws;
 it does not choose what happens next, because §5.3's three rules differ per
 caller. A scrape that times out is a skipped source. A Telegram alert is queued.
