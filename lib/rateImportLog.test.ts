@@ -60,7 +60,13 @@ describe("completion is recorded only when a pass actually completes", () => {
     // A partial batch has refreshed some searches and not others. Dating the
     // import from it would overstate how current the prices are, which is the
     // defect the log replaces.
-    const done = SCRAPE.slice(SCRAPE.indexOf("if (done) {"));
+    // Matched on the `done` guard rather than the exact condition text: the
+    // route's final batch now also checks it can afford the extra calls
+    // (`routeBudget`, W27), and this test's subject is *which branch records the
+    // import*, not how that branch is spelled.
+    const guard = SCRAPE.match(/if \(done\b.*?\) \{/);
+    expect(guard, "the done-guarded branch").not.toBeNull();
+    const done = SCRAPE.slice(SCRAPE.indexOf(guard![0]));
     const block = done.slice(0, done.indexOf("\n  }\n"));
     expect(block).toContain('recordImportCompleted("ezcar")');
     expect(block).toContain('recordImportCompleted("podilatadiko")');
