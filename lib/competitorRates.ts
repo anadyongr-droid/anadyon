@@ -211,7 +211,7 @@ export function taskMatrixShape(tasks: ScrapeTask[]): string {
   return tasks.map(t => `${t.tenant.slug}/${t.days}${t.isBike ? "b" : "c"}`).join(",");
 }
 
-async function fetchResults(url: string): Promise<string> {
+async function fetchResults(url: string, timeoutMs: number = TIMEOUTS.scrape): Promise<string> {
   const res = await boundedFetch(
     "EzCar search",
     url,
@@ -222,7 +222,7 @@ async function fetchResults(url: string): Promise<string> {
         Accept: "text/html",
       },
     },
-    TIMEOUTS.scrape,
+    timeoutMs,
   );
   if (!res.ok) throw new Error(`EzCar returned ${res.status}`);
   return res.text();
@@ -237,7 +237,16 @@ export interface TaskResult {
   error?: string;
 }
 
-export async function runScrapeTask(task: ScrapeTask): Promise<TaskResult> {
+export async function runScrapeTask(
+  task: ScrapeTask,
+  /**
+   * How long this one call may take. Defaults to the standing scrape budget; the
+   * scrape route passes what is left of its own `maxDuration` instead, because
+   * four calls at 20s plus three mandatory 10s crawl delays overrun the 60s
+   * ceiling and lose the cursor write. See `routeBudget`.
+   */
+  timeoutMs: number = TIMEOUTS.scrape,
+): Promise<TaskResult> {
   const { tenant, pickup, days, isBike } = task;
   const base: TaskResult = {
     competitor: tenant.slug,
@@ -248,7 +257,7 @@ export async function runScrapeTask(task: ScrapeTask): Promise<TaskResult> {
   };
 
   try {
-    const html = await fetchResults(buildSearchUrl(tenant, pickup, days, isBike));
+    const html = await fetchResults(buildSearchUrl(tenant, pickup, days, isBike), timeoutMs);
     const vehicles = extractVehicles(html);
     base.vehicles = vehicles.length;
     if (!vehicles.length) return base;

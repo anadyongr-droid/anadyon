@@ -53,7 +53,21 @@ export async function POST(req: NextRequest) {
     throw err;
   }
 
+  // The body read is inside this block, not after it, and that is load-bearing.
+  //
+  // `boundedFetch` resolves as soon as the response headers arrive, while the
+  // budget's signal stays attached to the body stream — so AADE answering within
+  // the budget and then stalling mid-body makes `.text()` reject. Read outside
+  // the recovery block, that rejection escapes having left the reservation on
+  // the `claim_dcl_submission` claim, and `001_baseline.sql` refuses to re-claim
+  // anything already `submitting`/`issuing`. **The filing would then be
+  // unretryable for good** — a statutory submission stranded by a slow socket.
+  //
+  // Found by the review bot on #190. The shape pre-dated the timeout (a reset
+  // connection mid-body did the same) but bounding the call turned a rare
+  // network accident into something the budget itself triggers.
   let aadeRes: Response;
+  let responseText: string;
   try {
     aadeRes = await boundedFetch(
       "AADE DCL submission",
@@ -69,13 +83,12 @@ export async function POST(req: NextRequest) {
       },
       TIMEOUTS.filing,
     );
+    responseText = await aadeRes.text();
   } catch (err) {
     await supabaseAdmin.from("reservations").update({ dcl_status: "error" }).eq("id", id);
     reportHandledError(err, "aade", "submit-dcl");
     return NextResponse.json({ error: "Network error reaching AADE DCL API" }, { status: 502 });
   }
-
-  const responseText = await aadeRes.text();
   if (!aadeRes.ok) {
     await supabaseAdmin.from("reservations").update({ dcl_status: "error" }).eq("id", id);
     return NextResponse.json(

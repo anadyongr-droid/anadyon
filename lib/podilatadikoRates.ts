@@ -82,7 +82,7 @@ export function parseBikePage(html: string, segment: string): BikeOffer[] {
   return offers;
 }
 
-async function fetchPage(path: string): Promise<string> {
+async function fetchPage(path: string, timeoutMs: number = TIMEOUTS.scrape): Promise<string> {
   const res = await boundedFetch(
     `Podilatadiko ${path}`,
     `${BASE}/${path}/`,
@@ -93,7 +93,7 @@ async function fetchPage(path: string): Promise<string> {
         Accept: "text/html",
       },
     },
-    TIMEOUTS.scrape,
+    timeoutMs,
   );
   if (!res.ok) throw new Error(`Podilatadiko ${path} returned ${res.status}`);
   return res.text();
@@ -114,7 +114,10 @@ export interface PodilatadikoResult {
  * the row shape identical to every other competitor and lets the Market screen
  * treat them all the same way.
  */
-export async function collectPodilatadiko(): Promise<PodilatadikoResult> {
+export async function collectPodilatadiko(
+  /** Per-page budget; the scrape route passes what is left of its ceiling. */
+  timeoutMs: number = TIMEOUTS.scrape,
+): Promise<PodilatadikoResult> {
   const today = new Date().toISOString().slice(0, 10);
   const result: PodilatadikoResult = { models: 0, stored: 0, segments: [], errors: [] };
   const rows: Record<string, unknown>[] = [];
@@ -122,7 +125,7 @@ export async function collectPodilatadiko(): Promise<PodilatadikoResult> {
   for (const [i, page] of PODILATADIKO_PAGES.entries()) {
     if (i > 0) await new Promise(r => setTimeout(r, PAGE_DELAY_MS));
     try {
-      const offers = parseBikePage(await fetchPage(page.path), page.segment);
+      const offers = parseBikePage(await fetchPage(page.path, timeoutMs), page.segment);
       if (!offers.length) {
         result.errors.push(`${page.segment}: no models parsed — page layout may have changed`);
         continue;

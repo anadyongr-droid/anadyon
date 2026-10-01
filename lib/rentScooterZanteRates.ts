@@ -211,7 +211,7 @@ export function seasonPickupDate(month: number, now: Date): string {
   return `${year}-${String(month).padStart(2, "0")}-15`;
 }
 
-async function fetchTariff(url: string): Promise<string> {
+async function fetchTariff(url: string, timeoutMs: number = TIMEOUTS.scrape): Promise<string> {
   const res = await boundedFetch(
     "Rent Scooter Car Zante tariff",
     url,
@@ -224,7 +224,7 @@ async function fetchTariff(url: string): Promise<string> {
         Accept: "text/html",
       },
     },
-    TIMEOUTS.scrape,
+    timeoutMs,
   );
   if (!res.ok) throw new Error(`Rent Scooter Car Zante returned ${res.status}`);
   return res.text();
@@ -246,13 +246,15 @@ export interface RentScooterZanteResult {
  * a package.
  */
 export async function collectRentScooterZante(
-  now: Date = new Date()
+  now: Date = new Date(),
+  /** Budget for the single tariff fetch; the scrape route narrows it. */
+  timeoutMs: number = TIMEOUTS.scrape,
 ): Promise<RentScooterZanteResult> {
   const result: RentScooterZanteResult = { models: 0, stored: 0, months: [], errors: [] };
 
   let entries: TariffEntry[];
   try {
-    entries = parseScooterTariff(await fetchTariff(TARIFF_URL));
+    entries = parseScooterTariff(await fetchTariff(TARIFF_URL, timeoutMs));
   } catch (err) {
     result.errors.push(err instanceof Error ? err.message : "fetch failed");
     return result;

@@ -131,3 +131,55 @@ export async function boundedFetch(
     throw err;
   }
 }
+
+/**
+ * A route-wide budget, because a per-call timeout is not enough on its own.
+ *
+ * **Found by the review bot on #190**, and it was right. `TIMEOUTS.scrape` was
+ * chosen as 20s against Vercel's 60s `maxDuration` — safe for one call, and
+ * unsafe for the route that makes several. `app/api/admin/competitors/scrape`
+ * runs four EzCar searches with three *mandatory* 10-second crawl delays
+ * between them: 30 seconds of the 60 are already spent sleeping, so two slow
+ * calls alone (20 + 20) exceed the ceiling. The final batch adds three
+ * Podilatadiko pages and the scooter tariff on top.
+ *
+ * The consequence is worse than a slow source. The platform kills the
+ * invocation **before the cursor is written**, so the batch's progress is lost
+ * and the next call redoes it — a timeout that produces no degraded state at
+ * all, which is precisely what §5.3 forbids.
+ *
+ * Shrinking the per-call figure cannot fix this, and that is the point worth
+ * recording: the call count is variable (four on most batches, eight on the
+ * last), so any constant small enough for the worst case is needlessly short
+ * for the common one. The budget has to be shared and drawn down.
+ *
+ * `reserveMs` is what the route still needs *after* its last call — writing the
+ * cursor, recording the import, building the response. A call allowed to run to
+ * the ceiling leaves nothing for the write that records what happened, which is
+ * the same silent failure one level in.
+ */
+export function routeBudget(
+  ceilingMs: number,
+  opts: { reserveMs?: number; now?: () => number } = {},
+): {
+  /** Milliseconds left for calls, never negative. */
+  remaining(): number;
+  /** The budget for one call: the smaller of what it wants and what is left. */
+  forCall(preferredMs: number): number;
+  /** Whether there is enough left to be worth starting another call. */
+  canAfford(minimumMs: number): boolean;
+} {
+  const now = opts.now ?? (() => Date.now());
+  const reserve = opts.reserveMs ?? 3_000;
+  const started = now();
+
+  const remaining = () => Math.max(0, ceilingMs - reserve - (now() - started));
+
+  return {
+    remaining,
+    forCall: (preferredMs: number) => Math.min(preferredMs, remaining()),
+    // A call given a millisecond or two is a call that fails slowly instead of
+    // being skipped honestly, so the caller asks before starting one.
+    canAfford: (minimumMs: number) => remaining() >= minimumMs,
+  };
+}
