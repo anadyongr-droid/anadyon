@@ -5,6 +5,18 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Manual run, for the case E11 records: twice on 1 October a pull request
+  # opened for an already-pushed commit received no Actions runs at all, only
+  # the Vercel status, so it read as "nothing failing" with nothing having run.
+  # Both were recovered by a later push, which is only available while the
+  # branch is behind its base — once it is level there is no legitimate push to
+  # make, and an empty commit to kick CI is not one.
+  #
+  # `alert-test.yml` and `backup.yml` already carry this trigger. Whether a
+  # dispatched run satisfies branch protection's required checks on the head
+  # commit is NOT yet confirmed; it is here so the next lost trigger can be
+  # recovered and that question answered, rather than as a proven fix.
+  workflow_dispatch:
 
 jobs:
   build:
