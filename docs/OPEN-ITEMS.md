@@ -1,12 +1,11 @@
 # Open items
 
-**Last verified:** 30 September 2026, Claude — dated items checked against the
-calendar, and **W19's §5.3 audit completed**, which opened W23–W27. F2 closed: the
-broker's 29 September list confirms the motorbikes were renewed and gives every
-current expiry, folded into F1 and recorded in
-`INSURANCE-COVER-AND-RESTRICTIONS.md` §1a. **Two cars expire in 4 days and nine
-motorbikes in 11, and none of those dates is in the database yet.** W20, W21 and
-W22 were closed or narrowed on 29 September.
+**Last verified:** 1 October 2026, Claude — W25's unhandled rejection fixed; the
+rest of that item needs a migration and is restated. W19's §5.3 audit closed on
+30 September, opening W23–W27. F2 closed. **Two cars expire 4 October — three
+days — and nine motorbikes on 11 October; none of those dates is in the database
+yet.** W22's two scrapers are not buildable from an agent session: see the note
+on that item.
 
 **Read this first, every day.** [`DEFINING-STATEMENTS.md` §12](../DEFINING-STATEMENTS.md)
 makes it obligatory for every agent, before picking up a task.
@@ -97,7 +96,7 @@ under `supabase/migrations/paste/`.
 
 | W24 | **A Wise deposit is awaited by nobody — there is no reconciliation surface at all.** Found by the §5.3 audit. `lib/wise.ts` constructs a payment URL and `POST /api/admin/wise/deposit-link` returns it; that is the entire feature. Wise has no webhook — the file says so itself — so the failure mode is **silence**, and §5.3 requires that *"an unreconciled Wise deposit must appear as outstanding work, not sit unnoticed until someone checks the bank."* Nothing records that a deposit is expected, nothing lists the outstanding ones, nothing ages them. **This is the gap with money on the other side of it**, and it is the one an operator cannot compensate for by being careful, because there is nothing on any screen to be careful about. **Design note:** the shape to copy is `booking_email_deliveries` — a row per expected payment, aged, with an admin view of what is outstanding. | Agent |
 
-| W25 | **The SMS route throws on a Twilio failure — no catch, no timeout, no record.** Found by the §5.3 audit. `app/api/admin/sms/route.ts` ends `await client.messages.create(...)` bare: a failure is an unhandled rejection, the caller gets a framework 500, nothing is written against the reservation and nothing is surfaced. §5.3 requires *"a failed message is logged against the reservation and surfaced the way a failed email already is"* — and there is no SMS analogue of `booking_email_deliveries` for it to be surfaced from. **The model sits one row above it in the same table:** `lib/auditedMail.ts` and `lib/emailWorkflowStage.ts` do exactly this for email, including the banner on the reservation row. **Fix:** catch, bound the call, record the attempt and its outcome, surface a failure the way a failed email already is. | Agent |
+| W25 | **The throw is fixed; the delivery record is not.** Found by the §5.3 audit. **Done 1 October:** `app/api/admin/sms/route.ts` no longer awaits Twilio bare — the call is bounded at 8s through `RequestClient`'s socket timeout (the same figure `proxy.ts` uses, from the August outage), a failure returns **502 with a stated message** saying the customer has not received it, and the admin's `SmsButton` no longer hangs on *"Sending…"* when the body is not JSON. Four of nine new tests fail against the bare `await`. **Still open — the half that needs a migration.** §5.3 asks for *"a failed message logged against the reservation and surfaced the way a failed email already is"*, and there is no SMS analogue of `booking_email_deliveries`. A failure is now *answered* but still not *recorded*: close the modal and the fact that it failed is gone. **Next step:** a numbered migration plus its byte-identical `supabase/migrations/paste/` copy for an `sms_deliveries` table — granted to `service_role` in the same migration — then record each attempt and surface it the way `deliveryNeedsAttention` already does for email. The migration is Tasos's to apply. | Agent, then **Tasos** to apply the migration |
 
 | W26 | **An AADE submission that failed is a badge, not a task.** Found by the §5.3 audit. The submit route writes `dcl_status: "error"` on a validation failure, a network failure and a non-2xx response, and the reservations list shows a red `!` — so a failure **is** visible on that reservation. The other half of §5.3's row is missing: *"queue for resubmission and surface the backlog."* There is no resubmission mechanism, no view of everything sitting in `dcl_status = 'error'`, and no aging — so a statutory filing that failed is found only by whoever happens to open that booking. Narrower than W24 and W25 because the record exists; what is missing is the queue and the list. | Agent |
 

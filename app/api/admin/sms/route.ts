@@ -3,6 +3,16 @@ import { supabaseAdmin } from "@/lib/supabase";
 import twilio from "twilio";
 import { z } from "zod";
 
+/**
+ * How long to wait on Twilio before giving up.
+ *
+ * Matches the 8 seconds `proxy.ts` allows the Supabase auth call — the figure
+ * that came out of the August 2026 admin outage, where an unbounded call on a
+ * slow day took the whole admin down. A staff member watching the Send button
+ * will not wait longer than this either.
+ */
+const SMS_TIMEOUT_MS = 8_000;
+
 const SmsSchema = z.object({
   reservationId: z.string().uuid(),
   template: z.enum(["pickup_reminder", "return_reminder", "confirmation", "custom"]),
@@ -59,12 +69,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Twilio not configured" }, { status: 503 });
   }
 
-  const client = twilio(accountSid, authToken);
-  const sent = await client.messages.create({
-    body: message,
-    from,
-    to: res.customer_phone,
+  // Bounded, because §5.3 requires every external call to carry a timeout and
+  // this one carried none. `RequestClient`'s `timeout` is the socket timeout as
+  // well as the request timeout, so this closes the connection rather than only
+  // giving up on waiting for it.
+  const client = twilio(accountSid, authToken, {
+    httpClient: new twilio.RequestClient({ timeout: SMS_TIMEOUT_MS }),
   });
 
-  return NextResponse.json({ ok: true, sid: sent.sid });
+  try {
+    const sent = await client.messages.create({
+      body: message,
+      from,
+      to: res.customer_phone,
+    });
+    return NextResponse.json({ ok: true, sid: sent.sid });
+  } catch (err) {
+    // This `catch` is the whole point of the change. The call was previously
+    // awaited bare, so a Twilio failure was an unhandled rejection: the caller
+    // got a framework 500 whose body is HTML, the admin's `res.json()` threw on
+    // it in turn, and the button sat on "Sending…" for ever. Nothing anywhere
+    // said the message had not gone.
+    const detail = err instanceof Error ? err.message : "the provider did not respond";
+    console.error("[sms] send failed", { reservationId, template, detail });
+    return NextResponse.json(
+      // Phrased for the person reading it beside the Send button: what they need
+      // to know is that the customer did not get it, not which SDK threw.
+      { error: `Not sent — ${detail}. The customer has not received this message.` },
+      { status: 502 },
+    );
+  }
 }
