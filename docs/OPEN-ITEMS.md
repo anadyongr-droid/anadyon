@@ -1,10 +1,13 @@
 # Open items
 
-**Last verified:** 1 October 2026, Claude — **W22's first scraper built**: Rent
-Scooter Car Zante, the first motorbike source besides Ionian Rentals. W25's
-unhandled rejection fixed earlier today. W19's §5.3 audit closed 30 September,
-opening W23–W27. F2 closed. **Two cars expire 4 October — three days — and nine
-motorbikes on 11 October; none of those dates is in the database yet.**
+**Last verified:** 1 October 2026, Claude — **W22's first scraper is built**: Rent
+Scooter Car Zante, the first motorbike source besides Ionian Rentals, found on a
+fourth survey pass after three earlier passes wrongly concluded that nobody here
+publishes motorbike prices. A second scraper has no target: see that item. W25's
+unhandled rejection is fixed; the rest of W25 needs a migration and is restated.
+W19's §5.3 audit closed 30 September, opening W23–W27. F2 closed. **Two cars
+expire 4 October — three days — and nine motorbikes on 11 October; none of those
+dates is in the database yet.**
 
 **Read this first, every day.** [`DEFINING-STATEMENTS.md` §12](../DEFINING-STATEMENTS.md)
 makes it obligatory for every agent, before picking up a task.
