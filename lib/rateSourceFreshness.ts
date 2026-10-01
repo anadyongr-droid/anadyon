@@ -26,13 +26,15 @@ export interface RateSource {
  * have been imported at least once — a source that has *never* run simply would
  * not appear, which is precisely the case the admin most needs to see. The
  * slugs and labels mirror the importers: `lib/competitorRates.ts`,
- * `lib/farosRates.ts`, `lib/carRentalsRates.ts`, `lib/podilatadikoRates.ts`.
+ * `lib/farosRates.ts`, `lib/carRentalsRates.ts`, `lib/podilatadikoRates.ts`,
+ * `lib/rentScooterZanteRates.ts`.
  */
 export const RATE_SOURCES: RateSource[] = [
   { source: "ezcar", label: "Ionian Rentals & Motor Club Zante" },
   { source: "faros", label: "Faros Rentals" },
   { source: "carrentals", label: "CarRentals.com (majors)" },
   { source: "podilatadiko", label: "Podilatadiko (bicycles)" },
+  { source: "rentscooterzante", label: "Rent Scooter Car Zante (scooters)" },
 ];
 
 export type Staleness = "never" | "fresh" | "ageing" | "stale";

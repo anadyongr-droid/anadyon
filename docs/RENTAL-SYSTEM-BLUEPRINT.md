@@ -162,8 +162,23 @@ two scrapers were **not** built, and the last part of this section says exactly
 why and what would unblock each one.*
 
 **The finding, in one line: almost nobody on Zakynthos publishes motorbike
-prices in a form a plain HTTP request can read.** Every candidate below was
-opened and checked; none of this is inferred from a summary.
+prices in a form a plain HTTP request can read — but one operator does.** Every
+candidate below was opened and checked; none of this is inferred from a summary.
+
+> **Resolved 1 October 2026.** A fourth pass found
+> **[Rent Scooter Car Zante](https://www.rentscootercarzante.com/tariffe-scooter/)**,
+> which publishes a full scooter tariff as static HTML: four price groups
+> (50, 125, 150, 200 cc), two seasons and three duration bands. It is built —
+> `lib/rentScooterZanteRates.ts` — and the table below is kept because the
+> *negative* results are the expensive part to rediscover. The row for this
+> operator is added at the end.
+>
+> **What made it findable on the fourth attempt and not the first three:** the
+> earlier sweeps checked operator *homepages* for a currency symbol. This site
+> shows none on its homepage; the prices live on a `Tariffe` page reached from a
+> nav menu, and its vehicles are WooCommerce products with a per-day price on
+> each. Searching for a price on the front page is not the same as asking
+> whether a site publishes one.
 
 | Source | Motorbike rates reachable? | Evidence |
 |---|---|---|
@@ -175,6 +190,44 @@ opened and checked; none of this is inferred from a summary.
 | **Riderly** (and its white-label `motorbike.tcs.ch`) | Behind Cloudflare | A motorbike marketplace carrying several Zakynthos suppliers with per-day prices and a clean 50cc/125cc split — the richest source found. Returns **403** to any non-browser request, including a rendering fetch. |
 | **RentBikeCarZante** | Behind a JS challenge | Even `robots.txt` returns an interstitial that reloads itself after five seconds. |
 | **AutoLux · Autoway · Smart Rentals · 1-Way** | No motorbikes, or no prices | Autoway and Smart Rentals mention no scooters at all; AutoLux and 1-Way answered `202` with a near-empty body. |
+| **Hermes Rentals** (Kalamaki) | No prices | Has a dedicated `/scooters/` page; no currency symbol anywhere on it. |
+| **BikesBooking** | Out of bounds | A motorbike marketplace covering Zakynthos, but a client-rendered app — 307 characters of visible text — whose prices come from `/api/`, which **its own `robots.txt` disallows**. Settled on that ground rather than on difficulty. |
+| **Rent Scooter Car Zante** | **Yes — built 1 October** | Publishes a complete scooter tariff as static HTML. `robots.txt` is `User-agent: *` with no `Disallow` and no `Crawl-Delay`. Four price groups, two seasons, three duration bands. |
+
+### The source that was built — Rent Scooter Car Zante
+
+*Added 1 October 2026.* `lib/rentScooterZanteRates.ts`, collected on the same
+call that finishes the EzCar pass, for the same reason Podilatadiko is: a
+published tariff on one static page costs a single fetch and needs no cursor.
+
+**It fits the comparison better than any existing competitor**, because it
+publishes both a season and a duration band where Faros needed a synthetic
+proxy for short rentals:
+
+| Group | Low season 1–3 / 4–6 / 7+ days | High season |
+|---|---|---|
+| Aprilia SR Motard **50 cc** | €17 / €16 / €15 | €21 / €20 / €19 |
+| Piaggio Liberty S, Aprilia Sportcity, Derbi Variant — **125 cc** | €25 / €23 / €20 | €31 / €30 / €29 |
+| Liberty **150 cc** | €27 / €25 / €23 | €32 / €31 / €30 |
+| Sym Symphony **200 cc** | €29 / €27 / €25 | €36 / €35 / €34 |
+
+Three details that are decisions rather than mechanics:
+
+- **Their bands line up exactly with ours, and the code refuses to pretend
+  otherwise if that changes.** They quote 1–3, 4–6 and 7+ days; the durations
+  this project already samples — 2, 5 and 10 — fall one inside each.
+  `pickBandDays` returns null if a band ever contains none or several, so a
+  reshaped tariff is skipped and reported rather than mapped by guesswork.
+- **Low season is May, June and September; high is 1 July to 31 August — and
+  nothing else is published.** No October figure is stored, because they quote
+  none. A comparison month with no row from them is honest; an invented
+  shoulder-season price would not be. It does mean this source cannot answer an
+  October comparison.
+- **`car_group` is the engine class**, not the model, because that is what their
+  tariff prices and what our own card sells. The Market mapping table maps
+  `50 cc` to *Motorbike A* and the rest to *Motorbike B*, and unlike the EzCar
+  scooters these rows arrive with a group already set, so the null-`car_group`
+  trap of #178 cannot recur here.
 
 **Two things this rules out, so they are not tried again.**
 
