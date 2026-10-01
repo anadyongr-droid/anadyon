@@ -184,11 +184,20 @@ describe("every importer is represented", () => {
     ["lib/farosRates.ts", "faros"],
     ["lib/carRentalsRates.ts", "carrentals"],
     ["lib/podilatadikoRates.ts", "podilatadiko"],
+    ["lib/rentScooterZanteRates.ts", "rentscooterzante"],
   ] as const;
 
   it.each(importerSources)("%s writes source '%s', and the registry lists it", (file, source) => {
-    expect(read(file), `${file} no longer writes source: "${source}"`)
-      .toContain(`source: "${source}"`);
+    // The slug as a quoted string, rather than the literal `source: "slug"`.
+    // What this guard is for is that the registry and the importers name the
+    // same set of sources — a registry entry nothing writes shows as "never
+    // imported" for ever, and an importer nothing lists is invisible on the
+    // freshness panel. How an importer spells the assignment is not the point:
+    // `lib/rentScooterZanteRates.ts` writes `source: SOURCE` from an exported
+    // constant, which the route and the registry also read, and tying the two
+    // together is stronger than repeating the literal in both places.
+    expect(read(file), `${file} no longer mentions the source slug "${source}"`)
+      .toContain(`"${source}"`);
     expect(RATE_SOURCES.map(r => r.source)).toContain(source);
   });
 

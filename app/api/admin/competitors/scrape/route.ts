@@ -8,6 +8,7 @@ import {
   type TaskResult,
 } from "@/lib/competitorRates";
 import { collectPodilatadiko, type PodilatadikoResult } from "@/lib/podilatadikoRates";
+import { collectRentScooterZante, type RentScooterZanteResult } from "@/lib/rentScooterZanteRates";
 import { recordImportCompleted } from "@/lib/rateImportLog";
 
 // Admin-only: proxy.ts admits only admins to /api/admin/competitors/*.
@@ -117,6 +118,7 @@ export async function POST(req: NextRequest) {
   const done = cursor >= tasks.length;
   const errors = results.filter(r => r.error).map(r => `${r.competitor} ${r.pickup} ${r.days}d: ${r.error}`);
   let bicycles: PodilatadikoResult | null = null;
+  let scooters: RentScooterZanteResult | null = null;
 
   // Podilatadiko rides along on the final call rather than getting its own
   // button. It is a published tariff on three static pages, not a date search,
@@ -129,6 +131,20 @@ export async function POST(req: NextRequest) {
       await recordImportCompleted("podilatadiko");
     } catch (err) {
       errors.push(`Podilatadiko: ${err instanceof Error ? err.message : "collection failed"}`);
+    }
+    // Rent Scooter Car Zante rides along for the same reason Podilatadiko does:
+    // a published tariff on one static page, not a date search, so it costs a
+    // single fetch and needs no cursor of its own. It is the only motorbike
+    // source besides Ionian Rentals - see blueprint §1.6a.
+    try {
+      scooters = await collectRentScooterZante();
+      errors.push(...scooters.errors);
+      // Recorded only when rows were actually stored. A pass that parsed
+      // nothing has not refreshed the prices, and dating the import from it
+      // would overstate how current they are.
+      if (scooters.stored > 0) await recordImportCompleted("rentscooterzante");
+    } catch (err) {
+      errors.push(`Rent Scooter Car Zante: ${err instanceof Error ? err.message : "collection failed"}`);
     }
     // Recorded only here, on the call that completes the matrix. A partial
     // batch has refreshed some searches and not others, and dating the import
@@ -148,6 +164,7 @@ export async function POST(req: NextRequest) {
     restarted,
     stored: results.reduce((sum, r) => sum + r.stored, 0) + (bicycles?.stored ?? 0),
     bicycles: bicycles ? { models: bicycles.models, stored: bicycles.stored, segments: bicycles.segments } : null,
+    scooters: scooters ? { models: scooters.models, stored: scooters.stored, months: scooters.months } : null,
     errors,
     results,
   });
