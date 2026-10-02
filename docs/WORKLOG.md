@@ -15,6 +15,57 @@ wrong place.
 
 ---
 
+## 2 October 2026 — Claude (implementer) and Codex (implementer)
+
+**Last verified:** 2 October 2026, Claude.
+
+**Agent summaries:** [`2026-10-02-claude.md`](worklog/2026-10-02-claude.md),
+[`2026-10-01-codex.md`](worklog/2026-10-01-codex.md) — Codex's 2 October entry is
+theirs to write.
+
+**The §5.3 audit's W-series is finished.** W19–W24, W26 and W27 are closed; W25's
+throw is fixed and only its delivery record remains, which needs a migration.
+
+- **W26 closed** — the AADE filing backlog is surfaced, aged and ranked by
+  statutory exposure. Blueprint **§5.3a**. It found a state the audit had missed:
+  `dcl_status = 'submitting'` is **unrecoverable**, because
+  `claim_dcl_submission` refuses to re-claim it, so those reservations answer 409
+  for ever and nothing showed them. Resubmission is deliberately not built — a
+  filing abandoned on W27's timeout may have been accepted by AADE, so retrying
+  can file a duplicate declaration. That rule is Tasos's under §13.
+- **Codex merged #185** — AADE DCL response verification plus the published
+  `SendClient` schema, Sentry's environment label and error-only integrations, and
+  a proxy error boundary. Runbook and blueprint carry the dated detail. It
+  unblocked W26 without my touching it.
+- **Four dependency pull requests taken on** after Tasos asked. The one that
+  mattered: **`next` 16.3.6 is a security release** (GHSA-vcvr-r3jv-pc5j, RCE in
+  `next/og` `ImageResponse`) — and checking rather than assuming showed the
+  vulnerable entry point is **not reachable** in this codebase, which neither uses
+  `next/og` nor `ImageResponse`.
+
+**Two documents were wrong and the error was the same shape both times.**
+`docs/README.md` listed #150 as an open pull request four days after it closed,
+and four green dependency pull requests were on no list at all. Both found by
+reading the live state instead of carrying the table forward — the §9 failure
+mode, caught this time by looking.
+
+**And a trap in our own procedure, now recorded on E11.** Counting CI checks with
+`get_status` reads "Vercel only" on every pull request here regardless of Actions,
+because it returns legacy commit statuses and Vercel is the only thing posting
+one. That is E11's signature for a lost trigger, so an agent using it would
+diagnose one every time and push commits to recover from nothing. `get_check_runs`
+is the call that returns Actions results.
+
+**All five merges landed:** #185, #192, #171 and #193. #169 closed itself; #188 and #177 needed closing by hand, because they are transitive bumps and dependabot tracks the lockfile rather than `package.json`. Every pull request still open is blocked upstream — TypeScript 7's missing programmatic API, ESLint 10's removal of `context.getFilename()`, and a vitest major. **Three lessons worth keeping from the dependency pass:** dependabot cannot merge a lockfile pull request once another change touches the same regions, and regenerating with npm is the fix rather than waiting; a plain `npm install` resolves *further* than authorised within caret ranges, so the lockfile diff must be read; and a dependabot title describes the version while `npm audit` describes the risk — two bumps that looked routine were security fixes, and a third advisory had no pull request at all.
+
+**One check was lost today and it is not an agent's to restore:** the Codex review bot did not review #192 or #193, reporting that the repository needs an environment configured. On #190 it found three real defects, one worse than it described. That is a ChatGPT-side setting for Tasos.
+
+**Still open:** W25's SMS delivery record (needs a migration, Tasos applies it),
+and **F1, which is two days out** — two cars expire 4 October, nine motorbikes
+11 October, and no expiry is in the database, so `rentalBar` bars nothing.
+
+---
+
 ## 1 October 2026 — Claude (implementer) and Codex (implementer)
 
 **Last verified:** 1 October 2026, Claude.

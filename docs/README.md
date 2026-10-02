@@ -14,13 +14,17 @@ machine or a six-month gap.
 | [`contract/`](contract/) | The paper rental agreement: the scanned terms page, a full transcription, and a blank printable template |
 | [`WORKLOG.md`](WORKLOG.md) | The most recent day's entry |
 
-## Where things stand — 23 September 2026
+## Where things stand — 2 October 2026
 
-**Last verified:** 1 October 2026, Claude — the pull request table below and
-the §5.3 audit's W-series: **W19, W20, W21, W22, W23, W24 and W27 are closed**,
-W25 is half closed (the throw is fixed; the delivery record needs a migration),
-and **W26 is the only one still open**, waiting on #185. The rest of the status
-section was last checked on 23 September and is carried forward unchanged.
+**Last verified:** 2 October 2026, Codex — the full-project audit covers the
+repository, live site and current service controls. The technical core is
+strong and `npm audit --omit=dev` reports zero vulnerabilities, but the project
+is not fully finalised: production fleet compliance fields are empty, published
+insurance/contract claims remain inconsistent, and a clean checkout cannot
+complete the repository-owned verifier. W26 closed in #192. Staging remains
+four commits behind `main` with four hosted acceptance actions open. Read
+[`audits/2026-10-02-full-project.md`](audits/2026-10-02-full-project.md) for the
+evidence and [`OPEN-ITEMS.md`](OPEN-ITEMS.md) for owners and order of work.
 
 **Read this section before opening anything else, and before researching
 anything.** It exists because an agent spent a working session re-deriving
@@ -45,7 +49,7 @@ because it is believed.
 | Why does `df` say the sandbox disk is full when little is used? | Fixed per-session allowance, not a broken machine. Never delete `/opt/pw-browsers`. | `SANDBOX-DISK.md` (PR #98) |
 | Do the insurance policies restrict driver age? | **No — none of the three certificates carries an age or licence-tenure condition.** Our 21 is a commercial choice. But the certificates defer exclusions to terms booklets not yet supplied, so this is "not on the certificate", not "does not exist". | `INSURANCE-COVER-AND-RESTRICTIONS.md` §2 |
 | Does the system already track KTEO and insurance expiry, and stop-sell on them? | **Yes — built and tested.** Migration 011 columns, admin modal inputs, 30-day warnings in `lib/fleetStatus.ts`, and a hard bar in the availability route measured against the pick-up date. It is **inert until the dates are entered**, because an unrecorded date reads as `unknown` and `unknown` does not bar. Open item F1. | `lib/fleetStatus.ts` |
-| Is the Full Damage Waiver backed by insurance? | **No.** No collision own-damage cover on any of the three vehicles, across two insurers. FDW at €5.00/day — verified on the live Rates screen, 19 Sep — is self-insured. | `INSURANCE-COVER-AND-RESTRICTIONS.md` §4.1 |
+| Is the Full Damage Waiver backed by insurance? | **Unknown in the evidence held here.** Tasos confirmed on 2 September that own-damage cover exists, withdrawing the earlier self-insured conclusion, but the policy, scope and excess have never been supplied. FDW at €5/day must not be described more precisely until B5 is answered. | `OPEN-ITEMS.md` B5 and `INSURANCE-COVER-AND-RESTRICTIONS.md` §4.1 |
 
 ### Phase 2, the counter — the live workstream
 
@@ -120,11 +124,11 @@ Recorded here rather than fixed, because fixing it was not what was asked.
 | PR | What | Waiting on |
 |---|---|---|
 | #87 | TypeScript 7.0.2 | **Blocked upstream.** 7.0 is the native Go port and ships with no programmatic API, so typescript-eslint, Volar and Angular are all locked out. A new API is promised for 7.1; typescript-eslint#10940 has no milestone. Do not close it |
-| #150 | ESLint 10 | **Blocked upstream.** ESLint 10 removed `context.getFilename()`; the `eslint-plugin-react` bundled inside `eslint-config-next` still calls it, so every linted file throws |
-| #149 | `@vitest/coverage-v8` 5 | **Needs a vitest major.** Its peer range pins `vitest: "5.0.1"` exactly and we run 4.1.11. Not urgent — coverage is deliberately not a gate |
-| #185 | AADE DCL: verify the response before reporting success | **Codex, opened 1 October, green.** A DCL submission reported `submitted` with a null reference — HTTP status was checked but not `statusCode`, and the handler read `mark` where v1.1 returns `newClientDclID`. **W26 is sequenced behind this**, because surfacing a backlog of failed filings depends on a failure being detectable at all |
+| #170 | ESLint 10.11.0 | **Blocked upstream, and it replaced #150** — which was closed on 28 September and listed here as open until 2 October. ESLint 10 removed `context.getFilename()`; the `eslint-plugin-react` bundled inside `eslint-config-next` still calls it, so every linted file throws. `build` is red, consistent with that reason |
+| #158 | vitest 5.0.2 | **`build` red.** Pairs with #149 — a vitest major is one change across both or neither |
+| #149 | `@vitest/coverage-v8` 5.0.2 | **Needs a vitest major.** Its peer range pins `vitest: "5.0.2"` exactly and we run 4.1.11. Not urgent — coverage is deliberately not a gate |
 
-Everything else is merged. On 1 October #182, #183, #184, #186, #187 and #189 landed: W19 (the §5.3 audit), W20, W21, W22, W23, W24, W25's unhandled rejection and W27. #181 merged on 29 September — the import log, the
+Everything else is merged. **On 2 October #185, #192, #171 and #193 landed** — Codex's AADE response verification and published SendClient schema, W26's filing backlog, the github-actions group, and the dependency pass that closed three high-severity advisories. On 1 October #182, #183, #184, #186, #187 and #189 landed: W19 (the §5.3 audit), W20, W21, W22, W23, W24, W25's unhandled rejection and W27. #181 merged on 29 September — the import log, the
 degraded-state fix on both freshness surfaces, and the repricing engine. On 20 September #130, #131, #132, #133 and #135
 landed, and #78, #79, #80, #81, #83 and #85 were closed as superseded with the
 reason recorded on each. **No node20 GitHub Action remains in the repository.**

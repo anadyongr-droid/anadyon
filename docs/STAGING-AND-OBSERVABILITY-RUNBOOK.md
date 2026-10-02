@@ -1,5 +1,7 @@
 # Staging and observability runbook
 
+**Last verified:** 2 October 2026, Codex.
+
 **Status:** the isolated Supabase project exists and was reset twice from
 current `main` on 19 September 2026. Both runs replayed all 44 migrations and
 finished with identical synthetic fixtures, Auth roles, grants and schema
@@ -13,6 +15,8 @@ successfully. Stripe, Resend and Sentry browser/server acceptance have passed.
 Positive AADE sandbox acceptance, a fresh Sentry proxy event tagged `staging`,
 the manual Preview cron and one fresh browser quote-to-reservation journey are
 still open. No production AADE filing or Supabase migration was performed.
+The permanent `staging` branch is now four commits behind `main`; sync and
+rerun acceptance after the clean-verifier defect in audit finding A03 is fixed.
 A reviewed plan for closing the remaining parity gaps is in §13, added 20
 September 2026.
 

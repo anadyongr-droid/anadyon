@@ -1,5 +1,7 @@
 # Audits
 
+**Last verified:** 2 October 2026, Codex.
+
 Full-system reviews of anadyon.gr, kept here so each one can be read against the
 last instead of restating it.
 
@@ -12,6 +14,8 @@ had already lost files. They are committed now for that reason.
 | 18 Aug 2026 | [Pre-launch audit](2026-08-18-prelaunch.md) | Blockers in security, content/legal, security grade |
 | 19 Aug 2026 | [Post-launch audit](2026-08-19-post-launch.md) | Live, with findings to fix |
 | 19 Aug 2026 | [Optimisation & security review](2026-08-19-optimisation-security.md) | High and medium findings, performance plan |
+| 25 Aug 2026 | [Re-audit](2026-08-25-re-audit.md) | Technical fixes verified; design and content/legal not re-tested |
+| 2 Oct 2026 | [Full-project audit](2026-10-02-full-project.md) | Strong technical core; fleet compliance, content/legal and release-verifier blockers remain |
 
 Architecture and competitor benchmarking live separately, in
 [`../RENTAL-SYSTEM-BLUEPRINT.md`](../RENTAL-SYSTEM-BLUEPRINT.md). An audit asks
