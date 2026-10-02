@@ -16,10 +16,13 @@ machine or a six-month gap.
 
 ## Where things stand — 23 September 2026
 
-**Last verified:** 2 October 2026, Claude — the pull request table below, re-read
-against the live list rather than carried forward, which is how the four green
-dependency pull requests and #150's closure were found. And the §5.3 audit's
-W-series: **W19, W20, W21, W22, W23, W24 and W27 are closed**,
+**Last verified:** 2 October 2026, Claude — **every dependency pull request that
+could merge is merged.** #169, #171, #188 and #177 are done: #171 on its own, the
+other three regenerated as one lockfile change in #193 because #185's `saxes`
+addition made them un-mergeable and dependabot would not rebase. That pass also
+closed three high-severity advisories, one of which (`brace-expansion`) no pull
+request covered. What remains open is blocked upstream, not waiting on anyone
+here. And the §5.3 audit's W-series: **W19, W20, W21, W22, W23, W24 and W27 are closed**,
 W25 is half closed (the throw is fixed; the delivery record needs a migration),
 and **W26 is the only one still open**, waiting on #185. The rest of the status
 section was last checked on 23 September and is carried forward unchanged.
@@ -123,15 +126,10 @@ Recorded here rather than fixed, because fixing it was not what was asked.
 |---|---|---|
 | #87 | TypeScript 7.0.2 | **Blocked upstream.** 7.0 is the native Go port and ships with no programmatic API, so typescript-eslint, Volar and Angular are all locked out. A new API is promised for 7.1; typescript-eslint#10940 has no milestone. Do not close it |
 | #170 | ESLint 10.11.0 | **Blocked upstream, and it replaced #150** — which was closed on 28 September and listed here as open until 2 October. ESLint 10 removed `context.getFilename()`; the `eslint-plugin-react` bundled inside `eslint-config-next` still calls it, so every linted file throws. `build` is red, consistent with that reason |
-| #158 | vitest 5.0.1 | **`build` red.** Pairs with #149 — a vitest major is one change across both or neither |
-| #149 | `@vitest/coverage-v8` 5 | **Needs a vitest major.** Its peer range pins `vitest: "5.0.1"` exactly and we run 4.1.11. Not urgent — coverage is deliberately not a gate |
-| #169 | production-minor-and-patch group, 6 updates | **Green on all six checks since 28 September, and unlisted until 2 October.** The group touches production dependencies, so worth reading the six before merging rather than waving through |
-| #171 | github-actions group, 4 updates | **Green on all six checks since 1 October**, unlisted until 2 October |
-| #188 | axios 1.20.0 | **Green on all six checks since 1 October**, unlisted until 2 October |
-| #177 | fast-uri 3.1.8 | **Green on all six checks since 29 September**, unlisted until 2 October |
-| #185 | AADE DCL: verify the response before reporting success | **Codex, opened 1 October, green.** A DCL submission reported `submitted` with a null reference — HTTP status was checked but not `statusCode`, and the handler read `mark` where v1.1 returns `newClientDclID`. **W26 is sequenced behind this**, because surfacing a backlog of failed filings depends on a failure being detectable at all |
+| #158 | vitest 5.0.2 | **`build` red.** Pairs with #149 — a vitest major is one change across both or neither |
+| #149 | `@vitest/coverage-v8` 5.0.2 | **Needs a vitest major.** Its peer range pins `vitest: "5.0.2"` exactly and we run 4.1.11. Not urgent — coverage is deliberately not a gate |
 
-Everything else is merged. On 1 October #182, #183, #184, #186, #187 and #189 landed: W19 (the §5.3 audit), W20, W21, W22, W23, W24, W25's unhandled rejection and W27. #181 merged on 29 September — the import log, the
+Everything else is merged. **On 2 October #185, #192, #171 and #193 landed** — Codex's AADE response verification and published SendClient schema, W26's filing backlog, the github-actions group, and the dependency pass that closed three high-severity advisories. On 1 October #182, #183, #184, #186, #187 and #189 landed: W19 (the §5.3 audit), W20, W21, W22, W23, W24, W25's unhandled rejection and W27. #181 merged on 29 September — the import log, the
 degraded-state fix on both freshness surfaces, and the repricing engine. On 20 September #130, #131, #132, #133 and #135
 landed, and #78, #79, #80, #81, #83 and #85 were closed as superseded with the
 reason recorded on each. **No node20 GitHub Action remains in the repository.**
