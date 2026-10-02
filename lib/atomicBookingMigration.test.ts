@@ -199,4 +199,16 @@ it("executes migration 024 atomically with defaults, promos, replay and least pr
   } finally {
     await db.close();
   }
-}, 20_000);
+  // 60s, matching the shared hookTimeout in vitest.config.ts. This test boots a
+  // WASM PostgreSQL and replays migration 024 inside its own body rather than in
+  // a hook, so the shared hook budget does not reach it. At 20s it failed two of
+  // three forced `--maxWorkers=14` runs with `Test timed out in 20000ms` — the
+  // same CPU contention measured in lib/pgliteHookBudget.test.ts, where one boot
+  // costs 1.9s alone and 21.3s fourteen-way on four cores.
+  //
+  // A per-test number here is not the pattern that header warns about: that was
+  // a *hook* budget masking a problem fixable in one place, and it now is fixed
+  // in one place. This is the residue — eight files that do their setup inside a
+  // test body, where Vitest has no shared budget to inherit. Moving that setup
+  // into hooks is the structural fix and is an open item, not a timeout change.
+}, 60_000);

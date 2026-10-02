@@ -107,7 +107,7 @@ beforeAll(async () => {
     [ids.vehicle]
   );
   ids.damage = damage.id;
-}, 60_000);
+});
 
 /** Inserts a handover and returns its id. */
 async function handover(over: Record<string, unknown> = {}): Promise<string> {
