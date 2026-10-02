@@ -240,6 +240,15 @@ and fixing it is the first task. Any agent may add to it at any time.
 
 `DEFINING-STATEMENTS.md` §11, obligatory for every agent:
 
+**Every finding from every task must enter the shared, version-controlled
+project documents.** Record durable knowledge in the document that owns the
+subject, every unresolved or unverified item in `docs/OPEN-ITEMS.md`, and the
+day's trail in the agent worklog. If there is no owning document, create one
+under `docs/` and index it from `docs/README.md`. Chat messages, private notes,
+temporary directories, local-only files and unpushed branches are not a
+handover and do not satisfy this rule. Commit and push the record with the
+work, or on a durable documentation branch while approval is pending.
+
 **Every agent** writes `docs/worklog/YYYY-MM-DD-<agent>.md` before the session
 ends — what was done, what was decided, what was discussed and not decided, what
 turned out to be already done, what is left broken or unverified, and what needs

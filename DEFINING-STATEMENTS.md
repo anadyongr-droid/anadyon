@@ -273,6 +273,24 @@ has produced half of what it looked like it produced.
 produced nothing still produced the knowledge that an approach does not work,
 and that is worth more written down than rediscovered.
 
+*Added 2 October 2026, by Tasos: every agent must write the findings from all
+of their work into documents that remain available to every agent.*
+
+**Every finding from every task belongs in the shared, version-controlled
+project record.** This applies to implementation, investigation, review,
+research, testing, operations and work that concludes no change is needed. Put
+durable knowledge in the document that owns the subject; put anything still
+open or unverified in [`docs/OPEN-ITEMS.md`](docs/OPEN-ITEMS.md); and point to
+both from the agent's daily worklog. If no suitable subject document exists,
+create one under `docs/` and add it to [`docs/README.md`](docs/README.md).
+
+A chat message, private note, temporary directory, unpushed branch or local
+working file does not satisfy this rule. The finding and the evidence needed to
+understand it must be committed and pushed with the work, or on a durable
+documentation branch when the work itself is still awaiting approval. Another
+agent must be able to find it from the repository without access to the
+conversation or the machine that produced it.
+
 ### 11.1 Every agent: write your own summary
 
 Before the session ends — not in the last exchange, when context is nearly
