@@ -15,12 +15,10 @@ import { beforeEach, describe, expect, it } from "vitest";
  *
  * ─── What this cannot check ───
  *
- * The client-list (DCL) side files against a different AADE API whose schema is
- * published only on aade.gr, which this environment's egress policy blocks. Its
- * shape below is therefore checked for internal consistency only — that the
- * country resolves and the refusal fires — and NOT against the real schema.
- * Treat a green run here as saying nothing about whether AADE will accept a DCL
- * submission. The sandbox is what settles that.
+ * The DCL assertions follow AADE's official v1.1 documentation and its
+ * SendClient rental example. The public API version retains the v1.0 dcrnew
+ * namespace; the operation still needs a sandbox success response before it is
+ * accepted as working end to end.
  */
 
 /** InvoiceSummaryType, in schema order. All eight are minOccurs=1. */
@@ -43,6 +41,7 @@ const reservation = (over: Record<string, unknown> = {}) => ({
   return_date: "2026-07-08",
   total: 372,
   discount_amount: 0,
+  vehicles: { name: "Fiat Panda", plate: "ZAA-1234", make: "Fiat", category: "car" },
   customers: { first_name: "Jane", last_name: "Smith", country: "United Kingdom", vat_number: "" },
   ...over,
 });
@@ -145,29 +144,58 @@ describe("refusing rather than filing something false", () => {
     ).toThrow(/country/i);
   });
 
-  it("refuses a client-list entry with an unresolvable country", async () => {
-    // "British" is a demonym. The old code filed it, and fell back to "GR".
+  it("refuses a non-numeric AADE establishment branch", async () => {
+    process.env.COMPANY_BRANCH = "Zakynthos";
     const { buildDclXml } = await import("@/lib/aadeXml");
-    expect(() =>
-      buildDclXml(reservation({ customers: { first_name: "J", last_name: "S", country: "British" } }) as never)
-    ).toThrow(/country/i);
+    expect(() => buildDclXml(reservation() as never)).toThrow(/COMPANY_BRANCH/);
   });
 
-  it("files a resolvable country as its code", async () => {
+});
+
+describe("the published DCL SendClient rental document", () => {
+  it("uses AADE's exact root, namespace and nested rental use case", async () => {
     const { buildDclXml } = await import("@/lib/aadeXml");
     const xml = buildDclXml(reservation() as never);
-    expect(xml).toContain("<counterpartCountry>GB</counterpartCountry>");
-    expect(xml, "the display name reached the filing").not.toContain("United Kingdom");
+
+    expect(xml).toContain('<dcrnew:NewDigitalClientDoc');
+    expect(xml).toContain('xmlns:dcrnew="http://www.aade.gr/myDATA/dcrnew/v1.0"');
+    expect(xml).toContain("<dcrnew:newDigitalClient>");
+    expect(xml).toContain("<dcrnew:clientServiceType>1</dcrnew:clientServiceType>");
+    expect(xml).toContain("<dcrnew:branch>0</dcrnew:branch>");
+    expect(xml).toContain("<dcrnew:useCase>");
+    expect(xml).toContain("<dcrnew:rental>");
+    expect(xml).toContain("<dcrnew:vehicleRegistrationNumber>ZAA-1234</dcrnew:vehicleRegistrationNumber>");
+    expect(xml).toContain("<dcrnew:vehicleMovementPurpose>1</dcrnew:vehicleMovementPurpose>");
+    expect(xml).toContain("</dcrnew:NewDigitalClientDoc>");
+  });
+
+  it("uses the configured establishment branch", async () => {
+    process.env.COMPANY_BRANCH = "7";
+    const { buildDclXml } = await import("@/lib/aadeXml");
+    expect(buildDclXml(reservation() as never))
+      .toContain("<dcrnew:branch>7</dcrnew:branch>");
+  });
+
+  it("does not invent SendClient fields that belong to other operations", async () => {
+    const { buildDclXml } = await import("@/lib/aadeXml");
+    const xml = buildDclXml(reservation() as never);
+    for (const field of [
+      "counterpartFirstName", "counterpartLastName", "counterpartCountry",
+      "vehicleLicensePlate", "movementPurpose", "isDiffVehReturnLocation",
+      "agreedAmount", "nonIssueInvoice", "rentalStartDate", "rentalEndDate",
+    ]) {
+      expect(xml).not.toContain(`<${field}>`);
+    }
   });
 });
 
 describe("XML escaping", () => {
-  it("escapes a name that would otherwise break the document", async () => {
+  it("escapes vehicle data that would otherwise break the document", async () => {
     const { buildDclXml } = await import("@/lib/aadeXml");
     const xml = buildDclXml(
-      reservation({ customers: { first_name: "Ben & Co", last_name: "<script>", country: "Greece" } }) as never
+      reservation({ vehicles: { name: "Test", plate: "Z&1", make: "<script>", category: "car" } }) as never
     );
-    expect(xml).toContain("Ben &amp; Co");
+    expect(xml).toContain("Z&amp;1");
     expect(xml).toContain("&lt;script&gt;");
     expect(xml).not.toContain("<script>");
   });

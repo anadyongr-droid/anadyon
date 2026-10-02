@@ -3560,6 +3560,77 @@ them and nothing shows it. Tasos asked for the fleet screen to show every
 vehicle state, which it now does — but the staff-facing surface is unbuilt and
 undecided.
 
+### 1 October 2026 — DCL success must be verified
+
+Last verified: 1 October 2026, Codex, staging acceptance.
+
+A sandbox submission displayed success with a null reference. The route checks
+HTTP status only and looks for `mark`; AADE DCL v1.1 §6–7 instead requires
+`statusCode=Success` and `newClientDclID`, and explicitly returns business/XML
+errors with HTTP 200. Correct this bounded response handling before further
+acceptance: parse XML, reject malformed/ambiguous/error responses, require a
+positive identifier, and store that identifier in the existing dcl_mark column.
+Do not change schemas or assert the request XML is compliant. Validate the request
+against the published schema and repeat the sandbox journey separately. No
+production filing or historical record correction is authorized by this fix.
+
+### 2 October 2026 — DCL creation must use the published SendClient schema
+
+Last verified: 2 October 2026, Codex, AADE v1.1 documentation and the official
+`SendClient` rental example.
+
+The first sandbox response proved that the request was not merely missing a
+field. The implementation sends a `ClientDoc/client` document in a made-up
+`.../DCL/v1.1` namespace. AADE publishes `dcrnew:NewDigitalClientDoc` containing
+`dcrnew:newDigitalClient` in `http://www.aade.gr/myDATA/dcrnew/v1.0`. The version
+1.1 API retains that namespace. Its ordinary rental creation shape is
+`clientServiceType`, `branch`, then `useCase/rental`, with
+`vehicleMovementPurpose=1` and the vehicle registration details.
+
+The customer name, nationality, agreed amount, invoice flag and rental dates in
+the old request are not fields of this SendClient document. Invoice outcome and
+return details belong to UpdateClient, which is a separate future operation.
+Remove the invented fields rather than trying to rename them. For Anadyon's
+ordinary rental opening, send branch `COMPANY_BRANCH` (default `0`), the Greek
+registration number, optional category and manufacturer when present, and the
+rental movement purpose. Do not send recurring-service customer fields unless a
+recurring-service workflow is designed and built later.
+
+This change repairs creation only. It does not claim that DCL completion,
+invoice correlation or cancellation exists, and it does not turn on production
+submission. The sandbox must return `statusCode=Success` and a positive
+`newClientDclID` before creation is accepted.
+
+### 2 October 2026 — Sentry acceptance exposed three configuration gaps
+
+Last verified: 2 October 2026, Codex, disposable Preview acceptance.
+
+Browser and Node errors reached Sentry, but an unhandled `proxy.ts` throw did
+not. The exported proxy therefore owns a narrow outer boundary: report the
+exception through the same outbound allowlist, flush the error event within a
+short bound, then rethrow so request behaviour is unchanged. This is the one
+runtime where relying on Next's request-error hook was disproved by the hosted
+probe.
+
+The client also labelled Preview events as `production`, because `VERCEL_ENV`
+is server-only in browser code. Sentry's environment now comes from an explicit
+public, non-secret `NEXT_PUBLIC_SENTRY_ENVIRONMENT` when configured, with the
+server Vercel values as fallback. Staging sets that value to `staging`.
+
+Monitoring remains error-only. Set the trace sample rate explicitly to zero and
+remove Replay, BrowserTracing and WebVitals integrations instead of treating an
+absent sample-rate option as proof that no performance instrumentation runs.
+Sentry's project keeps default scrubbing and IP storage prevention enabled, plus
+the documented `[Remove] [Anything] from [$user.geo.**]` advanced rule: Sentry
+derives geography before discarding the IP, so the IP toggle alone does not
+remove location context.
+
+The same acceptance build regenerated Next 16's route-module types and exposed
+an unrelated deployment blocker: the competitor mapping route exported its
+private `UNGROUPED` helper. App Router route modules may export only HTTP
+handlers and documented route configuration. Keep the helper module-private;
+its behaviour and API response remain unchanged.
+
 ### 30 August 2026 — AADE, checked against the published schema
 
 **The invoice module would have been rejected on every single filing.** Checked

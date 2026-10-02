@@ -668,3 +668,37 @@ false equality. The read-only catalogue comparison is evidence independent of
 - Redirected mail, Stripe, AADE and Sentry require their test-account setup and
   remain unverified. They are not implied by a successful deployment or mocked
   transport tests. No vendor messages have been sent in this session.
+
+
+### 1 October 2026 — Live integration acceptance
+
+Last verified: 1 October 2026, Codex.
+
+Stable alias points to READY deployment dpl_CvqTbQrzg2SerMahwKjz4f7MqRjd.
+Staging Stripe sandbox payment of EUR 90 on synthetic reservation
+30000000-0000-4000-8000-000000000003 succeeded; return URL stayed on staging.
+Stripe dashboard reported one event delivery, zero failures. Database confirms
+confirmed status and deposit_paid_at 2026-09-30 23:08:07Z. Resend's delivered
+callback returned 200, received=true and deliveryMatched=true; the delivery
+record confirms redirected mail to anadyon.gr@gmail.com and delivered status.
+These checks do not cover a fresh public quote submission.
+
+Corrected the Resend webhook path from stripe-webhook to resend-webhook, keeping
+the bypass query credential unchanged. Both vendor URLs require Vercel's bypass
+parameter; do not record complete URLs in documentation.
+
+AADE_PRODUCTION is false in Preview/staging. DCL trial reached an HTTP-success
+response but the application stored submitted with null dcl_mark. This is NOT
+acceptance: DCL v1.1 uses statusCode and newClientDclID; HTTP 200 can carry
+XMLSyntaxError/ValidationError. Response guard fix is under development, and the
+request XML still needs validation against the official schema. The synthetic
+record remains submitted/null as evidence; no production rows changed.
+
+Sentry search across project environment variables returns no results. Monitoring
+acceptance and the independent staging cron configuration remain open.
+
+### 1 October 2026 — Sentry account onboarding
+
+Last verified: 1 October 2026, Codex.
+
+Confirmed authenticated access to organization `anadyon-ike` and created its Next.js project `javascript-nextjs`. Manual setup displays an EU ingestion DSN. No wizard was run, no paid upgrade selected, and no additional telemetry enabled. Saved NEXT_PUBLIC_SENTRY_DSN, SENTRY_ORG and SENTRY_PROJECT as Config values scoped only to Preview/staging and verified the scope in Vercel. Redeployment and browser/server/proxy test-event verification remain pending; account creation alone does not establish working monitoring.

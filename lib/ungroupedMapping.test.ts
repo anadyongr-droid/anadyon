@@ -48,7 +48,8 @@ describe("the route matches a null group with is(), not eq()", () => {
     // It appeared three times as a bare "?" — display, key and query — and the
     // query was the one that was wrong. A shared constant makes the three
     // uses visibly the same decision.
-    expect(ROUTE).toContain('export const UNGROUPED = "?"');
+    expect(ROUTE).toContain('const UNGROUPED = "?"');
+    expect(ROUTE).not.toContain('export const UNGROUPED = "?"');
     expect(ROUTE).toContain("r.car_group ?? UNGROUPED");
     // No bare "?" sentinel left behind in the grouping or display paths.
     expect(ROUTE).not.toMatch(/car_group \?\? "\?"/);
