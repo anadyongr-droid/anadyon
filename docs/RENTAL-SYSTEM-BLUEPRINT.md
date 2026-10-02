@@ -1547,11 +1547,11 @@ succeeds.**
 | Dependency | On failure | Audited 30 Sep |
 |---|---|---|
 | **Supabase auth** | Deny. An unresolved role is not a staff role. Already implemented: 8s timeout, `?unavailable=1`, 503. | **Built** — `proxy.ts` |
-| **Supabase data** | Read paths show a stated error, never an empty list — "no reservations today" and "we cannot reach the database" must never look alike. Write paths refuse and say so. | **Partly built** — W23 |
+| **Supabase data** | Read paths show a stated error, never an empty list — "no reservations today" and "we cannot reach the database" must never look alike. Write paths refuse and say so. | **Built 1 Oct** — W23 closed |
 | **Storage** | A handover cannot finalise without its photographs. Hold the draft, let staff retry; do not complete a handover whose evidence did not upload. | **Built** — finalise refuses |
 | **Resend** | Queue and retry. Delivery state is already derived from `booking_email_deliveries`, so a failure is visible rather than assumed — `pending` is never read as sent. | **Built** |
 | **Stripe** | Never mark paid on a timeout. An unconfirmed payment stays unconfirmed; the webhook is the source of truth, and it is idempotent. | **Built** |
-| **Wise** | *Corrected 28 August — this was wrongly folded in with Stripe above.* **Wise has no webhook.** `lib/wise.ts` says so in the file itself: a deposit link is a constructed URL, "Wise does not call back when the money arrives, so a reservation paid this way has to be reconciled rather than confirming itself." There is nothing to fail closed, because nothing calls back. The failure mode is therefore silence, and the answer is a reconciliation task that is *visible and ages* — an unreconciled Wise deposit must appear as outstanding work, not sit unnoticed until someone checks the bank. | **Not built** — W24 |
+| **Wise** | *Corrected 28 August — this was wrongly folded in with Stripe above.* **Wise has no webhook.** `lib/wise.ts` says so in the file itself: a deposit link is a constructed URL, "Wise does not call back when the money arrives, so a reservation paid this way has to be reconciled rather than confirming itself." There is nothing to fail closed, because nothing calls back. The failure mode is therefore silence, and the answer is a reconciliation task that is *visible and ages* — an unreconciled Wise deposit must appear as outstanding work, not sit unnoticed until someone checks the bank. | **Built 1 Oct** — W24 closed |
 | **SMS** | Non-blocking, but recorded and visible. A confirmation SMS that fails must not block a booking — and must not vanish either. *Corrected 28 August: this said "degrade silently", which contradicts this section's own closing rule that degraded state is shown rather than hidden.* A failed message is logged against the reservation and surfaced the way a failed email already is, so "we texted them" can be checked rather than assumed. | **Throw fixed 1 Oct; record still missing** — W25 |
 | **AADE** | Queue for resubmission and surface the backlog. A statutory submission that failed is an operational task, not a lost message. | **Partly built** — W26 |
 | **Competitor feeds** | Show the data's age. Stale rates presented as current are worse than no rates. **Built 28 September 2026** — Admin → Market carries a freshness panel per import source; `lib/rateSourceFreshness.ts`. See the note below. | **Built** |
@@ -1567,6 +1567,11 @@ external calls; `proxy.ts` bounds the auth call that caused the August incident.
 Twilio, Apify, AADE, Resend and the three rate scrapers all call out with no
 timeout at all — **W27**. The second rule is what rows 2, 6, 7 and 8 above fail,
 each in its own way.
+
+*Closed 1 October: see the W27 entry below. Eleven unbounded calls were found and
+bounded, the rule is now enforced by a test that walks the source rather than by
+this paragraph, and the sentence naming Resend above was wrong — it was already
+bounded.*
 
 **The competitor-feeds row sat unbuilt for a month, and that is worth recording
 rather than quietly ticking off.** *Added 28 September 2026, Claude, after Tasos
@@ -1665,6 +1670,109 @@ Resend and all three rate scrapers call out unbounded. The August incident was
 an unbounded call on a slow day, and the fix was applied to that one call rather
 than to the rule it was an instance of — which is precisely the shape of failure
 this whole section was written to name.
+
+**W27 closed 1 October, and one line of the paragraph above was wrong.** Eleven
+unbounded server-side calls were found by walking the source rather than by
+re-reading the audit: the six Apify calls, the two AADE filing endpoints, the
+EzCar and Podilatadiko scrapers, and the `open.er-api.com` currency lookup the
+audit had not noticed at all. **Resend was never unbounded** — `lib/mailer.ts`
+has raced every send against an 8s timer since the queued-mail work, so the
+sentence naming it was an unverified claim in a document whose own §8 forbids
+them. Twilio was closed by W25 and the Rent Scooter Car Zante scraper was
+bounded when it was written the same morning.
+
+`lib/boundedFetch.ts` now holds the budgets, named and reasoned once — 8s for a
+vendor API, 30s for a dataset, 20s for a scrape, 25s for a government filing —
+with the ceiling on all of them being Vercel's `maxDuration`, since a timeout
+longer than the platform's own is a comment rather than a timeout.
+
+**The helper is the smaller half.** Adding a timeout to eleven callers is a
+morning's work and it was never what was missing: the rule was *stated* in this
+section and honoured in four files, because nothing checked. So the deliverable
+is `lib/boundedFetch.test.ts`, which walks every server-side `fetch(` in `lib/`
+and `app/api/` and **fails naming any that is unbounded** — proven against a
+newly-added bare caller, not merely against the eleven it was written for. A
+twelfth caller next month cannot quietly reopen this.
+
+Scope is deliberate. Browser `fetch("/api/…")` calls are left alone: a hung
+same-origin request costs one spinner in one tab and the user can reload,
+whereas an unbounded call inside a serverless function holds the invocation open
+until the platform kills it. The four callers that already bound their calls were
+left in the shapes they chose, each fitted to what it does next — a signal passed
+into a closure, a reason string for `alert_outbox`, a `Promise.race` around an
+SDK that takes no signal — because rewriting working code to satisfy a test is
+churn carrying a regression risk. The test accepts any of those; what it does not
+accept is a bare `fetch`. One exemption exists, matched on the line and not the
+file: the `fetch` inside Faros's `buildPageFunction` is a string evaluated in
+Apify's own browser, bounded by `pageFunctionTimeoutSecs`. Matching the line
+matters — the same module makes three real Apify calls that are this rule's
+business, and a file-level exemption silently cleared all three on the first
+attempt.
+
+**Three defects in the sweep itself, found by review rather than by me.** All
+three are recorded because each is a *class* of mistake rather than a slip, and
+the class is the useful part.
+
+**A bounded call is not a bounded response.** `fetch` resolves when the response
+*headers* arrive, and the abort signal stays attached to the body stream — so a
+vendor answering inside the budget and then stalling makes `.text()` reject. On
+both AADE routes that read sat *outside* the recovery block, so the rejection
+escaped after `claim_dcl_submission` had already set `dcl_status = 'submitting'`,
+and `001_baseline.sql` refuses to re-claim anything already `submitting`:
+
+```sql
+IF v_status IN ('submitted','submitting') THEN RETURN false;
+```
+
+**The filing would have been permanently unretryable** — every later attempt a
+409, recoverable only by a manual `UPDATE`. The shape pre-dated the timeout (a
+reset connection mid-body did the same) but bounding the call turned a rare
+accident into something the budget itself triggers. The body read now sits inside
+the block that writes the re-claimable `error` status, and
+`lib/filingBodyTimeout.test.ts` asserts both that and the migration's refusal that
+makes the consequence permanent.
+
+**A per-call budget does not bound a route.** `TIMEOUTS.scrape` at 20s is safe
+for one call and unsafe for the route that makes several: the scrape route runs
+four EzCar searches with three *mandatory* 10-second crawl delays under
+`maxDuration = 60`, so 30 seconds are spent sleeping before any call counts, and
+the final batch adds Podilatadiko's three pages and the scooter tariff. The
+platform would kill the invocation **before the cursor is written**, losing the
+batch's progress — a timeout producing no degraded state, which is what this
+section forbids. This was the module's own stated rule ("the ceiling is Vercel's
+`maxDuration`") applied per call and not per route.
+
+No constant fixes it, and that is the point: the call count varies from four to
+eight, so any figure small enough for the worst case is needlessly short for the
+common one and makes a slow-but-working source fail. `routeBudget` therefore
+shares one ceiling and draws it down — counting the crawl delays, holding a
+reserve back for the cursor write, and skipping a call too short to be worth
+starting so the cursor stays where work stopped and the next call resumes there.
+
+**A guard that can be fooled is worse than no guard, because it reports clean.**
+The sweep first read a fixed 14-line window after each `fetch(`, so a bare call
+immediately followed by a properly bounded one passed — the shape a careless
+addition actually takes. It now extracts the parenthesis-balanced call
+expression and matches only that. Writing the fixture for it exposed a second
+false pass of the same class: the expression still contained its own string
+contents, so a URL carrying `signal:` satisfied the pattern. Literals are now
+blanked before matching. Both are fail-first controls, and the scanner is pinned
+by seven fixtures rather than trusted.
+
+A balanced-bracket scan was chosen over a full AST parse deliberately: the test
+suite has no TS parser among its dependencies, and adding one to a guard test is
+a dependency to maintain for the life of the rule. The fixture set is where the
+next mis-read goes.
+
+**What a timeout does not decide.** The helper abandons a slow call and throws;
+it does not choose what happens next, because §5.3's three rules differ per
+caller. A scrape that times out is a skipped source. A Telegram alert is queued.
+**An AADE filing that times out is genuinely ambiguous** — the submission may
+have been accepted with the answer lost — and the route currently records it as
+`error` and answers 502. That does not claim a false success, which is the rule
+that matters, but it does assert a failure that is not established. Recording an
+*unknown* filing distinctly is W26's business, where the backlog view lives,
+and it is noted there rather than invented here.
 
 **What the audit says about the method, not the rows.** The competitor-feeds row
 was missed because a rule in a table nobody re-reads is a rule that does not
@@ -3451,6 +3559,77 @@ earlier today renders on a screen staff cannot reach. The endpoint is open to
 them and nothing shows it. Tasos asked for the fleet screen to show every
 vehicle state, which it now does — but the staff-facing surface is unbuilt and
 undecided.
+
+### 1 October 2026 — DCL success must be verified
+
+Last verified: 1 October 2026, Codex, staging acceptance.
+
+A sandbox submission displayed success with a null reference. The route checks
+HTTP status only and looks for `mark`; AADE DCL v1.1 §6–7 instead requires
+`statusCode=Success` and `newClientDclID`, and explicitly returns business/XML
+errors with HTTP 200. Correct this bounded response handling before further
+acceptance: parse XML, reject malformed/ambiguous/error responses, require a
+positive identifier, and store that identifier in the existing dcl_mark column.
+Do not change schemas or assert the request XML is compliant. Validate the request
+against the published schema and repeat the sandbox journey separately. No
+production filing or historical record correction is authorized by this fix.
+
+### 2 October 2026 — DCL creation must use the published SendClient schema
+
+Last verified: 2 October 2026, Codex, AADE v1.1 documentation and the official
+`SendClient` rental example.
+
+The first sandbox response proved that the request was not merely missing a
+field. The implementation sends a `ClientDoc/client` document in a made-up
+`.../DCL/v1.1` namespace. AADE publishes `dcrnew:NewDigitalClientDoc` containing
+`dcrnew:newDigitalClient` in `http://www.aade.gr/myDATA/dcrnew/v1.0`. The version
+1.1 API retains that namespace. Its ordinary rental creation shape is
+`clientServiceType`, `branch`, then `useCase/rental`, with
+`vehicleMovementPurpose=1` and the vehicle registration details.
+
+The customer name, nationality, agreed amount, invoice flag and rental dates in
+the old request are not fields of this SendClient document. Invoice outcome and
+return details belong to UpdateClient, which is a separate future operation.
+Remove the invented fields rather than trying to rename them. For Anadyon's
+ordinary rental opening, send branch `COMPANY_BRANCH` (default `0`), the Greek
+registration number, optional category and manufacturer when present, and the
+rental movement purpose. Do not send recurring-service customer fields unless a
+recurring-service workflow is designed and built later.
+
+This change repairs creation only. It does not claim that DCL completion,
+invoice correlation or cancellation exists, and it does not turn on production
+submission. The sandbox must return `statusCode=Success` and a positive
+`newClientDclID` before creation is accepted.
+
+### 2 October 2026 — Sentry acceptance exposed three configuration gaps
+
+Last verified: 2 October 2026, Codex, disposable Preview acceptance.
+
+Browser and Node errors reached Sentry, but an unhandled `proxy.ts` throw did
+not. The exported proxy therefore owns a narrow outer boundary: report the
+exception through the same outbound allowlist, flush the error event within a
+short bound, then rethrow so request behaviour is unchanged. This is the one
+runtime where relying on Next's request-error hook was disproved by the hosted
+probe.
+
+The client also labelled Preview events as `production`, because `VERCEL_ENV`
+is server-only in browser code. Sentry's environment now comes from an explicit
+public, non-secret `NEXT_PUBLIC_SENTRY_ENVIRONMENT` when configured, with the
+server Vercel values as fallback. Staging sets that value to `staging`.
+
+Monitoring remains error-only. Set the trace sample rate explicitly to zero and
+remove Replay, BrowserTracing and WebVitals integrations instead of treating an
+absent sample-rate option as proof that no performance instrumentation runs.
+Sentry's project keeps default scrubbing and IP storage prevention enabled, plus
+the documented `[Remove] [Anything] from [$user.geo.**]` advanced rule: Sentry
+derives geography before discarding the IP, so the IP toggle alone does not
+remove location context.
+
+The same acceptance build regenerated Next 16's route-module types and exposed
+an unrelated deployment blocker: the competitor mapping route exported its
+private `UNGROUPED` helper. App Router route modules may export only HTTP
+handlers and documented route configuration. Keep the helper module-private;
+its behaviour and API response remain unchanged.
 
 ### 30 August 2026 — AADE, checked against the published schema
 

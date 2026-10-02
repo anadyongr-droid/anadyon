@@ -10,6 +10,7 @@ import {
 import { collectPodilatadiko, type PodilatadikoResult } from "@/lib/podilatadikoRates";
 import { collectRentScooterZante, type RentScooterZanteResult } from "@/lib/rentScooterZanteRates";
 import { recordImportCompleted } from "@/lib/rateImportLog";
+import { TIMEOUTS, routeBudget } from "@/lib/boundedFetch";
 
 // Admin-only: proxy.ts admits only admins to /api/admin/competitors/*.
 export const maxDuration = 60;
@@ -106,16 +107,43 @@ export async function POST(req: NextRequest) {
 
   const results: TaskResult[] = [];
 
+  /**
+   * The ceiling is shared, so the budget has to be too.
+   *
+   * Three mandatory 10-second crawl delays already spend half of `maxDuration`
+   * before any call is counted, and `TIMEOUTS.scrape` is 20s — so two slow
+   * searches alone overrun it. The platform then kills the invocation **before
+   * `writeCursor` runs**, losing the batch's progress entirely: a timeout that
+   * produces no degraded state, which is what §5.3 forbids. Found by the review
+   * bot on #190.
+   *
+   * `reserveMs` covers what still has to happen after the last call — the cursor
+   * write, the import records and the response.
+   */
+  const budget = routeBudget(maxDuration * 1_000, { reserveMs: 5_000 });
+
+  /** Below this a call fails slowly instead of being skipped honestly. */
+  const MIN_CALL_MS = 2_500;
+
   for (let i = 0; i < TASKS_PER_RUN && cursor < tasks.length; i++, cursor++) {
     // Honour Crawl-Delay between requests, but never waste it before the first
     // one or after the last.
-    if (i > 0) await sleep(CRAWL_DELAY_MS);
-    results.push(await runScrapeTask(tasks[cursor]));
+    if (i > 0) {
+      // The delay itself has to fit, or the sleep is what overruns the ceiling.
+      if (!budget.canAfford(CRAWL_DELAY_MS + MIN_CALL_MS)) break;
+      await sleep(CRAWL_DELAY_MS);
+    }
+    if (!budget.canAfford(MIN_CALL_MS)) break;
+    results.push(await runScrapeTask(tasks[cursor], budget.forCall(TIMEOUTS.scrape)));
   }
 
+  // Written for whatever was actually completed. Breaking out of the loop above
+  // leaves `cursor` where the work stopped, so the next call resumes there
+  // rather than redoing the batch — the whole point of not being killed.
   await writeCursor(cursor, shape);
 
   const done = cursor >= tasks.length;
+
   const errors = results.filter(r => r.error).map(r => `${r.competitor} ${r.pickup} ${r.days}d: ${r.error}`);
   let bicycles: PodilatadikoResult | null = null;
   let scooters: RentScooterZanteResult | null = null;
@@ -124,9 +152,13 @@ export async function POST(req: NextRequest) {
   // button. It is a published tariff on three static pages, not a date search,
   // so it costs three fetches and needs no cursor — running it every batch
   // would just re-fetch the same prices a dozen times over.
-  if (done) {
+  // The final batch carries three Podilatadiko pages and the scooter tariff on
+  // top of its four searches, which is why these ask before starting. Skipped
+  // honestly and reported, rather than started with no time to finish: `done`
+  // stays true, so a later call re-runs them without redoing the matrix.
+  if (done && budget.canAfford(MIN_CALL_MS)) {
     try {
-      bicycles = await collectPodilatadiko();
+      bicycles = await collectPodilatadiko(budget.forCall(TIMEOUTS.scrape));
       errors.push(...bicycles.errors);
       await recordImportCompleted("podilatadiko");
     } catch (err) {
@@ -137,7 +169,7 @@ export async function POST(req: NextRequest) {
     // single fetch and needs no cursor of its own. It is the only motorbike
     // source besides Ionian Rentals - see blueprint §1.6a.
     try {
-      scooters = await collectRentScooterZante();
+      scooters = await collectRentScooterZante(new Date(), budget.forCall(TIMEOUTS.scrape));
       errors.push(...scooters.errors);
       // Recorded only when rows were actually stored. A pass that parsed
       // nothing has not refreshed the prices, and dating the import from it

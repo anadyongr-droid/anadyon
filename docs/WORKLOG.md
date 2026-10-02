@@ -15,6 +15,62 @@ wrong place.
 
 ---
 
+## 1 October 2026 — Claude (implementer) and Codex (implementer)
+
+**Last verified:** 1 October 2026, Claude.
+
+**Agent summaries:** [`2026-10-01-claude.md`](worklog/2026-10-01-claude.md),
+[`2026-10-01-codex.md`](worklog/2026-10-01-codex.md).
+
+Six of yesterday's open items closed. The §5.3 audit that opened W23–W27 was the
+most productive thing on the list, which is the argument for having written it.
+
+- **W20, W21, W22 closed** (#182, #186). Abandoned-run recovery, the repricing
+  control on the Market screen, and the motorbike survey — which took four
+  passes because the first three checked homepages for a currency symbol and
+  concluded nobody publishes bike prices. **Rent Scooter Car Zante publishes a
+  full tariff behind a nav menu**, and `lib/rentScooterZanteRates.ts` now reads
+  it. Blueprint **§1.6a**.
+- **W25's unhandled rejection fixed** (#184). The SMS route no longer awaits
+  Twilio bare: bounded at 8s, a failure answers 502 saying the customer has not
+  received it. **The delivery record is still missing** and needs a migration —
+  W25 stays open for that half.
+- **W23 and W24 closed** (#189), the two findings that needed no migration. A
+  failed load no longer renders "No reservations found.", and every unreconciled
+  deposit is now aged and ranked. Establishing that W24 needed *no* migration was
+  the work: `deposit_paid_at` has existed since migration 010 and no admin screen
+  referenced it — the same shape as the competitor feeds, a measurement with no
+  surface.
+- **W27 closed**, and the helper is the smaller half. Eleven unbounded
+  server-side calls bounded through `lib/boundedFetch.ts`; the deliverable is
+  `lib/boundedFetch.test.ts`, which walks the source and fails naming any future
+  unbounded caller. §5.3 *stated* the rule and four files honoured it because
+  nothing checked — see blueprint **§5.3a**.
+- **Codex: AADE false success** (#185, open). A DCL submission reported
+  `submitted` with a null reference, because the handler read HTTP status only
+  and searched for `mark` where v1.1 returns `newClientDclID`. A statutory
+  filing that silently did not happen. Staging acceptance also progressed —
+  sandbox Stripe payment, redirected mail, and a Sentry project created;
+  **event acceptance is pending, not verified.** Runbook sections dated 1 October.
+
+**Two things were asserted by this project's own documents and turned out to be
+false.** The §5.3 audit listed Resend as having no timeout; `lib/mailer.ts` has
+bounded every send for weeks. And three survey passes concluded no local
+competitor publishes motorbike prices; one does, in a table. Both were corrected
+by reading the source and the page rather than by anyone noticing — which is the
+§8 point, and the reason an audit's own list is not evidence.
+
+**Still open and worth carrying forward:** **W26** alone of the W-series, and it
+waits on #185 — Codex is fixing whether an AADE failure can be *detected*, and
+the backlog view belongs on top of that. W27 added a distinction for it: a filing
+that times out is *ambiguous*, not failed, and resubmitting one that may already
+be lodged is worse than filing it late. That rule changes what staff must do, so
+it is Tasos's under §13. **F1 remains the urgent one:** two cars expire 4 October,
+nine motorbikes 11 October, and no expiry is in the database, so `rentalBar` bars
+nothing.
+
+---
+
 ## 30 September 2026 — Claude, implementer
 
 **Last verified:** 30 September 2026, Claude.
