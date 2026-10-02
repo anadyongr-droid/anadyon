@@ -14,6 +14,12 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["**/*.test.ts", "**/*.test.tsx"],
+    // Several migration/RPC suites start an in-memory PGlite database for
+    // every test. Four workers contend heavily enough that database setup can
+    // cross Vitest's 10-second hook limit on a clean checkout, even though the
+    // same assertions pass in isolation. Two workers retain file parallelism
+    // while keeping those WebAssembly database initialisations bounded.
+    maxWorkers: 2,
     // lib/seo.test.ts reads the prerendered HTML in .next/server/app, so it can
     // only run after `next build`. `npm test` runs before the build in CI, where
     // .next does not exist yet — and passed locally the whole time because a
