@@ -6,8 +6,13 @@ finished with identical synthetic fixtures, Auth roles, grants and schema
 checks. The `staging` branch alias is live with branch-scoped Supabase URL, anon
 key and service-role key; synthetic admin and staff both completed browser login
 and separate MFA enrolment. The staff role was observed being redirected away
-from `/admin/users` to `/admin/reservations`. Production was not changed.
-Production-schema parity, hosted vendor flows and Sentry acceptance remain open.
+from `/admin/users` to `/admin/reservations`. On 2 October PR #185 merged and
+the `staging` branch was fast-forwarded to its merge commit `5979091`; Vercel
+reported the corresponding staging deployment ready and the stable alias loaded
+successfully. Stripe, Resend and Sentry browser/server acceptance have passed.
+Positive AADE sandbox acceptance, a fresh Sentry proxy event tagged `staging`,
+the manual Preview cron and one fresh browser quote-to-reservation journey are
+still open. No production AADE filing or Supabase migration was performed.
 A reviewed plan for closing the remaining parity gaps is in §13, added 20
 September 2026.
 
@@ -266,6 +271,10 @@ assertion, then remove the break.
 - [ ] AADE sandbox flow is tested when sandbox credentials exist.
 - [ ] Manual morning briefing returns successfully without reaching production Telegram.
 - [ ] Sentry receives browser, server and proxy errors with raw-event privacy inspected.
+  Browser and server delivery passed on 1–2 October. Raw browser-event JSON was
+  inspected after enabling the project scrubber: geographic keys were null and
+  marked removed; no geographic values were stored. Proxy delivery after #185
+  and the `staging` environment tag still need one fresh hosted event.
 - [x] Staging e2e CI passes and has been observed failing on a known-bad prior
   revision (runs `33413251647` and `33398661882`, 31 August 2026).
 - [x] The expanded hosted commercial-path suite passes 84/84 against staging
