@@ -149,3 +149,68 @@ signup. These are not counted as passes.
 7. Complete a restore drill and extend backup coverage before photo upload.
 8. Strengthen the required merge checks, then address CSP/firewall and the
    `/motorbikes` mobile performance finding.
+
+---
+
+## Independent verification by the second agent — 2 October 2026, Claude
+
+**Last verified:** 2 October 2026, Claude.
+
+This audit was written by Codex. `DEFINING-STATEMENTS.md` §8 asks for claims to
+be checked rather than accepted, so each finding below was re-tested from a
+separate session with no access to Codex's environment. **Four findings are
+confirmed in full, four in part, and five could not be tested here at all.** The
+split is not about the findings' quality — it tracks exactly which evidence needs
+a credential this session does not hold.
+
+**The method matters more than the tally.** Where a check was possible it was run
+against the live system — the production website over HTTPS, the GitHub REST API,
+the repository's own source — not against this project's documents. Where it was
+not possible it is recorded as **not tested**, never as agreed. W29 records the
+read-only access that would close the gap.
+
+### Confirmed in full
+
+| # | What was checked, and how |
+|---|---|
+| **A02** | **Every limb confirmed verbatim** from `https://anadyon.gr/terms` fetched live. §6 reads *"All our rentals include: Third party insurance / Theft insurance / Collision Damage Waiver (CDW)"*. §10 reads *"We provide free 24-hour roadside assistance"* — unqualified. §2 reads *"Minimum driver's age is 21 years"*, with the 21–22 surcharge disclosed but **no motorbike-at-18 provision and no licence-tenure rule**, where the counter contract art. 6.1(a) requires a licence held one year. The words *exclusion* and *excess* **do not appear on the page at all**. One detail the audit did not name sharpens it: the page does carry one carve-out — *"Bicycles are not covered by the above"* — which makes the absence of a 50cc roadside carve-out a choice rather than an oversight. |
+| **A03** | **Reproduced and fixed, both halves.** The webpack failure reproduced exactly: `motion-dom@13.5.0` has no `observeTimeline` at all, not relocated. Fixed in #195 by pinning *forward* to 13.5.1, which restores the export, rather than back to 13.4.2 — with `lib/animationDependencyPairing.test.ts` asserting every symbol `framer-motion` imports is exported. The PGlite half reproduced on demand at `--maxWorkers=14`: one boot costs 1.9s, fourteen concurrent 21.3s on four cores, so the 10s default hook budget is crossed at about seven simultaneous boots. Fixed in #197. **The audit was right and I had been wrong** — earlier the same day I called the PGlite half "not a defect". |
+| **A08** | **Confirmed without needing any new access**, which corrected my own earlier claim that it was unverifiable. `/branches/main/protection` is 403 to an agent session, but `GET /repos/anadyongr-droid/anadyon/branches/main` is 200 and carries the summary: `protected: true`, `required_status_checks.contexts: ["build"]`, `enforcement_level: "everyone"`, `app_id 15368`. `/rulesets` and `/rules/branches/main` are both `[]`, so nothing adds to it. **Required approving reviews are empirically zero** — #195 merged on 2 October with no approval and GitHub did not object. One nuance on the second limb: the schema-drift step does `exit 0`, but it emits a GitHub `::warning` titled *"Schema drift check skipped"*, and `ci.yml` documents that as deliberate because the secrets are opt-in to limit what a compromised Actions run could reach. So it reports "not run" loudly; it just does not fail. The remediation stands, but the step is not silent. |
+| **A12** | **Confirmed and still current: 32 of 56** Markdown files under `docs/` carry no `Last verified:` marker. The audit said 32 of 55; the count is unchanged and the denominator grew by one. |
+
+### Confirmed in part
+
+| # | Confirmed here | Still not tested |
+|---|---|---|
+| **A05** | **The staging-lag limb is now stale.** `origin/staging` and `origin/main` are the same commit, `6276d32` — zero behind, not four. | The AADE sandbox identifier, the `staging`-labelled Sentry event, the Preview cron invocation and the fresh quote-to-reservation journey. |
+| **A06** | **The mechanism, in code.** `proxy.ts` 441–478 redirects to `/admin/setup-mfa` when no TOTP factor is enrolled, and forces in-session AAL2 when `nextLevel === "aal2"` and `currentLevel !== "aal2"`. The audit's "not an observed bypass" is correct. | Which accounts actually have a verified factor, whether public signup is disabled, and the leaked-password setting — all dashboard or database state. |
+| **A07** | **The run history, and the audit undercounts it.** `actions/workflows/338206206/runs` shows **eleven consecutive scheduled successes**, #43 on 22 September through #53 on 2 October, plus a dispatched success #42; the last failures are #39–#41 on 21 September, which matches E16. And **"no full restore has ever been completed" is confirmed by reading `backup.yml`**, not merely by absent evidence: its only verification step is *"Verify the archive decrypts"* piping into `tar -tzf - > /dev/null`, which lists an archive and never loads it into a database. | Whether a restore would in fact succeed, and the Storage/Auth/settings coverage gap. |
+| **A11** | **Both code limbs.** The enforced CSP and the report-only policy are identical except that report-only drops `'unsafe-inline'`. And `lib/rateLimit.ts` fails open in both paths — line 68–70 returns `{ ok: true }` on a Supabase RPC error, line 97–99 on a throw, each logging first. Its own header states this is deliberate: *"A limiter that rejects every request when [the database is down] … is a worse failure than the abuse it [prevents]."* Both the exposure and the reasoning are real. | Vercel firewall rules and bot protection. |
+
+### Not tested here
+
+**A01, A04, A09, A10 and A13** each need a credential this session does not hold:
+the production database (A01, A09, A13), the Vercel project (A04) and Sentry
+(A10). They are recorded as **not tested**, which is not the same as doubted —
+A01 in particular is the most urgent item on the list and nothing here disputes
+it. W29 has the read-only access that would let a second agent check them.
+
+### One error this audit inherited, and it was mine
+
+**A01's evidence line says "nine motorbike policies on 11 October", and its
+remediation says "the twelve vehicles missing from the broker's open-policy
+list". Both figures are wrong, and they came from this project's own insurance
+document, not from the audit's own work.** §1a of
+`INSURANCE-COVER-AND-RESTRICTIONS.md` had prose saying nine, seventeen and twelve
+beside a table listing **eight** plates on 11 October and **sixteen** distinct
+plates of twenty-nine — so the unexplained remainder is **thirteen**, one more
+vehicle on unestablished cover than stated. I wrote both the table and the prose
+on 30 September and never recounted one against the other, and both errors ran in
+the direction that flattered the fleet.
+
+Corrected in that document and in `OPEN-ITEMS.md` on 2 October, with
+`lib/insuranceFleetCounts.test.ts` now counting the table and holding the prose to
+it. **The audit was not wrong to trust the document**; the document was wrong.
+That is the §9 failure mode in its exact shape — a figure that propagates by
+being read rather than recounted — and it is the reason this verification pass
+checked the live system instead of the repository wherever it could.
