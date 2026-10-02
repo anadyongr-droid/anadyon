@@ -15,6 +15,211 @@ wrong place.
 
 ---
 
+## 1 October 2026 — Claude (implementer) and Codex (implementer)
+
+**Last verified:** 1 October 2026, Claude.
+
+**Agent summaries:** [`2026-10-01-claude.md`](worklog/2026-10-01-claude.md),
+[`2026-10-01-codex.md`](worklog/2026-10-01-codex.md).
+
+Six of yesterday's open items closed. The §5.3 audit that opened W23–W27 was the
+most productive thing on the list, which is the argument for having written it.
+
+- **W20, W21, W22 closed** (#182, #186). Abandoned-run recovery, the repricing
+  control on the Market screen, and the motorbike survey — which took four
+  passes because the first three checked homepages for a currency symbol and
+  concluded nobody publishes bike prices. **Rent Scooter Car Zante publishes a
+  full tariff behind a nav menu**, and `lib/rentScooterZanteRates.ts` now reads
+  it. Blueprint **§1.6a**.
+- **W25's unhandled rejection fixed** (#184). The SMS route no longer awaits
+  Twilio bare: bounded at 8s, a failure answers 502 saying the customer has not
+  received it. **The delivery record is still missing** and needs a migration —
+  W25 stays open for that half.
+- **W23 and W24 closed** (#189), the two findings that needed no migration. A
+  failed load no longer renders "No reservations found.", and every unreconciled
+  deposit is now aged and ranked. Establishing that W24 needed *no* migration was
+  the work: `deposit_paid_at` has existed since migration 010 and no admin screen
+  referenced it — the same shape as the competitor feeds, a measurement with no
+  surface.
+- **W27 closed**, and the helper is the smaller half. Eleven unbounded
+  server-side calls bounded through `lib/boundedFetch.ts`; the deliverable is
+  `lib/boundedFetch.test.ts`, which walks the source and fails naming any future
+  unbounded caller. §5.3 *stated* the rule and four files honoured it because
+  nothing checked — see blueprint **§5.3a**.
+- **Codex: AADE false success** (#185, open). A DCL submission reported
+  `submitted` with a null reference, because the handler read HTTP status only
+  and searched for `mark` where v1.1 returns `newClientDclID`. A statutory
+  filing that silently did not happen. Staging acceptance also progressed —
+  sandbox Stripe payment, redirected mail, and a Sentry project created;
+  **event acceptance is pending, not verified.** Runbook sections dated 1 October.
+
+**Two things were asserted by this project's own documents and turned out to be
+false.** The §5.3 audit listed Resend as having no timeout; `lib/mailer.ts` has
+bounded every send for weeks. And three survey passes concluded no local
+competitor publishes motorbike prices; one does, in a table. Both were corrected
+by reading the source and the page rather than by anyone noticing — which is the
+§8 point, and the reason an audit's own list is not evidence.
+
+**Still open and worth carrying forward:** **W26** alone of the W-series, and it
+waits on #185 — Codex is fixing whether an AADE failure can be *detected*, and
+the backlog view belongs on top of that. W27 added a distinction for it: a filing
+that times out is *ambiguous*, not failed, and resubmitting one that may already
+be lodged is worse than filing it late. That rule changes what staff must do, so
+it is Tasos's under §13. **F1 remains the urgent one:** two cars expire 4 October,
+nine motorbikes 11 October, and no expiry is in the database, so `rentalBar` bars
+nothing.
+
+---
+
+## 30 September 2026 — Claude, implementer
+
+**Last verified:** 30 September 2026, Claude.
+
+**Agent summary:** [`2026-09-30-claude.md`](worklog/2026-09-30-claude.md).
+
+Two closures, and both came from reading rather than building.
+
+- **F2 closed by the §12 calendar check.** The dated item said the motorbikes
+  expired 11 September with no record of renewal, and its own text still read
+  *"Today is 20 September"*. Checking it against the calendar meant searching
+  the broker's mailbox, where the answer had been sitting since 29 September:
+  every current expiry, nine motorbikes running to 11 October. Recorded in
+  `INSURANCE-COVER-AND-RESTRICTIONS.md` §1a as the broker's assertion, not as a
+  certificate — it carries dates but no policy numbers, insurers or terms, so B2
+  and B5 still need the PDFs.
+- **W19 closed — the §5.3 dependency table audited row by row.** Blueprint
+  **§5.3a**, and the table now carries a verdict per row. Five built, two partly,
+  two not at all. **W23–W27** opened for the gaps; nothing was fixed inside the
+  audit.
+
+**The audit's own finding is the interesting one.** Competitor-feeds was
+diagnosed on 28 September as "a rule in a table nobody re-reads". That was true
+and incomplete: the table had never been read against the code at all, so nine
+other rows carried the same risk silently for five weeks. One of them —
+`app/api/admin/sms/route.ts` — awaits Twilio with no try/catch, so a failure is
+an unhandled rejection, while the row it is asked to copy sits directly above it
+in the same table. The verdict now lives in the table with an item number beside
+each gap, because a principle checked once in a worklog is a principle that
+scrolls away.
+
+**And a recommendation reversed before it was acted on.** Tasos authorised the
+Apify spend for a motorbike scraper; working out how to use it established that
+the target it was for — Riderly — can only be scraped by presenting as a
+browser, which `lib/competitorRates.ts` and `lib/podilatadikoRates.ts` both
+reject in writing. Famozo needs no browser and no spend. Blueprint §1.6a.
+
+---
+
+## 29 September 2026 (afternoon) — Claude, implementer
+
+**Last verified:** 29 September 2026, Claude.
+
+**Agent summary:** [`2026-09-29-claude.md`](worklog/2026-09-29-claude.md), second
+section. **Merged:** #181. **Open at close:** #182.
+
+Three open items closed and one narrowed. What they had in common is worth
+naming: each was a case where the system's behaviour was defensible in isolation
+and wrong once you looked at what the operator actually did with it.
+
+- **W21 — the repricing tool is finished.** The engine merged in the morning
+  with nothing on screen able to reach it; `RepricingPanel.tsx` is the control.
+  It proposes and cannot save: no `fetch` of any kind, enforced by a test.
+  **Merging it approved no price** — §13 is unaffected by any of this.
+- **W20 — an abandoned Apify run is now collected rather than restarted.** Both
+  importers ingest in the polling `GET`, so a closed tab stranded a finished run
+  and the next press paid for another. That is why Faros and CarRentals sat at
+  16 August while EzCar refreshed.
+- **The scooters were tasks 19–27 of 27**, so every pass left early collected
+  cars and no bikes. This, not the null-`car_group` bug fixed in #178, is why
+  there was nothing to map. Both were real; only one had been found.
+- **W22 — surveyed, not built.** Almost nobody on Zakynthos publishes motorbike
+  prices over plain HTTP. The two candidates that carry them need a browser, and
+  this sandbox cannot render either page, so writing a parser would have meant
+  guessing at markup. Blueprint **§1.6a** records the evidence and what unblocks
+  each; **`docs/OPEN-ITEMS.md` W22** carries the remaining step.
+
+### A defect introduced and removed the same day
+
+The import log added that morning recorded a completed CarRentals import after
+**each** of its nine searches — the partial-batch overstatement its own header
+forbids. Found while fixing W20, in code written hours earlier. The interesting
+part is that it passed review and a full test run: the two tests covering it
+scanned the source for a `recordImportCompleted` next to an ingest, which was
+true nine times over. A rule stated in a doc comment is not enforced by a test
+that agrees with it loosely.
+
+---
+
+## 28–29 September 2026 — Claude and Codex, implementers
+
+**Last verified:** 29 September 2026, Claude.
+
+Two days taken together, because the work ran across midnight and the second
+day's merge carried the first day's commits.
+
+**Agent summaries:** [`2026-09-28-claude.md`](worklog/2026-09-28-claude.md),
+[`2026-09-29-claude.md`](worklog/2026-09-29-claude.md),
+[`2026-09-28-codex.md`](worklog/2026-09-28-codex.md).
+
+**Merged:** #172, #173, #175, #178 (Claude); #174, #176 (Codex).
+
+### The theme of both days: measurements that existed and were never shown
+
+Four separate faults turned out to be the same shape — the system knew something
+and no surface asked it.
+
+- `competitor_rates.scraped_at` had recorded every import since migration 004.
+  Nothing displayed it, so a comparison against August observations read exactly
+  like one against this morning's. Blueprint **§5.3 had required this since
+  27 August**; it was built a month later, and only because Tasos asked. **W19**
+  now audits that whole table, since Wise, SMS, AADE, Storage and Supabase data
+  carry rules of the same shape that nobody has checked for an implementation.
+- Motorbike rates had been collected for weeks and **could never be mapped**: the
+  mapping screen shows a null `car_group` as `"?"` and the save sent that back as
+  `.eq("car_group", "?")`, which never matches NULL. Zero rows updated, reported
+  as *"Saved — 0 observations classified"*, silent.
+- Two routes read `competitor_rates` unbounded, and PostgREST caps that at 1,000
+  rows **silently** — so averages, diff percentages and price ranges were computed
+  over an arbitrary slice with nothing to show rows were missing.
+- `lib/gmail.ts` walked the MIME tree for text only, so every insurance
+  certificate the business holds was invisible to the system meant to track
+  cover expiry.
+
+### Insurance: two more insurers, found by reading the broker's mailbox
+
+`INSURANCE-COVER-AND-RESTRICTIONS.md` **§1a**. The fleet uses **four** insurers,
+not two: **ERGO** and **Triglav** (underwritten by Zavarovalnica Triglav's Greek
+branch, **administered by Apeiron** — a claim goes to Apeiron, not the
+underwriter) join Intersalonica and Euroins. Eight 2026 policies read from the
+broker's own PDFs, one of which corroborates the hand-supplied certificate
+exactly. Terms are **one month**, not the three §1 recorded. `lib/insurancePolicy.ts`
+parses all four layouts.
+
+### Decisions
+
+- **Jev (TypeSafe AI) declined** — blueprint §10, with three conditions for
+  revisiting. The blocking reason is data protection, not engineering.
+- **Time anchor stated** — blueprint **§4.4a**. The code had been consistent since
+  August and nothing had written it down, so the answer could only be
+  reconstructed from call sites.
+
+### Corrections worth keeping
+
+Six, recorded in the agent summaries rather than repeated here. Two have a reusable
+lesson: **search the correspondent, not the vocabulary** (a search for
+*ασφάλιση* missed every broker email, all of which say **ΑΣΦΑΛΕΙΑ**), and a
+**mutation test that applies no mutation reports a clean pass** — the same
+vacuous-success shape as a regression test whose anchor has moved.
+
+### Open, and dated
+
+**ΙΟΖ 4176's insurance expires 4 October.** The date is now verified from two
+independent sources and is still not in the vehicle record, so `fleetStatus`
+scores it `unknown` and will not bar a rental. **F1** remains the highest-value
+thing Tasos can do.
+
+---
+
 ## 23 September 2026 — Claude, implementer
 
 **Last verified:** 23 September 2026, Claude.

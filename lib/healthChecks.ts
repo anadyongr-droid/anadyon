@@ -315,6 +315,76 @@ function checkEnvironment(): CheckResult {
     : { name, ok: true, detail: `${required.length} variables present` };
 }
 
+/**
+ * Whether the alert channel is configured, and which chat it is pointed at.
+ *
+ * On 28 September the morning briefing was found never to have arrived, and
+ * answering "is Telegram configured in production?" took a trip through the
+ * Vercel dashboard, a variable whose value is hidden, and a UI that opened the
+ * wrong row. None of that was necessary: the deployment knows the answer, and
+ * nothing here was asking it.
+ *
+ * **The token and the chat id fail differently, so they are reported
+ * differently.** Without a token `sendTelegram` returns immediately, queuing
+ * nothing and recording nothing — total silence. Without a chat id it does not
+ * fail at all: `lib/telegram.ts` falls back to a hardcoded group, so messages
+ * go out, just not necessarily where anyone is watching. "Not delivering" and
+ * "delivering somewhere unintended" are different faults and must not read the
+ * same.
+ *
+ * The last four digits of the chat id are shown deliberately. A Telegram chat
+ * id is a group identifier, not a credential — it is useless without the bot
+ * token — and those four characters are what turns "is it the right chat?"
+ * from a dashboard expedition into a glance. The token is never echoed, in any
+ * form.
+ *
+ * **This check is the one that cannot announce itself.** `formatHealthAlert`
+ * delivers failures over Telegram, so a broken alert channel cannot report that
+ * it is broken. That is not a flaw to fix here — it is why the Site health card
+ * exists and runs on a button rather than the channel being the only surface.
+ */
+export function checkAlertChannel(env: NodeJS.ProcessEnv = process.env): CheckResult {
+  // `env` is injectable so the cases below can be tested by passing an object.
+  // Mutating the real process.env would be shared state: vitest runs files in
+  // parallel workers within one process, so a test that sets TELEGRAM_BOT_TOKEN
+  // corrupts whatever else is reading it at that moment. It did exactly that on
+  // the first run here — seven unrelated tests failed, and passed again in
+  // isolation, which is the worst kind of failure to chase.
+  const name = "Telegram alert channel configured";
+  const token = env.TELEGRAM_BOT_TOKEN?.trim();
+  const chatId = env.TELEGRAM_CHAT_ID?.trim();
+
+  if (!token) {
+    return {
+      name,
+      ok: false,
+      detail: "TELEGRAM_BOT_TOKEN not set — alerts are skipped silently, not even queued",
+    };
+  }
+
+  // A token is `<digits>:<secret>`. Checking the shape catches the failure that
+  // actually happened here: the two variables holding each other's values. A
+  // chat id in the token slot is non-empty, passes the guard above, and then
+  // produces a 404 on every send.
+  if (!/^\d+:[\w-]{20,}$/.test(token)) {
+    return {
+      name,
+      ok: false,
+      detail: "TELEGRAM_BOT_TOKEN is set but is not shaped like a bot token — check the two variables are not swapped",
+    };
+  }
+
+  if (!chatId) {
+    return {
+      name,
+      ok: false,
+      detail: "TELEGRAM_CHAT_ID not set — messages are still sent, to the hardcoded fallback group",
+    };
+  }
+
+  return { name, ok: true, detail: `token set, chat id ends …${chatId.slice(-4)}` };
+}
+
 /** Runs everything. Never throws: a broken check must not break the briefing. */
 export async function runHealthChecks(): Promise<CheckResult[]> {
   const checks = await Promise.all([
@@ -325,6 +395,7 @@ export async function runHealthChecks(): Promise<CheckResult[]> {
     checkBackupFreshness().catch((e) => ({ name: "Recent database backup", ok: false, detail: String(e).slice(0, 90) })),
     checkMailDns().catch((e) => ({ name: "Mail DNS hardening", ok: false, detail: String(e).slice(0, 90) })),
     Promise.resolve(checkEnvironment()),
+    Promise.resolve(checkAlertChannel()),
   ]);
   return checks;
 }

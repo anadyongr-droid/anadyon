@@ -1,11 +1,13 @@
 # What the fleet is actually insured for
 
 **Read from the policy documents, 2 September 2026.** Three certificates
-supplied by Tasos, covering one car and two motorbikes across two insurers.
+supplied by Tasos, covering one car and two motorbikes across two insurers —
+**and, from 28 September 2026, two further insurers and eight policies read
+directly out of the broker's emails: see §1a.**
 This document is the reference for what may be offered, promised and published.
 `DEFINING-STATEMENTS.md` §10 makes that binding.
 
-**Last verified:** 20 September 2026, Codex — official Euroins rental-car IPID and public motor terms located and read through the search index; the exact terms edition incorporated into policy 9190600829 still requires the broker (§7). Dated expiries re-checked against the calendar 20 September 2026, Claude — see F2.
+**Last verified:** 30 September 2026, Claude — the broker's own list of every currently open policy, received 29 September, recorded in §1a. It closes F2: the motorbikes were renewed and run to 11 October, and it supersedes two rows that were describing lapsed policies as current. Earlier: 28 September 2026, Claude — eight policies read from the broker's own PDF attachments, taking the fleet's insurers from two to **four** — **ERGO Ασφαλιστική** and **Triglav/Apeiron**, neither of which this document knew about (§1a). Earlier: 20 September 2026, Codex — official Euroins rental-car IPID and public motor terms located and read through the search index; the exact terms edition incorporated into policy 9190600829 still requires the broker (§7).
 
 **Scope caveat, stated once and applying throughout.** All three documents are
 **certificates** — the schedule of what is covered, for how much, at what
@@ -63,6 +65,198 @@ All three carry the same statutory warning: under Law 4261/2014 art. 169 there
 is **no automatic renewal**, the premium must be paid **before** expiry, and
 non-payment dissolves the policy **with no notice given**. Intersalonica adds
 that on a new policy cover starts **one hour after** payment.
+
+---
+
+## 1a. Two more insurers, and what the broker's emails actually hold
+
+*Added 28 September 2026, Claude. Read from the broker's PDF attachments in the
+`anadyon.gr@gmail.com` mailbox, not supplied by hand.*
+
+**The policies live in email, as attachments from the broker
+`kexpress2007@gmail.com` — Κ.ΕΞΠΡΕΣΣ ΜΕΠΕ, Zakynthos** (201 threads, of which
+nine in 2026 carry attachments). This was not previously recorded anywhere, and
+one earlier search for them failed and reported the opposite: it looked for
+*ασφάλιση / ασφαλιστήριο / συμβόλαιο* while every one of the broker's subjects
+reads **ΑΣΦΑΛΕΙΑ** or **ΑΣΦΑΛΕΙΕΣ**, which Gmail does not stem across. Searching
+the correspondent rather than the vocabulary is the reliable way in.
+
+### There are four insurers, not two
+
+§1 above says "two insurers". That is wrong, and was wrong because the sample
+was three certificates handed over by hand. Reading the broker's own
+attachments finds **two more**:
+
+- **ERGO Ασφαλιστική Μονοπρόσωπη Α.Ε.**, ΑΦΜ 094256484 — product *ERGO My Auto
+  Simple Plus*.
+- **Zavarovalnica Triglav ΑΕ, D.D. — Ελληνικό Υποκατάστημα**, ΑΦΜ 997028646, the
+  Greek branch of the Slovenian insurer, with claims and administration handled
+  by **Apeiron Insurance Project** (ΑΦΜ 800832501) as *ΑΠΟΚΛΕΙΣΤΙΚΟΣ
+  ΣΥΝΕΡΓΑΤΗΣ / ΔΙΑΧΕΙΡΙΣΤΗΣ ΖΗΜΙΩΝ*. Package *STANDARD 21 AUTORENT COVER*, use
+  class *Ι.Χ.Ε. ΕΝΟΙΚΙΑΖΟΜΕΝΑ*. **A claim on these vehicles is notified to
+  Apeiron, not to Triglav**, which is an operational fact nothing here recorded.
+
+### Every policy read from the broker's 2026 emails
+
+Eight policies across four insurers, extracted from the PDFs rather than
+transcribed. Two-digit years are reproduced as the Euroins documents write them.
+
+| Plate | Insurer | Policy | From | To |
+|---|---|---|---|---|
+| ΙΜΙ 2840 | Intersalonica | 217565447 | 16/09/2026 | **16/10/2026** |
+| ΙΜΙ 2840 | ERGO | 2088554551/0001 | 10/08/2026 | 10/09/2026 |
+| ΗΒΙ 467 | ERGO | 2088288865/0001 | 27/07/2026 | **27/10/2026** |
+| ΙΡΜ 6966 | Triglav / Apeiron | 5629993 | 08/07/2026 | **08/10/2026** |
+| ΖΑΖ 9892 | Triglav / Apeiron | 5605069 | 09/05/2026 | 09/08/2026 |
+| ΙΟΗ 8395 | Euroins | 9190596178 | 08/06/26 | 08/09/26 |
+| ΙΟΖ 4176 | Euroins | 9190600829 | 04/07/26 | **04/10/26** |
+| ΙΟΕ 2356 | Euroins | 9190600830 | 04/07/26 | **04/10/26** |
+
+### The broker's own list of what is currently open — 29 September 2026
+
+*Added 30 September 2026, Claude, from the broker's reply in thread
+`ΑΣΦΑΛΕΙΑ ΙΜΙ2840`, sent 29 September at 09:55 in answer to Tasos's 28 September
+request for **all policies open this period**.*
+
+**This is what closed the motorbike question.** Open item F2 escalated the fact
+that §1 recorded both motorbikes expiring **11 September 2026** with nothing on
+file saying they had been renewed. They were. Nine of them now run to
+**11 October 2026**, and the broker lists eleven motorbikes where this document
+knew of two.
+
+| Plate | Expires | Days from 30 Sep |
+|---|---|---:|
+| ΙΟΖ 4176 | **4 October** | **4** |
+| ΙΟΕ 2356 | **4 October** | **4** |
+| ΙΡΜ 6966 | 8 October | 8 |
+| ΖΒΒ 564 · ΖΒΒ 565 · ΖΒΒ 566 · ΖΒΒ 567 | 11 October | 11 |
+| ΗΒΙ 1560 · ΗΒΙ 1569 · ΗΒΙ 1570 · ΗΒΙ 1837 | 11 October | 11 |
+| ΙΜΙ 2840 | 16 October | 16 |
+| ΗΒΙ 467 | 27 October | 27 |
+| ΗΒΙ 1568 | 4 November | 35 |
+| ΖΑΖ 9892 | 9 November | 40 |
+| ΙΟΗ 8395 | 8 December | 69 |
+
+The broker groups the last eleven under the heading **ΜΗΧΑΝΑΚΙΑ** — motorbikes —
+which is also the first record here of **ΗΒΙ 467 being a motorbike** rather than
+a car.
+
+**Read this as the broker's assertion, not as a certificate.** §8 applies: the
+table above is a list of dates typed into an email, where the eight rows earlier
+in this section were read out of policy PDFs. It is the better source for *what
+is current* — it is three weeks newer and it is the answer to a direct question
+about open policies — and the weaker source for *what is covered*, since it
+carries no policy number, insurer or terms. Where the two overlap they agree on
+ΙΟΖ 4176, ΙΟΕ 2356, ΙΡΜ 6966, ΙΜΙ 2840 and ΗΒΙ 467.
+
+**Two rows this supersedes.** The PDFs had **ΖΑΖ 9892** ending 09/08/2026 and
+**ΙΟΗ 8395** ending 08/09/26 — both already past. The broker's list puts them at
+9 November and 8 December, so both were renewed and this document was describing
+lapsed policies as though they were the current ones.
+
+**Seventeen vehicles, and the fleet is twenty-nine.** The other twelve are not
+in the broker's answer to a question that asked for everything open. At least
+one is explained — ΗΒΙ 1568 was described on 15 June as *ΑΣΦΑΛΙΣΜΕΝΟ ΙΔΙΩΤΙΚΟ*,
+privately insured, and ΗΒΙ 1566 as being at the workshop — so some are plausibly
+off-fleet or insured elsewhere. **Which twelve, and why, is not established**,
+and it is the remaining half of F1 rather than a finding of this section.
+
+**This still does not enter the dates into the system**, which is what actually
+switches on the stop-sell. `lib/fleetStatus.ts` scores a vehicle with no
+recorded expiry as `unknown`, and `rentalBar` bars only on `expired` — so every
+one of these vehicles rents today with no statutory check. F1 is where that sits.
+
+**This corroborates §1 rather than replacing it.** ΙΟΖ 4176 on policy
+**9190600829** to **04/10/2026** is exactly what §1 records for the car from the
+hand-supplied certificate. An independent read reaching the same values is the
+kind of check `DEFINING-STATEMENTS.md` §8 asks for.
+
+**Still unread, and recorded as unread rather than as absent:** the ten
+motorbike policies (6×50cc, 4×125cc) sent on 11 June 2026, whose email is 8.3 MB
+and cannot be retrieved through the session's Gmail connector — that is what the
+`lib/gmail.ts` attachment support is for. And four **scanned images with no text
+layer** (`ΠΛΗΡΩΜΕΣ ΑΣΦΑΛΙΣΤΡΩΝ`, `ΑΠΟΔΕΙΞΗ ΕΞΟΦΛΗΣΗΣ`), which are payment
+receipts rather than policies and would need OCR.
+
+### A line that bears on B6
+
+The Triglav policy carries, on its face:
+
+> `ΕΠΑΣΦΑΛΙΣΤΡΟ ΝΕΟΥ ΟΔΗΓΟΥ: ΟΧΙ / ΝΕΟΥ ΔΙΠΛΩΜΑΤΟΣ: ΟΧΙ`
+
+Explicit fields for the **young-driver** and **new-licence** loadings, both set
+to *no*. §2c reasons about Intersalonica's Articles 18 and 19 from the terms
+booklet; this is a different insurer stating the same two loadings as policy
+fields, and stating that neither was applied. It does not answer B6 — whether
+the rental use class displaces the declaration duty — but it is evidence about
+how these loadings are administered in practice, and the broker should be asked
+about this line specifically.
+
+| | Verified from the contract PDF |
+|---|---|
+| **Plate** | ΙΜΙ 2840 |
+| **Vehicle** | Hyundai i10 1.2i 16V, 2009, 1,248cc, 9hp, 5 seats |
+| **Insurer** | **ERGO Ασφαλιστική Μονοπρόσωπη Α.Ε.**, ΑΦΜ 094256484 |
+| **Product** | ERGO My Auto Simple Plus |
+| **Policy no.** | 2088554551/0001 |
+| **Cover** | **10/08/2026 10:22 → 10/09/2026 23:59** |
+| **Premium** | €25.00 gross (€16.97 net + €4.36 fee + €3.19 tax + €0.48 ΕΚ) |
+
+The same vehicle is then insured by **Intersalonica**, policy **217565447**,
+**16/09/2026 13:46 → 16/10/2026 23:59**, issued 16/09/2026 — a
+Πολυασφαλιστήριο naming the same ΑΦΜ 800569811.
+
+**So ΙΜΙ 2840 is a car this document had never listed, on an insurer this
+document had never named, moving between insurers month to month.**
+
+### Three consequences, each verified rather than inferred
+
+**Terms are one month, not three.** Both ΙΜΙ 2840 policies run a single month.
+§1's "3 months" holds for the three hand-supplied certificates and is not a
+property of the fleet. Anything built on a quarterly renewal rhythm — a reminder
+cadence, a stop-sell lead time — must not assume it.
+
+**There is an apparent six-day gap, and it is not asserted as one.** ERGO ends
+10/09/2026 23:59; Intersalonica begins 16/09/2026 13:46. Nothing read so far
+covers 11–16 September. This is **not** a claim that the car was uninsured — a
+policy may exist that has not been read, and the broker's 15 September
+"ΠΛΗΡΩΜΕΣ ΑΣΦΑΛΙΣΤΡΩΝ" email is unread at the time of writing. It is a claim
+that the documents in hand do not cover those days, which is a question for the
+broker (§6).
+
+**No own-damage cover, now confirmed from contracts rather than reasoned.**
+§4.1 concluded there is no collision own-damage anywhere in the fleet. Both
+ΙΜΙ 2840 policies confirm it directly: ERGO covers only forest fire (€2,856),
+flood (€2,856, €250 excess) and earthquake (€5,000); Intersalonica the same
+three at €2,900 each. Neither carries general own damage. **The €5.00/day Full
+Damage Waiver therefore stands against no insurance on this vehicle either** —
+which strengthens §4.1 and open item N1 rather than changing them.
+
+### Bicycles carry no insurance at all
+
+*Stated by Tasos, 28 September 2026.* The bicycle fleet is uninsured — there is
+no policy behind it, from any insurer. It is recorded here because its absence
+is otherwise indistinguishable from a policy nobody has found yet, and because
+anything published about bicycles must say what §10 requires: where cover is
+absent, the wording says so plainly rather than going quiet.
+
+### Minor, worth one word to the broker
+
+The ERGO policy names the insured **"ΑΝΑΔΙΩΝ Ι.Κ.Ε."** — a misspelling of
+ΑΝΑΔΥΩΝ. The ΑΦΜ (800569811) is correct, so this is very likely harmless, but a
+name mismatch on a claim is the kind of thing that costs a day.
+
+### Reading these is now mechanical
+
+The Gmail connector exposes attachment metadata but no download. The route that
+works: fetch the message `RAW`, decode the MIME, extract the PDF, read it with
+`pypdf`, and regex the fields (`ΑΡ. ΚΥΚΛΟΦ.`, `ΑΡΙΘΜΟΣ ΠΟΛΥΑΣΦΑΛΙΣΤΗΡΙΟΥ`,
+`ΔΙΑΡΚΕΙΑ ΑΣΦΑΛΙΣΗΣ ΑΠΟ/ΜΕΧΡΙ`). ERGO and Intersalonica use different layouts,
+so a per-insurer pattern is needed rather than one regex. **This also revives
+the F2 automation**: `lib/gmail.ts` can fetch attachments through the same API —
+it simply does not today — so a pipeline that proposes into
+`vehicle_change_requests` is viable after all. The blocker reported earlier was
+an artefact of the connector, not of the architecture.
 
 ---
 

@@ -195,12 +195,19 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           # Built in a variable first, as the previous version was and for the
           # same reason: writing the message inline across two lines put a bare
           # line inside the YAML block and the workflow stopped parsing
           # altogether, which is worse than a broken alert because GitHub then
           # refuses to run the job at all.
-          MSG="❌ <b>Nightly database backup failed</b>"$'\n'"No backup was stored tonight."$'\n'"$RUN_URL"
+          #
+          # No run link, at Tasos's request, 28 September. The URL was there to
+          # make the alert actionable, but it is actionable for whoever
+          # investigates rather than for the person it wakes — and that person
+          # needs to know what is at risk, not where the log is. What the alert
+          # now says is the thing he has to decide on: last night's data has no
+          # off-site copy. Whoever picks it up opens the repository's Actions
+          # tab, where this workflow is the only nightly one.
+          MSG="❌ <b>Nightly database backup failed</b>"$'\n'"No backup was stored tonight, so last night's data has no off-site copy. The previous archive is still held."
           node scripts/send-telegram-alert.mjs "$MSG"

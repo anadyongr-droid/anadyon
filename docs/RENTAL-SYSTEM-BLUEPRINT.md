@@ -154,6 +154,157 @@ direct. Worth building; see §7.1 and phase 4.
 
 ---
 
+### 1.6a Where motorbike rates can actually be collected — the survey
+
+*Added 29 September 2026, answering open item W22 ("find motorbike rental rates
+in the local market and build two scrapers"). The survey is the deliverable; the
+two scrapers were **not** built, and the last part of this section says exactly
+why and what would unblock each one.*
+
+**The finding, in one line: almost nobody on Zakynthos publishes motorbike
+prices in a form a plain HTTP request can read — but one operator does.** Every
+candidate below was opened and checked; none of this is inferred from a summary.
+
+> **Resolved 1 October 2026.** A fourth pass found
+> **[Rent Scooter Car Zante](https://www.rentscootercarzante.com/tariffe-scooter/)**,
+> which publishes a full scooter tariff as static HTML: four price groups
+> (50, 125, 150, 200 cc), two seasons and three duration bands. It is built —
+> `lib/rentScooterZanteRates.ts` — and the table below is kept because the
+> *negative* results are the expensive part to rediscover. The row for this
+> operator is added at the end.
+>
+> **What made it findable on the fourth attempt and not the first three:** the
+> earlier sweeps checked operator *homepages* for a currency symbol. This site
+> shows none on its homepage; the prices live on a `Tariffe` page reached from a
+> nav menu, and its vehicles are WooCommerce products with a per-day price on
+> each. Searching for a price on the front page is not the same as asking
+> whether a site publishes one.
+
+| Source | Motorbike rates reachable? | Evidence |
+|---|---|---|
+| **Ionian Rentals** (EzCar) | **Yes — already collected** | `hasBikes: true`; three scooters. Plain HTML, no challenge. The one we have. |
+| **Motor Club Zante** (EzCar) | No fleet | `hasBikes: false` — the platform returns an empty set for bikes. |
+| **Auto Traffic Rentals** | **No prices published at all** | Has the cleanest category structure found anywhere — separate 50cc, 125cc, 300cc and 400cc scooter pages — but every page is an enquiry form. No currency symbol appears on the 50cc page. |
+| **ZanteWay Rentals** | No | `moto-atvs.php` lists four scooters and prints *"From 0.00 € / Day"* against each. The figures come from a booking engine the page does not carry. |
+| **Famozo Rentals** | Behind a private API | Real booking engine with an explicit `vtype=scooter` and eleven pickup locations. Results are rendered client-side from `wp-content/plugins/iosrt-api-client/client/ajax.php`, which answers *"Invalid request!"* to every parameter shape tried. The client JS is deferred by an optimiser and never appears in the served HTML. |
+| **Riderly** (and its white-label `motorbike.tcs.ch`) | Behind Cloudflare | A motorbike marketplace carrying several Zakynthos suppliers with per-day prices and a clean 50cc/125cc split — the richest source found. Returns **403** to any non-browser request, including a rendering fetch. |
+| **RentBikeCarZante** | Behind a JS challenge | Even `robots.txt` returns an interstitial that reloads itself after five seconds. |
+| **AutoLux · Autoway · Smart Rentals · 1-Way** | No motorbikes, or no prices | Autoway and Smart Rentals mention no scooters at all; AutoLux and 1-Way answered `202` with a near-empty body. |
+| **Hermes Rentals** (Kalamaki) | No prices | Has a dedicated `/scooters/` page; no currency symbol anywhere on it. |
+| **BikesBooking** | Out of bounds | A motorbike marketplace covering Zakynthos, but a client-rendered app — 307 characters of visible text — whose prices come from `/api/`, which **its own `robots.txt` disallows**. Settled on that ground rather than on difficulty. |
+| **Rent Scooter Car Zante** | **Yes — built 1 October** | Publishes a complete scooter tariff as static HTML. `robots.txt` is `User-agent: *` with no `Disallow` and no `Crawl-Delay`. Four price groups, two seasons, three duration bands. |
+
+### The source that was built — Rent Scooter Car Zante
+
+*Added 1 October 2026.* `lib/rentScooterZanteRates.ts`, collected on the same
+call that finishes the EzCar pass, for the same reason Podilatadiko is: a
+published tariff on one static page costs a single fetch and needs no cursor.
+
+**It fits the comparison better than any existing competitor**, because it
+publishes both a season and a duration band where Faros needed a synthetic
+proxy for short rentals:
+
+| Group | Low season 1–3 / 4–6 / 7+ days | High season |
+|---|---|---|
+| Aprilia SR Motard **50 cc** | €17 / €16 / €15 | €21 / €20 / €19 |
+| Piaggio Liberty S, Aprilia Sportcity, Derbi Variant — **125 cc** | €25 / €23 / €20 | €31 / €30 / €29 |
+| Liberty **150 cc** | €27 / €25 / €23 | €32 / €31 / €30 |
+| Sym Symphony **200 cc** | €29 / €27 / €25 | €36 / €35 / €34 |
+
+Three details that are decisions rather than mechanics:
+
+- **Their bands line up exactly with ours, and the code refuses to pretend
+  otherwise if that changes.** They quote 1–3, 4–6 and 7+ days; the durations
+  this project already samples — 2, 5 and 10 — fall one inside each.
+  `pickBandDays` returns null if a band ever contains none or several, so a
+  reshaped tariff is skipped and reported rather than mapped by guesswork.
+- **Low season is May, June and September; high is 1 July to 31 August — and
+  nothing else is published.** No October figure is stored, because they quote
+  none. A comparison month with no row from them is honest; an invented
+  shoulder-season price would not be. It does mean this source cannot answer an
+  October comparison.
+- **`car_group` is the engine class**, not the model, because that is what their
+  tariff prices and what our own card sells. The Market mapping table maps
+  `50 cc` to *Motorbike A* and the rest to *Motorbike B*, and unlike the EzCar
+  scooters these rows arrive with a group already set, so the null-`car_group`
+  trap of #178 cannot recur here.
+
+**Two things this rules out, so they are not tried again.**
+
+- **Adding more EzCar tenants is not free coverage.** §1.6 names EasyRent Zante,
+  Zakynthos Car Rentals, EuroAlfa, Acteon and Syros 4 Seasons as tenants of the
+  same platform, which made this look like the cheapest possible win: the
+  scraper exists, is tested and is already rate-limited. **The tenant paths are
+  not derivable.** Every plausible slug returns 404, and the vendor's own
+  clients page renders its customer list as a JavaScript logo slider with no
+  links. Getting them means asking ZanteWeb, or reading a slug off one of those
+  companies' own booking links.
+- **Static tariff pages, the Podilatadiko pattern, do not exist for motorbikes
+  here.** That scraper works because a specialist shop publishes a price list.
+  General rental firms on this island quote through an engine instead.
+
+**What the two scrapers would cost, and why neither was written blind.**
+
+Both remaining candidates need a browser, which means Apify — the same
+dependency Faros already carries, so no new vendor, but real spend per run and
+CarRentals' residential proxies are billed by traffic.
+
+- **Riderly** is the higher value: one scraper, several suppliers, both engine
+  classes, and prices already normalised to euros per day. It needs a browser
+  run to get past Cloudflare.
+- **Famozo** is the lower-risk shape — plain HTTP, no challenge — but its API
+  contract has to be recovered from an obfuscated client first.
+
+**Neither parser was written**, and that is the deliberate part. This sandbox
+cannot render either page: the agent proxy's certificate is not in Playwright's
+Chromium trust store, so the browser fetch fails with
+`ERR_CERT_AUTHORITY_INVALID`, and disabling verification is not an option.
+Writing a parser against markup nobody has seen produces exactly the artefact
+`DEFINING-STATEMENTS.md` §8 exists to prevent — one that passes its own tests,
+because the tests were written from the same guess, and fails on contact with
+the real page.
+
+**What would unblock each, concretely.** For Riderly: one Apify browser run
+against a Zakynthos listing URL, with the returned HTML saved — the parser can
+then be written and tested against a real fixture, as `parseBikePage` was.
+For Famozo: one browser session with the network tab recorded, to capture the
+`ajax.php` request body the booking form actually sends.
+
+**Prefer Famozo, on a ground that is not about difficulty.** *Added 30 September
+2026, after Tasos authorised the Apify spend — the recommendation changed before
+it was used.*
+
+Riderly's 403 is Cloudflare bot management, not a stated policy: its
+`robots.txt` allows `/rentals/details/*` and declares `ai-input=yes`. But the
+only way past it is to present as a real browser, and **this codebase rejects
+that in writing, twice.** `lib/competitorRates.ts` and
+`lib/podilatadikoRates.ts` both send `AnadyonRatesBot/1.0` under the comment
+*"Identify honestly rather than impersonating a browser."* A Riderly scraper
+cannot honour that and still work.
+
+That is a different situation from Faros, which also runs through an Apify
+browser: Faros never refused a non-browser client, it simply rendered its prices
+in JavaScript. Rendering a page that will serve you is not the same as
+presenting false identity to a page that has declined to.
+
+**Famozo has neither problem.** It serves over plain HTTP with no challenge, so a
+scraper there identifies honestly like the other three, and it costs nothing per
+run rather than metering a browser. It needs one thing captured once: the
+`ajax.php` request body, from a browser session's network tab.
+
+**So the Apify spend is not what unblocks this.** It would only be needed at
+*runtime*, for Riderly, from Vercel — and choosing Riderly is the decision that
+conflicts with the convention above. Whether to make an exception to
+"identify honestly" for a competitor that has refused us is Tasos's call, not an
+implementation detail, and it is not needed for Famozo at all.
+
+**Source:** fetched 29 September 2026 — `autotrafficrentals.com` (robots.txt,
+`/scooters-atvs/scooters/50cc-scooters/`), `zantewayrentals.com/moto-atvs.php`,
+`famozorentals.com` (booking form, `ajax.php`), `riderly.com` (robots.txt, a
+detail page), `motorbike.tcs.ch`, `ezcar.gr/en-clients.php`.
+
+---
+
 ### 1.7 The 2026 entrants — **CarCEO Pro**, **HQ Rental**, **Rentware**
 
 *Added 25 August 2026.* Three systems absent from the original survey. Two of
@@ -1234,6 +1385,81 @@ Utilisation must exclude days a vehicle was retired, in maintenance or blocked �
 otherwise a car off the road drags the average down and hides the performance of
 the ones working.
 
+### 4.4a Time: one anchor for instants, another for dates, and why that is not a contradiction
+
+*Added 28 September 2026, after Tasos asked "is UTC our anchor time or Athens?"
+and the honest answer was that the code has been consistent about it and nothing
+had ever written the rule down. Reconstructing a convention from its call sites
+is exactly what §9 exists to prevent.*
+
+**There are two kinds of time value here and they take different anchors.**
+
+**An instant — a moment something happened.** `scraped_at`, `created_at`,
+`received_at`, `reviewed_at`. Stored as `timestamptz`, which is an absolute
+point on the timeline; Postgres holds it in UTC, but the value carries no
+timezone of its own. **The anchor for storage is UTC, and it is not a choice —
+it is what "an instant" means.**
+
+**A date with no time — a day in the life of the business.** A pickup date, a
+season boundary, an insurance or KTEO expiry. `2026-08-17` means that day in
+Zakynthos, whoever is looking and from wherever. It is not an instant and has no
+"correct" UTC moment. It is encoded as **UTC midnight as a container** —
+`parseDateOnlyUtc` in `lib/pricing.ts` — so that adding a day is exact and free
+of daylight-saving arithmetic.
+
+**The rule that follows.** *An instant is stored in UTC and interpreted in
+`Europe/Athens` whenever a person reads it as a date. A date-only value is
+timezone-free, encoded at UTC midnight, and never converted.*
+
+**Where each applies, with the live examples:**
+
+| Value | Kind | Anchor |
+|---|---|---|
+| `competitor_rates.scraped_at` | instant | stored UTC; shown and aged in `Europe/Athens` (`lib/rateSourceFreshness.ts`) |
+| `emails.received_at` | instant | stored UTC |
+| pickup / dropoff date | date-only | UTC-midnight container (`parseDateOnlyUtc`) |
+| season month boundaries | date-only | UTC-midnight container; `calcVehicleSegments` reads the month back with `timeZone: "UTC"` |
+| `vehicles.insurance_expiry`, `kteo_expiry` | date-only | a calendar day, compared against the pick-up date |
+| booking-confirmation times | instant | rendered `Europe/Athens` (`lib/bookingEmails.ts`) |
+
+**The two places `UTC` appears are not a competing anchor**, and this is the
+part that reads as a contradiction until it is said plainly. `calcVehicleSegments`
+formatting a month with `timeZone: "UTC"` is reading a month back out of a
+UTC-midnight container — using `Europe/Athens` there would shift the date back a
+day and bill the wrong season. And `rateSourceFreshness.calendarDay` converts an
+instant to its Athens calendar date **first**, then re-encodes that date at UTC
+midnight purely so the subtraction of two dates is exact. In both cases UTC is
+an *encoding of a date*, not a claim about a timezone.
+
+**What this forbids.** Deriving a calendar date from an instant with
+`getFullYear`/`getMonth`/`getDate`, or with `toLocaleDateString` and no
+`timeZone` — both read the *host's* zone, so the same row renders differently on
+a Vercel server, a laptop in Athens and a phone abroad.
+
+**Two distinct faults were fixed on 28 September, and they are worth keeping
+apart because only one of them involves timezones at all.**
+
+*The one that was actually observed.* The age was `floor(elapsed_ms / 86400000)`
+— pure elapsed time, with **no timezone in it anywhere**. Two imports four hours
+apart either side of midnight print different dates and floor to the same number
+of elapsed days, which is how the Market screen came to show `16 Aug · 42 days
+ago` beside `17 Aug · 42 days ago`. Nothing about the server's zone or the
+viewer's contributed to it. Counting calendar dates instead is the fix.
+
+*The one that was latent.* The date was formatted client-side with no `timeZone`,
+so it rendered in the viewer's zone while the age did not depend on any zone.
+**This only bites when the instant falls within the offset difference of
+midnight**, so it is small for a reader near Greece and large for one far away:
+one hour for a viewer at UTC+2 against Athens at UTC+3, seven hours for a viewer
+in New York. Someone browsing from UTC+2 at midday would have seen exactly the
+same dates as Athens — which is why this fault was invisible in the report that
+prompted the fix, and why it is stated here as a hazard found while fixing
+something else rather than as the cause of anything observed.
+
+Any new code that shows a date taken from a `timestamptz` states
+`timeZone: "Europe/Athens"` explicitly, or takes it from a server field that
+already did.
+
 ### 4.5 Schema debt found while writing this
 
 `driving_licence_number` is the only column in the repository baseline and the
@@ -1318,22 +1544,245 @@ was an instance of.
 **The rule: security fails closed, convenience degrades, money never silently
 succeeds.**
 
-| Dependency | On failure |
-|---|---|
-| **Supabase auth** | Deny. An unresolved role is not a staff role. Already implemented: 8s timeout, `?unavailable=1`, 503. |
-| **Supabase data** | Read paths show a stated error, never an empty list — "no reservations today" and "we cannot reach the database" must never look alike. Write paths refuse and say so. |
-| **Storage** | A handover cannot finalise without its photographs. Hold the draft, let staff retry; do not complete a handover whose evidence did not upload. |
-| **Resend** | Queue and retry. Delivery state is already derived from `booking_email_deliveries`, so a failure is visible rather than assumed — `pending` is never read as sent. |
-| **Stripe** | Never mark paid on a timeout. An unconfirmed payment stays unconfirmed; the webhook is the source of truth, and it is idempotent. |
-| **Wise** | *Corrected 28 August — this was wrongly folded in with Stripe above.* **Wise has no webhook.** `lib/wise.ts` says so in the file itself: a deposit link is a constructed URL, "Wise does not call back when the money arrives, so a reservation paid this way has to be reconciled rather than confirming itself." There is nothing to fail closed, because nothing calls back. The failure mode is therefore silence, and the answer is a reconciliation task that is *visible and ages* — an unreconciled Wise deposit must appear as outstanding work, not sit unnoticed until someone checks the bank. |
-| **SMS** | Non-blocking, but recorded and visible. A confirmation SMS that fails must not block a booking — and must not vanish either. *Corrected 28 August: this said "degrade silently", which contradicts this section's own closing rule that degraded state is shown rather than hidden.* A failed message is logged against the reservation and surfaced the way a failed email already is, so "we texted them" can be checked rather than assumed. |
-| **AADE** | Queue for resubmission and surface the backlog. A statutory submission that failed is an operational task, not a lost message. |
-| **Competitor feeds** | Show the data's age. Stale rates presented as current are worse than no rates. |
+| Dependency | On failure | Audited 30 Sep |
+|---|---|---|
+| **Supabase auth** | Deny. An unresolved role is not a staff role. Already implemented: 8s timeout, `?unavailable=1`, 503. | **Built** — `proxy.ts` |
+| **Supabase data** | Read paths show a stated error, never an empty list — "no reservations today" and "we cannot reach the database" must never look alike. Write paths refuse and say so. | **Built 1 Oct** — W23 closed |
+| **Storage** | A handover cannot finalise without its photographs. Hold the draft, let staff retry; do not complete a handover whose evidence did not upload. | **Built** — finalise refuses |
+| **Resend** | Queue and retry. Delivery state is already derived from `booking_email_deliveries`, so a failure is visible rather than assumed — `pending` is never read as sent. | **Built** |
+| **Stripe** | Never mark paid on a timeout. An unconfirmed payment stays unconfirmed; the webhook is the source of truth, and it is idempotent. | **Built** |
+| **Wise** | *Corrected 28 August — this was wrongly folded in with Stripe above.* **Wise has no webhook.** `lib/wise.ts` says so in the file itself: a deposit link is a constructed URL, "Wise does not call back when the money arrives, so a reservation paid this way has to be reconciled rather than confirming itself." There is nothing to fail closed, because nothing calls back. The failure mode is therefore silence, and the answer is a reconciliation task that is *visible and ages* — an unreconciled Wise deposit must appear as outstanding work, not sit unnoticed until someone checks the bank. | **Built 1 Oct** — W24 closed |
+| **SMS** | Non-blocking, but recorded and visible. A confirmation SMS that fails must not block a booking — and must not vanish either. *Corrected 28 August: this said "degrade silently", which contradicts this section's own closing rule that degraded state is shown rather than hidden.* A failed message is logged against the reservation and surfaced the way a failed email already is, so "we texted them" can be checked rather than assumed. | **Throw fixed 1 Oct; record still missing** — W25 |
+| **AADE** | Queue for resubmission and surface the backlog. A statutory submission that failed is an operational task, not a lost message. | **Partly built** — W26 |
+| **Competitor feeds** | Show the data's age. Stale rates presented as current are worse than no rates. **Built 28 September 2026** — Admin → Market carries a freshness panel per import source; `lib/rateSourceFreshness.ts`. See the note below. | **Built** |
 
 **Two rules that apply everywhere.** Every external call carries a timeout —
 an unbounded call is an outage waiting for a slow day. And degraded state is
 shown, not hidden: the operator needs to know the difference between quiet and
 broken, which is precisely the distinction the August incident destroyed.
+
+**Both of those were audited too, and the first is mostly not honoured.** Only
+`lib/healthChecks.ts`, `lib/telegram.ts` and `lib/recaptcha.ts` bound their
+external calls; `proxy.ts` bounds the auth call that caused the August incident.
+Twilio, Apify, AADE, Resend and the three rate scrapers all call out with no
+timeout at all — **W27**. The second rule is what rows 2, 6, 7 and 8 above fail,
+each in its own way.
+
+*Closed 1 October: see the W27 entry below. Eleven unbounded calls were found and
+bounded, the rule is now enforced by a test that walks the source rather than by
+this paragraph, and the sentence naming Resend above was wrong — it was already
+bounded.*
+
+**The competitor-feeds row sat unbuilt for a month, and that is worth recording
+rather than quietly ticking off.** *Added 28 September 2026, Claude, after Tasos
+asked on the Market screen "I don't see when we last imported the rates" and
+then asked whether we had already decided this. We had — here, on 27 August —
+and nobody had built it.*
+
+The measurement was never missing: `competitor_rates.scraped_at` has been
+written since migration 004. What was missing was any surface that showed it, so
+a comparison against August observations read exactly like one against this
+morning's — the precise failure this row names.
+
+**How it was missed is the reusable part.** The Market screen and this rule were
+written by different passes that never met. The screen shipped as its own
+feature; this row was written later as a general principle about degraded state,
+inside a table otherwise about Supabase, Stripe and Resend. Nobody re-read the
+dependency table while building Market, and a rule in a table nobody re-reads is
+a rule that does not exist. `DEFINING-STATEMENTS.md` §9 covers searching the
+docs before *researching* a subject; this is the same failure one step later —
+searching them before *building* one. Before adding a screen, read what §5.3
+says the thing it depends on must do when that dependency is stale or down.
+
+### 5.3a The row-by-row audit — 30 September 2026
+
+*Open item W19, closed by this section. Raised on 28 September because the
+competitor-feeds row had sat written and unbuilt for a month, and the concern was
+that this was a class rather than an incident. **It was a class.** Five of the
+ten rows are fully built, two are partly built, two are not built at all, and one
+of those two throws an unhandled rejection. Each gap below is its own open item;
+per W19 nothing was fixed inside the audit.*
+
+**Built, verified against the code:**
+
+- **Supabase auth.** `proxy.ts` — `AUTH_TIMEOUT_MS = 8_000`, a 503 on the API
+  path, `?unavailable=1` on the page path. This is the August incident's own fix.
+- **Storage.** `POST /api/admin/handovers/[id]/finalise` refuses a check-out
+  whose required views have no photograph, and names them: *"check-out refused:
+  … 2 required photograph(s) are missing"*. Covered by
+  `app/api/admin/handovers/handovers.test.ts`.
+- **Resend.** The best-implemented row. `booking_email_deliveries` holds the
+  audit trail, `lib/emailWorkflowStage.ts` derives the stage from it rather than
+  assuming, and `deliveryNeedsAttention` puts an explicit banner on the
+  reservation: *"The last customer email was not delivered … The customer may
+  not have received it."*
+- **Stripe.** `app/api/stripe-webhook/route.ts` verifies the signature with
+  `constructEvent`, and idempotency is a `UNIQUE` constraint on
+  `alert_outbox.key` rather than a check that can race — a redelivery collides
+  and returns `{ duplicate: true }` without re-applying the update. The file's
+  own header records that an earlier version re-applied it and overwrote
+  `deposit_paid_at`.
+- **Competitor feeds.** Built 28–29 September; see the note above.
+
+**The four gaps.**
+
+**W23 — Supabase data, on the one screen that matters most.** Eight admin
+screens check `res.ok` and state an error. `app/admin/reservations/page.tsx`
+does not: its loader ends in a `.catch` that deliberately does nothing, leaving
+`reservations` as `[]`, so the table renders **"No reservations found."** That is
+this row's own sentence — *"no reservations today" and "we cannot reach the
+database" must never look alike* — failing on the busiest screen in the admin.
+The comment explains the choice and is half right: not blanking a populated
+table over one dropped background poll is sound. It applies the same silence to
+the **first** load, where there is nothing to preserve and the operator is shown
+a confident denial instead of a fault. `res.ok` is also never checked, so a JSON
+error body is assigned where an array is expected.
+
+**W24 — Wise has no reconciliation surface at all.** `lib/wise.ts` constructs a
+payment URL and `POST /api/admin/wise/deposit-link` returns it. That is the
+whole feature. Nothing records that a Wise deposit is *awaited*, nothing lists
+the ones outstanding, and nothing ages them — so the row's requirement, *"an
+unreconciled Wise deposit must appear as outstanding work, not sit unnoticed
+until someone checks the bank"*, has no implementation whatsoever. This is the
+gap with money on the other side of it.
+
+**W25 — SMS is not merely unbuilt; the route throws.**
+`app/api/admin/sms/route.ts` ends with `await client.messages.create(...)` with
+**no try/catch, no timeout and no record**. A Twilio failure is an unhandled
+rejection: the caller gets a framework 500, nothing is written against the
+reservation, and nothing is surfaced. There is no SMS analogue of
+`booking_email_deliveries`, so the row's *"surfaced the way a failed email
+already is"* has nothing to be surfaced from. Note the irony: the Resend row
+directly above it is the model this row asks to copy.
+
+**W26 — AADE records a failure but never queues or surfaces a backlog.** The
+submit route writes `dcl_status: "error"` on a validation failure, a network
+failure and a non-2xx response, and the reservations list shows a red `!` badge
+for it — so a failure is visible *if you are looking at that reservation*. What
+does not exist is the other half of the row: no resubmission mechanism, no view
+of everything sitting in `dcl_status = 'error'`, no aging. A statutory
+submission that failed is currently a badge, not an operational task.
+
+**W27 — the universal timeout rule is the widest gap of all.** "Every external
+call carries a timeout" is honoured in exactly four places: `lib/healthChecks.ts`,
+`lib/telegram.ts`, `lib/recaptcha.ts` and `proxy.ts`. Twilio, Apify, AADE,
+Resend and all three rate scrapers call out unbounded. The August incident was
+an unbounded call on a slow day, and the fix was applied to that one call rather
+than to the rule it was an instance of — which is precisely the shape of failure
+this whole section was written to name.
+
+**W27 closed 1 October, and one line of the paragraph above was wrong.** Eleven
+unbounded server-side calls were found by walking the source rather than by
+re-reading the audit: the six Apify calls, the two AADE filing endpoints, the
+EzCar and Podilatadiko scrapers, and the `open.er-api.com` currency lookup the
+audit had not noticed at all. **Resend was never unbounded** — `lib/mailer.ts`
+has raced every send against an 8s timer since the queued-mail work, so the
+sentence naming it was an unverified claim in a document whose own §8 forbids
+them. Twilio was closed by W25 and the Rent Scooter Car Zante scraper was
+bounded when it was written the same morning.
+
+`lib/boundedFetch.ts` now holds the budgets, named and reasoned once — 8s for a
+vendor API, 30s for a dataset, 20s for a scrape, 25s for a government filing —
+with the ceiling on all of them being Vercel's `maxDuration`, since a timeout
+longer than the platform's own is a comment rather than a timeout.
+
+**The helper is the smaller half.** Adding a timeout to eleven callers is a
+morning's work and it was never what was missing: the rule was *stated* in this
+section and honoured in four files, because nothing checked. So the deliverable
+is `lib/boundedFetch.test.ts`, which walks every server-side `fetch(` in `lib/`
+and `app/api/` and **fails naming any that is unbounded** — proven against a
+newly-added bare caller, not merely against the eleven it was written for. A
+twelfth caller next month cannot quietly reopen this.
+
+Scope is deliberate. Browser `fetch("/api/…")` calls are left alone: a hung
+same-origin request costs one spinner in one tab and the user can reload,
+whereas an unbounded call inside a serverless function holds the invocation open
+until the platform kills it. The four callers that already bound their calls were
+left in the shapes they chose, each fitted to what it does next — a signal passed
+into a closure, a reason string for `alert_outbox`, a `Promise.race` around an
+SDK that takes no signal — because rewriting working code to satisfy a test is
+churn carrying a regression risk. The test accepts any of those; what it does not
+accept is a bare `fetch`. One exemption exists, matched on the line and not the
+file: the `fetch` inside Faros's `buildPageFunction` is a string evaluated in
+Apify's own browser, bounded by `pageFunctionTimeoutSecs`. Matching the line
+matters — the same module makes three real Apify calls that are this rule's
+business, and a file-level exemption silently cleared all three on the first
+attempt.
+
+**Three defects in the sweep itself, found by review rather than by me.** All
+three are recorded because each is a *class* of mistake rather than a slip, and
+the class is the useful part.
+
+**A bounded call is not a bounded response.** `fetch` resolves when the response
+*headers* arrive, and the abort signal stays attached to the body stream — so a
+vendor answering inside the budget and then stalling makes `.text()` reject. On
+both AADE routes that read sat *outside* the recovery block, so the rejection
+escaped after `claim_dcl_submission` had already set `dcl_status = 'submitting'`,
+and `001_baseline.sql` refuses to re-claim anything already `submitting`:
+
+```sql
+IF v_status IN ('submitted','submitting') THEN RETURN false;
+```
+
+**The filing would have been permanently unretryable** — every later attempt a
+409, recoverable only by a manual `UPDATE`. The shape pre-dated the timeout (a
+reset connection mid-body did the same) but bounding the call turned a rare
+accident into something the budget itself triggers. The body read now sits inside
+the block that writes the re-claimable `error` status, and
+`lib/filingBodyTimeout.test.ts` asserts both that and the migration's refusal that
+makes the consequence permanent.
+
+**A per-call budget does not bound a route.** `TIMEOUTS.scrape` at 20s is safe
+for one call and unsafe for the route that makes several: the scrape route runs
+four EzCar searches with three *mandatory* 10-second crawl delays under
+`maxDuration = 60`, so 30 seconds are spent sleeping before any call counts, and
+the final batch adds Podilatadiko's three pages and the scooter tariff. The
+platform would kill the invocation **before the cursor is written**, losing the
+batch's progress — a timeout producing no degraded state, which is what this
+section forbids. This was the module's own stated rule ("the ceiling is Vercel's
+`maxDuration`") applied per call and not per route.
+
+No constant fixes it, and that is the point: the call count varies from four to
+eight, so any figure small enough for the worst case is needlessly short for the
+common one and makes a slow-but-working source fail. `routeBudget` therefore
+shares one ceiling and draws it down — counting the crawl delays, holding a
+reserve back for the cursor write, and skipping a call too short to be worth
+starting so the cursor stays where work stopped and the next call resumes there.
+
+**A guard that can be fooled is worse than no guard, because it reports clean.**
+The sweep first read a fixed 14-line window after each `fetch(`, so a bare call
+immediately followed by a properly bounded one passed — the shape a careless
+addition actually takes. It now extracts the parenthesis-balanced call
+expression and matches only that. Writing the fixture for it exposed a second
+false pass of the same class: the expression still contained its own string
+contents, so a URL carrying `signal:` satisfied the pattern. Literals are now
+blanked before matching. Both are fail-first controls, and the scanner is pinned
+by seven fixtures rather than trusted.
+
+A balanced-bracket scan was chosen over a full AST parse deliberately: the test
+suite has no TS parser among its dependencies, and adding one to a guard test is
+a dependency to maintain for the life of the rule. The fixture set is where the
+next mis-read goes.
+
+**What a timeout does not decide.** The helper abandons a slow call and throws;
+it does not choose what happens next, because §5.3's three rules differ per
+caller. A scrape that times out is a skipped source. A Telegram alert is queued.
+**An AADE filing that times out is genuinely ambiguous** — the submission may
+have been accepted with the answer lost — and the route currently records it as
+`error` and answers 502. That does not claim a false success, which is the rule
+that matters, but it does assert a failure that is not established. Recording an
+*unknown* filing distinctly is W26's business, where the backlog view lives,
+and it is noted there rather than invented here.
+
+**What the audit says about the method, not the rows.** The competitor-feeds row
+was missed because a rule in a table nobody re-reads is a rule that does not
+exist. That diagnosis was right and it was incomplete: the table had *never* been
+read against the code, so nine other rows carried the same risk silently for five
+weeks. A principle written once and never checked is an intention. **The check is
+the artefact** — which is why the verdict now lives in the table itself, with an
+item number beside each gap, rather than in a worklog entry that scrolls away.
+
+---
 
 **Not covered here:** there is no failover *target*. Supabase Free has no
 replica and the project has no second region. This section is about behaving
@@ -1954,8 +2403,90 @@ currently unowned.
 
 ## 10. Revision history and what has shipped
 
+### 29 September 2026 — staging synchronization and parity record
+
+Under the existing staging runbook section 13, merge current main into staging
+while preserving its history; retire the 042–045 pending-migration exceptions
+now that production has them. The live catalogue comparison found six quote
+column differences, two comment-only function differences, a deny policy and
+an index difference. Record them in runbook section 15 without modifying either
+schema or weakening the strict parity checker. Browser and vendor acceptance
+remain separate from build/deployment readiness. Tasos assigned Codex the
+implementer role and authorised today's staging deployment.
+
+
+### 28 September 2026 — Google Search Console verification file
+
+Tasos explicitly authorised adding and publishing his supplied Google HTML
+verification file. Serve `googlea0de2b52267ebab7.html` unchanged from `public/`
+at the root of `https://anadyon.gr/`, and retain it for ongoing ownership checks.
+This implements open item E8; verification in Google and the report exports
+remain Tasos's next steps. No application routing or customer behaviour changes
+are needed.
+
+
 This document is revised in place. Each entry says what changed and why, so a
 reader six months out can follow the reasoning without re-deriving it.
+
+### 25 September 2026 — Jev (TypeSafe AI) evaluated and declined for now
+
+**Decision: Anadyon does not integrate Jev.** Not a judgement that it is a bad
+model — a judgement that the one workload it could serve here is too small for
+the trade it asks, and that the trade includes customer personal data.
+
+Jev is TypeSafe AI's "System One" model, in limited early access since
+15 September 2026. It does not generate text. It takes unstructured state plus a
+typed schema and returns three primitives — `Choice` (pick an option, with
+per-option probabilities), `Score` (rate against ordered levels) and `Noul`
+(yes/no as a probability) — in 70–500ms, at $0.042 per million input tokens with
+output free. The vendor claims 40–200× faster and 40–400× cheaper than frontier
+LLMs on those tasks.
+
+**Why it does not fit the one AI surface we have.** `lib/emailClassifier.ts`
+produces five fields per inbound email. Jev's primitives cover two of them:
+`category` is a `Choice`, `urgency` is a `Score`. The other three —
+`greek_summary`, `suggested_action`, `reservation_date` — are generated text,
+and Jev does not generate text. So Jev would not replace the Claude call, it
+would sit in front of it: two vendors, two API keys, two rate limits and two
+failure modes on a path that currently has one, to save part of a bill that is
+single-digit euros a month. A 400× multiple on a small number is still a small
+number.
+
+**Three things to hold on to, because the marketing blurs them.**
+
+- *"Cannot hallucinate"* is a claim about **type validity, not correctness**. Jev
+  cannot return a category outside our seven. It can absolutely return the wrong
+  one of the seven. Our `normalise()` already coerces invalid categories to
+  `Other`, so we have the type guarantee; what we would be buying is speed, not
+  accuracy.
+- **Every published performance figure is self-tested.** The vendor says so, and
+  describes its own numbers as "likely to sit at the high end of real-world
+  results". No independent classification-accuracy benchmark existed at the date
+  of this entry. Per §8 that makes the quality claim unverified, not false.
+- **Latency is not our constraint, and where it is, Jev is not the cheapest
+  fix.** Classification runs inside `syncEmails` under a 20–45s budget, so
+  per-email latency does cap backlog throughput. But the Greek summary still
+  needs a text model, so Jev only lifts that cap if summaries are also deferred
+  to read time — a design change. Batching the existing calls, or a smaller
+  Claude model, fixes the same ceiling without a new vendor.
+
+**The blocking concern is data protection, not engineering.** The classifier
+sends customer correspondence — names, itineraries, complaints, occasionally
+passport and payment discussion — to whatever model classifies it. Anthropic is
+an established processor with published terms. Adding a ten-day-old US company,
+West-Coast hosted, with no DPA or EU data-handling position we have read, as a
+processor of customer email is a GDPR decision about the customer relationship,
+not a library choice. It is not an agent's to take alone.
+
+**Revisit when all three hold:** general availability rather than a waitlist; a
+published third-party accuracy benchmark on a classification task; and a data
+processing agreement with a stated EU position. Until then this entry is the
+answer, so the question is not researched again (§9).
+
+**Acted on instead, and separately:** `lib/emailClassifier.ts` is pinned to
+`claude-sonnet-4-6` with the comment "Matches the model the Make.com scenario
+used" — parity with a system we no longer run. Its successor is both newer and
+cheaper. Raised with Tasos; not changed unasked.
 
 ### 19 September 2026 — two DNS decisions, one of them a correction
 

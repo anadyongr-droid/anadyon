@@ -16,7 +16,11 @@ machine or a six-month gap.
 
 ## Where things stand — 23 September 2026
 
-**Last verified:** 23 September 2026, Claude.
+**Last verified:** 1 October 2026, Claude — the pull request table below and
+the §5.3 audit's W-series: **W19, W20, W21, W22, W23, W24 and W27 are closed**,
+W25 is half closed (the throw is fixed; the delivery record needs a migration),
+and **W26 is the only one still open**, waiting on #185. The rest of the status
+section was last checked on 23 September and is carried forward unchanged.
 
 **Read this section before opening anything else, and before researching
 anything.** It exists because an agent spent a working session re-deriving
@@ -53,28 +57,39 @@ against production.
 |---|---|---|
 | `rental_handovers` table | 040 | **Applied** |
 | Check-out finalisation | 041 | **Applied** |
-| Check-in finalisation | 042 | Merged (#93), verified on staging. **Not applied to production** — open item M1 |
-| Correction and voiding, plus the five HTTP routes | 043 | Merged (#119), verified on staging. **Not applied** — M2. PR #95 was closed as superseded |
-| Insurance surcharge for under-23 drivers | 044 | Merged (#118), verified on staging. **Not applied** — M3 |
-| Authenticated grants for all four handover gateways | 045 | Merged (#119), verified on staging. **Not applied** — M4 |
-| `service_role` grants for the nine tables created after 023 | 046 | Merged (#167). **Not applied** — M5, and **dated: before 30 October 2026**, when Supabase stops granting new tables automatically |
+| Check-in finalisation | 042 | **Applied to production 28 Sep 2026; both functions verified present.** The authenticated browser journey remains open. |
+| Correction and voiding, plus the five HTTP routes | 043 | **Applied to production 28 Sep 2026; all five functions verified present.** The authenticated browser journey remains open. PR #95 was closed as superseded. |
+| Insurance surcharge for under-23 drivers | 044 | **Applied to production 28 Sep 2026 but deliberately disabled.** The €5/day row exists with `enabled = false`; activation waits for B6/W8 and Tasos's operating-policy decision — M3. |
+| Authenticated grants for all four handover gateways | 045 | **Applied and permission-verified in production 28 Sep 2026.** Only `authenticated` can execute them; the browser journey remains open. |
+| `service_role` grants for the nine tables created after 023 | 046 | **Applied and verified in production 28 Sep 2026.** All nine tables hold all four required DML grants. |
 | Photo upload saga | — | Not started. Last piece of phase 2 |
 
-The five unapplied migrations are one sitting, not five. 046 in particular is a
-handful of `grant` statements and a no-op on a database that already holds them,
-so it carries no ordering risk against the other four.
+All migrations through 046 are now applied to production. Catalogue-level
+verification passed: 042's two functions and 043's five functions exist; 045's
+four gateways are executable only by `authenticated`; and all nine tables in
+046 carry the four required `service_role` DML grants. The remaining phase-2
+gate is the authenticated browser journey, not another database migration.
 
 **The gateways are enabled for authenticated users by migration 045.**
 `finalise_check_out`, `finalise_check_in`, `correct_handover` and
 `void_handover` remain unavailable to `anon`, `service_role` and `PUBLIC`.
 Their routes use the caller's cookie-backed Supabase session, so the database
 verifies `auth.uid()` and the server-owned application role itself. Migration
-045 is not yet applied to production.
+045 was applied to production on 28 September 2026 and its database
+permissions were verified. The authenticated functional acceptance journey
+still needs to be run; catalogue verification is not the same as exercising the
+complete staff workflow.
 
-### Insurance surcharge — built and merged 2 September, not yet applied
+### Insurance surcharge — installed in production, deliberately inactive
 
 Requested by Tasos: a daily insurance surcharge of **€5 for every driver under
 23**. Decisions taken while building, so they are not re-litigated:
+
+- **Production state as of 28 September:** migration 044 has been applied, but
+  `extras_config.insurance_surcharge` is set to `enabled = false`. New quotes
+  therefore receive no surcharge. Activation is an explicit later decision,
+  gated by B6 and W8 in `OPEN-ITEMS.md`; installing the row did not silently
+  make the pricing policy operational.
 
 - **Age is derivable.** Date of birth is collected and required on the booking
   form, and `app/api/quote/route.ts` already computes exact age on the pick-up
@@ -107,8 +122,10 @@ Recorded here rather than fixed, because fixing it was not what was asked.
 | #87 | TypeScript 7.0.2 | **Blocked upstream.** 7.0 is the native Go port and ships with no programmatic API, so typescript-eslint, Volar and Angular are all locked out. A new API is promised for 7.1; typescript-eslint#10940 has no milestone. Do not close it |
 | #150 | ESLint 10 | **Blocked upstream.** ESLint 10 removed `context.getFilename()`; the `eslint-plugin-react` bundled inside `eslint-config-next` still calls it, so every linted file throws |
 | #149 | `@vitest/coverage-v8` 5 | **Needs a vitest major.** Its peer range pins `vitest: "5.0.1"` exactly and we run 4.1.11. Not urgent — coverage is deliberately not a gate |
+| #185 | AADE DCL: verify the response before reporting success | **Codex, opened 1 October, green.** A DCL submission reported `submitted` with a null reference — HTTP status was checked but not `statusCode`, and the handler read `mark` where v1.1 returns `newClientDclID`. **W26 is sequenced behind this**, because surfacing a backlog of failed filings depends on a failure being detectable at all |
 
-Everything else is merged. On 20 September #130, #131, #132, #133 and #135
+Everything else is merged. On 1 October #182, #183, #184, #186, #187 and #189 landed: W19 (the §5.3 audit), W20, W21, W22, W23, W24, W25's unhandled rejection and W27. #181 merged on 29 September — the import log, the
+degraded-state fix on both freshness surfaces, and the repricing engine. On 20 September #130, #131, #132, #133 and #135
 landed, and #78, #79, #80, #81, #83 and #85 were closed as superseded with the
 reason recorded on each. **No node20 GitHub Action remains in the repository.**
 

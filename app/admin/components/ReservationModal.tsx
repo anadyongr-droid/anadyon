@@ -1434,14 +1434,30 @@ function SmsButton({ reservationId }: { reservationId: string }) {
   const send = useCallback(async () => {
     setSending(true);
     setResult(null);
-    const res = await fetch("/api/admin/sms", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reservationId, template }),
-    });
-    const data = await res.json();
-    setSending(false);
-    setResult(data.ok ? "✓ SMS sent" : `Error: ${data.error}`);
+    // Everything here used to be unguarded, which had a second failure of its
+    // own: a framework 500 returns HTML, `res.json()` threw on it, and the
+    // button stayed on "Sending…" for ever with no message either way. The
+    // route no longer throws, but a dropped connection still has to end with
+    // the operator being told something.
+    try {
+      const res = await fetch("/api/admin/sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reservationId, template }),
+      });
+      const data = await res.json().catch(() => null);
+      setResult(
+        data?.ok
+          ? "✓ SMS sent"
+          : `Error: ${data?.error ?? `the server answered ${res.status} and nothing was sent`}`
+      );
+    } catch {
+      setResult("Error: could not reach the server — nothing was sent.");
+    } finally {
+      // In `finally` so the button always comes back. It is the only way out of
+      // the spinner on a thrown fetch.
+      setSending(false);
+    }
   }, [reservationId, template]);
 
   return (

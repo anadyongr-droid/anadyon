@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase";
+import { TIMEOUTS, boundedFetch } from "@/lib/boundedFetch";
 
 /**
  * Competitor rate collection from the EzCar booking platform.
@@ -159,10 +160,26 @@ export interface ScrapeTask {
 
 /**
  * The full set of searches to run: every tenant, month, duration and fleet.
- * Deterministic, so a cursor into it survives across batched runs — which also
- * means the bike searches must be appended after the car ones rather than
- * interleaved, so a cursor saved by an earlier version still points at the same
- * car search it did before.
+ *
+ * **Bike searches are interleaved with the car ones, not appended after them**,
+ * and that ordering is the whole point of this function.
+ *
+ * They used to be appended, which made the scooters tasks 19 to 27 of 27 — they
+ * did not start until roughly three minutes into a four-and-a-half minute pass.
+ * Every pass that was left early therefore collected cars and no bikes at all,
+ * which is why the mapping table had no scooter rows to map and why motorbikes
+ * were reported as missing from the Market screen for weeks. The null-`car_group`
+ * fix in #178 was necessary but not sufficient: it made the rows mappable, and
+ * this is what makes them exist.
+ *
+ * Interleaved, a partial pass returns a representative sample of both fleets
+ * rather than a complete sample of one.
+ *
+ * The old ordering was deliberate, for a real reason: the cursor that lets a
+ * pass resume across batched calls is an index into this array, so changing the
+ * order moves what a saved cursor points at. That is handled where the cursor
+ * lives — `taskMatrixShape` below is stored beside it, and a pass whose shape no
+ * longer matches restarts rather than resuming into the wrong search.
  */
 export function buildTaskMatrix(pickupDates: Date[]): ScrapeTask[] {
   const tasks: ScrapeTask[] = [];
@@ -170,27 +187,43 @@ export function buildTaskMatrix(pickupDates: Date[]): ScrapeTask[] {
     for (const pickup of pickupDates) {
       for (const days of DURATIONS) {
         tasks.push({ tenant, pickup, days, isBike: false });
-      }
-    }
-  }
-  for (const tenant of EZCAR_TENANTS.filter(t => t.hasBikes)) {
-    for (const pickup of pickupDates) {
-      for (const days of DURATIONS) {
-        tasks.push({ tenant, pickup, days, isBike: true });
+        if (tenant.hasBikes) tasks.push({ tenant, pickup, days, isBike: true });
       }
     }
   }
   return tasks;
 }
 
-async function fetchResults(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: {
-      // Identify honestly rather than impersonating a browser.
-      "User-Agent": "AnadyonRatesBot/1.0 (+https://anadyon.gr; rate comparison)",
-      Accept: "text/html",
+/**
+ * A description of the matrix's shape, stored beside the resume cursor.
+ *
+ * The cursor is an index, so it only means anything against the matrix it was
+ * taken from. Adding a tenant, changing the sampled durations or interleaving
+ * the bikes all move what index 14 refers to — and a cursor resumed into the
+ * wrong search skips some and repeats others, silently, with a complete-looking
+ * progress count.
+ *
+ * Deliberately the readable shape rather than a hash: it is a few hundred
+ * characters in a settings table nobody queries in bulk, and a person looking at
+ * the row can see what changed instead of comparing two opaque digests.
+ */
+export function taskMatrixShape(tasks: ScrapeTask[]): string {
+  return tasks.map(t => `${t.tenant.slug}/${t.days}${t.isBike ? "b" : "c"}`).join(",");
+}
+
+async function fetchResults(url: string, timeoutMs: number = TIMEOUTS.scrape): Promise<string> {
+  const res = await boundedFetch(
+    "EzCar search",
+    url,
+    {
+      headers: {
+        // Identify honestly rather than impersonating a browser.
+        "User-Agent": "AnadyonRatesBot/1.0 (+https://anadyon.gr; rate comparison)",
+        Accept: "text/html",
+      },
     },
-  });
+    timeoutMs,
+  );
   if (!res.ok) throw new Error(`EzCar returned ${res.status}`);
   return res.text();
 }
@@ -204,7 +237,16 @@ export interface TaskResult {
   error?: string;
 }
 
-export async function runScrapeTask(task: ScrapeTask): Promise<TaskResult> {
+export async function runScrapeTask(
+  task: ScrapeTask,
+  /**
+   * How long this one call may take. Defaults to the standing scrape budget; the
+   * scrape route passes what is left of its own `maxDuration` instead, because
+   * four calls at 20s plus three mandatory 10s crawl delays overrun the 60s
+   * ceiling and lose the cursor write. See `routeBudget`.
+   */
+  timeoutMs: number = TIMEOUTS.scrape,
+): Promise<TaskResult> {
   const { tenant, pickup, days, isBike } = task;
   const base: TaskResult = {
     competitor: tenant.slug,
@@ -215,7 +257,7 @@ export async function runScrapeTask(task: ScrapeTask): Promise<TaskResult> {
   };
 
   try {
-    const html = await fetchResults(buildSearchUrl(tenant, pickup, days, isBike));
+    const html = await fetchResults(buildSearchUrl(tenant, pickup, days, isBike), timeoutMs);
     const vehicles = extractVehicles(html);
     base.vehicles = vehicles.length;
     if (!vehicles.length) return base;
