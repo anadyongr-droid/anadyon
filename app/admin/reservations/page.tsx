@@ -3,6 +3,11 @@ import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import ReservationModal from "../components/ReservationModal";
 import { deliveryNeedsAttention, deriveWorkflowStage, type DeliveryRow } from "@/lib/emailWorkflowStage";
+import { readListPayloads } from "@/lib/adminListPayload";
+import {
+  describeOutstandingDeposit,
+  summariseOutstandingDeposits,
+} from "@/lib/outstandingDeposits";
 import { reservationRef } from "@/lib/wise";
 
 interface Reservation {
@@ -20,6 +25,9 @@ interface Reservation {
   vehicle_id?: string | null;
   notes?: string | null;
   quote_id?: string | null;
+  /** Returned by the API all along; nothing on any screen read them until W24. */
+  deposit?: number | string | null;
+  deposit_paid_at?: string | null;
   quotes?: { ref?: string | null } | { ref?: string | null }[] | null;
   vehicles?: { name: string; category: string };
   /** Audited workflow emails. The stage is derived from these, never stored. */
@@ -40,7 +48,7 @@ function quoteRefOf(r: Reservation): string | undefined {
  * Two distinct faults, reported separately rather than as one "problem" flag,
  * because they call for different actions from whoever opens the row.
  */
-function rowWarnings(r: Reservation, condition: string | null): string[] {
+function rowWarnings(r: Reservation, condition: string | null, now: Date): string[] {
   const warnings: string[] = [];
 
   // A website booking carries a linked quote and passes through the
@@ -56,6 +64,13 @@ function rowWarnings(r: Reservation, condition: string | null): string[] {
       "No vehicle could be assigned automatically. Nothing was available in the requested category (or a valid upgrade) with the right transmission for these dates. Assign one manually, or talk to the customer about alternatives.",
     );
   }
+
+  // W24. Wise has no webhook, so an unreconciled deposit announces itself to
+  // nobody - §5.3 requires it to appear as outstanding work and to age. The
+  // clock is passed in rather than read inside, so the warning is a function of
+  // the row and the time, not of when the component happened to render.
+  const deposit = describeOutstandingDeposit(r, now);
+  if (deposit) warnings.push(deposit);
 
   if (deliveryNeedsAttention(condition)) {
     warnings.push(
@@ -83,26 +98,50 @@ export default function ReservationsPage() {
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  // W23: a failed *first* load used to leave this screen showing "No
+  // reservations found.", which is §5.3's own forbidden case - a fault and an
+  // empty day reading alike.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   /**
    * @param showSpinner false for the background refresh, so the table does not
    *   flash "Loading…" every half minute while somebody is reading it.
    */
-  function load(showSpinner = true) {
+  async function load(showSpinner = true) {
     if (showSpinner) setLoading(true);
-    Promise.all([
-      fetch("/api/admin/reservations").then((r) => r.json()),
-      fetch("/api/admin/vehicles").then((r) => r.json()),
-    ]).then(([r, v]) => {
-      setReservations(r);
-      setVehicles(v);
+    try {
+      const [resRes, vehRes] = await Promise.all([
+        fetch("/api/admin/reservations"),
+        fetch("/api/admin/vehicles"),
+      ]);
+      const [resBody, vehBody] = await Promise.all([
+        resRes.json().catch(() => null),
+        vehRes.json().catch(() => null),
+      ]);
+      // `res.ok` was never checked and the body was never shape-checked, so a
+      // 500 whose body is {error} went straight into the rows state.
+      const { error } = readListPayloads([
+        { name: "Reservations", res: resRes, body: resBody },
+        { name: "Vehicles", res: vehRes, body: vehBody },
+      ]);
+      if (error) throw new Error(error);
+
+      setReservations(resBody as Reservation[]);
+      setVehicles(vehBody as Vehicle[]);
+      setLoadError(null);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "the request failed";
+      // A failed *background* poll stays quiet, which was the sound half of the
+      // original reasoning: the table already holds rows, and blanking them over
+      // one dropped request is worse than leaving them while the next poll either
+      // succeeds or the age becomes obvious.
+      //
+      // A failed *first* load has nothing to preserve, and silence there is what
+      // produced the confident denial. So only that one is surfaced.
+      if (showSpinner) setLoadError(detail);
+    } finally {
       if (showSpinner) setLoading(false);
-    }).catch(() => {
-      // A failed background poll is not worth showing. The next one will
-      // either succeed or the operator will notice stale data; blanking the
-      // table over one dropped request would be worse than leaving it.
-      if (showSpinner) setLoading(false);
-    });
+    }
   }
 
   useEffect(() => { load(); }, []);
@@ -126,6 +165,11 @@ export default function ReservationsPage() {
   }, []);
 
   const today = new Date().toISOString().slice(0, 10);
+  // One clock per render, so every row on screen is aged against the same
+  // instant rather than each against the moment it happened to be drawn.
+  const now = new Date();
+  const deposits = summariseOutstandingDeposits(reservations, now);
+
   const filtered = (() => {
     if (filter === "all") return reservations;
     if (filter === "new") return reservations.filter((r) => r.created_at?.slice(0, 10) === today);
@@ -162,8 +206,63 @@ export default function ReservationsPage() {
 
       <StatusLegend />
 
+      {/* W24. Wise does not call back when money arrives, so an unreconciled
+          deposit is invisible unless something says so. §5.3: it must appear as
+          outstanding work and it must age. Shown only when there is something
+          owed - a permanent "0 outstanding" badge is noise that trains people to
+          stop reading it. */}
+      {!loading && !loadError && deposits.count > 0 && (
+        <section
+          aria-labelledby="deposits-outstanding"
+          className={`mb-4 rounded-xl border px-5 py-3 text-sm ${
+            deposits.collected > 0
+              ? "border-red-300 bg-red-50 text-red-900"
+              : "border-amber-300 bg-amber-50 text-amber-900"
+          }`}
+        >
+          <h2 id="deposits-outstanding" className="font-semibold">
+            {deposits.count} deposit{deposits.count === 1 ? "" : "s"} unreconciled — €
+            {deposits.total.toFixed(2)}
+          </h2>
+          <p className="mt-0.5">
+            {deposits.collected > 0 && (
+              <strong>
+                {deposits.collected} where the vehicle is out or pick-up has passed.{" "}
+              </strong>
+            )}
+            {deposits.imminent > 0 && <>{deposits.imminent} collecting within two days. </>}
+            {deposits.oldestDays !== null && (
+              <>The longest has been waiting {deposits.oldestDays} day
+                {deposits.oldestDays === 1 ? "" : "s"}. </>
+            )}
+            Flagged rows below say which. These clear only when somebody checks the bank and
+            records the payment on the reservation.
+          </p>
+        </section>
+      )}
+
       {loading ? (
         <div className="text-sm text-gray-600">Loading…</div>
+      ) : loadError ? (
+        /* Deliberately not an empty table. §5.3: the operator needs to know the
+           difference between quiet and broken. */
+        <div
+          role="alert"
+          className="bg-white rounded-xl border border-amber-300 p-6 text-sm text-amber-800"
+        >
+          <p className="font-semibold">The reservations could not be loaded.</p>
+          <p className="mt-1">
+            {loadError}. <strong>This is not an empty list</strong> — nothing is known about
+            today&apos;s bookings until this succeeds.
+          </p>
+          <button
+            type="button"
+            onClick={() => load()}
+            className="mt-3 inline-flex min-h-10 items-center rounded-lg border border-amber-400 bg-white px-4 py-2 text-sm font-semibold text-amber-900 transition hover:bg-amber-50"
+          >
+            Try again
+          </button>
+        </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 admin-table-wrap">
           <table className="admin-table w-full text-sm">
@@ -188,7 +287,7 @@ export default function ReservationsPage() {
               )}
               {filtered.map((r) => {
                 const workflow = deriveWorkflowStage(r.booking_email_deliveries);
-                const warnings = rowWarnings(r, workflow.condition);
+                const warnings = rowWarnings(r, workflow.condition, now);
                 const flagged = warnings.length > 0;
                 return (
                 <tr key={r.id}

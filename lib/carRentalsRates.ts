@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { durationBand } from "@/lib/competitorRates";
+import { TIMEOUTS, boundedFetch } from "@/lib/boundedFetch";
 
 /**
  * Competitor rates from CarRentals.com, via the Apify community actor.
@@ -61,7 +62,7 @@ export function planRuns(): PlannedRun[] {
 
 export async function usdToEur(): Promise<number> {
   try {
-    const res = await fetch("https://open.er-api.com/v6/latest/USD");
+    const res = await boundedFetch("Exchange rate (open.er-api.com)", "https://open.er-api.com/v6/latest/USD");
     const json = await res.json();
     const rate = json?.rates?.EUR;
     if (typeof rate === "number" && rate > 0) return rate;
@@ -89,20 +90,24 @@ export async function startRun(
   run: PlannedRun,
   opts: { country?: string } = {}
 ): Promise<{ runId: string; datasetId: string }> {
-  const res = await fetch(`https://api.apify.com/v2/acts/${ACTOR}/runs?token=${encodeURIComponent(token)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      startUrl: run.url,
-      results_wanted: 60,
-      max_pages: 3,
-      proxyConfiguration: {
-        useApifyProxy: true,
-        apifyProxyGroups: ["RESIDENTIAL"],
-        apifyProxyCountry: opts.country ?? "GR",
-      },
-    }),
-  });
+  const res = await boundedFetch(
+    "Apify run start (CarRentals)",
+    `https://api.apify.com/v2/acts/${ACTOR}/runs?token=${encodeURIComponent(token)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        startUrl: run.url,
+        results_wanted: 60,
+        max_pages: 3,
+        proxyConfiguration: {
+          useApifyProxy: true,
+          apifyProxyGroups: ["RESIDENTIAL"],
+          apifyProxyCountry: opts.country ?? "GR",
+        },
+      }),
+    },
+  );
   if (!res.ok) throw new Error(`Apify start failed (${res.status}): ${(await res.text()).slice(0, 180)}`);
   const json = await res.json();
   return { runId: json.data.id, datasetId: json.data.defaultDatasetId };
@@ -112,7 +117,10 @@ export async function getRunStatus(
   token: string,
   runId: string
 ): Promise<{ status: string; datasetId: string; finishedAt: string | null }> {
-  const res = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${encodeURIComponent(token)}`);
+  const res = await boundedFetch(
+    "Apify run status (CarRentals)",
+    `https://api.apify.com/v2/actor-runs/${runId}?token=${encodeURIComponent(token)}`,
+  );
   if (!res.ok) throw new Error(`Apify status failed (${res.status})`);
   const json = await res.json();
   // `finishedAt` is what dates a recovered dataset. Without it, a run left
@@ -170,7 +178,12 @@ export async function ingestDataset(
   run: PlannedRun,
   rate: number
 ): Promise<number> {
-  const res = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${encodeURIComponent(token)}&clean=true`);
+  const res = await boundedFetch(
+    "Apify dataset (CarRentals)",
+    `https://api.apify.com/v2/datasets/${datasetId}/items?token=${encodeURIComponent(token)}&clean=true`,
+    {},
+    TIMEOUTS.dataset,
+  );
   if (!res.ok) throw new Error(`Dataset fetch failed (${res.status})`);
   const items: CarRentalsItem[] = await res.json();
   if (!Array.isArray(items) || !items.length) {

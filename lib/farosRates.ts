@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { durationBand } from "@/lib/competitorRates";
+import { TIMEOUTS, boundedFetch } from "@/lib/boundedFetch";
 
 /**
  * Competitor rate collection from Faros Rentals.
@@ -139,11 +140,15 @@ export function buildApifyInput() {
 }
 
 export async function startFarosRun(token: string): Promise<{ runId: string; datasetId: string }> {
-  const res = await fetch(`https://api.apify.com/v2/acts/${APIFY_ACTOR}/runs?token=${encodeURIComponent(token)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(buildApifyInput()),
-  });
+  const res = await boundedFetch(
+    "Apify run start (Faros)",
+    `https://api.apify.com/v2/acts/${APIFY_ACTOR}/runs?token=${encodeURIComponent(token)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildApifyInput()),
+    },
+  );
   if (!res.ok) throw new Error(`Apify start failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
   const json = await res.json();
   return { runId: json.data.id, datasetId: json.data.defaultDatasetId };
@@ -153,7 +158,10 @@ export async function getRunStatus(
   token: string,
   runId: string
 ): Promise<{ status: string; datasetId: string; finishedAt: string | null }> {
-  const res = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${encodeURIComponent(token)}`);
+  const res = await boundedFetch(
+    "Apify run status (Faros)",
+    `https://api.apify.com/v2/actor-runs/${runId}?token=${encodeURIComponent(token)}`,
+  );
   if (!res.ok) throw new Error(`Apify status failed (${res.status})`);
   const json = await res.json();
   // `finishedAt` is what dates a recovered dataset. Without it, a run left
@@ -186,7 +194,12 @@ function effectivePerDay(v: FarosVehicle, days: number): number | null {
 }
 
 export async function ingestFarosDataset(token: string, datasetId: string): Promise<{ stored: number; searches: number }> {
-  const res = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${encodeURIComponent(token)}&clean=true`);
+  const res = await boundedFetch(
+    "Apify dataset (Faros)",
+    `https://api.apify.com/v2/datasets/${datasetId}/items?token=${encodeURIComponent(token)}&clean=true`,
+    {},
+    TIMEOUTS.dataset,
+  );
   if (!res.ok) throw new Error(`Apify dataset fetch failed (${res.status})`);
   const payload = await res.json();
 
