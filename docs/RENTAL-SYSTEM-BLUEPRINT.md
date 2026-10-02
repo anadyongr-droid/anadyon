@@ -1663,6 +1663,49 @@ does not exist is the other half of the row: no resubmission mechanism, no view
 of everything sitting in `dcl_status = 'error'`, no aging. A statutory
 submission that failed is currently a badge, not an operational task.
 
+**W26 closed 2 October, and it found a worse state than the audit described.**
+The audit said a failed AADE filing is "a badge, not a task", which was right.
+What nothing had noticed is that **`dcl_status = 'submitting'` is a third state,
+and it is unrecoverable.** `claim_dcl_submission` in `001_baseline.sql` refuses to
+re-claim anything already `submitting`, so a reservation left there answers 409 on
+every retry for ever. W27's fix stopped a slow socket creating new ones; it could
+not recover rows already in that state, and no screen showed them. The backlog now
+separates the two, because they need different instructions: an `error` row can be
+retried, a `submitting` row has to be reset first.
+
+**The clock is the pick-up date, not the attempt.** There is no
+`dcl_attempted_at` column and this needed no migration: the Digital Client List
+declares a *rental*, so the deadline belongs to the rental. A filing that failed
+on a rental which has already started is overdue now, whatever time the attempt
+was made — and that stays true for a filing never attempted at all. A rental
+starting *today* is deliberately "imminent" rather than "overdue": the
+declaration is due at the start, so calling it late on the day it begins would cry
+wolf.
+
+**It has its own query, and that is the substance rather than a detail.**
+`GET /api/admin/reservations` orders by `created_at` descending with no explicit
+limit, so PostgREST returns a *window* of the newest rows — and the oldest failed
+filing is precisely the row that falls off the end of it. A count taken over that
+list would report a confident "3 outstanding" while an August rental sat unfiled
+outside the window. `app/api/admin/aade/backlog/route.ts` asks the database
+directly, orders oldest pick-up first so the most exposed row is at the top, caps
+the response, and **says when the cap was hit** rather than letting a truncated
+backlog look complete.
+
+**What it deliberately does not do.** It does not resubmit, and it does not tell
+anyone to. A filing abandoned on W27's timeout records `error` here but may have
+been accepted by AADE with the answer lost, so a resubmission can file a
+**duplicate** statutory declaration — worse than filing late. The wording sends
+the operator to AADE's own record first. Whether an unknown filing is retried
+automatically or only after a human checks the portal changes what staff must do,
+so it is Tasos's under `DEFINING-STATEMENTS.md` §13: proposed, not built.
+
+**The §5.3a AADE verdict above is corrected by this.** It read "partly built —
+records a failure and badges it", which was too generous in a way worth naming:
+the route also recorded false *successes* until Codex's #185, so the badge was not
+merely incomplete, it was sometimes wrong in the favourable direction. #185 fixes
+the detection; this fixes the surfacing.
+
 **W27 — the universal timeout rule is the widest gap of all.** "Every external
 call carries a timeout" is honoured in exactly four places: `lib/healthChecks.ts`,
 `lib/telegram.ts`, `lib/recaptcha.ts` and `proxy.ts`. Twilio, Apify, AADE,
