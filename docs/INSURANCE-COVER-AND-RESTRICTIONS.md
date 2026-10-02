@@ -7,7 +7,7 @@ directly out of the broker's emails: see §1a.**
 This document is the reference for what may be offered, promised and published.
 `DEFINING-STATEMENTS.md` §10 makes that binding.
 
-**Last verified:** 30 September 2026, Claude — the broker's own list of every currently open policy, received 29 September, recorded in §1a. It closes F2: the motorbikes were renewed and run to 11 October, and it supersedes two rows that were describing lapsed policies as current. Earlier: 28 September 2026, Claude — eight policies read from the broker's own PDF attachments, taking the fleet's insurers from two to **four** — **ERGO Ασφαλιστική** and **Triglav/Apeiron**, neither of which this document knew about (§1a). Earlier: 20 September 2026, Codex — official Euroins rental-car IPID and public motor terms located and read through the search index; the exact terms edition incorporated into policy 9190600829 still requires the broker (§7).
+**Last verified:** 2 October 2026, Claude — §1a recounted against the broker's own table. Three figures in its prose were wrong and are corrected there, with `lib/insuranceFleetCounts.test.ts` now holding the sentences to the table. Earlier: 30 September 2026, Claude — the broker's own list of every currently open policy, received 29 September, recorded in §1a. It closes F2: the motorbikes were renewed and run to 11 October, and it supersedes two rows that were describing lapsed policies as current. Earlier: 28 September 2026, Claude — eight policies read from the broker's own PDF attachments, taking the fleet's insurers from two to **four** — **ERGO Ασφαλιστική** and **Triglav/Apeiron**, neither of which this document knew about (§1a). Earlier: 20 September 2026, Codex — official Euroins rental-car IPID and public motor terms located and read through the search index; the exact terms edition incorporated into policy 9190600829 still requires the broker (§7).
 
 **Scope caveat, stated once and applying throughout.** All three documents are
 **certificates** — the schedule of what is covered, for how much, at what
@@ -120,7 +120,7 @@ request for **all policies open this period**.*
 
 **This is what closed the motorbike question.** Open item F2 escalated the fact
 that §1 recorded both motorbikes expiring **11 September 2026** with nothing on
-file saying they had been renewed. They were. Nine of them now run to
+file saying they had been renewed. They were. Eight of them now run to
 **11 October 2026**, and the broker lists eleven motorbikes where this document
 knew of two.
 
@@ -137,9 +137,12 @@ knew of two.
 | ΖΑΖ 9892 | 9 November | 40 |
 | ΙΟΗ 8395 | 8 December | 69 |
 
-The broker groups the last eleven under the heading **ΜΗΧΑΝΑΚΙΑ** — motorbikes —
+The broker groups eleven of these under the heading **ΜΗΧΑΝΑΚΙΑ** — motorbikes —
 which is also the first record here of **ΗΒΙ 467 being a motorbike** rather than
-a car.
+a car. **Which eleven is unverified here**: the grouping is a heading in the
+email and the table above does not carry it, so a reader cannot reconstruct the
+split from this document. §8 — recorded as unchecked rather than inferred from
+the plates.
 
 **Read this as the broker's assertion, not as a certificate.** §8 applies: the
 table above is a list of dates typed into an email, where the eight rows earlier
@@ -154,12 +157,24 @@ carries no policy number, insurer or terms. Where the two overlap they agree on
 9 November and 8 December, so both were renewed and this document was describing
 lapsed policies as though they were the current ones.
 
-**Seventeen vehicles, and the fleet is twenty-nine.** The other twelve are not
+**Sixteen vehicles, and the fleet is twenty-nine.** The other thirteen are not
 in the broker's answer to a question that asked for everything open. At least
 one is explained — ΗΒΙ 1568 was described on 15 June as *ΑΣΦΑΛΙΣΜΕΝΟ ΙΔΙΩΤΙΚΟ*,
 privately insured, and ΗΒΙ 1566 as being at the workshop — so some are plausibly
-off-fleet or insured elsewhere. **Which twelve, and why, is not established**,
+off-fleet or insured elsewhere. **Which thirteen, and why, is not established**,
 and it is the remaining half of F1 rather than a finding of this section.
+
+*Counts corrected 2 October 2026, Claude. From 30 September until today this
+paragraph said **seventeen** vehicles and **twelve** unaccounted for, and the
+one above it said **nine** motorbikes run to 11 October. The table has always
+said eight and sixteen; the prose was written beside it and never recounted.
+Both errors ran in the direction that flattered the fleet — one more bike
+accounted for, one fewer vehicle on unknown cover — and they propagated by being
+read rather than recounted, into `OPEN-ITEMS.md` F1 and F2, the 30 September
+worklog, and Codex's 2 October full-project audit, which took the figures from
+this document rather than from its table. `lib/insuranceFleetCounts.test.ts` now
+counts the table and holds these sentences to it; it was run against the wrong
+prose first and failed on both.*
 
 **This still does not enter the dates into the system**, which is what actually
 switches on the stop-sell. `lib/fleetStatus.ts` scores a vehicle with no
