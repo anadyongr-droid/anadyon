@@ -8,6 +8,11 @@ import {
   describeOutstandingDeposit,
   summariseOutstandingDeposits,
 } from "@/lib/outstandingDeposits";
+import {
+  describeFailedFiling,
+  summariseFilingBacklog,
+  type FilingRow,
+} from "@/lib/filingBacklog";
 import { reservationRef } from "@/lib/wise";
 
 interface Reservation {
@@ -72,6 +77,14 @@ function rowWarnings(r: Reservation, condition: string | null, now: Date): strin
   const deposit = describeOutstandingDeposit(r, now);
   if (deposit) warnings.push(deposit);
 
+  // W26. The row already carried a red `!` for a failed filing, which says that
+  // something is wrong without saying what to do — and said nothing at all about
+  // a row stuck at `submitting`, which cannot be retried until it is reset. Both
+  // read from the row the list already has, so the sentence appears even where
+  // the dedicated backlog query is unavailable.
+  const filing = describeFailedFiling(r, now);
+  if (filing) warnings.push(filing);
+
   if (deliveryNeedsAttention(condition)) {
     warnings.push(
       `The last customer email was not delivered — it is currently "${condition}". The customer may not have received it. Check the delivery history on the reservation, then resend or contact them directly.`,
@@ -102,6 +115,13 @@ export default function ReservationsPage() {
   // reservations found.", which is §5.3's own forbidden case - a fault and an
   // empty day reading alike.
   const [loadError, setLoadError] = useState<string | null>(null);
+  /**
+   * W26. Asked for separately rather than counted from `reservations`, because
+   * that list is a window of the newest rows: the oldest failed filing is exactly
+   * the one that falls off it. See `app/api/admin/aade/backlog/route.ts`.
+   */
+  const [filings, setFilings] = useState<FilingRow[]>([]);
+  const [filingsTruncated, setFilingsTruncated] = useState(false);
 
   /**
    * @param showSpinner false for the background refresh, so the table does not
@@ -129,6 +149,22 @@ export default function ReservationsPage() {
       setReservations(resBody as Reservation[]);
       setVehicles(vehBody as Vehicle[]);
       setLoadError(null);
+
+      // Deliberately after the two lists and deliberately not fatal: a backlog
+      // that cannot be fetched must not blank the reservations screen, which is
+      // the W23 lesson applied in the other direction. An empty backlog and an
+      // unavailable one are told apart by `filingsError` below.
+      try {
+        const res = await fetch("/api/admin/aade/backlog");
+        const body = await res.json().catch(() => null);
+        if (res.ok && body && Array.isArray(body.rows)) {
+          setFilings(body.rows as FilingRow[]);
+          setFilingsTruncated(Boolean(body.truncated));
+        }
+      } catch {
+        // Left as-is; the previous value is better than an empty one, and the
+        // reservations table is unaffected.
+      }
     } catch (err) {
       const detail = err instanceof Error ? err.message : "the request failed";
       // A failed *background* poll stays quiet, which was the sound half of the
@@ -169,6 +205,7 @@ export default function ReservationsPage() {
   // instant rather than each against the moment it happened to be drawn.
   const now = new Date();
   const deposits = summariseOutstandingDeposits(reservations, now);
+  const backlog = summariseFilingBacklog(filings, now);
 
   const filtered = (() => {
     if (filter === "all") return reservations;
@@ -205,6 +242,53 @@ export default function ReservationsPage() {
       </div>
 
       <StatusLegend />
+
+      {/* W26. A failed statutory filing was a red badge on one row, which is
+          only visible to whoever opens that booking. §5.3 asks for the backlog to
+          be surfaced and to age. Shown only when something is outstanding, for
+          the same reason as the deposits banner below. */}
+      {!loading && !loadError && backlog.count > 0 && (
+        <section
+          aria-labelledby="filings-outstanding"
+          className={`mb-4 rounded-xl border px-5 py-3 text-sm ${
+            backlog.overdue > 0 || backlog.stuck > 0
+              ? "border-red-300 bg-red-50 text-red-900"
+              : "border-amber-300 bg-amber-50 text-amber-900"
+          }`}
+        >
+          <h2 id="filings-outstanding" className="font-semibold">
+            {backlog.count} AADE client-list filing{backlog.count === 1 ? "" : "s"} outstanding
+          </h2>
+          <p className="mt-0.5">
+            {backlog.overdue > 0 && (
+              <strong>
+                {backlog.overdue} on {backlog.overdue === 1 ? "a rental" : "rentals"} that
+                {backlog.overdue === 1 ? " has" : " have"} already started.{" "}
+              </strong>
+            )}
+            {backlog.oldestOverdueDays !== null && (
+              <>The longest has been running {backlog.oldestOverdueDays} day
+                {backlog.oldestOverdueDays === 1 ? "" : "s"} unfiled. </>
+            )}
+            {backlog.stuck > 0 && (
+              <>
+                <strong>
+                  {backlog.stuck} stuck mid-submission, which cannot be retried at all
+                </strong>{" "}
+                until the status is reset — a retry answers 409 for ever.{" "}
+              </>
+            )}
+            Check AADE&rsquo;s own record before resubmitting: a filing abandoned on a timeout
+            is recorded as failed here but may have been accepted there.
+            {filingsTruncated && (
+              <>
+                {" "}
+                <strong>This list is capped, so the real number is higher.</strong>
+              </>
+            )}
+          </p>
+        </section>
+      )}
 
       {/* W24. Wise does not call back when money arrives, so an unreconciled
           deposit is invisible unless something says so. §5.3: it must appear as
