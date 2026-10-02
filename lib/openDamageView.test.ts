@@ -69,7 +69,7 @@ beforeAll(async () => {
   `);
   const probe = await db.query<Record<string, unknown>>("select * from public.vehicle_open_damage");
   columns = Object.keys(probe.rows[0] ?? {});
-}, 30_000);
+});
 
 describe("the vehicle_open_damage view", () => {
   it("returns rows at all, so the checks below are not vacuous", () => {
