@@ -1,17 +1,16 @@
 # Open items
 
-**Last verified:** 1 October 2026, Claude — **W23, W24 and W27 closed and merged**
-(#189, #190). W27 bounded eleven unbounded server-side calls and, more to the
-point, left a test that walks the source and fails naming any future one, so the
-§5.3 timeout rule is now checked rather than merely stated. Review found three
-real defects in that change — the sharpest being that a bounded call is not a
-bounded response, which would have made an AADE filing permanently unretryable —
-and all three are written up on W27 as classes rather than slips. W22's first scraper (Rent Scooter Car
-Zante) and W25's unhandled rejection landed earlier today; W19's audit closed 30
-September. **Still mine: W26 alone**, and it waits on Codex's #185, which fixes
-whether an AADE failure can be detected at all. **Two cars expire 4 October —
-three days — and nine motorbikes on 11 October; none of those dates is in the
-database yet.**
+**Last verified:** 2 October 2026, Claude — **the §5.3 audit's W-series is
+finished.** W19–W24, W26 and W27 are closed. W26 closed today and found a state
+the audit had missed: a filing left at `dcl_status = 'submitting'` can never be
+retried, because the claim function refuses it. **W25 is the only W-item still
+open**, and only its delivery record — the unhandled rejection is fixed; the record
+needs a migration for Tasos to apply. Codex merged #185 (AADE response
+verification and the published SendClient schema), which unblocked W26. Four
+dependency pull requests were found green and unlisted and are being taken,
+including `next` 16.3.6, a security release whose vulnerable entry point is **not
+reachable here**. **Two cars expire 4 October — two days — and nine motorbikes on
+11 October; none of those dates is in the database yet.**
 
 **Read this first, every day.** [`DEFINING-STATEMENTS.md` §12](../DEFINING-STATEMENTS.md)
 makes it obligatory for every agent, before picking up a task.
