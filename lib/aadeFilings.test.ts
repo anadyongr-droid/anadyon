@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
  * The two AADE modules had no tests at all, and both filed wrong values.
  *
  * These are statutory submissions: a filing AADE *rejects* can be corrected,
- * but one it *accepts* carrying a wrong country or the wrong document type is a
+ * but one it *accepts* carrying a wrong country, document type or XML shape is a
  * false record that nobody will ever look at again. That asymmetry is why the
  * builders now refuse rather than default, and why the refusal is tested as
  * carefully as the success.
@@ -76,24 +76,25 @@ describe("myDATA invoice type", () => {
 });
 
 describe("country codes", () => {
-  it("both modules resolve rather than pass a name through", () => {
-    expect(xml.match(/toIsoCountry\(/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+  it("resolves an invoice counterpart country rather than passing a name through", () => {
+    expect(xml).toMatch(/toIsoCountry\(res\.customers\?\.country\)/);
   });
 
-  it("neither defaults an unknown country to Greece", () => {
-    // The original `?? "GR"` in both. AADE accepts it silently, which is what
-    // makes it worse than a rejection.
+  it("does not default an unknown invoice country to Greece", () => {
+    // AADE may accept an invented Greek counterpart silently, which is worse
+    // than a rejection that staff can correct.
     expect(code(xml), "a filing still defaults an unknown country to GR")
       .not.toMatch(/\?\?\s*["']GR["']/);
   });
 
-  it("the client list reads country, not nationality", () => {
-    // `nationality` is free text with the placeholder "e.g. British", and a
-    // demonym is not a country. The column must also be selected, or it
-    // resolves to null for every customer and nothing can ever be filed.
-    expect(xml).toMatch(/toIsoCountry\(res\.customers\?\.country\)/);
-    expect(dcl, "country is not in the select, so it is always undefined")
-      .toMatch(/customers\([^)]*\bcountry\b[^)]*\)/);
+  it("does not invent a customer country field in the DCL SendClient document", () => {
+    // AADE's published v1.1 rental SendClient schema identifies the rental by
+    // branch and vehicle. It has no customer-country or nationality element.
+    const dclBuilder = xml.slice(
+      xml.indexOf("export function buildDclXml"),
+      xml.indexOf("// VAT 24%"),
+    );
+    expect(dclBuilder).not.toMatch(/country|nationality/i);
   });
 });
 

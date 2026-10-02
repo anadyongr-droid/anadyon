@@ -36,49 +36,47 @@ function esc(value: string): string {
 }
 
 export function buildDclXml(res: DclReservation): string {
-  const firstName = res.customers?.first_name
-    ?? String(res.customer_name ?? "").trim().split(" ")[0] ?? "";
-  const lastName = res.customers?.last_name
-    ?? String(res.customer_name ?? "").trim().split(" ").slice(1).join(" ") ?? "";
-  const country = toIsoCountry(res.customers?.country);
-  if (!country) {
+  const branch = process.env.COMPANY_BRANCH?.trim() || "0";
+  if (!/^\d+$/.test(branch)) {
     throw new UnfilableError(
-      `Customer has no recognisable country (${res.customers?.country ?? "blank"}). ` +
-      `The AADE client list needs an ISO country code; set the customer's country ` +
-      `before submitting. Nationality is not used — "British" is not a country.`,
+      `COMPANY_BRANCH must be the numeric AADE establishment branch, received ${branch}.`,
     );
   }
 
-  const plate = res.vehicles?.plate ?? "";
-  const make = res.vehicles?.make ?? "";
+  const plate = res.vehicles?.plate?.trim() ?? "";
+  const make = res.vehicles?.make?.trim() ?? "";
   const categoryMap: Record<string, string> = {
     car: "Car",
     motorbike: "Motorbike",
     bike: "Bicycle",
   };
-  const vehicleCategory =
-    categoryMap[res.vehicles?.category ?? ""] ?? res.vehicles?.category ?? "Car";
-  const agreedAmount = Math.max(0, (res.total ?? 0) - (res.discount_amount ?? 0));
+  const category = res.vehicles?.category?.trim() ?? "";
+  const vehicleCategory = categoryMap[category] ?? category;
+
+  const registrationBlock = plate
+    ? `\n        <dcrnew:vehicleRegistrationNumber>${esc(plate)}</dcrnew:vehicleRegistrationNumber>`
+    : "";
+  const categoryBlock = vehicleCategory
+    ? `\n        <dcrnew:vehicleCategory>${esc(vehicleCategory)}</dcrnew:vehicleCategory>`
+    : "";
+  const factoryBlock = make
+    ? `\n        <dcrnew:vehicleFactory>${esc(make)}</dcrnew:vehicleFactory>`
+    : "";
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<ClientDoc xmlns="http://www.aade.gr/myDATA/DCL/v1.1"
-           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <client>
-    <clientServiceType>1</clientServiceType>
-    <counterpartFirstName>${esc(firstName)}</counterpartFirstName>
-    <counterpartLastName>${esc(lastName)}</counterpartLastName>
-    <counterpartCountry>${esc(country)}</counterpartCountry>
-    <vehicleLicensePlate>${esc(plate)}</vehicleLicensePlate>
-    <vehicleCategory>${esc(vehicleCategory)}</vehicleCategory>
-    <vehicleManufacturer>${esc(make)}</vehicleManufacturer>
-    <movementPurpose>1</movementPurpose>
-    <isDiffVehReturnLocation>false</isDiffVehReturnLocation>
-    <agreedAmount>${agreedAmount.toFixed(2)}</agreedAmount>
-    <nonIssueInvoice>true</nonIssueInvoice>
-    <rentalStartDate>${res.pickup_date}</rentalStartDate>
-    <rentalEndDate>${res.return_date}</rentalEndDate>
-  </client>
-</ClientDoc>`;
+<dcrnew:NewDigitalClientDoc xsi:schemaLocation="http://www.aade.gr/myDATA/dcrnew/v1.0 SendClient-v1.0.xsd"
+                            xmlns:dcrnew="http://www.aade.gr/myDATA/dcrnew/v1.0"
+                            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dcrnew:newDigitalClient>
+    <dcrnew:clientServiceType>1</dcrnew:clientServiceType>
+    <dcrnew:branch>${esc(branch)}</dcrnew:branch>
+    <dcrnew:useCase>
+      <dcrnew:rental>${registrationBlock}${categoryBlock}${factoryBlock}
+        <dcrnew:vehicleMovementPurpose>1</dcrnew:vehicleMovementPurpose>
+      </dcrnew:rental>
+    </dcrnew:useCase>
+  </dcrnew:newDigitalClient>
+</dcrnew:NewDigitalClientDoc>`;
 }
 
 // VAT 24% on car rental services in Greece.

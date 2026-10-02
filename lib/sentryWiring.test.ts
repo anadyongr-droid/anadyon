@@ -19,7 +19,9 @@ describe("Sentry wiring", () => {
     const options = source("./sentryOptions.ts");
     const config = source("../next.config.ts");
     expect(options).not.toContain("replayIntegration");
-    expect(options).not.toContain("tracesSampleRate");
+    expect(options).toContain("tracesSampleRate: 0");
+    expect(options).toContain('"BrowserTracing"');
+    expect(options).toContain('"WebVitals"');
     expect(options).toContain("enableLogs: false");
     expect(options).toContain("enableMetrics: false");
     expect(config).toContain("bundleSizeOptimizations:");
@@ -38,5 +40,17 @@ describe("Sentry wiring", () => {
     expect(options).toContain("dataCollection: SENTRY_DATA_COLLECTION");
     expect(options).toContain("beforeSend: scrubSentryEvent");
     expect(options).toContain("beforeBreadcrumb: () => null");
+  });
+
+  it("labels browser events from an explicit public environment", () => {
+    const options = source("./sentryOptions.ts");
+    expect(options).toContain("process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT");
+  });
+
+  it("reports and flushes an unhandled proxy error before preserving the failure", () => {
+    const proxy = source("../proxy.ts");
+    expect(proxy).toContain('reportHandledError(error, "proxy", "unhandled")');
+    expect(proxy).toContain("await flushSentryEvents(");
+    expect(proxy).toContain("throw error");
   });
 });
