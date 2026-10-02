@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
-import { reportHandledError } from "@/lib/sentryReporting";
+import { flushSentryEvents, reportHandledError } from "@/lib/sentryReporting";
 import { devAuthRoleFromEnv, devAuthWarning } from "@/lib/devAuth";
 
 // Pages staff can access (exact page, or a nested route beneath it).
@@ -255,7 +255,7 @@ function authUnavailable(req: NextRequest, pathname: string) {
   return NextResponse.redirect(url);
 }
 
-export async function proxy(req: NextRequest) {
+async function proxyRequest(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Always public
@@ -488,6 +488,21 @@ export async function proxy(req: NextRequest) {
   const out = NextResponse.next({ request: { headers: requestHeaders } });
   res.cookies.getAll().forEach(c => out.cookies.set(c));
   return out;
+}
+
+/** Capture failures that escape the auth and routing decisions above. */
+export async function proxy(req: NextRequest) {
+  try {
+    return await proxyRequest(req);
+  } catch (error) {
+    reportHandledError(error, "proxy", "unhandled");
+    try {
+      await flushSentryEvents(1_500);
+    } catch {
+      // Reporting must never replace the original proxy failure.
+    }
+    throw error;
+  }
 }
 
 export const config = { matcher: ["/admin/:path*", "/api/admin/:path*"] };

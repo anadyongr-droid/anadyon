@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
  * classified", and never appear in the comparison. Scooters were the visible
  * casualty, because a car-group code is a car concept.
  */
-export const UNGROUPED = "?";
+const UNGROUPED = "?";
 
 interface ObservationRow {
   competitor: string;
