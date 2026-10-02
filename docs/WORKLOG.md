@@ -56,6 +56,10 @@ one. That is E11's signature for a lost trigger, so an agent using it would
 diagnose one every time and push commits to recover from nothing. `get_check_runs`
 is the call that returns Actions results.
 
+**All five merges landed:** #185, #192, #171 and #193. #169 closed itself; #188 and #177 needed closing by hand, because they are transitive bumps and dependabot tracks the lockfile rather than `package.json`. Every pull request still open is blocked upstream — TypeScript 7's missing programmatic API, ESLint 10's removal of `context.getFilename()`, and a vitest major. **Three lessons worth keeping from the dependency pass:** dependabot cannot merge a lockfile pull request once another change touches the same regions, and regenerating with npm is the fix rather than waiting; a plain `npm install` resolves *further* than authorised within caret ranges, so the lockfile diff must be read; and a dependabot title describes the version while `npm audit` describes the risk — two bumps that looked routine were security fixes, and a third advisory had no pull request at all.
+
+**One check was lost today and it is not an agent's to restore:** the Codex review bot did not review #192 or #193, reporting that the repository needs an environment configured. On #190 it found three real defects, one worse than it described. That is a ChatGPT-side setting for Tasos.
+
 **Still open:** W25's SMS delivery record (needs a migration, Tasos applies it),
 and **F1, which is two days out** — two cars expire 4 October, nine motorbikes
 11 October, and no expiry is in the database, so `rentalBar` bars nothing.
