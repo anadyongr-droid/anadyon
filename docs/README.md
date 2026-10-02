@@ -14,18 +14,17 @@ machine or a six-month gap.
 | [`contract/`](contract/) | The paper rental agreement: the scanned terms page, a full transcription, and a blank printable template |
 | [`WORKLOG.md`](WORKLOG.md) | The most recent day's entry |
 
-## Where things stand — 23 September 2026
+## Where things stand — 2 October 2026
 
-**Last verified:** 2 October 2026, Claude — **every dependency pull request that
-could merge is merged.** #169, #171, #188 and #177 are done: #171 on its own, the
-other three regenerated as one lockfile change in #193 because #185's `saxes`
-addition made them un-mergeable and dependabot would not rebase. That pass also
-closed three high-severity advisories, one of which (`brace-expansion`) no pull
-request covered. What remains open is blocked upstream, not waiting on anyone
-here. And the §5.3 audit's W-series: **W19, W20, W21, W22, W23, W24 and W27 are closed**,
-W25 is half closed (the throw is fixed; the delivery record needs a migration),
-and **W26 is the only one still open**, waiting on #185. The rest of the status
-section was last checked on 23 September and is carried forward unchanged.
+**Last verified:** 2 October 2026, Codex — the full-project audit covers the
+repository, live site and current service controls. The technical core is
+strong and `npm audit --omit=dev` reports zero vulnerabilities, but the project
+is not fully finalised: production fleet compliance fields are empty, published
+insurance/contract claims remain inconsistent, and a clean checkout cannot
+complete the repository-owned verifier. W26 closed in #192. Staging remains
+four commits behind `main` with four hosted acceptance actions open. Read
+[`audits/2026-10-02-full-project.md`](audits/2026-10-02-full-project.md) for the
+evidence and [`OPEN-ITEMS.md`](OPEN-ITEMS.md) for owners and order of work.
 
 **Read this section before opening anything else, and before researching
 anything.** It exists because an agent spent a working session re-deriving
@@ -50,7 +49,7 @@ because it is believed.
 | Why does `df` say the sandbox disk is full when little is used? | Fixed per-session allowance, not a broken machine. Never delete `/opt/pw-browsers`. | `SANDBOX-DISK.md` (PR #98) |
 | Do the insurance policies restrict driver age? | **No — none of the three certificates carries an age or licence-tenure condition.** Our 21 is a commercial choice. But the certificates defer exclusions to terms booklets not yet supplied, so this is "not on the certificate", not "does not exist". | `INSURANCE-COVER-AND-RESTRICTIONS.md` §2 |
 | Does the system already track KTEO and insurance expiry, and stop-sell on them? | **Yes — built and tested.** Migration 011 columns, admin modal inputs, 30-day warnings in `lib/fleetStatus.ts`, and a hard bar in the availability route measured against the pick-up date. It is **inert until the dates are entered**, because an unrecorded date reads as `unknown` and `unknown` does not bar. Open item F1. | `lib/fleetStatus.ts` |
-| Is the Full Damage Waiver backed by insurance? | **No.** No collision own-damage cover on any of the three vehicles, across two insurers. FDW at €5.00/day — verified on the live Rates screen, 19 Sep — is self-insured. | `INSURANCE-COVER-AND-RESTRICTIONS.md` §4.1 |
+| Is the Full Damage Waiver backed by insurance? | **Unknown in the evidence held here.** Tasos confirmed on 2 September that own-damage cover exists, withdrawing the earlier self-insured conclusion, but the policy, scope and excess have never been supplied. FDW at €5/day must not be described more precisely until B5 is answered. | `OPEN-ITEMS.md` B5 and `INSURANCE-COVER-AND-RESTRICTIONS.md` §4.1 |
 
 ### Phase 2, the counter — the live workstream
 
