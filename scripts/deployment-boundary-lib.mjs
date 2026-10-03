@@ -94,5 +94,28 @@ export function deploymentBoundaryViolations(env = process.env) {
     violations.push("staging may use only a Stripe test-mode secret key");
   }
 
+  // Email was the one live hole in this boundary, and it was asymmetric in the
+  // worst direction: money and tax filings were fenced here — Stripe forced to
+  // test mode, AADE forced non-production — while `RESEND_API_KEY` was merely
+  // *permitted*, with nothing saying where staging may send.
+  //
+  // `lib/mailer.ts` already has the mechanism: `MAIL_REDIRECT_TO` sends every
+  // message to one address with a `[TEST → …]` subject, and it covers cc and
+  // bcc too. **It is opt-in, and nothing required it.** So a staging deployment
+  // holding a live Resend key would email real customers a real-looking booking
+  // confirmation, and no control in this project would see it — not the
+  // production fingerprint, which watches a different database, and not
+  // `pgaudit`, which watches reads.
+  //
+  // Raised by Fable in the 3 October round-2 review as the worst case that is
+  // *live today* rather than hypothetical, and confirmed in this file: the rule
+  // was absent. It is the Stripe rule's shape, one line later than it should
+  // have been.
+  if (present(env, "RESEND_API_KEY") && !present(env, "MAIL_REDIRECT_TO")) {
+    violations.push(
+      "staging may send email only with MAIL_REDIRECT_TO set, or with no RESEND_API_KEY — otherwise it reaches real customers",
+    );
+  }
+
   return violations;
 }

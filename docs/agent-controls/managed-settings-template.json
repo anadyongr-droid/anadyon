@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "deny": [
+      "WebFetch(domain:idfavwwfiuncoudkcfsp.supabase.co)",
+      "Bash(curl*idfavwwfiuncoudkcfsp*)",
+      "Bash(psql*idfavwwfiuncoudkcfsp*)",
+      "Bash(pg_dump*idfavwwfiuncoudkcfsp*)",
+      "Bash(supabase link*idfavwwfiuncoudkcfsp*)",
+      "Bash(supabase*--project-ref idfavwwfiuncoudkcfsp*)",
+      "Read(./.env*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "GATE_ROOT_PLACEHOLDER/.claude/hooks/production-gate.mjs",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 # Staging and observability runbook
 
-**Last verified:** 3 October 2026 (evening), Claude — **section 17 added: the nightly production fingerprint, which is the first control here that can see a change made in a logged-in dashboard.** Tested against a real Postgres with all 45 migrations replayed, silent when production matches, and recorded as **never yet run against production** — the first scheduled night is the first real run. Also section 16 revised after Codex reviewed these controls: two paste-ready Codex files did not load at all, the gate failed open on Codex when it could not parse an event, and two bypasses are closed. The heading is weaker and the mechanisms are unchanged. Earlier the same day: section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
+**Last verified:** 3 October 2026 (evening), Claude — **the production role inventory is now read from production** and recorded at the end of section 17: five roles bypass RLS, `service_role` cannot log in, and `supabase_read_only_user` already exists, which bears on W29. The `pgaudit` migration stays unwritten because the deciding fact — which role the dashboard editors run as — is still unanswered. Earlier the same evening: **section 17 added: the nightly production fingerprint, which is the first control here that can see a change made in a logged-in dashboard.** Tested against a real Postgres with all 45 migrations replayed, silent when production matches, and recorded as **never yet run against production** — the first scheduled night is the first real run. Also section 16 revised after Codex reviewed these controls: two paste-ready Codex files did not load at all, the gate failed open on Codex when it could not parse an event, and two bypasses are closed. The heading is weaker and the mechanisms are unchanged. Earlier the same day: section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
 
 **Status:** the isolated Supabase project exists and was reset twice from
 current `main` on 19 September 2026. Both runs replayed all 44 migrations and
@@ -946,3 +946,65 @@ report is the artifact `production-fingerprint`. Until then this section
 describes a tested mechanism against an untested database — the two SQL files
 work on Postgres 17 under PGlite, and Supabase's catalogs may differ in ways
 only a run will show.
+
+### The production role inventory — read 3 October 2026
+
+Read from production by Tasos, from the second query of
+`scripts/sql/who-runs-the-dashboard.sql`. **Every login role, and every role that
+bypasses row-level security.**
+
+| Role | Super | Bypasses RLS | Can log in | What it is |
+|---|:--:|:--:|:--:|---|
+| `supabase_admin` | **yes** | yes | yes | the platform's own superuser |
+| `postgres` | no | **yes** | yes | the project owner; what a SQL console normally uses |
+| `supabase_etl_admin` | no | **yes** | yes | platform replication/ETL |
+| `supabase_read_only_user` | no | **yes** | yes | **a read-only login that already exists** |
+| `service_role` | no | **yes** | **no** | the application's privileged role, reached by role switch |
+| `authenticator` | no | no | yes | what PostgREST logs in as, then switches to `anon` / `authenticated` / `service_role` |
+| `pgbouncer`, `supabase_auth_admin`, `supabase_replication_admin`, `supabase_storage_admin` | no | no | yes | platform internals |
+
+**Three things follow, and the third is a finding for a different item.**
+
+**1. Five roles bypass RLS.** Every policy in the database is irrelevant to any
+of them. That is not a defect — `DEFINING-STATEMENTS.md` §6 already says the
+grant is the boundary and the policy is only the filter — but it is the concrete
+reason the §6 rule is written the way it is: a control that depended on policies
+holding against a privileged session would be no control at all.
+
+**2. `service_role` cannot log in**, which is worth recording because it is a
+small, real piece of good news: the application's privileged role is reachable
+only by a role switch from `authenticator`, not by connecting with it directly.
+A leaked service-role *key* is still a full read of every table through the API;
+a leaked role password is not a thing that exists.
+
+**3. `supabase_read_only_user` already exists — which bears on W29.** That item
+is about giving the second agent read-only access so findings can be checked by
+someone who did not write them, and it was scoped on the assumption that a
+read-only credential would have to be created, possibly on a paid plan. One
+exists. **It bypasses RLS, so it reads every customer row**, which makes it
+exactly the wrong credential to hand an agent for *production* and a plausible
+one for *staging*. Unverified: whether its password is retrievable, whether it
+is the role behind the dashboard's read-only mode, and whether Supabase
+documents it as supported for external use. **Checked before use, not assumed.**
+
+### Why the `pgaudit` migration is still unwritten
+
+The deciding fact is **not** in the table above. `pgaudit` is configured per
+role, and auditing the wrong role produces a log that is empty on exactly the
+activity it was installed for — present, and inert, which is the failure this
+project has hit four times this week.
+
+The roles list narrows it to two candidates with different costs:
+
+| If the dashboard runs as… | Audit | Cost |
+|---|---|---|
+| `postgres` (or `supabase_admin`) | those two roles | **low** — a console is used by people, so the log is small and every line is interesting |
+| `authenticator` → `service_role` (the table editor goes through PostgREST) | `authenticator` as well | **high** — that logs every application query, which is the whole of the site's traffic |
+
+So the two editors may well need different answers, and auditing both roles
+"to be safe" is how a log becomes unreadable and then switched off. The first
+query of `scripts/sql/who-runs-the-dashboard.sql` answers it in one line, run
+once in the SQL editor and once from the table editor; the third query says
+whether anything is already configured, so a migration does not overwrite it.
+
+**Until then the migration is deliberately absent rather than guessed.** W31.

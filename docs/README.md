@@ -13,6 +13,7 @@ machine or a six-month gap.
 | [`CONTRACT-VS-WEBSITE.md`](CONTRACT-VS-WEBSITE.md) | **Where the signed contract, the website terms and the insurance policies disagree** — nine mismatches, including a website that advertises theft and collision cover nothing provides |
 | [`contract/`](contract/) | The paper rental agreement: the scanned terms page, a full transcription, and a blank printable template |
 | [`WORKLOG.md`](WORKLOG.md) | The most recent day's entry |
+| [`agent-controls/OPERATOR-SETUP.md`](agent-controls/OPERATOR-SETUP.md) | **The steps only a person can run**, in order of value: no standing production session, the root-owned gate, staging's email configuration, the one query that unblocks `pgaudit`. Each says whether it was rehearsed and what to send back |
 
 ## Where things stand — 3 October 2026
 
