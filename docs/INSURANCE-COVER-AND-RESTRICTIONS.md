@@ -7,7 +7,7 @@ directly out of the broker's emails: see §1a.**
 This document is the reference for what may be offered, promised and published.
 `DEFINING-STATEMENTS.md` §10 makes that binding.
 
-**Last verified:** 2 October 2026, Claude — §1a recounted against the broker's own table. Three figures in its prose were wrong and are corrected there, with `lib/insuranceFleetCounts.test.ts` now holding the sentences to the table. Earlier: 30 September 2026, Claude — the broker's own list of every currently open policy, received 29 September, recorded in §1a. It closes F2: the motorbikes were renewed and run to 11 October, and it supersedes two rows that were describing lapsed policies as current. Earlier: 28 September 2026, Claude — eight policies read from the broker's own PDF attachments, taking the fleet's insurers from two to **four** — **ERGO Ασφαλιστική** and **Triglav/Apeiron**, neither of which this document knew about (§1a). Earlier: 20 September 2026, Codex — official Euroins rental-car IPID and public motor terms located and read through the search index; the exact terms edition incorporated into policy 9190600829 still requires the broker (§7).
+**Last verified:** 3 October 2026, Claude — **ΙΟΖ 4176 and ΙΟΕ 2356 were renewed on 3 October**, one day before the policies lapsed; §1a records the renewal with **both new expiry dates unverified**, because the session's Gmail connector returns attachment metadata and never the bytes, so neither certificate was read. No table was moved to a guessed date. Earlier: 2 October 2026, Claude — §1a recounted against the broker's own table. Three figures in its prose were wrong and are corrected there, with `lib/insuranceFleetCounts.test.ts` now holding the sentences to the table. Earlier: 30 September 2026, Claude — the broker's own list of every currently open policy, received 29 September, recorded in §1a. It closes F2: the motorbikes were renewed and run to 11 October, and it supersedes two rows that were describing lapsed policies as current. Earlier: 28 September 2026, Claude — eight policies read from the broker's own PDF attachments, taking the fleet's insurers from two to **four** — **ERGO Ασφαλιστική** and **Triglav/Apeiron**, neither of which this document knew about (§1a). Earlier: 20 September 2026, Codex — official Euroins rental-car IPID and public motor terms located and read through the search index; the exact terms edition incorporated into policy 9190600829 still requires the broker (§7).
 
 **Scope caveat, stated once and applying throughout.** All three documents are
 **certificates** — the schedule of what is covered, for how much, at what
@@ -192,6 +192,51 @@ and cannot be retrieved through the session's Gmail connector — that is what t
 `lib/gmail.ts` attachment support is for. And four **scanned images with no text
 layer** (`ΠΛΗΡΩΜΕΣ ΑΣΦΑΛΙΣΤΡΩΝ`, `ΑΠΟΔΕΙΞΗ ΕΞΟΦΛΗΣΗΣ`), which are payment
 receipts rather than policies and would need OCR.
+
+### ΙΟΖ 4176 and ΙΟΕ 2356 renewed — 3 October 2026
+
+*Added 3 October 2026, Claude, on Tasos's word that both were renewed, checked
+against the broker's email.*
+
+**Both policies were due to lapse tomorrow and have been renewed.** The broker
+sent a message on **3 October 2026 at 11:04**, subject
+**`ΑΣΦΑΛΕΙΕΣ ΙΟΖ4176+ΙΟΕ2356`**, carrying two PDF attachments — `ANADYON1.pdf`
+and `ANADYON2.pdf` — one day before the 04/10/26 expiry both tables above
+record, and naming exactly the two plates that expire on it.
+
+| Plate | Policy running to 04/10/26 | New certificate | New expiry |
+|---|---|---|---|
+| ΙΟΖ 4176 | Euroins 9190600829 | one of `ANADYON1.pdf` / `ANADYON2.pdf`, not distinguished | **unverified — not read** |
+| ΙΟΕ 2356 | Euroins 9190600830 | one of `ANADYON1.pdf` / `ANADYON2.pdf`, not distinguished | **unverified — not read** |
+
+**The renewal is established; the new dates are not.** §8 draws that line and
+this section stays on the right side of it. On the record: the subject naming
+both plates, two certificates attached, the send date one day before expiry, and
+Tasos's own statement that they were renewed. Not on the record: a single date,
+insurer, policy number or term read out of either PDF. **The Gmail connector in
+this session returns attachment metadata only — filename, size, id — and never
+the bytes**, and `lib/gmail.ts`, which can fetch them, needs
+`GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` and the stored refresh token, none of
+which exist in an agent container. That is the same wall the ten motorbike
+policies of 11 June hit, recorded above, and it is now twice.
+
+So **no table in this document is moved to a new expiry date**, and the two rows
+above still read 04/10/26 with this section beside them. Writing in a guessed
+term — three months to 04/01/27, the interval the lapsing Euroins pair ran — is
+precisely the assumption §8 forbids, and it would become the date a fleet is
+operated against and a stop-sell computed from.
+
+**What this does not fix, and it is the larger half.** The stop-sell is still
+inert for these two vehicles, as for all twenty-nine: no expiry is recorded in
+the vehicle record, `lib/fleetStatus.ts` scores an unrecorded expiry `unknown`,
+and `rentalBar` bars only on `expired`. A renewed policy nobody enters protects
+the customer and not the system — and had the renewal *not* happened, the system
+would have rented both uninsured tomorrow without a word. F1 carries that.
+
+**What is needed from Tasos**, and it is one line: the **new expiry date** on
+each certificate, with the plate and policy number it belongs to. With those,
+both tables above and F1 are corrected in minutes — and if the renewals run the
+same three months, the next date to escalate is early January.
 
 ### A line that bears on B6
 
