@@ -61,8 +61,16 @@ is the call that returns Actions results.
 **One check was lost today and it is not an agent's to restore:** the Codex review bot did not review #192 or #193, reporting that the repository needs an environment configured. On #190 it found three real defects, one worse than it described. That is a ChatGPT-side setting for Tasos.
 
 **Still open:** W25's SMS delivery record (needs a migration, Tasos applies it),
-and **F1, which is two days out** — two cars expire 4 October, nine motorbikes
-11 October, and no expiry is in the database, so `rentalBar` bars nothing.
+and **F1, which is two days out** — two cars expire 4 October, ~~nine~~ **eight**
+motorbikes 11 October, and no expiry is in the database, so `rentalBar` bars
+nothing.
+
+*Figure corrected 3 October, Claude: this entry said nine motorbikes, written
+before §1a was recounted against its own table later the same day. It is eight.
+The entry is otherwise left as written — §11 makes it a record of what was
+believed on 2 October, and the owning document holds the corrected knowledge. The
+countdown is also now stale by a day and is re-dated in `OPEN-ITEMS.md` rather
+than here, for the same reason.*
 
 ---
 
