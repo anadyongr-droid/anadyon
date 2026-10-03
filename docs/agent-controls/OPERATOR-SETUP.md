@@ -1,6 +1,6 @@
 # What Tasos has to do, in order
 
-**Last verified:** 3 October 2026, Claude. Every command here was run, or run in
+**Last verified:** 3 October 2026, Claude — **step 1 is done** (reported by Tasos), which makes step 6 moot rather than pending. Steps 2 and 3 are now the two that matter most. Every command here was run, or run in
 a rehearsal that exercised the same code — see **Rehearsed or not** on each step.
 
 This is the steps, not the reasoning. The reasoning is in
@@ -17,7 +17,7 @@ same session.
 
 ---
 
-## 1 · No standing production session in the agent's browser — E28
+## 1 · ~~No standing production session in the agent's browser~~ — E28 · **DONE 3 October**
 
 **Why first.** Every control built this week watches *tool calls*. A click in a
 logged-in production dashboard is not a tool call, so none of them sees it. This
@@ -37,7 +37,7 @@ software.
 5. In the agent's profile, confirm the sign-out stuck: open
    <https://supabase.com/dashboard> and check you land on a login page.
 
-**Send me:** nothing. Just say it is done, and which option you took.
+**DONE, reported by Tasos on 3 October.** The agent's Chrome profile is signed out of both production dashboards. **One line still outstanding:** which arrangement replaced it — a second Chrome profile, or a different browser. It matters, because Codex attaches through an extension installed *per Chrome profile*: a different browser is out of its reach entirely, while a second profile is only as good as the extension not being installed in it.
 
 **Rehearsed or not:** not applicable — no code involved. The claim that Codex's
 attachment is per Chrome profile is from the Codex documentation, read 3 October.
@@ -55,10 +55,22 @@ In a terminal, from a **current** checkout (see step 7 — not the stale Desktop
 one):
 
 ```bash
-cd ~/Documents/GitHub/anadyon      # or wherever your current checkout is
+cd ~/Documents/GitHub/anadyon
 git fetch origin main && git checkout main && git pull
 sudo bash scripts/install-managed-gate.sh
 ```
+
+**Paste these one line at a time, and never with a trailing comment.**
+Interactive `zsh` does **not** treat `#` as a comment by default, so a line like
+`cd ~/path   # or wherever` passes the comment words to `cd` as arguments and
+fails with `cd: too many arguments` — leaving you in the previous directory
+while the rest of the block runs there anyway. **That happened on 3 October**
+with the first version of this step: the `cd` failed, the `git pull` ran in a
+different checkout, and the install then looked for a script that was not in it.
+Every command in this file is now comment-free for that reason.
+
+If your current checkout is somewhere else, substitute the path in the first
+line. Step 7 is how you find out which one is current.
 
 The script copies the gate and the library it imports to
 `/usr/local/lib/anadyon-gate/`, owned by root; writes
@@ -70,8 +82,11 @@ must not be. It refuses to finish if either comes out wrong.
 Then check what it cannot check for you:
 
 ```bash
-ls -l /usr/local/lib/anadyon-gate/.claude/hooks/production-gate.mjs   # owner must be root
+ls -l /usr/local/lib/anadyon-gate/.claude/hooks/production-gate.mjs
 ```
+
+The owner in that line must be **root**. If it is your own username, the gate is
+still editable by an agent running as you and nothing has changed.
 
 and in a **new** Claude Code session, because managed settings are read at
 startup:
