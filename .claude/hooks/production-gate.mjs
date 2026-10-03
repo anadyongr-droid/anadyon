@@ -292,6 +292,35 @@ export function decide(event) {
 }
 
 /**
+ * One line per decision, appended to a JSONL file.
+ *
+ * **Why every decision and not only the denials.** A control that records only
+ * what it blocked cannot tell "it allowed this" from "it was never asked" --
+ * and on 3 October 2026 that distinction was the whole of open item W32, where
+ * an empty log was read as the hook being bypassed when in fact nothing was
+ * listening. A log with an allow in it for the same session answers that.
+ *
+ * **Added to the unparseable path on 3 October (evening).** That branch denied
+ * and returned without writing anything, so the one case where the gate cannot
+ * say what it was asked about was also the one case it kept no record of --
+ * found by running the hook as a process rather than calling `decide()`.
+ *
+ * The file is local, and therefore writable by the agent it watches: question Q1
+ * in AGENT-ACCESS-AND-MONITORING.md. Root pulling the record off the machine is
+ * the fix, and W34 is the configuration half of the same problem.
+ */
+function record(event, decision, reason) {
+  try {
+    appendFileSync(
+      process.env.PRODUCTION_GATE_LOG || join(tmpdir(), "production-gate.jsonl"),
+      `${JSON.stringify({ at: new Date().toISOString(), tool: event?.tool_name, decision, reason, session: event?.session_id })}\n`,
+    );
+  } catch {
+    // Never let logging turn into a denial of ordinary work.
+  }
+}
+
+/**
  * Refuses a call in the way **both** agents implement.
  *
  * Three signals for one decision, because the two hosts read different ones and
@@ -307,7 +336,8 @@ export function decide(event) {
  * error, and *continues the call* — so an escalation written for Claude Code is
  * an allow on Codex, which is the worse of the two to fail open.
  */
-function block(reason) {
+function block(reason, event = {}) {
+  record(event, "deny", reason);
   process.stdout.write(
     JSON.stringify({
       hookSpecificOutput: {
@@ -344,19 +374,8 @@ function main() {
     }
 
     const { decision, reason } = decide(event);
-
-    // Local, and therefore writable by the agent it watches -- the open question
-    // Q1 in AGENT-ACCESS-AND-MONITORING.md. Root pulling the record is the fix.
-    try {
-      appendFileSync(
-        process.env.PRODUCTION_GATE_LOG || join(tmpdir(), "production-gate.jsonl"),
-        `${JSON.stringify({ at: new Date().toISOString(), tool: event.tool_name, decision, reason, session: event.session_id })}\n`,
-      );
-    } catch {
-      // Never let logging turn into a denial of ordinary work.
-    }
-
-    if (decision === "deny") block(reason);
+    if (decision === "deny") block(reason, event);
+    else record(event, decision, reason);
     // An allow writes nothing, so the normal permission flow still applies. The
     // gate narrows; it never widens.
   });
