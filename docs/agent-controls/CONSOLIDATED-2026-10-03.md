@@ -33,9 +33,9 @@ git decides it by merge order.
 
 | Claim | Status |
 |---|---|
-| A rule-based gate can approve staging and deny production | **Built and fired.** Denied `node -e`, `curl`, `psql`, `supabase link`, `wget`, `python3` at production; allowed staging at 401; allowed `grep` of the ref |
-| It works in Claude Code | **Fired live, in session** |
-| **It does not work in the Codex desktop app** | **Measured.** App quit (`pgrep` confirmed), reopened, asked to `curl` production, returned 401, and the gate's log gained no entry — the hook was never invoked |
+| A rule-based gate can approve staging and deny a **directly addressed** production call | **Built and fired.** Denied `node -e`, `curl`, `psql`, `supabase link`, `wget`, `python3` at production; allowed staging at 401; allowed `grep` of the ref. **Not a firewall** — three bypasses in §8.3, one of which cannot be closed by this mechanism |
+| It works in Claude Code | **Fired live in session, and re-proven at the process boundary**: `tests/productionGateProcess.test.ts` spawns the hook and asserts the stdout JSON, the stderr reason and exit 2 together — the contract, not the policy |
+| ~~It does not work in the Codex desktop app~~ | **WITHDRAWN, and it was the reverse of the truth — see §8.2.** The app does load `hooks.json`; the file we gave it was invalid, so nothing loaded it on any surface and the measurement was vacuous. Left visible rather than deleted, because a reviewer should see which claim in this table failed and how |
 | `[features.network_proxy]` does not reach the browser | **Verified against vendor docs:** *"The network proxy only filters traffic from local commands that run inside the sandbox"* |
 | Codex's origin rules cannot split production from staging | **Agreed by all four**, and Codex's §6 states it plainly |
 | A merge-commit invariant is wrong here | **Agreed.** Migrations are applied by hand; it would fire on all 45 |
@@ -471,3 +471,40 @@ it does is make an accident loud, a mistake reversible, and an unexplained produ
 change visible the next morning — once W31 exists. The sentence to put in front of
 Fable is Codex's: *do not describe either agent as securely bounded while it retains
 production credentials or a logged-in production browser session.*
+
+---
+
+## Appendix: the items this document cites
+
+Added 3 October 2026 (evening) so the document can be read by a reviewer with no
+repository access. Each is a row in [`../OPEN-ITEMS.md`](../OPEN-ITEMS.md), which is
+the live list of everything outstanding, one named owner per row.
+
+| Item | What it is | Owner |
+|---|---|---|
+| **E27** | Paste the Codex network deny onto the Mac. It bounds Codex's **shell commands only** — not the browser, which this document's §3 is about | Tasos |
+| **E28** | **Remove platform-owner sessions from the agent's browser profile.** The top control: a logged-in production dashboard under a single owner account has no project-specific enforcement | Tasos |
+| **E29** | **Fire one test: does Chrome's `URLBlocklist` survive `pushState` inside the Supabase dashboard?** Five minutes, and it decides whether the browser path is enforceable at all (§2) | Tasos |
+| **E30** | One checkout per machine. A second one was 85 pull requests stale — no gate, no deny rules, governance files predating two of the project's own principles — and was the only path the agent trusted | Tasos |
+| **E31** | An unattended autonomous loop was committing to this repository, on no list and in no worklog. The standing-authorisation problem in its purest form | Tasos |
+| **W31** | Build the nightly production check on top of the expected-change marker (§5.4). **Nothing reads the marker until this exists** | Agent |
+| **W32** | **Withdrawn — see §8.2.** It claimed the Codex desktop app does not invoke `hooks.json` | — |
+| **W33** | Get this architecture independently designed and attacked before tiers 2–4 are built. **This document is that round** | Tasos to run, then Agent |
+| **W34** | **Own the agents' configuration from outside the agents.** Root-owned managed settings, so an agent cannot widen its own permissions. All three reviews reached this independently | Tasos |
+| **W35** | Validate the checked-in Codex configuration with **Codex's own loader**, not with a test that reads it. Both files were unloadable while CI was green (§8.1) | Tasos to run |
+| **A02** | A published-terms/insurance mismatch found by checking the rendered page against the policies. Cited in §3 as the reason `anadyon.gr` is **not** on the deny list | closed |
+| **F1** | Insurance, KTEO and odometer are not recorded against any vehicle, so the built stop-sell is inert. Unrelated to agent oversight; cited only as an example of a control that exists and does nothing | Tasos |
+
+**Two project principles are cited by number.** Both are in
+[`../../DEFINING-STATEMENTS.md`](../../DEFINING-STATEMENTS.md):
+
+- **§8** — claims about the system are **verified, not assumed**; what cannot be
+  checked is labelled unverified rather than filled in. Most of §9's second table is
+  this rule applied to our own controls.
+- **§9** — read what is already written before researching it again, and **extend the
+  document that owns the subject** rather than writing a parallel one. §0's filename
+  collision is a breach of it by both agents on the same day, and §8.6's duplicated
+  identifiers are the same failure inside a single file.
+- **§13** — a change to what the business charges, promises or requires needs the
+  owner's explicit approval. Cited in §4 as the live example of a question no rule
+  decides and a model might.
