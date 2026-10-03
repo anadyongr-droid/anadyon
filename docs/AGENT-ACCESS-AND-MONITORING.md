@@ -19,6 +19,8 @@ something it did not look at is worse than no check, because it gets believed."*
 Section 6 lists what this design does not cover. If a reviewer finds a fifth gap,
 the document was worth writing.
 
+**Superseded in part, 3 October 2026.** All three review passes are complete and the merged position is [`agent-controls/RECONCILIATION-2026-10-03.md`](agent-controls/RECONCILIATION-2026-10-03.md), **which is the document to act from**. This one is kept for the threat model in §1, the enforced-versus-advisory discipline, and §3's record of the browser claim that was wrong — the reconciliation does not restate those. The headline change: P3, which all three passes called unmitigable, is **mitigable after all** through Chrome's `URLBlocklist` policy, which matches on path where network controls cannot. One test decides whether that holds.
+
 **How this gets reviewed.** [`agent-controls/fable-brief.md`](agent-controls/fable-brief.md) asks a second model to design the same thing from the problem statement alone, with no sight of this document — so that agreement means something. [`agent-controls/codex-adversarial-prompt.md`](agent-controls/codex-adversarial-prompt.md) then asks Codex to defeat whatever survives. The two are deliberately separate jobs: a reviewer asked to assess an architecture tends to improve it, and a reviewer asked to break one tends to find the holes.
 
 ---
