@@ -208,7 +208,25 @@ switched off within a week; **fail open** leaves silent holes in the record exac
 when something is wrong. A third option — buffer locally and flush later — puts the
 buffer back on the machine the agent controls, which is Q1 again.
 
-### Q3. Tier 3's central invariant is wrong for this project
+### Q3. ~~Tier 3's central invariant is wrong for this project~~ — **ANSWERED 3 October**
+
+**Resolved by Codex's adversarial review**, with a mechanism better than either
+option I had listed. A **committed expected-production-change record** — migration
+filename, hash of the file, expected objects, operator, expiry — declared *before*
+the paste. The nightly check treats a change with a valid marker as explained and
+everything else as unexplained, so a hand-applied migration no longer trips an
+alarm and the alarm keeps its meaning.
+
+Built: `supabase/expected-changes/` with the format and
+`tests/expectedProductionChange.test.ts` holding it. The hash is what makes it work
+— without it a marker says only "some change to this file is expected", which an
+edited migration satisfies as well as the reviewed one. Expiry makes an unapplied
+declaration escalate itself rather than sit.
+
+The original flaw is kept below because the reasoning is why the remedy has the
+shape it does.
+
+#### The original flaw
 
 The rule as first drafted was *"every production change must be explainable by a
 merge commit."* **This project applies migrations by hand**, from a byte-identical
