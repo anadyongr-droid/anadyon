@@ -46,5 +46,19 @@
       "Bash(supabase link*idfavwwfiuncoudkcfsp*)",
       "Bash(supabase*--project-ref idfavwwfiuncoudkcfsp*)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/production-gate.mjs",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
   }
 }
