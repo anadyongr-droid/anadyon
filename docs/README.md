@@ -187,6 +187,7 @@ built sound?* Keep them apart; they go stale at different rates.
 | [`RESTORE.md`](RESTORE.md) | Recovery procedure |
 | [`ENGINEERING-SAFETY-NET.md`](ENGINEERING-SAFETY-NET.md) | Local verification, dependency automation, optional coverage and the controls that still require human or hosted evidence |
 | [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md) | How to create, reset and verify isolated staging, wire Preview and CI, and validate privacy-safe Sentry |
+| [`AGENT-ACCESS-AND-MONITORING.md`](AGENT-ACCESS-AND-MONITORING.md) | **Design only, not built** — the shared policy, local guardrails, Chrome operating model and independent production watcher for keeping Claude Code and Codex staging work observable |
 
 ## Handovers
 
