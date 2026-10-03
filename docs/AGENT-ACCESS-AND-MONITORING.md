@@ -19,6 +19,8 @@ something it did not look at is worse than no check, because it gets believed."*
 Section 6 lists what this design does not cover. If a reviewer finds a fifth gap,
 the document was worth writing.
 
+**How this gets reviewed.** [`agent-controls/fable-brief.md`](agent-controls/fable-brief.md) asks a second model to design the same thing from the problem statement alone, with no sight of this document — so that agreement means something. [`agent-controls/codex-adversarial-prompt.md`](agent-controls/codex-adversarial-prompt.md) then asks Codex to defeat whatever survives. The two are deliberately separate jobs: a reviewer asked to assess an architecture tends to improve it, and a reviewer asked to break one tends to find the holes.
+
 ---
 
 ## 1. What is being protected, and from what
