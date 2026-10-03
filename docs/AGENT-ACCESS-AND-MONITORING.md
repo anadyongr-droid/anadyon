@@ -91,12 +91,45 @@ section 16 of [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY
 |---|---|---|
 | `WebFetch(domain:…)` deny in `.claude/settings.json` | P2 | **Enforced** |
 | `Bash(curl*…)` / `psql` / `pg_dump` / `supabase link` denies | P1 | **Advisory** — defeated by a shell variable |
-| `[features.network_proxy] deny` in `~/.codex/config.toml` | P1, P2, **and P3** | **Enforced** — the only layer that reaches the browser |
+| `[features.network_proxy] deny` in `~/.codex/config.toml` | **P1 only** | **Enforced for shell commands, and it does NOT reach the browser.** See the correction below |
 | `sandbox.enabled` | P1 at OS level | **Not enabled** — see section 6 |
 
 `scripts/deployment-boundary-lib.mjs` is the single source of truth for which ref
 is which; `tests/agentNetworkControls.test.ts` holds the deny lists to it and
 asserts staging is never denied.
+
+> **Corrected 3 October 2026, after an adversarial review by Codex.** Until this
+> correction, the row above read *"P1, P2 and P3 — Enforced, the only layer that
+> reaches the browser"*, and that claim was repeated in five other places including
+> open item E22, where it was the stated reason the item mattered most. **It is
+> false.** The Codex permissions documentation says, verbatim: *"The network proxy
+> only filters traffic from local commands that run inside the sandbox"*, and lists
+> Browser and Computer Use among the things it does **not** control.
+>
+> **How the error was made, because the mechanism matters more than the fact.** It
+> rested on one sentence from a different page — *"browser tools separately check
+> managed network denies"* — which I read as *"and browser tools also check network
+> denies"*. It says the opposite. **"Separately"** means browser tools consult a
+> different mechanism, and **"managed"** means the administrator-managed
+> requirements file, not a user's `config.toml`. Both load-bearing words were in the
+> quotation I myself pasted, and I read past both.
+>
+> **The document contradicted itself and I did not notice.** Section 6 already said
+> *"same-day detection of P3 does not exist in this design"*. Section 3 said the
+> Codex deny covered P3. One of those had to be wrong, and the pessimistic one was
+> right. That is the same failure shape as the insurance count corrected yesterday
+> — prose in one place disagreeing with a statement in another, with nothing
+> checking — twice in two days, which suggests the pattern is mine rather than
+> incidental.
+>
+> **What it changes.** P3 has **no project-specific enforcement** under a single
+> owner account. Pasting the Codex deny is still worth doing — it genuinely covers
+> Codex's shell commands — but it is no longer the priority item, and the reason
+> given for prioritising it was wrong. Codex also named `browser_use.origins` as an
+> origin-level block; that key is **not** in the permissions page I read, so it is
+> recorded here as **unverified** rather than repeated as fact. Even if it exists,
+> Codex's own point stands: an origin block cannot separate production from staging
+> when both dashboards are paths under the same host.
 
 ### Tier 2 — an event record the agent cannot edit · **DESIGNED**
 

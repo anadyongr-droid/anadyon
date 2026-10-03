@@ -7,11 +7,18 @@
 # tests/agentNetworkControls.test.ts fails if this file and
 # .claude/settings.json ever disagree about which hosts are production.
 #
-# Why this is the strongest control available without changing the account
-# structure: per the Codex documentation, "browser tools separately check managed
-# network denies". The Chrome extension is how Codex acts in a logged-in session,
-# so a network deny is the only control in this project that reaches the browser.
-# Every other control here governs the CLI only.
+# CORRECTED 3 October 2026. This header previously claimed that these rules reach
+# the browser, because "browser tools separately check managed network denies".
+# They do not. The Codex permissions documentation states: "The network proxy only
+# filters traffic from local commands that run inside the sandbox", and lists
+# Browser and Computer Use among what it does NOT control. "Separately" meant a
+# different mechanism, and "managed" meant the administrator-managed requirements
+# file rather than a user's config.toml.
+#
+# So this file is worth installing -- it genuinely bounds Codex's shell commands --
+# but it does nothing about the browser, which is the hardest path. There is no
+# project-specific enforcement for a logged-in dashboard session under a single
+# owner account. See AGENT-ACCESS-AND-MONITORING.md section 3.
 #
 # Verified against https://learn.chatgpt.com/docs/agent-approvals-security and
 # https://learn.chatgpt.com/docs/config-file/config-reference on 3 October 2026.

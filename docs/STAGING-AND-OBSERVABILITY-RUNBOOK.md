@@ -742,7 +742,7 @@ ship in the client bundle — so naming them discloses nothing.
 |---|---|---|
 | `WebFetch(domain:…)` deny | `.claude/settings.json` | **Enforced.** Claude Code refuses the fetch. The `domain:` form also feeds the sandbox's denied-domain list, so it strengthens by itself the day sandboxing is enabled. |
 | `Bash(curl*…)`, `psql`, `pg_dump`, `supabase link`, `--project-ref` | `.claude/settings.json` | **A speed bump**, in `AGENTS.md`'s sense. Catches the obvious spelling; does not survive a shell variable. Worth having, not the boundary. |
-| `[features.network_proxy] deny` | `~/.codex/config.toml` | **Enforced, and the only layer that reaches the browser** — the Codex docs state that *"browser tools separately check managed network denies"*. Paste-ready text in `docs/agent-controls/codex-network-deny.toml`. |
+| `[features.network_proxy] deny` | `~/.codex/config.toml` | **Enforced for Codex's shell commands only — corrected 3 October, it does NOT reach the browser.** The Codex permissions documentation states *"The network proxy only filters traffic from local commands that run inside the sandbox"* and names Browser and Computer Use among what it does not control. This row previously claimed the opposite; the full correction and how the error was made are in `AGENT-ACCESS-AND-MONITORING.md` §3. Paste-ready text in `docs/agent-controls/codex-network-deny.toml`. |
 | OS-level block | `sandbox.enabled` | **Deliberately not enabled.** See below. |
 
 ### Verified by firing it, not by reading the config

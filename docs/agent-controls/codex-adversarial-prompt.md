@@ -105,7 +105,10 @@ knowledge the design was written without:
    The design assumes CLI only. If browser actions do fire hooks, that changes it
    materially. Please check rather than recall.
 2. **Does `[features.network_proxy] deny` actually apply to your browser tool?** The
-   documentation says browser tools "separately check managed network denies", and
+   **ANSWERED 3 October, and the answer was no** — the permissions documentation
+   says the proxy *"only filters traffic from local commands that run inside the
+   sandbox"*. Left here as a record of what the question was for. Original wording:
+   the documentation says browser tools "separately check managed network denies", and
    that single sentence is the load-bearing claim behind the only control in this
    project that reaches the browser. If it is wrong, the design's central mitigation
    for its hardest failure path does not exist.
