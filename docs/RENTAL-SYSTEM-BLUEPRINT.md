@@ -2446,6 +2446,29 @@ currently unowned.
 
 ## 10. Revision history and what has shipped
 
+### 3 October 2026 — agent guardian designed, implementation deferred
+
+Last verified: 3 October 2026, Codex, against the current repository and vendor
+documentation.
+
+Tasos asked for an agent that checks the security controls around Claude Code,
+Codex and signed-in Chrome while keeping browser access. The architectural
+decision is to use deterministic policy and monitoring components, with AI
+limited to explaining alerts: one secret-free target policy, two runtime
+adapters, a local session sentinel, an independent production-state watcher and
+short-lived expected-change records. A second privileged AI agent would add a
+new trust path and is not the enforcement boundary.
+
+The design accepts the current single-account browser constraint and states its
+limit: Supabase and Vercel staging and production are paths on the same origins,
+so host-level browser policy cannot distinguish them. Local Codex network rules
+also govern sandboxed commands, not Chrome. The resulting browser risk is
+reduced through turn-scoped approval and detected through an off-machine
+watcher; it is not mislabelled as prevented. The complete design is
+[`AGENT-ACCESS-AND-MONITORING.md`](AGENT-ACCESS-AND-MONITORING.md). No hook,
+scanner, workflow, migration or production setting was implemented. W31 owns
+the later build.
+
 ### 29 September 2026 — staging synchronization and parity record
 
 Under the existing staging runbook section 13, merge current main into staging
