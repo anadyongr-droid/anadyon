@@ -115,5 +115,15 @@ describe("the gate, executed as the agents execute it", () => {
       "the unparseable event left no record",
     ).toBe(true);
     for (const line of lines) expect(line.at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+
+    // Which copy decided, not just what was decided. Two copies are registered
+    // on the operator's Mac — the root-owned one from managed settings and the
+    // project's — and the first real refusal there could not be attributed to
+    // either, because the log named the decision and not the decider. That is
+    // the whole question W34 turns on.
+    for (const line of lines) {
+      expect(line.gate, "a decision with no decider cannot answer which hook fired").toBeTruthy();
+      expect(String(line.gate).endsWith("production-gate.mjs"), String(line.gate)).toBe(true);
+    }
   });
 });

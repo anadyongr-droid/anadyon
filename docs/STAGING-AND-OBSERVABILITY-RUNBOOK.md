@@ -798,6 +798,46 @@ part of this one would be exactly the gate that overstates its own assurance.
 **Recorded as not done, never as done.**
 
 
+### The root-owned install, fired on the Mac — 3 October 2026, 20:59
+
+The gate no longer lives only at a path the agents may write. `scripts/install-managed-gate.sh`
+installed it with `sudo`, and the result was checked rather than reported:
+
+| Check | Result |
+|---|---|
+| `ls -l` on the installed gate | `-rwxr-xr-x 1 root wheel 18446` — root-owned, not the operator's account |
+| 18446 bytes against `origin/main` | identical, so the installed copy is the current gate and not an older build |
+| a production `curl` event piped into the root-owned copy | deny JSON on **stdout**, reason on **stderr**, **exit 2** — all three signals |
+| the relocated copy's import | resolved `../../scripts/deployment-boundary-lib.mjs` beside it, which is what a flat copy would have broken |
+
+**Fired inside a real session, 19:09 UTC.** The decision log on the Mac carries
+a refusal with a `session_id` — `d97b7a78…`, a `curl` at the production host,
+denied. A hand-piped event has no session id and a cloud session's log lives in
+its own container, so that line can only have come from a **local Claude Code
+session on this machine**. It is the first evidence of the gate refusing a real
+agent, in a real session, on the machine it governs, rather than of the gate
+refusing a test.
+
+**And the installer's own two firings are not in that file**, which is worth
+knowing before anything tries to collect these logs: the installer runs under
+`sudo`, so its `os.tmpdir()` was root's directory and not the operator's
+`/var/folders/pq/…`. **The decision log is per user.** A collector that reads one
+path will silently miss decisions made under another account — the same shape as
+every other control here that looked present and saw nothing.
+
+**What that buys and what it does not.** Neither agent can edit the gate it runs
+under any more, because neither holds the password that installed it — the
+circularity Fable put second in the order of work is broken for Claude Code.
+**But a correct file is not a file in force**, and whether Claude Code actually
+loads `/Library/Application Support/ClaudeCode/managed-settings.json` is
+unconfirmed until `/hooks` is read in a **new** session: managed settings are
+read at startup. That distinction is precisely the one W32 collapsed, so it is
+stated rather than assumed.
+
+`allowManagedHooksOnly` remains unset, so the project hook runs too and the gate
+fires twice. Harmless — both copies are the same file and agree — but the managed
+one is not yet the only one.
+
 ### Round two, evening of 3 October — what was repaired, and what to run on the Mac
 
 Codex reviewed these controls and upheld six findings. Four of them meant a control

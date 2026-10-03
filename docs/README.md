@@ -25,9 +25,15 @@ fingerprint** compares production's structure with the migrations replayed —
 the first control here that can see a change made in a logged-in dashboard,
 though only the next morning. Codex reviewed the controls and upheld six
 findings, four of which meant a control was inert while its test was green;
-all are repaired in #201. **Still needing a person:** no standing production
-session (E28), the Chrome path test (E29), one query to unblock `pgaudit`
-(W31), and reading the fingerprint's first real report (W36). Two insurance
+all are repaired in #201. **E28 is done as of 3 October: the agent's browser
+carries no production dashboard session.** That was the top control and the only
+one that removes the path rather than watching it — every other control here sees
+tool calls, and a click in a logged-in dashboard is not one — so E29 is moot.
+**Still needing a person:** the root-owned gate (W34, one `sudo` paste), staging's
+live email configuration (E32, two minutes and it was live this morning), one
+query to unblock `pgaudit` (W31), and reading the fingerprint's first real report
+(W36). [`agent-controls/OPERATOR-SETUP.md`](agent-controls/OPERATOR-SETUP.md) has
+the exact steps. Two insurance
 policies were renewed on 3 October with **both new expiry dates unverified**
 (F1 item 0). Earlier: 2 October 2026, Codex — the full-project audit covers the
 repository, live site and current service controls. The technical core is
