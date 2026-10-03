@@ -447,11 +447,13 @@ skipped and twice regretted.
 | `tests/agentNetworkControls.test.ts` | 13 | the deny list names production and never staging; **both Codex files parse and match the documented schema** | yes — all four new assertions watched failing against the exact files Codex's loaders rejected, while the old grep test stayed green on them |
 | `tests/expectedProductionChange.test.ts` | 16 | the marker's hash, expiry, and now that a closing value is a date that could have happened | yes — the three new cases watched failing against the pre-fix validator |
 | `tests/openItemsIntegrity.test.ts` | 3 | one identifier per item, one owner per row | yes — watched failing on a reintroduced duplicate |
+| `tests/productionFingerprint.test.ts` | 22 | the nightly check: severity rules, marker absorption, row-count falls, **and the SQL run against a real Postgres with all 45 migrations replayed** — plus a seeded canary proving no customer value reaches the output | yes — four load-bearing rules neutralised one at a time, nine tests failed |
+| `tests/productionFingerprintRunner.test.ts` | 6 | the job as the workflow runs it: **silent when production matches the migrations**, exit 3 on an `anon` grant, 2 on an undeclared table or a fallen count, 1 on NOT RUN | yes — same mutation run |
 | `lib/migrationPasteParity.test.ts` | existing | a migration and its paste copy agree | pre-existing |
 | `lib/serviceRoleGrants.test.ts` | existing | a `public` table created without a `service_role` grant fails by name | pre-existing |
 
-Whole suite after the repairs: **137 files, 1571 tests, green** (`npm run verify:fast`,
-3 October 16:07). Before: 136 / 1553.
+Whole suite after the repairs and the nightly check: **140 files, 1604 tests,
+green**. Before this afternoon: 136 / 1553.
 
 ### What no test here covers, and who can close it
 
@@ -461,7 +463,8 @@ Whole suite after the repairs: **137 files, 1571 tests, green** (`npm run verify
 | The hook **firing** on the desktop app | same, and it needs `/hooks` **trust** — a non-managed hook loads untrusted and does not run | the run in `codex-hooks-template.md` step 4 |
 | `matcher: ".*"` and `statusMessage` | our correction, unverified | the same run |
 | A command that derives its target at runtime | nothing in the call names production | staging-only credentials (W29) |
-| A click in a logged-in dashboard | not a tool call; no hook sees it | E28, then E29 |
+| A click in a logged-in dashboard | not a tool call; no hook sees it | **partly closed**: the nightly fingerprint (runbook 17) sees the *structural effect* of one the next morning. Preventing it is still E28, then E29 |
+| A **read** of customer rows | reading changes no state, so no state diff shows it — Fable’s finding | `pgaudit`, blocked on which role the dashboard editors run as (W31) |
 | Whether `URLBlocklist` survives `pushState` | needs a browser and the real dashboard | **E29 — still the single most informative five minutes on the list** |
 | Anything an agent can edit about its own controls | the gate cannot tell its author from an attacker | **W34** |
 

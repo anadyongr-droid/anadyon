@@ -1,0 +1,182 @@
+name: Nightly production fingerprint
+
+# 00:10 UTC — forty minutes after the backup starts, so the two jobs do not
+# compete for the same database at the same moment. Cron has no timezone; this
+# drifts by an hour in winter, which does not matter for a nightly check.
+on:
+  schedule:
+    - cron: "10 0 * * *"
+  workflow_dispatch:
+
+# The post-event half of agent oversight, and the only part of it that can see
+# the path the reviews all named as the largest residual risk: an action taken
+# in a logged-in production dashboard. No hook sees a click. Production state
+# does, because something that happened leaves a trace whatever route it took.
+#
+# What it compares: the structure the migrations build (replayed into PGlite
+# here on the runner) against the structure production actually has. A
+# difference is either declared in supabase/expected-changes/ — the ordinary
+# case, since AGENTS.md forbids an agent applying a migration, so a human pastes
+# it before the branch merges — or it is a change nobody declared, which is the
+# thing worth waking up to.
+#
+# Why this job and not a step in the backup: the backup's job is to produce an
+# archive, and a monitoring failure must not stop it uploading one. Separate
+# jobs fail separately.
+#
+# THE CREDENTIAL NEVER REACHES AN AGENT. SUPABASE_DB_URL lives in Actions
+# secrets, which neither Claude nor Codex can read, and the comparison script
+# takes files rather than a connection string. An agent writes the check and
+# never holds the key — which is the whole shape of the arrangement, since a
+# control an agent could reach is a control an agent could quiet.
+
+permissions:
+  contents: read
+
+jobs:
+  fingerprint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the comparison scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      # PGlite is the expected side of the comparison: the migrations replayed.
+      - name: Install dependencies
+        run: npm ci
+
+      # A missing secret is reported, not worked around. E21 is on the open
+      # items list because CI's production drift step exits successfully without
+      # comparing anything when its secrets are absent, which is worse than no
+      # step at all: it looks like cover.
+      - name: Refuse to run blind
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_DB_URL:-}" ]; then
+            echo "::error::SUPABASE_DB_URL is not set, so there is nothing to compare production against. Reporting NOT RUN rather than passing."
+            exit 1
+          fi
+          echo "  the connection string is present"
+
+      # Read-only at the transaction level, not by inspection. PGOPTIONS sets
+      # default_transaction_read_only for the session, so even a file that was
+      # edited to write would be refused by the server — belt as well as braces,
+      # since tests/productionFingerprint.test.ts only checks that the SQL
+      # *contains* no writing statement.
+      - name: Read production's structure and row counts
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=120000
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -At \
+            -f scripts/sql/production-fingerprint.sql > actual.json
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -At \
+            -f scripts/sql/production-counts.sql > counts.json
+          # An empty file here is a failed query, not an empty database, and the
+          # comparison script treats it that way. Checked twice because a
+          # fingerprint of {} would make every comparison pass.
+          for f in actual.json counts.json; do
+            size=$(stat -c%s "$f")
+            echo "  $f: $size bytes"
+            [ "$size" -gt 50 ] || { echo "::error::$f is $size bytes — the query returned nothing"; exit 1; }
+          done
+
+      # Last night's counts, so a deletion is visible. Absent on the first run,
+      # which the script reports as "cannot be detected tonight" rather than as
+      # no deletions. Stored beside the backups, in the bucket that already has
+      # credentials in this repository's secrets.
+      - name: Fetch last night's row counts
+        continue-on-error: true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          ACCOUNT="${R2_ACCOUNT_ID#https://}"
+          ACCOUNT="${ACCOUNT%%.r2.cloudflarestorage.com*}"
+          ACCOUNT="${ACCOUNT%%/*}"
+          aws s3 cp "s3://$R2_BUCKET/fingerprint/counts-latest.json" previous-counts.json \
+            --endpoint-url "https://${ACCOUNT}.r2.cloudflarestorage.com" || \
+            echo "  no previous counts — first run, or the object is not there yet"
+
+      # continue-on-error so tonight's counts still reach R2 when the comparison
+      # fails. Without it a single alerting night would leave tomorrow with no
+      # baseline, and the deletion check would be blind on exactly the night
+      # after something happened.
+      - name: Compare production with the migrations
+        id: compare
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          ARGS="--actual actual.json --counts counts.json --report report.md --counts-out counts-next.json"
+          [ -f previous-counts.json ] && ARGS="$ARGS --previous previous-counts.json"
+          node scripts/run-production-fingerprint.mjs $ARGS | tee "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep tonight's counts for tomorrow
+        if: always()
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          [ -f counts-next.json ] || { echo "  nothing to store"; exit 0; }
+          ACCOUNT="${R2_ACCOUNT_ID#https://}"
+          ACCOUNT="${ACCOUNT%%.r2.cloudflarestorage.com*}"
+          ACCOUNT="${ACCOUNT%%/*}"
+          ENDPOINT="https://${ACCOUNT}.r2.cloudflarestorage.com"
+          aws s3 cp counts-next.json "s3://$R2_BUCKET/fingerprint/counts-latest.json" --endpoint-url "$ENDPOINT"
+          aws s3 cp counts-next.json \
+            "s3://$R2_BUCKET/fingerprint/history/counts-$(date -u +%Y-%m-%d).json" --endpoint-url "$ENDPOINT"
+
+      # The report carries no customer data — it is catalog facts and
+      # cardinalities, which tests/productionFingerprint.test.ts asserts against
+      # a seeded canary — so an artifact is safe. 30 days is enough to read back
+      # over a month and see when a difference first appeared.
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: production-fingerprint
+          path: report.md
+          retention-days: 30
+
+      # Only when something needs a person. A nightly "all clear" trains the
+      # reader to skim, and then the one that matters is skimmed too — the same
+      # reasoning as the backup's alert, and the same script, which checks
+      # Telegram's answer rather than assuming the message arrived.
+      - name: Tell someone
+        if: steps.compare.outcome == 'failure'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          HEADLINE=$(sed -n '3p' report.md 2>/dev/null || echo "the nightly production check could not run")
+          MESSAGE="Production fingerprint: ${HEADLINE}
+          ${RUN_URL}"
+          node scripts/send-telegram-alert.mjs "$MESSAGE"
+
+      # Last, so the alert and the stored counts happen first. The job's status
+      # is the comparison's status: a difference nothing explains is a failure.
+      - name: Fail if the comparison did
+        if: steps.compare.outcome == 'failure'
+        run: |
+          echo "::error::production differs from the repository in ways nothing explains, or the check could not run — see the step summary and report.md"
+          exit 1

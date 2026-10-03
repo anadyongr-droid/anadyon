@@ -1,6 +1,6 @@
 # Staging and observability runbook
 
-**Last verified:** 3 October 2026 (evening), Claude — section 16 revised after Codex reviewed these controls: two paste-ready Codex files did not load at all, the gate failed open on Codex when it could not parse an event, and two bypasses are closed. The heading is weaker and the mechanisms are unchanged. Earlier the same day: section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
+**Last verified:** 3 October 2026 (evening), Claude — **section 17 added: the nightly production fingerprint, which is the first control here that can see a change made in a logged-in dashboard.** Tested against a real Postgres with all 45 migrations replayed, silent when production matches, and recorded as **never yet run against production** — the first scheduled night is the first real run. Also section 16 revised after Codex reviewed these controls: two paste-ready Codex files did not load at all, the gate failed open on Codex when it could not parse an event, and two bypasses are closed. The heading is weaker and the mechanisms are unchanged. Earlier the same day: section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
 
 **Status:** the isolated Supabase project exists and was reset twice from
 current `main` on 19 September 2026. Both runs replayed all 44 migrations and
@@ -832,3 +832,117 @@ the open items list; none takes more than five minutes.
    precedent. **W35.**
 3. **E29**, unchanged and still the most informative five minutes on the list:
    does `URLBlocklist` survive `pushState` inside the Supabase dashboard?
+
+## 17. The nightly production fingerprint — post-event oversight, 3 October 2026
+
+**What it is for.** Every other agent control in this project is *prevention*
+running on the machine the agents run on: a `PreToolUse` gate, deny lists, a
+Codex config. All of them see a tool call. **None of them sees a click in a
+logged-in production dashboard**, which all three review passes named as the
+largest residual risk. This is the one control that does, because it does not
+watch the agent at all — it watches production, and something that happened
+leaves a trace whatever route it took.
+
+It is therefore **detection, not prevention**, and the honest claim is a
+*latency*: an unexplained structural change or a disappearance of rows is
+visible the next morning, not prevented tonight.
+
+### How it decides what is wrong
+
+| | |
+|---|---|
+| **Expected** | the migrations, replayed into PGlite on the runner |
+| **Actual** | production, read through `psql` |
+| **The query** | `scripts/sql/production-fingerprint.sql`, run against **both** |
+| **Declared changes** | `supabase/expected-changes/` markers absorb what they named |
+| **Row counts** | `scripts/sql/production-counts.sql`, compared with last night's |
+
+**Not a committed baseline, and that is the main design decision.** A baseline
+file has to be refreshed by hand after every legitimate change, and a file
+refreshed by hand becomes a record of whatever production looked like the last
+time somebody remembered. The migrations are already the reviewed statement of
+what production should be, and they are current by construction. One query file
+serves both sides so they cannot drift — `DEFINING-STATEMENTS.md` §5's rule for
+pricing, applied for the same reason.
+
+**Markers are what stop it crying wolf.** `AGENTS.md` forbids an agent applying
+a migration, so a human pastes it and the structural change arrives before the
+branch merges. That window is *normal*, and without a declaration this check
+would fire on every legitimate migration. An alarm that fires monthly on correct
+behaviour gets muted, and a muted alarm is worse than none because it still
+looks present.
+
+### Severity, and the one row that is not a question
+
+| Severity | What earns it | Exit |
+|---|---|---:|
+| **critical** | a table other than `rates` or `extras_config` is readable by `anon` | 3 |
+| **high** | a table or column production lacks and the code expects; a table nobody declared; RLS off; a lost `service_role` grant; a new security-definer function; rows fallen by more than 5% | 2 |
+| **normal** | an added index or trigger; a small fall in rows | 0 |
+| **explained** | a change an expected-change marker named | 0 |
+
+`critical` is reserved for one thing because §6 is blunt about it: *"Row-level
+security filters rows, not columns, so a readable table is a readable table."*
+An `anon` grant is a customer-data exposure the moment it exists, so **a marker
+never absorbs one** — a marker records what somebody intended, and `critical`
+records what is true.
+
+### What it cannot see
+
+1. **A read.** Selecting every customer row changes no state. `pgaudit` is the
+   only thing that sees one, and it is blocked on a single unverified fact —
+   which Postgres role the dashboard's editors run as. `scripts/sql/who-runs-the-dashboard.sql`
+   is paste-ready for that answer; the migration is deliberately **not** written
+   until it exists, because auditing the wrong role gives a log that is empty on
+   exactly the activity it was installed for. **W31.**
+2. **A change reverted before the next run.** The window is one night.
+3. **Who did it.** A diff says what changed, never who. Attribution needs the
+   gate's decision log, and only for tool calls.
+
+### Where the credential is, and why that matters
+
+`SUPABASE_DB_URL` is a GitHub Actions secret — the same one the nightly backup
+has used for eleven consecutive runs — and the comparison script takes **files,
+never a connection string**. So an agent wrote this check and no agent can reach
+the key or the database. A control an agent could reach is a control an agent
+could quiet, which is the whole shape of the arrangement.
+
+The session runs `psql` with `PGOPTIONS=-c default_transaction_read_only=on`, so
+the server itself would refuse a write even from an edited file.
+`tests/productionFingerprint.test.ts` separately asserts that neither SQL file
+contains a writing statement.
+
+### It carries no customer data, and that is tested
+
+The repository is public and production holds dates of birth, addresses and
+phone numbers. Both queries read catalogs and cardinalities only. The test seeds
+a recognisable surname into a replayed database and **fails if it appears
+anywhere in the fingerprint** — because the output leaves production nightly and
+is kept as a workflow artifact for 30 days.
+
+### A check that could not run never reports green
+
+A missing secret, an absent file, or an empty `psql` result produces
+**`NOT RUN` and a non-zero exit**, never silence. Open item E21 exists because
+CI's own production drift step *exits successfully without comparing anything*
+when its secrets are absent, which is worse than having no step: it looks like
+cover. Tonight's counts are still stored when the comparison fails, so the night
+after an incident is not blind.
+
+### Verified, and not
+
+**Verified here:** the catalog query runs on a real Postgres with all 45
+migrations replayed and returns 29 tables; it finds exactly `rates` and
+`extras_config` readable by `anon`, which is an independent confirmation of §6;
+the comparison is **silent** when production matches the migrations; it exits 3
+on an `anon` grant, 2 on an undeclared table or a fallen row count, 1 when it
+cannot run; a seeded customer value does not reach the output. Four load-bearing
+rules were neutralised one at a time and nine tests failed, then passed again
+restored.
+
+**Not run, and recorded as not run (§8):** the query has never been run against
+production. The first real run is the first scheduled night, 00:10 UTC, and its
+report is the artifact `production-fingerprint`. Until then this section
+describes a tested mechanism against an untested database — the two SQL files
+work on Postgres 17 under PGlite, and Supabase's catalogs may differ in ways
+only a run will show.

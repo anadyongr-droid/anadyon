@@ -14,9 +14,21 @@ machine or a six-month gap.
 | [`contract/`](contract/) | The paper rental agreement: the scanned terms page, a full transcription, and a blank printable template |
 | [`WORKLOG.md`](WORKLOG.md) | The most recent day's entry |
 
-## Where things stand — 2 October 2026
+## Where things stand — 3 October 2026
 
-**Last verified:** 2 October 2026, Codex — the full-project audit covers the
+**Last verified:** 3 October 2026, Claude — **agent oversight is built and its
+labels are now honest.** A `PreToolUse` gate denies a directly addressed
+production call on both agents (advisory, not a firewall: three bypasses are
+documented, one unfixable by that mechanism), and the **nightly production
+fingerprint** compares production's structure with the migrations replayed —
+the first control here that can see a change made in a logged-in dashboard,
+though only the next morning. Codex reviewed the controls and upheld six
+findings, four of which meant a control was inert while its test was green;
+all are repaired in #201. **Still needing a person:** no standing production
+session (E28), the Chrome path test (E29), one query to unblock `pgaudit`
+(W31), and reading the fingerprint's first real report (W36). Two insurance
+policies were renewed on 3 October with **both new expiry dates unverified**
+(F1 item 0). Earlier: 2 October 2026, Codex — the full-project audit covers the
 repository, live site and current service controls. The technical core is
 strong and `npm audit --omit=dev` reports zero vulnerabilities, but the project
 is not fully finalised: production fleet compliance fields are empty, published
