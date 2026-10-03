@@ -1,6 +1,6 @@
 # Staging and observability runbook
 
-**Last verified:** 2 October 2026, Codex.
+**Last verified:** 3 October 2026, Claude — section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
 
 **Status:** the isolated Supabase project exists and was reset twice from
 current `main` on 19 September 2026. Both runs replayed all 44 migrations and
@@ -715,3 +715,75 @@ acceptance and the independent staging cron configuration remain open.
 Last verified: 1 October 2026, Codex.
 
 Confirmed authenticated access to organization `anadyon-ike` and created its Next.js project `javascript-nextjs`. Manual setup displays an EU ingestion DSN. No wizard was run, no paid upgrade selected, and no additional telemetry enabled. Saved NEXT_PUBLIC_SENTRY_DSN, SENTRY_ORG and SENTRY_PROJECT as Config values scoped only to Preview/staging and verified the scope in Vercel. Redeployment and browser/server/proxy test-event verification remain pending; account creation alone does not establish working monitoring.
+
+## 16. Agent network controls — the production data plane is denied, 3 October 2026
+
+Two agents work in this repository and both reach the internet. Neither has any
+business touching the production Supabase project, and `AGENTS.md` already says
+why writing that down is not enough: *"A rule that matches command strings is a
+reminder to the agent that wrote the command, not a control on what the process
+can do."*
+
+So production is now **denied**, and `tests/agentNetworkControls.test.ts` is what
+stops the deny list going missing or going wrong.
+
+### The two refs, in one place
+
+`scripts/deployment-boundary-lib.mjs` already owned `STAGING_PROJECT_REF`. It now
+also exports `PRODUCTION_PROJECT_REF` (`idfavwwfiuncoudkcfsp`, read from
+`docs/audits/2026-08-18-prelaunch.md`) and `PRODUCTION_DENY_HOSTS`. Every control
+that must avoid production reads from there rather than carrying its own copy of a
+twenty-character string nobody would notice was wrong. Both refs are public — they
+ship in the client bundle — so naming them discloses nothing.
+
+### What each layer actually enforces, because they are not equal
+
+| Layer | Where | Strength |
+|---|---|---|
+| `WebFetch(domain:…)` deny | `.claude/settings.json` | **Enforced.** Claude Code refuses the fetch. The `domain:` form also feeds the sandbox's denied-domain list, so it strengthens by itself the day sandboxing is enabled. |
+| `Bash(curl*…)`, `psql`, `pg_dump`, `supabase link`, `--project-ref` | `.claude/settings.json` | **A speed bump**, in `AGENTS.md`'s sense. Catches the obvious spelling; does not survive a shell variable. Worth having, not the boundary. |
+| `[features.network_proxy] deny` | `~/.codex/config.toml` | **Enforced, and the only layer that reaches the browser** — the Codex docs state that *"browser tools separately check managed network denies"*. Paste-ready text in `docs/agent-controls/codex-network-deny.toml`. |
+| OS-level block | `sandbox.enabled` | **Deliberately not enabled.** See below. |
+
+### Verified by firing it, not by reading the config
+
+On 3 October, in a live session, immediately after the rules landed:
+
+| Attempt | Result |
+|---|---|
+| `WebFetch https://idfavwwfiuncoudkcfsp.supabase.co/rest/v1/` | `WebFetch denied access to domain:idfavwwfiuncoudkcfsp.supabase.co.` |
+| `curl` to the same host | `Permission to use Bash with command curl … has been denied.` |
+| `WebFetch https://fzycvstifmltxybffinq.supabase.co/rest/v1/` | **HTTP 401** — staging still reachable |
+| `grep idfavwwfiuncoudkcfsp docs/audits/2026-08-18-prelaunch.md` | ran normally |
+
+The third and fourth rows are the point. A deny that blocked everything would also
+have passed the first two, and a control that blocks the grep which audits it is a
+control nobody can review. §8 asks for the claim to be checked; this is the check.
+
+### Three things this does not cover, each a decision
+
+**The production dashboard in a browser.** The dashboard is a *path* under
+`supabase.com` and these rules match *hosts*, so excluding the production project
+would take the staging dashboard and the Supabase documentation with it. A session
+already signed in to the production dashboard is therefore **not covered by
+anything in this section**. The nightly production fingerprint is what is meant to
+catch that, after the fact; it is not built yet.
+
+**The public website.** `anadyon.gr` is deliberately reachable. Verifying a
+published claim against a rendered page is what §8 and §10 require, and it is what
+caught the live terms-versus-insurance mismatch recorded as A02. Denying it would
+have removed the check, not the risk.
+
+**`api.vercel.com`.** One host serves every project, so a deny would break
+legitimate staging work. Production deploys are held off by branch protection and
+by the existing `Bash(vercel --prod*)` deny instead.
+
+### Why sandboxing is not switched on here
+
+The OS-level network block needs `sandbox.enabled`, and the sandbox's
+allowed-domain list **starts empty**. Turning it on repository-wide would break
+`npm ci` for every agent on the next run. That is a separate change with an
+allowlist to build and test first, not a one-line addition — and claiming it as
+part of this one would be exactly the gate that overstates its own assurance.
+
+**Recorded as not done, never as done.**

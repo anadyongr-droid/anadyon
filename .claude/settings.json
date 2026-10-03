@@ -38,7 +38,13 @@
       "Bash(supabase db push*)",
       "Bash(vercel env rm*)",
       "Bash(vercel --prod*)",
-      "Bash(vercel deploy --prod*)"
+      "Bash(vercel deploy --prod*)",
+      "WebFetch(domain:idfavwwfiuncoudkcfsp.supabase.co)",
+      "Bash(curl*idfavwwfiuncoudkcfsp*)",
+      "Bash(psql*idfavwwfiuncoudkcfsp*)",
+      "Bash(pg_dump*idfavwwfiuncoudkcfsp*)",
+      "Bash(supabase link*idfavwwfiuncoudkcfsp*)",
+      "Bash(supabase*--project-ref idfavwwfiuncoudkcfsp*)"
     ]
   }
 }

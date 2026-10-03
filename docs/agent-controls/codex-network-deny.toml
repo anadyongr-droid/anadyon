@@ -1,0 +1,45 @@
+# Paste into ~/.codex/config.toml on the operator's machine.
+#
+# This file is the checked-in source of truth for what Codex must not reach.
+# It is not read by anything at runtime -- Codex reads ~/.codex/config.toml, which
+# lives outside this repository and which no agent can write. Keeping the text
+# here means the two agents are given the same boundary, and
+# tests/agentNetworkControls.test.ts fails if this file and
+# .claude/settings.json ever disagree about which hosts are production.
+#
+# Why this is the strongest control available without changing the account
+# structure: per the Codex documentation, "browser tools separately check managed
+# network denies". The Chrome extension is how Codex acts in a logged-in session,
+# so a network deny is the only control in this project that reaches the browser.
+# Every other control here governs the CLI only.
+#
+# Verified against https://learn.chatgpt.com/docs/agent-approvals-security and
+# https://learn.chatgpt.com/docs/config-file/config-reference on 3 October 2026.
+
+[features.network_proxy]
+enabled = true
+deny = ["idfavwwfiuncoudkcfsp.supabase.co"]
+
+# Deliberately absent, and each omission is a decision rather than an oversight.
+#
+# anadyon.gr -- the public website. Agents are required to verify published
+#   claims against the rendered page (DEFINING-STATEMENTS.md §8, §10). Denying it
+#   would block the check that caught the live terms/insurance mismatch (A02).
+#
+# supabase.com -- the dashboard is a path under this host, not a host of its own,
+#   and these rules match hosts. Denying it would take the staging dashboard and
+#   the documentation with it. So a browser session already signed in to the
+#   production dashboard is NOT covered by this file. That gap is real and is
+#   recorded in section 16 of docs/STAGING-AND-OBSERVABILITY-RUNBOOK.md; the
+#   nightly production fingerprint is what is meant to catch it, after the fact.
+#
+# api.vercel.com -- a single host serves every project, so a deny would block
+#   legitimate staging work. Production deploys are held off by branch protection
+#   and by the Bash deny rules in .claude/settings.json instead.
+
+# Suggested alongside, not required by the test. `untrusted` was removed from
+# Codex and is no longer a valid value; `granular` is what replaces it.
+# approval_policy = { granular = { sandbox_approval = "on-request" } }
+# sandbox_mode = "workspace-write"
+# [sandbox_workspace_write]
+# network_access = false

@@ -1,5 +1,37 @@
 export const STAGING_PROJECT_REF = "fzycvstifmltxybffinq";
 
+/**
+ * The production Supabase project, named here so one file answers "which ref is
+ * which" for every control that needs to know.
+ *
+ * Read from `docs/audits/2026-08-18-prelaunch.md` and
+ * `docs/INCIDENT-ADMIN-MIDDLEWARE-TIMEOUT.md`, which records that
+ * `idfavwwfiuncoudkcfsp.supabase.co` is the host shipped to browsers. It is a
+ * public value — it is in the client bundle — so naming it here discloses
+ * nothing. What it buys is that a control which must *avoid* production has one
+ * place to look, instead of each one carrying its own copy of a 20-character
+ * string that nobody would notice was wrong.
+ */
+export const PRODUCTION_PROJECT_REF = "idfavwwfiuncoudkcfsp";
+
+/**
+ * Production hosts an agent session has no business reaching.
+ *
+ * Deliberately short. It is the production *data plane* — the PostgREST, Auth
+ * and Storage endpoint — and not the public website, which agents legitimately
+ * read: verifying a published claim against a rendered page is what
+ * `DEFINING-STATEMENTS.md` §8 asks for, and §10 makes it a standing task.
+ *
+ * It also does not include the Supabase dashboard. That is a path under
+ * `supabase.com`, and the deny lists these controls use match *hosts*, so
+ * excluding the production project's dashboard would mean excluding the staging
+ * project's dashboard and the documentation with it. Recorded as a gap rather
+ * than papered over: a browser session in the production dashboard is not
+ * covered by anything here, and section 16 of
+ * `docs/STAGING-AND-OBSERVABILITY-RUNBOOK.md` says what does cover it.
+ */
+export const PRODUCTION_DENY_HOSTS = [`${PRODUCTION_PROJECT_REF}.supabase.co`];
+
 export const NEVER_ON_PREVIEW = [
   "ANTHROPIC_API_KEY",
   "APIFY_TOKEN",
