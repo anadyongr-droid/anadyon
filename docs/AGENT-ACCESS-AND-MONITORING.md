@@ -161,10 +161,25 @@ them is CI failing on a deny list that has lost the production ref, and
 
 **Open questions Q1 and Q2 below are unresolved and block this tier.**
 
-### Tier 3 — nightly production fingerprint · **DESIGNED. The important one.**
+### Tier 3 — nightly production fingerprint · **BUILT 3 October, and still the important one**
 
 **The problem it solves: P3.** Nothing on the laptop can tell you that an agent
 clicked *Delete* in the production dashboard. Production state can.
+
+**Built, and section 17 of [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md)
+is the operational detail.** The expected side is the migrations replayed rather
+than a committed baseline, one query file serves both sides so they cannot
+drift, declared changes are absorbed by the markers, and a check that could not
+run reports **NOT RUN** rather than green. The credential lives in Actions
+secrets and the comparison takes files, so an agent wrote it and no agent can
+reach the database.
+
+**It cannot see a read, and that limit is Fable’s finding rather than a caveat
+added afterwards.** Selecting every customer row changes no state. `pgaudit` is
+the only thing that sees one; it is per-role, auditing the wrong role gives a log
+that is empty on exactly the activity it was installed for, and the role the
+dashboard editors use is unverified. The migration is deliberately unwritten
+until one query answers that — W31.
 
 **Why it is nearly free:** the nightly backup workflow has eleven consecutive
 successful runs, dumps `roles.sql`, `schema.sql` and `data.sql`, and uploads to R2
