@@ -283,7 +283,7 @@ boundary.**
 | Does `pushState` navigation bypass `URLBlocklist`? | whether P3 is enforced at all | Block the production path, open staging, click through to production |
 | The macOS managed-policy install path, without MDM | the same | Install it and load the blocked URL |
 | Which Postgres role the dashboard table editor uses | `pgaudit` covering the browser path | `select current_user` from the dashboard SQL editor |
-| Does the Codex desktop app read **any** `~/.codex` policy file? | root-owned browser policy, and any agent-side gate on Codex | **Partly answered 3 October: it does not invoke `hooks.json`.** Quit confirmed, reopened, `curl` at production returned 401 and the gate's log gained no entry — never invoked. `requirements.toml` is the same question one layer up and is still open. See W32 |
+| Does the Codex desktop app read **any** `~/.codex` policy file? | root-owned browser policy, and any agent-side gate on Codex | **ANSWERED 3 October, and the first answer here was wrong: it does load `hooks.json`.** This row said it did not, on the strength of a restart, a 401, and an empty decision log. The file was invalid — event names at the top level — so nothing loaded it on any surface and the measurement was vacuous. Codex queried the app's own hook inventory: zero hooks as shipped, gate found and enabled with the `hooks` wrapper. W32 is withdrawn; see CONSOLIDATED section 8.2. `requirements.toml` is still open |
 | `browser_use.origins` — named by Codex, absent from the permissions page read here | origin-level blocking | Find it in the config schema or drop the claim |
 | Supabase scoped-token plan requirement | the credential half | Create one |
 

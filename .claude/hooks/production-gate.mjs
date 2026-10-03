@@ -40,13 +40,26 @@ import {
  *   input is treated as a target, because an unknown tool's argument shape cannot
  *   be assumed benign.
  *
- * **What this is worth.** It is **enforced** against the model: hooks run
- * out-of-process, the model never executes them and cannot skip them. It is
- * **advisory** against a determined process on the same machine, because this file
- * and the settings that register it are writable by the agent that runs under them.
- * Root-owned managed settings are the fix and are not in place. The guardrail-file
- * rule below is the same shape — worth having, circular until the configuration is
- * owned by someone else.
+ * **What this is worth, stated so nobody over-reads it.** This is an **advisory
+ * identifier guard**, not a firewall, and the difference is not pedantic:
+ *
+ * - It is **enforced against the model** in the narrow sense that hooks run
+ *   out-of-process, so the model cannot skip them.
+ * - It only sees **the literal production identifier in a tool call**. Codex
+ *   demonstrated on 3 October 2026 that a command which *derives* the destination
+ *   at runtime walks past it: `source .env.local && npm run dev` names nothing and
+ *   is allowed. Two of its four demonstrations are now closed — writing the URL
+ *   into an env file by redirect, and writing one with the file tools — and
+ *   `tests/productionGate.test.ts` keeps the remaining one in the suite **as an
+ *   expected-allow**, so the limit stays visible rather than believed away.
+ * - It is **advisory against intent**, because this file and the settings that
+ *   register it are writable by the agent running under them. Root-owned managed
+ *   configuration is the fix and is not in place.
+ *
+ * So the sentence to use is "production is denied to an *accidental, directly
+ * addressed* tool call". The boundary that holds whatever the agent types is
+ * **staging-only credentials** and an **external network or browser policy**; a
+ * gate on the machine the agent controls is the warning layer in front of them.
  */
 
 /** Programs that only read local text. Allowed even when they name production. */
@@ -55,6 +68,9 @@ const INSPECTION_PROGRAMS = new Set([
   "cat", "head", "tail", "less", "more", "wc", "nl",
   "sed", "awk", "cut", "sort", "uniq", "tr", "diff", "comm",
   "ls", "find", "fd", "file", "stat", "basename", "dirname", "realpath", "echo",
+  // Navigation and no-ops act on nothing, and excluding them made a denial name
+  // `cd` as the program that reached production.
+  "cd", "pwd", "true",
   "jq", "yq", "shasum", "sha256sum", "md5", "md5sum",
 ]);
 
@@ -105,7 +121,49 @@ export function leadingProgram(command) {
 /** Constructs that can hide any program inside an apparently harmless command. */
 const OPAQUE = /\$\(|`|<\(|>\(|\/dev\/tcp/;
 
+/**
+ * True when a segment redirects into a file.
+ *
+ * **Why an inspection stops being one the moment it writes.** `echo` is on the
+ * list above because printing text is not acting on production. But
+ * `echo 'SUPABASE_URL=https://<ref>.supabase.co' > .env.local` is the same
+ * program and a different act: it puts a production credential target on disk,
+ * where the next command picks it up without ever naming it. Codex demonstrated
+ * exactly that on 3 October 2026 and the gate allowed it, because the rule asked
+ * which program ran and never asked where its output went.
+ *
+ * `2>&1`, `>&2` and `1>&2` are stripped first: those move a stream, not data
+ * into a file, and denying them would refuse `grep <ref> docs/ 2>&1 | less`,
+ * which is an inspection and must keep working.
+ */
+const STREAM_DUP = /\d*>&\d*/g;
+
+/**
+ * The commands a shell line runs, split on the operators that chain them.
+ *
+ * Stream duplication is stripped **before** the split, not after, because
+ * `2>&1` contains `&` and the splitter treats `&` as a separator: leaving it in
+ * cut `grep <ref> docs/ 2>&1 | less` into a segment ending `2>`, which the rule
+ * below then read as a write to a file and denied. Found by the test for the
+ * redirect rule, one minute after the redirect rule was written -- the same
+ * over-denial that has now bitten this file six times, always because a
+ * judgement about a whole string was asked of a piece of one.
+ */
+function shellSegments(command) {
+  return String(command)
+    .replace(STREAM_DUP, " ")
+    .split(/\|\||&&|[|;&]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+const writesToAFile = (segment) => />>?/.test(segment);
+
+/** An env file is a credential target, never a document, whatever tool writes it. */
+const ENV_FILE = /(^|[\/\\])\.env/;
+
 function segmentIsInspection(segment) {
+  if (writesToAFile(segment)) return false;
   const program = leadingProgram(segment);
   if (program.startsWith("git ")) return GIT_READ_SUBCOMMANDS.has(program.slice(4));
   return INSPECTION_PROGRAMS.has(program);
@@ -129,7 +187,7 @@ function segmentIsInspection(segment) {
 function isLocalInspection(command) {
   const text = String(command);
   if (OPAQUE.test(text)) return false;
-  const segments = text.split(/\|\||&&|[|;&]/).map((part) => part.trim()).filter(Boolean);
+  const segments = shellSegments(text);
   return segments.length > 0 && segments.every(segmentIsInspection);
 }
 
@@ -174,7 +232,7 @@ export function decide(event) {
   const guardrail = strings(input).find((text) => GUARDRAIL_PATHS.some((q) => text.includes(q)));
   if (guardrail && (tool === "Bash" || tool === "PowerShell")) {
     const shell = String(/** @type {{command?: string}} */ (input).command ?? "");
-    const segments = shell.split(/\|\||&&|[|;&]/).map((part) => part.trim()).filter(Boolean);
+    const segments = shellSegments(shell);
     const destroys = segments.some((segment) => {
       const program = leadingProgram(segment);
       if (DESTRUCTIVE_PROGRAMS.has(program)) return true;
@@ -202,15 +260,65 @@ export function decide(event) {
     if (isLocalInspection(command)) {
       return allow(`\`${leadingProgram(command)}\` only reads local text; reviewing the ref is allowed`);
     }
-    return deny(`this command acts on the production project with \`${leadingProgram(command)}\`.`);
+    // Name the segment that is actually the problem, not the first word of the
+    // line. `leadingProgram` on a whole compound reported operators and `cd` —
+    // a denial saying "acts on production with `&&`" tells the reader nothing
+    // and invites them to retry the same command a different way.
+    const suspects = shellSegments(command).filter((segment) => !segmentIsInspection(segment));
+    const culprit = suspects.find(namesProduction) ?? suspects[0];
+    return deny(
+      culprit
+        ? `this command acts on the production project with \`${leadingProgram(culprit)}\`.`
+        : `this command acts on the production project.`,
+    );
   }
 
-  if (DOCUMENT_TOOLS.has(tool)) return allow("text about production is not an action on it");
+  if (DOCUMENT_TOOLS.has(tool)) {
+    // ...with one exception, and it is the whole of the distinction. A document
+    // describes production; an env file *points at* it, and whatever is run next
+    // reaches production without naming it, so no later rule can see it. Codex
+    // demonstrated this route on 3 October 2026.
+    const path = String(/** @type {{file_path?: string}} */ (input).file_path ?? "");
+    if (ENV_FILE.test(path) && strings(input).some(namesProduction)) {
+      return deny(`\`${tool}\` would write a production identifier into \`${path}\`, which is a credential target rather than a document.`);
+    }
+    return allow("text about production is not an action on it");
+  }
 
   const hit = strings(input).find(namesProduction);
   return hit
     ? deny(`\`${tool}\` carries a production identifier in its input.`)
     : allow("no production identifier in the input");
+}
+
+/**
+ * Refuses a call in the way **both** agents implement.
+ *
+ * Three signals for one decision, because the two hosts read different ones and
+ * this file is loaded by both:
+ *
+ * - the `deny` JSON on stdout, which Claude Code acts on and which carries the
+ *   reason back to the model in a field made for it;
+ * - the reason on **stderr**, which is where Codex takes the reason from on a
+ *   blocking exit;
+ * - **exit 2**, which both document as block.
+ *
+ * `ask` is deliberately not used. Codex parses it for PreToolUse, reports a hook
+ * error, and *continues the call* — so an escalation written for Claude Code is
+ * an allow on Codex, which is the worse of the two to fail open.
+ */
+function block(reason) {
+  process.stdout.write(
+    JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason: reason,
+      },
+    }),
+  );
+  process.stderr.write(`${reason}\n`);
+  process.exitCode = 2;
 }
 
 function main() {
@@ -223,15 +331,15 @@ function main() {
       event = JSON.parse(raw || "{}");
     } catch {
       // A gate that crashes on malformed input must not become a gate that allows.
-      process.stdout.write(
-        JSON.stringify({
-          hookSpecificOutput: {
-            hookEventName: "PreToolUse",
-            permissionDecision: "ask",
-            permissionDecisionReason: "production gate could not parse its input; escalating rather than allowing",
-          },
-        }),
-      );
+      //
+      // This said `ask` until 3 October 2026, which failed closed on Claude Code
+      // and **open on Codex**: Codex parses `permissionDecision: "ask"` for
+      // PreToolUse, reports it as a hook error, and continues the tool call. So
+      // the one path meant to escalate was the one path that let a malformed
+      // event straight through on the agent with the browser. Found by Codex.
+      // `deny` is the only decision both agents implement, so unparseable input
+      // is denied and the reason says to re-issue it.
+      block("production gate could not parse its input, so it cannot tell what this call targets; denying rather than allowing. Re-issue the call, or ask a person.");
       return;
     }
 
@@ -248,17 +356,7 @@ function main() {
       // Never let logging turn into a denial of ordinary work.
     }
 
-    if (decision === "deny") {
-      process.stdout.write(
-        JSON.stringify({
-          hookSpecificOutput: {
-            hookEventName: "PreToolUse",
-            permissionDecision: "deny",
-            permissionDecisionReason: reason,
-          },
-        }),
-      );
-    }
+    if (decision === "deny") block(reason);
     // An allow writes nothing, so the normal permission flow still applies. The
     // gate narrows; it never widens.
   });

@@ -1,6 +1,6 @@
 # Agent oversight: the consolidated position
 
-**Last verified:** 3 October 2026, Claude.
+**Last verified:** 3 October 2026 (evening), Claude — **revised after Codex reviewed the controls themselves and upheld six findings, four of which meant a control was not a control.** Section 8 is that round and the repairs; section 9 is the test inventory and the list of what no test here reaches. The assurance labels in sections 4 and 5 are weaker than they were this morning and the mechanisms are unchanged. Earlier: 3 October 2026, Claude — four inputs consolidated.
 
 Four inputs merged: Tasos's firewall proposal, Fable's independent design, Codex's
 adversarial pass plus its own 459-line design on
@@ -69,7 +69,7 @@ app. If a client-side `pushState` navigation bypasses the blocklist, this catche
 typed URL and nothing else. Two further unknowns ride on the same test: the macOS
 install route without MDM, and that Chrome policy applies per machine or user rather
 than **per Chrome profile** — so it would block the production dashboard for Tasos
-too, which argues for giving the agent a different browser build. **Open item E24.**
+too, which argues for giving the agent a different browser build. **Open item E29.**
 
 ---
 
@@ -111,23 +111,39 @@ widen** — deny, or escalate to a person; never approve what the rule layer den
 Under that rule a model earns its place where no rule settles the question, and the
 live example is §13: *could a customer receive different terms, cover or treatment?*
 
-| Surface | Status |
-|---|---|
-| Claude Code | **working, fired live** |
-| Codex CLI | working |
-| Codex desktop app | **no hook point — cannot be installed** |
+| Surface | Status | How that is known |
+|---|---|---|
+| Claude Code | **working** | fired live in-session, and again from a shell |
+| Codex CLI | **not established** | claimed working here on 3 October; no run proves it, and the file it would have loaded was invalid |
+| Codex desktop app | **supports the hook; ours did not load** | the app's own inventory, queried by Codex: zero hooks with the file as shipped, gate found and enabled with the `hooks` wrapper added |
 
-So for Codex the same shape exists only with **Tasos as the decider**: per-site
+**This table said the desktop app had no hook point, and that was wrong** — see §8.
+The file was malformed, so nothing loaded it on *either* surface, which is also why
+the CLI row cannot claim a working gate. The corrected template is structurally
+checked in CI and **not yet fired on the Mac**; `/hooks` plus one deliberate denial
+closes it.
+
+Even with the hook working, the browser needs **Tasos as the decider**: per-site
 approval, *Allow once* and never *Allow for all sites*, one-turn lifetime, no CDP,
-downloads and uploads denied. That is Codex's own point 2, and the one item on its
-ten-point list that genuinely gates the app.
+downloads and uploads denied. A click in a logged-in dashboard is not a tool call,
+so no `PreToolUse` hook sees it. That is Codex's own point 2, and the one item on
+its ten-point list that genuinely gates the app.
 
-**Five faults in the gate, every one found by using it, none by its seventeen unit
-tests.** It denied a compound of permitted reads. It blocked its own repair four
-times, and was then bypassed in one line by assembling a path from parts. Twice it
-mistook *describing* a dangerous command for *running* one — the second time while
-writing the worklog entry about itself. And it denied the shell command writing this
-document, because a markdown table's `|` characters were parsed as shell pipes.
+**Ten faults in the gate so far. Seven were found by using it, two by a reviewer
+using it, and one — the tenth — by a unit test, which is the first time the suite
+caught anything.** Six are over-denials: a compound of permitted reads; blocking its
+own repair four times (then bypassed in one line by assembling a path from parts);
+twice mistaking *describing* a dangerous command for *running* one, the second time
+while writing the worklog entry about itself; a markdown table's `|` parsed as shell
+pipes; and, this afternoon, **the `python3` heredoc that was writing these very
+corrections**. Three are under-denials, all three Codex's (§8). The tenth was the
+`2>&1` segmentation bug, caught by the test written for the fix one minute earlier.
+
+One more, cosmetic and worth naming because of what it provokes: the denial said
+*"acts on the production project with `&&`"*, then `cd`. **A refusal that names an
+operator reads as a bug, and the reader's next move is to retry the command spelled
+differently** — the one response a guardrail must not invite. It now names the
+segment that actually reaches production, and `cd` is no longer treated as an action.
 
 **All five were over-denials**, which is the failure that gets a control deleted
 rather than the failure that lets something through. The reusable lesson: a gate that
@@ -170,7 +186,7 @@ does not generalise, which was open question Q4.
 | Codex CLI | the same gate | Enforced, fired |
 | **Codex desktop app** | **nothing agent-side** | **W32** |
 | Codex browser | per-turn approval, human decides | Enforced, human-paced |
-| Production dashboard path | Chrome `URLBlocklist` | **Unproven — E24** |
+| Production dashboard path | Chrome `URLBlocklist` | **Unproven — E29** |
 | Production data plane | scoped staging-only token | **Strongest available** |
 | Production reads | `pgaudit` by role | Detection, not prevention |
 
@@ -200,9 +216,9 @@ the better placement — but either is fine as long as there is exactly one.
 
 ### 5.5 Order of work
 
-1. **E23** — no standing production session; the extension off the main Chrome
+1. **E28** — no standing production session; the extension off the main Chrome
    profile. Free, immediate, the largest single reduction. *Tasos.*
-2. **E24** — the five-minute Chrome test. Decides §2. *Tasos.*
+2. **E29** — the five-minute Chrome test. Decides §2. *Tasos.*
 3. **Heartbeat.** Free. *Agent.*
 4. **Scoped staging-only Supabase token**; inventory and revoke the account-wide
    ones. *Tasos.*
@@ -220,7 +236,7 @@ the better placement — but either is fine as long as there is exactly one.
 
 | Unknown | Blocks | Test |
 |---|---|---|
-| Does `pushState` bypass `URLBlocklist`? | whether the browser path is enforceable at all | E24 |
+| Does `pushState` bypass `URLBlocklist`? | whether the browser path is enforceable at all | E29 |
 | macOS managed-policy install without MDM | the same | install it, check `chrome://policy` |
 | Which Postgres role the dashboard editor runs as | `pgaudit` seeing dashboard activity | `select current_user` in the dashboard SQL editor |
 | Does the desktop app read **any** `~/.codex` policy file? | whether Codex can be gated at all | set a `requirements.toml` deny and attempt it |
@@ -240,10 +256,13 @@ is over; this is an attack round on a position that now has measurements in it.
 
 ### Codex
 
-1. **W32 contradicts your §5.1.** Your adapter assumes the `PreToolUse` path covers
-   the surface in use. Measured: app quit, reopened, `curl` at production returned
-   401, and the gate's log gained no entry. **Is there any policy file the desktop app
-   does read?** You can answer this authoritatively and we cannot.
+1. **W32 is withdrawn and your §5.1 stands — you were right and the measurement was
+   worthless.** What is left is one run we cannot do: `/hooks` on the Mac, **trust**
+   the corrected hook, fire `curl` at the production host, and confirm the decision
+   log gains a line. Two corrections rode in on yours and need the same run: a
+   `_comment` key fails the strict schema too, so the wrapper alone was not enough,
+   and `matcher: "*"` is not a valid regex where Codex matches on them — `".*"` is
+   our fix and is unverified.
 2. **Does `URLBlocklist` survive `pushState` in the Supabase dashboard?** Your §6
    calls the browser the largest residual risk on the basis of *origin* rules. This is
    a different layer. If it holds, your §6 conclusion changes.
@@ -266,7 +285,189 @@ is over; this is an attack round on a position that now has measurements in it.
 
 ### Both
 
-**What remains uncovered once E23 and E24 are done?** State the worst case that
+**What remains uncovered once E28 and E29 are done?** State the worst case that
 survives and roughly how long it goes undetected. Our answer is: a production
 dashboard action inside a supervised session, caught the next morning by the watcher.
 We would like that contradicted.
+
+---
+
+## 8. Round two: Codex reviewed the controls themselves, and four of them were not controls
+
+*Added 3 October 2026, evening. Codex reviewed branch `claude/pr59-collaboration-lwcnia`
+at `3d7e3f9` against `origin/main`, ran the three relevant suites (37 tests, all
+green), and then **used** the things the suites were green about. Six findings, all
+upheld. Nothing in staging or production was touched by the review or by the repairs.*
+
+**The pattern is the finding.** Every one of the six is a control that a test said
+was present and a run said was absent — or a document that said both. Three of them
+were **inert while green**, which is the specific failure this project has now hit
+four times: the stale §5 pricing paragraph, the insurance count read from prose
+instead of the table, W32, and now two Codex config files.
+
+### 8.1 The two paste-ready Codex files did not load at all
+
+| File | What it said | What Codex's loader said |
+|---|---|---|
+| `codex-hooks-template.json` | `PreToolUse` at the top level | `unknown field PreToolUse, expected description or hooks` |
+| `codex-network-deny.toml` | `deny = ["<host>"]` | `data did not match any variant of untagged enum FeatureToml` |
+
+Both are now corrected against the published reference — the hooks file wraps its
+events in `hooks`, the TOML uses `domains = { "<host>" = "deny" }` — and both were
+verified by fetching <https://learn.chatgpt.com/docs/hooks> and the configuration
+reference rather than by trusting the error message alone.
+
+**Two corrections are mine, on top of Codex's, and they follow from its own evidence
+rather than from its report.** The rejection is a strict-schema error, so:
+
+- a **`_comment` key fails it too**. Adding the wrapper would have produced a second
+  unloadable file. The commentary moved to `codex-hooks-template.md`, and the JSON
+  now carries only `description` and `hooks`.
+- **`matcher: "*"` is not a regex.** Codex's documented matchers are regular
+  expressions (`"startup|resume"`), and `*` is not one. It is now `".*"`. Claude
+  Code's own `"*"` is correct where it sits and wrong here. **Unverified** — it needs
+  the same `/hooks` run.
+
+**Why CI missed both.** The test searched the TOML for the production hostname and
+found it **in a comment**. A grep cannot tell a key from prose, and the file had
+plenty of prose. It now **parses** both files and checks them against the documented
+schema; the parser throws on any construct it does not recognise rather than
+skipping the line, because a parser that ignores what it cannot read would
+reproduce the original fault more convincingly.
+
+**What that test still cannot do**, stated so it is not over-read: it holds our
+transcription to the schema *as documented today*. It would not catch a change on
+Codex's side — which has already happened once, when `untrusted` was removed as an
+approval value. Only the real loader catches that, and it runs on the Mac. **W35.**
+
+### 8.2 W32 was the reverse of the truth
+
+Withdrawn. The desktop app **does** support `PreToolUse`; our file could not load on
+any surface, so the test that produced W32 could only ever have produced W32.
+
+The method failure is the part worth keeping. `AGENTS.md` already requires a
+reproduction to assert its preconditions — *"that the table really overflows"* — and
+I asserted the restart, confirmed `pgrep` showed the app not running, and never
+asserted that the configuration was valid. **A negative result from an instrument
+that was never switched on measures nothing.** Worse, the previous write-up
+congratulated the decision log for proving the hook *was never asked*; it proved
+only that nothing was listening, which is a different fact with a different remedy.
+
+This is the second time in two days that I have been right by luck and wrong by
+method, and the first was the same instrument.
+
+### 8.3 The gate is not a firewall, and three bypasses prove it
+
+Codex ran four ordinary commands at the gate. **Two are now denied, one always was,
+and one cannot be fixed by a mechanism of this kind.**
+
+| Route | Before | Now |
+|---|---|---|
+| `curl https://<prod-ref>…` | denied | denied |
+| `echo 'URL=https://<prod-ref>…' > .env.local` | **allowed** | denied — a redirect ends a segment's claim to be an inspection |
+| `Write`/`Edit` into `.env.local` with the production URL | **allowed** | denied — a document describes production, an env file points at it |
+| `source .env.local && npm run dev` | allowed | **still allowed, and recorded as such** |
+
+The last one names no production identifier, so nothing that reads command text can
+see it. It is asserted in `tests/productionGate.test.ts` **as an expected allow**,
+which is the honest form: a test that documents a hole keeps it in front of whoever
+reads the suite, where a missing test lets the next reader assume coverage.
+
+**So the assurance label changes everywhere, and this is Codex's recommendation
+adopted verbatim.** The gate is an **advisory identifier guard**: it denies an
+*accidental, directly addressed* tool call, on both agents, and it does not withstand
+prompt injection or a command that derives its destination at runtime. The phrase
+"production is denied" has been removed from the gate's header, this document's
+§4 table, and open item E27. **The boundaries are staging-only credentials, external
+browser policy, and configuration the agent cannot edit (W34).**
+
+### 8.4 The escalation path failed open on the agent that has the browser
+
+On unparseable input the gate answered `permissionDecision: "ask"`. Codex's
+documentation is explicit that `ask` is parsed for `PreToolUse` and **not
+implemented**: Codex reports a hook error and **continues the tool call**. So the one
+branch written to escalate rather than guess was, on Codex, the one branch that let
+a malformed event through.
+
+It now **denies** — the only decision both agents implement — and does it three ways
+at once, because the two hosts read different signals: the `deny` JSON on stdout for
+Claude Code, the reason on **stderr**, and **exit 2**, which both document as block.
+
+### 8.5 The expected-change marker could be closed with a lie
+
+`applied` was tested for being a non-empty string, so `applied: "yes"` closed a
+marker and switched off the expiry rule — the only part of that mechanism that
+escalates on its own. The dated fields shared one shape-only check, so
+`expires: "2026-99-98"` was **a marker that could never expire**, written by a typo
+rather than by intent: an impossible date is never in the past.
+
+Closing now requires a real calendar date, not in the future, not before the
+declaration. And the README has a **"What this does NOT yet do"** section, because
+Codex was right that it read like a finished control: no 24-hour window, no immutable
+production identifier, no approval identity beyond a free-text field, no rollback
+reference, not consume-once — and it **explains** a change rather than permitting it,
+which only helps if someone reads the nightly check (W31, not built).
+
+### 8.6 The documents contradicted themselves, and the list was ambiguous
+
+E27 (then E22) opened by correcting the claim that the Codex proxy reaches the
+browser and closed, two sentences later, by calling it *"the only control in this
+project that reaches the browser"*. The stale reason is deleted. **A correction that
+leaves the old reason standing underneath is worse than no correction**, because the
+row then supports whichever half the reader reaches first.
+
+Then the structural half, which Codex did not look for and which is worse:
+**this list was carrying six duplicated identifiers.** Today's additions were
+numbered E21–E26 and W30 while an E21–E25 block and a W30 already existed, so `E24`
+named both the Chrome path test and monitoring environment separation, and the day's
+worklog cited the new numbers while the list answered with the old. Today's rows are
+renumbered **E27–E31, W33–W35**.
+
+Two of the six were worse than ambiguous: **both E21 rows were about the same
+subject** — the required merge checks on `main` — one verified first-hand against
+the live API and one not. That is the parallel-document failure §9 exists to prevent,
+reproduced inside a single file. They are one row now.
+
+`tests/openItemsIntegrity.test.ts` fails on a repeated identifier or a row with no
+owner. Nobody scrolls 200 rows to check whether an identifier is free, which is
+exactly why it needed a machine.
+
+---
+
+## 9. The test inventory, and what it does not cover
+
+Every assertion that holds one of these controls in place, what it would catch, and
+what it cannot. **Fail-first** records whether the test was watched failing against
+the unfixed code, which `AGENTS.md` requires and which this project has twice
+skipped and twice regretted.
+
+| Suite | Cases | Holds | Fail-first |
+|---|---:|---|---|
+| `tests/productionGate.test.ts` | 23 | the gate's decisions, the audit commands it must not block, the two closed bypasses, and one open bypass asserted as an allow | yes — both closed bypasses watched failing with the rules neutralised |
+| `tests/agentNetworkControls.test.ts` | 13 | the deny list names production and never staging; **both Codex files parse and match the documented schema** | yes — all four new assertions watched failing against the exact files Codex's loaders rejected, while the old grep test stayed green on them |
+| `tests/expectedProductionChange.test.ts` | 16 | the marker's hash, expiry, and now that a closing value is a date that could have happened | yes — the three new cases watched failing against the pre-fix validator |
+| `tests/openItemsIntegrity.test.ts` | 3 | one identifier per item, one owner per row | yes — watched failing on a reintroduced duplicate |
+| `lib/migrationPasteParity.test.ts` | existing | a migration and its paste copy agree | pre-existing |
+| `lib/serviceRoleGrants.test.ts` | existing | a `public` table created without a `service_role` grant fails by name | pre-existing |
+
+Whole suite after the repairs: **137 files, 1571 tests, green** (`npm run verify:fast`,
+3 October 16:07). Before: 136 / 1553.
+
+### What no test here covers, and who can close it
+
+| Not covered | Why no test reaches it | Closes with |
+|---|---|---|
+| Codex's **real** config loader | Codex is not installed in an agent container | W35, on the Mac |
+| The hook **firing** on the desktop app | same, and it needs `/hooks` **trust** — a non-managed hook loads untrusted and does not run | the run in `codex-hooks-template.md` step 4 |
+| `matcher: ".*"` and `statusMessage` | our correction, unverified | the same run |
+| A command that derives its target at runtime | nothing in the call names production | staging-only credentials (W29) |
+| A click in a logged-in dashboard | not a tool call; no hook sees it | E28, then E29 |
+| Whether `URLBlocklist` survives `pushState` | needs a browser and the real dashboard | **E29 — still the single most informative five minutes on the list** |
+| Anything an agent can edit about its own controls | the gate cannot tell its author from an attacker | **W34** |
+
+**The honest summary of the position after two review rounds:** the mechanisms are
+right and the labels were wrong. Nothing here stops an agent that is *trying*; what
+it does is make an accident loud, a mistake reversible, and an unexplained production
+change visible the next morning — once W31 exists. The sentence to put in front of
+Fable is Codex's: *do not describe either agent as securely bounded while it retains
+production credentials or a logged-in production browser session.*

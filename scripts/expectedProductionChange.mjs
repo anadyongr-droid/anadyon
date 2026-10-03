@@ -51,7 +51,37 @@ export function sha256(text) {
   return createHash("sha256").update(text, "utf8").digest("hex");
 }
 
-const isIsoDate = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+/**
+ * A real calendar date, not a string that looks like one.
+ *
+ * **This checked the shape only until 3 October 2026**, so `2026-99-98` was an
+ * acceptable `expires` — and an impossible date is never in the past, so the
+ * expiry rule, the one thing that makes an unapplied marker escalate itself,
+ * could be switched off by a typo. Codex found the same hole in `applied` and
+ * the shape test was shared, so all three fields had it.
+ *
+ * The round-trip is the check: `Date` normalises overflow, so a month of 99
+ * comes back as something else and the comparison fails.
+ */
+const isIsoDate = (value) => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+};
+
+/**
+ * `applied` closes a marker, so it is the field worth forging and the field
+ * least checked: any non-empty string disabled the expiry rule.
+ *
+ * Accepts a date or a full ISO timestamp, and refuses one in the future —
+ * "applied tomorrow" is not a record of anything that happened.
+ */
+const appliedAt = (value) => {
+  if (typeof value !== "string" || value === "") return null;
+  if (!/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?$/.test(value)) return null;
+  const parsed = new Date(value.length === 10 ? `${value}T00:00:00Z` : value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
 
 /**
  * Validates one marker and returns a list of problems, empty when it is sound.
@@ -93,8 +123,21 @@ export function validateExpectedChange(marker, { now = new Date(), readFile, nam
     problems.push(at("`sha256` must be a 64-character hex digest of the migration file"));
   }
 
-  // An applied marker is history and stops being checked against the calendar.
-  const applied = typeof m.applied === "string" && m.applied.length > 0;
+  // An applied marker is history and stops being checked against the calendar —
+  // which is exactly why `applied` has to be a date that could have happened.
+  // Until 3 October 2026 any non-empty string closed a marker, so `applied:
+  // "not-a-timestamp"` silenced the expiry rule. Found by Codex.
+  const appliedDate = appliedAt(m.applied);
+  const applied = appliedDate !== null;
+  if (m.applied !== undefined && m.applied !== null && m.applied !== "" && !applied) {
+    problems.push(at("`applied` must be a date or ISO timestamp; it is what stops the expiry rule being checked"));
+  }
+  if (applied && appliedDate > now) {
+    problems.push(at(`\`applied\` is ${m.applied}, which is in the future — a marker records what happened, not what will`));
+  }
+  if (applied && isIsoDate(m.declared) && appliedDate < new Date(`${m.declared}T00:00:00Z`)) {
+    problems.push(at(`\`applied\` is ${m.applied}, before it was declared on ${m.declared}`));
+  }
   if (!applied && isIsoDate(m.expires)) {
     const today = now.toISOString().slice(0, 10);
     if (m.expires < today) {
