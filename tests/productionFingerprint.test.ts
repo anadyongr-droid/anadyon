@@ -109,6 +109,27 @@ describe("the comparison fires on what matters", () => {
     expect(changes.every((change) => change.severity !== "critical")).toBe(true);
   });
 
+  it("stays quiet about a privilege production has and the migrations do not — the first run's noise", () => {
+    // Thirteen of the first real run's twenty-seven `high` rows were this one
+    // shape: `service_role` holding REFERENCES, TRIGGER and TRUNCATE on top of
+    // the four privileges the migrations grant, because Supabase's default
+    // privileges grant ALL on a new table in `public` and PGlite has no such
+    // defaults. Permanent, harmless, and it buried the thirteen rows that
+    // mattered — which is how a nightly report stops being read.
+    const actual = clone(base);
+    actual.tables.reservations.grants.service_role = ["SELECT", "REFERENCES", "TRIGGER", "TRUNCATE"];
+    const changes = diffFingerprints(base, actual);
+    expect(changes[0]).toMatchObject({ kind: "grant", role: "service_role", severity: "normal" });
+    expect(worstSeverity(changes)).toBe("normal");
+  });
+
+  it("HIGH: a privilege the application needs and has LOST", () => {
+    // The other half of the asymmetry. Extra is noise; missing breaks the app.
+    const actual = clone(base);
+    actual.tables.reservations.grants.service_role = ["REFERENCES", "TRIGGER"];
+    expect(diffFingerprints(base, actual)[0]).toMatchObject({ role: "service_role", severity: "high" });
+  });
+
   it("HIGH: losing the anon grant, which breaks public booking", () => {
     const actual = clone(base);
     delete actual.tables.rates.grants.anon;
