@@ -1,0 +1,39 @@
+{
+  "_comment": [
+    "Paste into ~/.codex/hooks.json on the operator's machine, and set",
+    "features.hooks = true in ~/.codex/config.toml.",
+    "",
+    "This points Codex at the same gate Claude Code runs, so the two agents are",
+    "given one decision procedure rather than two that can drift. The gate is",
+    ".claude/hooks/production-gate.mjs in this repository; it reads the production",
+    "and staging refs from scripts/deployment-boundary-lib.mjs, which is the single",
+    "source of truth for which project is which.",
+    "",
+    "Replace ABSOLUTE_PATH_TO_REPO with the checkout path. It is absolute because",
+    "Codex's working directory is not guaranteed to be the repository root.",
+    "",
+    "WHAT THIS IS WORTH. Enforced against the model: hooks run out-of-process, the",
+    "model never executes them and cannot skip them. Advisory against a determined",
+    "process on the same machine, because this file and the gate are writable by the",
+    "agent running under them. Root-owned managed configuration is the fix and is",
+    "not in place -- see RECONCILIATION-2026-10-03.md section 6, item 10.",
+    "",
+    "AND IT DOES NOT REACH THE BROWSER. Codex's hooks fire for CLI tool use, which",
+    "Codex itself confirmed in the 3 October review. A click in a logged-in",
+    "dashboard is not a tool call and nothing here sees it. That path is addressed",
+    "by having no standing session and by the Chrome URL policy in section 3 of the",
+    "reconciliation, not by this file."
+  ],
+  "PreToolUse": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "ABSOLUTE_PATH_TO_REPO/.claude/hooks/production-gate.mjs",
+          "timeout": 10
+        }
+      ]
+    }
+  ]
+}
