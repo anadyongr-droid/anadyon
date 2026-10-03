@@ -186,6 +186,7 @@ built sound?* Keep them apart; they go stale at different rates.
 | [`WORKLOG.md`](WORKLOG.md) | **What happened each day**, consolidated by Claude from the per-agent summaries in [`worklog/`](worklog/). Actions, decisions, things discussed and set aside, and what was left open. Per `DEFINING-STATEMENTS.md` §11 |
 | [`RESTORE.md`](RESTORE.md) | Recovery procedure |
 | [`ENGINEERING-SAFETY-NET.md`](ENGINEERING-SAFETY-NET.md) | Local verification, dependency automation, optional coverage and the controls that still require human or hosted evidence |
+| [`AGENT-ACCESS-AND-MONITORING.md`](AGENT-ACCESS-AND-MONITORING.md) | **How the two agents are constrained and observed** — the three failure paths, which controls are *enforced* and which only *advisory*, four open questions that are genuinely open, and what the design does not cover (a browser session in the production dashboard, for up to 24 hours). Written to be attacked rather than approved. Tier 1 is built; the rest is designed. [`agent-controls/`](agent-controls/) holds the paste-ready Codex deny rules and the brief for an independent review |
 | [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md) | How to create, reset and verify isolated staging, wire Preview and CI, and validate privacy-safe Sentry |
 
 ## Handovers
