@@ -313,7 +313,15 @@ function record(event, decision, reason) {
   try {
     appendFileSync(
       process.env.PRODUCTION_GATE_LOG || join(tmpdir(), "production-gate.jsonl"),
-      `${JSON.stringify({ at: new Date().toISOString(), tool: event?.tool_name, decision, reason, session: event?.session_id })}\n`,
+      // `gate` is the path of the copy that made the decision, added 3 October
+      // 2026 and immediately useful. Two copies are now registered — the
+      // root-owned one from managed settings and the project's own — and the
+      // first real refusal on the Mac could not be attributed to either,
+      // because the log recorded the decision and not the decider. One field
+      // answers "is the sudo install actually doing the work?", which is the
+      // whole question W34 turns on, and it answers it for every future
+      // refusal rather than for one test.
+      `${JSON.stringify({ at: new Date().toISOString(), tool: event?.tool_name, decision, reason, session: event?.session_id, gate: process.argv[1] ?? null })}\n`,
     );
   } catch {
     // Never let logging turn into a denial of ordinary work.
