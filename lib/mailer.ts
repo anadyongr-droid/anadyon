@@ -61,6 +61,48 @@ function addressed(mail: Mail): Mail {
 }
 
 /**
+ * Refuses delivery from a deployment that is not production unless every
+ * message is redirected.
+ *
+ * **The boundary this closes was live.** `MAIL_REDIRECT_TO` has always been
+ * opt-in, and `scripts/deployment-boundary-lib.mjs` fenced money and tax
+ * filings on staging — Stripe forced to test mode, AADE forced
+ * non-production — while merely *permitting* `RESEND_API_KEY`. A staging
+ * deployment holding a live key would therefore send a real-looking booking
+ * confirmation to a real customer, and **nothing in this project would have
+ * seen it**: the nightly production fingerprint watches a different database,
+ * and `pgaudit` watches reads. Raised by Fable in the 3 October round-two
+ * review as the worst case that is live today rather than hypothetical.
+ *
+ * The boundary check refuses the *configuration*; this refuses the *send*, so a
+ * misconfigured deployment that slipped past it still cannot reach a customer.
+ * Two layers because the first one only runs where it is called.
+ *
+ * **Production is untouched** (`VERCEL_ENV === "production"` returns null
+ * immediately) and so is anything with no `VERCEL_ENV` at all — a local run or
+ * a test. Local sending is a smaller and separate risk, recorded as an open
+ * item rather than changed quietly here.
+ *
+ * The redirect is passed in rather than re-read from the environment so that
+ * what this checks is the redirect `addressed()` will actually apply, not a
+ * variable that was set after the module loaded.
+ */
+export function unsafeDeliveryReason(
+  // A record rather than a shape with one optional key: `Pick<ProcessEnv,
+  // "VERCEL_ENV">` makes the key required and rejects the empty object the
+  // "local run" case is asserted with, while `{ VERCEL_ENV?: string }` is a
+  // weak type that `process.env` does not satisfy, since ProcessEnv declares no
+  // such property. This is the form `deployment-boundary-lib.mjs` already uses.
+  env: Readonly<Record<string, string | undefined>> = process.env,
+  redirect: string | undefined = REDIRECT,
+): string | null {
+  const deployment = env.VERCEL_ENV?.trim();
+  if (!deployment || deployment === "production") return null;
+  if (redirect) return null;
+  return `refusing to send from the ${deployment} deployment: MAIL_REDIRECT_TO is not set, so this would reach the real recipient`;
+}
+
+/**
  * One attempt, bounded and actually checked.
  *
  * resend.emails.send() resolves with { data, error } rather than throwing, so
@@ -76,6 +118,10 @@ async function attempt(
   try {
     const client = resendClient();
     if (!client) return { ok: false, reason: "RESEND_API_KEY is not configured" };
+    // Checked here rather than in sendMail, because this is the single point
+    // every message passes through — live and queued alike.
+    const unsafe = unsafeDeliveryReason();
+    if (unsafe) return { ok: false, reason: unsafe };
     const sent = await Promise.race([
       client.emails.send(
         addressed(mail) as Parameters<typeof client.emails.send>[0],
