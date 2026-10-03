@@ -59,17 +59,43 @@ test.
 
 ## Closing one
 
-Set `applied` to the timestamp it was run. The marker then stops being checked
-against the calendar and stays in place as history, so a change seen in the audit
-log weeks later can still be explained.
+Set `applied` to the date or ISO timestamp it was run. The marker then stops being
+checked against the calendar and stays in place as history, so a change seen in the
+audit log weeks later can still be explained.
+
+A closing value must be a date that **could have happened**: a real calendar date,
+not in the future, not before the declaration. Until 3 October 2026 any non-empty
+string closed a marker — `applied: "yes"` switched off the expiry rule, which is
+the only part of this mechanism that escalates on its own. Codex found it; the
+dated fields shared the same shape-only check, so `expires: "2026-99-98"` was a
+marker that could never expire.
+
+## What this does NOT yet do
+
+Listed because the paragraphs above read as a finished control and it is not one.
+Each of these was proposed in the 3 October review and none is built:
+
+- **No 24-hour window.** `expires` is whatever the declaration says, so a marker
+  can authorise a paste a fortnight out.
+- **No immutable production identifier**, no approval identity beyond a free-text
+  `operator` field, no rollback reference, and no statement of the expected
+  *effect* — only the objects named in the SQL.
+- **Not consume-once.** A marker stays valid until it expires or is closed by
+  hand, so two pastes of the same migration are equally explained.
+- **And it explains rather than permits.** Nothing about a marker gates the paste
+  itself; `AGENTS.md` keeps that with Tasos. What the marker does is let the
+  nightly check tell an expected change from a surprise — and it only works if
+  someone is reading the nightly check, which is W31 and not yet in place.
 
 ## What enforces this
 
-`tests/expectedProductionChange.test.ts`, in `npm run verify:fast`. Twelve cases,
+`tests/expectedProductionChange.test.ts`, in `npm run verify:fast`. Sixteen cases,
 most of them exercising the validator against declarations that **must** be
 rejected — because a test that only checked the markers that happen to exist would
 pass on an empty directory, report clean, and be believed. Both load-bearing rules
 were mutation-tested: removing the hash comparison or the expiry escalation makes a
-test fail.
+test fail. The four added on 3 October — the ones covering invalid closing
+values and impossible dates — were each watched failing against the pre-fix
+validator before being trusted, per the fail-first rule in `AGENTS.md`.
 
 **There are no markers committed yet.** The format exists; nothing is pending.

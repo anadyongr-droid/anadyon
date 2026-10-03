@@ -1,6 +1,6 @@
 # Agent access and monitoring
 
-**Last verified:** 3 October 2026, Claude — tier 1 built and verified by firing it
+**Last verified:** 3 October 2026 (evening), Claude — tier 1 relabelled after Codex got three ordinary commands past the gate (two now closed, one asserted as an expected allow) and found both paste-ready Codex files unloadable. It is an **advisory identifier guard**, not a firewall; section 8 of [`agent-controls/CONSOLIDATED-2026-10-03.md`](agent-controls/CONSOLIDATED-2026-10-03.md) is the round and the repairs. Earlier the same day: tier 1 built and verified by firing it
 (runbook section 16). Tiers 2–4 are **designed, not built**, and the four open
 questions below are genuinely open: they are not rhetorical and none of them has a
 chosen answer.
@@ -84,7 +84,7 @@ one.
 
 ## 3. The four tiers
 
-### Tier 1 — deny the production data plane · **BUILT, enforced + advisory**
+### Tier 1 — deny the production data plane · **BUILT. Advisory identifier guard, not a firewall**
 
 Covers **P1 and P2**, partially. Full detail and the firing evidence are in
 section 16 of [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md).
@@ -93,7 +93,7 @@ section 16 of [`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY
 |---|---|---|
 | `WebFetch(domain:…)` deny in `.claude/settings.json` | P2 | **Enforced** |
 | `Bash(curl*…)` / `psql` / `pg_dump` / `supabase link` denies | P1 | **Advisory** — defeated by a shell variable |
-| `[features.network_proxy] deny` in `~/.codex/config.toml` | **P1 only** | **Enforced for shell commands, and it does NOT reach the browser.** See the correction below |
+| `[features.network_proxy] domains` in `~/.codex/config.toml` | **P1 only** | **Enforced for shell commands, and it does NOT reach the browser.** See the correction below. **And the file we shipped did not load** — `deny = [...]` is not in the schema; corrected 3 October (evening) |
 | `sandbox.enabled` | P1 at OS level | **Not enabled** — see section 6 |
 
 `scripts/deployment-boundary-lib.mjs` is the single source of truth for which ref
@@ -103,7 +103,7 @@ asserts staging is never denied.
 > **Corrected 3 October 2026, after an adversarial review by Codex.** Until this
 > correction, the row above read *"P1, P2 and P3 — Enforced, the only layer that
 > reaches the browser"*, and that claim was repeated in five other places including
-> open item E22, where it was the stated reason the item mattered most. **It is
+> open item E27, where it was the stated reason the item mattered most. **It is
 > false.** The Codex permissions documentation says, verbatim: *"The network proxy
 > only filters traffic from local commands that run inside the sandbox"*, and lists
 > Browser and Computer Use among the things it does **not** control.
@@ -146,10 +146,18 @@ MCP (the command, before it runs), `PostToolUseFailure` (what was attempted and
 refused) — to an append-only store **off the machine**. Claude Code can do this
 natively with a `type: "http"` handler; Codex needs a command hook.
 
-**Plus one enforced rule worth more than the logging:** a `PreToolUse` **deny** on
-writes to `~/.claude/settings.json`, `.claude/settings*.json`, `~/.codex/config.toml`
-and `hooks.json`. An agent editing its own guardrails is the only failure that makes
-every other control here silently stop working, and nothing else detects it.
+**Plus one rule that sounded better than it was, and is kept here as a correction.**
+This proposed a `PreToolUse` **deny** on writes to `~/.claude/settings.json`,
+`.claude/settings*.json`, `~/.codex/config.toml` and `hooks.json`, on the grounds
+that an agent editing its own guardrails is the one failure that makes every other
+control stop working silently. **It was built, and it was circular** — Fable said so
+in review and the implementation then proved it: the rule refused four consecutive
+attempts to repair a bug in the gate it protected, and was routed around in one line
+by assembling a path from parts. It now denies only **in-place destruction from a
+shell**, where no reviewable diff is produced; editing those files with the file
+tools is deliberately allowed, because that lands in a commit. What actually protects
+them is CI failing on a deny list that has lost the production ref, and
+**W34** — configuration owned by someone the agent does not run as.
 
 **Open questions Q1 and Q2 below are unresolved and block this tier.**
 
@@ -334,7 +342,7 @@ re-deriving a settled fact, so these are named explicitly:
 ## 8. Order of work
 
 1. **Tier 1 Codex half** — paste `agent-controls/codex-network-deny.toml` into
-   `~/.codex/config.toml`. Open item **E22**, Tasos. The only control that reaches
+   `~/.codex/config.toml`. Open item **E27**, Tasos. The only control that reaches
    the browser.
 2. **Resolve Q3**, then build **tier 3**. It is the only tier that addresses P3 and
    it reuses a backup that already works. Building it before Q3 is answered would

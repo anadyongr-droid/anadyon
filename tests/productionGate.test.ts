@@ -171,6 +171,69 @@ describe("the guardrail-file rule", () => {
   });
 });
 
+describe("the bypasses Codex demonstrated on 3 October 2026", () => {
+  /**
+   * Codex reviewed this gate by using it rather than by reading it, and got four
+   * ordinary commands past it. Two are now denied, one was always denied, and one
+   * cannot be closed by a rule of this kind at all.
+   *
+   * The fourth is asserted here **as an allow**. That is deliberate and it is the
+   * honest form of the finding: a test that documents a hole keeps the hole in
+   * front of whoever reads the suite, where a missing test lets the next reader
+   * assume coverage. If someone later makes the gate catch it, this assertion
+   * fails and they will read why.
+   */
+  it("CLOSED: redirecting a production URL into an env file", () => {
+    // `echo` only prints, so the old rule called this an inspection and allowed
+    // it. The act is not the printing; it is the file it lands in.
+    expect(bash(`echo 'NEXT_PUBLIC_SUPABASE_URL=https://${PROD_HOST}' > .env.local`).decision).toBe("deny");
+    expect(bash(`echo 'URL=https://${PROD_HOST}' >> .env.production`).decision).toBe("deny");
+    expect(bash(`cat docs/x.md | grep ${PROD} > /tmp/ref`).decision).toBe("deny");
+  });
+
+  it("CLOSED: writing one with the file tools instead of the shell", () => {
+    // Documents may name production; env files may not. Same tool, different file.
+    for (const tool of ["Write", "Edit"]) {
+      const event = { tool_name: tool, tool_input: { file_path: ".env.local", new_string: `https://${PROD_HOST}` } };
+      expect(decide(event).decision, tool).toBe("deny");
+    }
+    expect(decide({ tool_name: "Write", tool_input: { file_path: "app/.env", content: PROD } }).decision).toBe("deny");
+  });
+
+  it("still allows the inspections that redirect nothing", () => {
+    // The redirect rule must not take the audit commands with it.
+    expect(bash(`grep -rn ${PROD} docs/ 2>&1 | less`).decision).toBe("allow");
+    expect(bash(`git log -S ${PROD} 2>&1`).decision).toBe("allow");
+    expect(decide({ tool_name: "Write", tool_input: { file_path: "docs/x.md", content: PROD_HOST } }).decision).toBe("allow");
+  });
+
+  it("OPEN, and recorded as open: a command that derives the target at runtime", () => {
+    // No production identifier appears, so nothing here can see it. This is why
+    // the header calls the gate an advisory identifier guard and why the boundary
+    // has to be the credential rather than the command string.
+    expect(bash("source .env.local && npm run dev").decision).toBe("allow");
+    expect(bash("export URL=$(cat .ref) && node send.mjs").decision).toBe("allow");
+  });
+});
+
+describe("the denial has to be readable, or it gets routed around", () => {
+  it("names the segment that reaches production, not the first word of the line", () => {
+    // It reported `&&` and then `cd` while refusing a heredoc that was writing
+    // these very controls. A denial that names an operator reads as a bug, and
+    // the reader's next move is to retry the command spelled differently —
+    // which is the one outcome a guardrail must not provoke.
+    const { reason } = bash(`cd /tmp && cp a b && python3 -c "open('x')" # ${PROD}`);
+    expect(reason).toContain("`python3`");
+    expect(reason).not.toContain("`&&`");
+    expect(reason).not.toContain("`cd`");
+  });
+
+  it("stops treating a change of directory as an action on production", () => {
+    expect(bash(`cd docs && grep -rn ${PROD} .`).decision).toBe("allow");
+    expect(bash(`cd /tmp && curl https://${PROD_HOST}`).decision).toBe("deny");
+  });
+});
+
 describe("it fails closed on nonsense", () => {
   it("an empty or unrecognised event is not silently allowed when it names production", () => {
     expect(decide({}).decision).toBe("allow"); // nothing to act on

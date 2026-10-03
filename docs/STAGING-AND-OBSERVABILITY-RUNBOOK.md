@@ -1,6 +1,6 @@
 # Staging and observability runbook
 
-**Last verified:** 3 October 2026, Claude — section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
+**Last verified:** 3 October 2026 (evening), Claude — section 16 revised after Codex reviewed these controls: two paste-ready Codex files did not load at all, the gate failed open on Codex when it could not parse an event, and two bypasses are closed. The heading is weaker and the mechanisms are unchanged. Earlier the same day: section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
 
 **Status:** the isolated Supabase project exists and was reset twice from
 current `main` on 19 September 2026. Both runs replayed all 44 migrations and
@@ -716,7 +716,7 @@ Last verified: 1 October 2026, Codex.
 
 Confirmed authenticated access to organization `anadyon-ike` and created its Next.js project `javascript-nextjs`. Manual setup displays an EU ingestion DSN. No wizard was run, no paid upgrade selected, and no additional telemetry enabled. Saved NEXT_PUBLIC_SENTRY_DSN, SENTRY_ORG and SENTRY_PROJECT as Config values scoped only to Preview/staging and verified the scope in Vercel. Redeployment and browser/server/proxy test-event verification remain pending; account creation alone does not establish working monitoring.
 
-## 16. Agent network controls — the production data plane is denied, 3 October 2026
+## 16. Agent network controls — production is denied to a direct tool call, 3 October 2026
 
 Two agents work in this repository and both reach the internet. Neither has any
 business touching the production Supabase project, and `AGENTS.md` already says
@@ -724,8 +724,17 @@ why writing that down is not enough: *"A rule that matches command strings is a
 reminder to the agent that wrote the command, not a control on what the process
 can do."*
 
-So production is now **denied**, and `tests/agentNetworkControls.test.ts` is what
-stops the deny list going missing or going wrong.
+So a tool call that **names** production is denied, and `tests/agentNetworkControls.test.ts`
+is what stops the deny list going missing or going wrong.
+
+**The heading of this section was weaker by the evening of the same day, and the
+wording matters.** It said *"the production data plane is denied"*. Codex then got
+three ordinary commands past the gate — two are now closed, one cannot be — so what
+these layers deny is an **accidental, directly addressed** request. They do not
+withstand a command that derives its destination at runtime, and they are writable
+by the agents they govern. The boundary is staging-only credentials, external
+browser policy, and configuration an agent cannot edit (W34). See section 8 of
+[`agent-controls/CONSOLIDATED-2026-10-03.md`](agent-controls/CONSOLIDATED-2026-10-03.md).
 
 ### The two refs, in one place
 
@@ -742,7 +751,7 @@ ship in the client bundle — so naming them discloses nothing.
 |---|---|---|
 | `WebFetch(domain:…)` deny | `.claude/settings.json` | **Enforced.** Claude Code refuses the fetch. The `domain:` form also feeds the sandbox's denied-domain list, so it strengthens by itself the day sandboxing is enabled. |
 | `Bash(curl*…)`, `psql`, `pg_dump`, `supabase link`, `--project-ref` | `.claude/settings.json` | **A speed bump**, in `AGENTS.md`'s sense. Catches the obvious spelling; does not survive a shell variable. Worth having, not the boundary. |
-| `[features.network_proxy] deny` | `~/.codex/config.toml` | **Enforced for Codex's shell commands only — corrected 3 October, it does NOT reach the browser.** The Codex permissions documentation states *"The network proxy only filters traffic from local commands that run inside the sandbox"* and names Browser and Computer Use among what it does not control. This row previously claimed the opposite; the full correction and how the error was made are in `AGENT-ACCESS-AND-MONITORING.md` §3. Paste-ready text in `docs/agent-controls/codex-network-deny.toml`. |
+| `[features.network_proxy] domains` | `~/.codex/config.toml` | **Enforced for Codex's shell commands only — corrected 3 October, it does NOT reach the browser.** The Codex permissions documentation states *"The network proxy only filters traffic from local commands that run inside the sandbox"* and names Browser and Computer Use among what it does not control. This row previously claimed the opposite; the full correction and how the error was made are in `AGENT-ACCESS-AND-MONITORING.md` §3. Paste-ready text in `docs/agent-controls/codex-network-deny.toml`. |
 | OS-level block | `sandbox.enabled` | **Deliberately not enabled.** See below. |
 
 ### Verified by firing it, not by reading the config
@@ -787,3 +796,39 @@ allowlist to build and test first, not a one-line addition — and claiming it a
 part of this one would be exactly the gate that overstates its own assurance.
 
 **Recorded as not done, never as done.**
+
+
+### Round two, evening of 3 October — what was repaired, and what to run on the Mac
+
+Codex reviewed these controls and upheld six findings. Four of them meant a control
+was **inert while its test was green**, which is the operational lesson of the day:
+every claim below that now carries a "verified by" was previously carried by a test
+that read a file rather than by anything exercising it.
+
+| Repaired | Was | Now |
+|---|---|---|
+| `codex-network-deny.toml` | `deny = [...]` — **rejected by Codex's loader**, so pasting it enforced nothing | `domains = { "<host>" = "deny" }`, the documented schema |
+| `codex-hooks-template.json` | `PreToolUse` at the top level — **zero hooks loaded** | wrapped in `hooks`; commentary moved to the `.md` because a `_comment` key fails the same strict schema |
+| The gate on malformed input | `permissionDecision: "ask"` — **unimplemented on Codex, which continues the call** | `deny` + reason on stderr + exit 2, which both agents implement |
+| `echo '…<prod-host>' > .env.local` | allowed, because `echo` only prints | denied — a redirect ends a segment's claim to be an inspection |
+| `Write` into `.env.local` | allowed, because file tools write documents | denied — an env file points at production rather than describing it |
+| The denial message | named `&&`, then `cd` | names the segment that actually reaches production |
+
+**Still open and not fixable here:** `source .env.local && npm run dev` names no
+production identifier and is allowed. It is asserted in the test suite **as an
+expected allow** so the limit stays visible.
+
+**Three runs this section cannot record, because they need the Mac.** Each is on
+the open items list; none takes more than five minutes.
+
+1. **`/hooks`, then trust, then fire.** A non-managed Codex hook loads as
+   `untrusted` and **does not run**. Trust it, `curl` the production host, and check
+   `$TMPDIR/production-gate.jsonl` gained a line. Until then the corrected template
+   is verified for *structure* only — W32 is withdrawn but not replaced by a positive
+   result.
+2. **Run both config files through the real loader** after any edit. The parse test
+   in CI holds our transcription to the schema as documented; it cannot see a change
+   on Codex's side, and `untrusted` being removed as an approval value is the
+   precedent. **W35.**
+3. **E29**, unchanged and still the most informative five minutes on the list:
+   does `URLBlocklist` survive `pushState` inside the Supabase dashboard?

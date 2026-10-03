@@ -112,6 +112,57 @@ describe("the validator rejects what it must", () => {
   });
 });
 
+describe("closing a marker takes a date that could have happened", () => {
+  /**
+   * Codex's finding of 3 October 2026: `applied` was tested for being a
+   * non-empty string, so any text closed a marker and switched off the expiry
+   * rule — the one mechanism that makes a forgotten migration escalate itself.
+   * "yes", "not-a-timestamp" and "TODO" all worked.
+   *
+   * The same shape test was used for `declared` and `expires`, so an impossible
+   * calendar date passed there too. That is the worse of the two: an impossible
+   * date is never in the past, so `expires: "2026-99-98"` is a marker that can
+   * never expire, written by a typo rather than by intent.
+   */
+  // Declared before it expired, and both before today, so the only thing under
+  // test is the `applied` value itself.
+  const applied = (value: unknown) =>
+    validateExpectedChange(
+      { ...withRealHash(), declared: "2026-09-20", expires: "2026-10-01", applied: value },
+      { now, readFile },
+    );
+
+  it("rejects an applied value that is not a date", () => {
+    for (const value of ["not-a-timestamp", "yes", "TODO", "2026-99-98", 1_759_000_000]) {
+      expect(applied(value).join(" "), String(value)).toMatch(/`applied` must be a date/);
+    }
+  });
+
+  it("rejects an application in the future, or before the declaration", () => {
+    expect(applied("2026-12-01").join(" ")).toMatch(/in the future/);
+    expect(applied("2026-09-10").join(" ")).toMatch(/before it was declared/);
+  });
+
+  it("accepts a real date and a real timestamp, and closes the marker", () => {
+    expect(applied("2026-09-25")).toEqual([]);
+    expect(applied("2026-09-25T08:15:00Z")).toEqual([]);
+  });
+
+  it("rejects an impossible calendar date in the dated fields", () => {
+    // `2026-02-30` and `2026-99-98` match the shape and are not days.
+    for (const field of ["declared", "expires"]) {
+      const problems = validateExpectedChange(
+        { ...withRealHash(), [field]: "2026-02-30" },
+        { now, readFile },
+      );
+      expect(problems.join(" "), field).toMatch(new RegExp(`\`${field}\` must be YYYY-MM-DD`));
+    }
+    expect(
+      validateExpectedChange({ ...withRealHash(), expires: "2026-99-98" }, { now, readFile }).join(" "),
+    ).toMatch(/`expires` must be YYYY-MM-DD/);
+  });
+});
+
 describe("every committed marker is sound", () => {
   it("holds, and says plainly when there are none", () => {
     const markers = readExpectedChanges();
