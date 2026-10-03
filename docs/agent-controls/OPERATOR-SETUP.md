@@ -60,7 +60,17 @@ git fetch origin main && git checkout main && git pull
 sudo bash scripts/install-managed-gate.sh
 ```
 
-**Paste these one line at a time, and never with a trailing comment.**
+**Two rules for every command in this file, both learned the hard way on
+3 October.**
+
+**Never a placeholder inside a code block.** A line like
+`tail -2 <the path it printed>` is instructions wearing the clothes of a
+command, and it gets pasted verbatim — it produced `zsh: parse error near '\n'`.
+Anything in a fenced block here is literal and runnable as written; where a value
+has to be substituted, it is named in the prose above the block and the block
+carries a real example.
+
+**Paste one line at a time, and never with a trailing comment.**
 Interactive `zsh` does **not** treat `#` as a comment by default, so a line like
 `cd ~/path   # or wherever` passes the comment words to `cd` as arguments and
 fails with `cd: too many arguments` — leaving you in the previous directory
