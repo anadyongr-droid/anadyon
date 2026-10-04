@@ -406,6 +406,71 @@ describe("a grant to a role a stranger can hold", () => {
   });
 });
 
+describe("the audit switch, which is the only thing here that can see a read", () => {
+  /**
+   * **Why this is compared at all, and why it is `high` without exception.**
+   * `pgaudit` is armed by a row in `pg_db_role_setting`, and that row is exactly
+   * what a Supabase project reset, a restore from backup or a plan change drops
+   * silently — leaving the extension installed, the audit role present and its
+   * six grants intact. An audit that is **off while looking installed** is the
+   * inert control this project has produced four times.
+   *
+   * It was going to need a one-sided assertion, because the replayed database
+   * could not hold the setting. Then migration 047's database-level `set` turned
+   * out to be accepted by PGlite and impossible on Supabase — *"PGAudit
+   * modifications can only occur at the role level"*, their documentation — and
+   * 049 both arms the role-level switch and `reset`s the database-level one. The
+   * two sides now carry the same single row, so an ordinary comparison works.
+   */
+  const armed = {
+    database: "(all databases)",
+    role: "postgres",
+    config: ["pgaudit.log=ddl, role, write", "pgaudit.role=anadyon_audit"],
+  };
+  const withSettings = (config: string[] | null) => {
+    const fingerprint = clone(base) as Fingerprint & { settings?: unknown[] };
+    fingerprint.settings = config === null ? [] : [{ ...armed, config }];
+    return fingerprint;
+  };
+
+  it("HIGH: production has the audit role switch and then does not", () => {
+    // Production's real state on 4 October 2026, before migration 049: only
+    // `pgaudit.log` survived 047, so writes and DDL were logged and **reads were
+    // not**, which is the one thing 047 existed for.
+    const expected = withSettings(armed.config);
+    const actual = withSettings(["pgaudit.log=ddl, role, write"]);
+    const changes = diffFingerprints(expected, actual);
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ kind: "setting", severity: "high" });
+    expect(JSON.stringify(changes[0].expected)).toContain("pgaudit.role=anadyon_audit");
+    expect(JSON.stringify(changes[0].actual)).not.toContain("pgaudit.role");
+  });
+
+  it("HIGH: the whole row disappears, which is what a project reset would do", () => {
+    const changes = diffFingerprints(withSettings(armed.config), withSettings(null));
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ kind: "settings.missing", severity: "high" });
+  });
+
+  it("HIGH: a setting appears that the repository does not declare", () => {
+    const changes = diffFingerprints(withSettings(null), withSettings(["pgaudit.role=someone_else"]));
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ kind: "settings.added", severity: "high" });
+  });
+
+  it("is silent when the switch is where the migrations put it", () => {
+    expect(diffFingerprints(withSettings(armed.config), withSettings(armed.config))).toEqual([]);
+  });
+
+  it("and a marker that does not declare the kind cannot explain it away", () => {
+    const changes = diffFingerprints(withSettings(armed.config), withSettings(null));
+    const explained = explainWith(changes, [
+      { expected_objects: ["(all databases) / postgres", "pgaudit"], expected_kinds: ["grant"] },
+    ]);
+    expect(explained[0].severity).toBe("high");
+  });
+});
+
 describe("a marker is bound to the kind of change it declares", () => {
   it("a grant declaration does not absorb a missing index on a table it names", () => {
     // The one shape the 4 October narrowing would have left open: `indexes.*`

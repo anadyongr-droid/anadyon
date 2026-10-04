@@ -85,6 +85,18 @@ Anything in a fenced block here is literal and runnable as written; where a valu
 has to be substituted, it is named in the prose above the block and the block
 carries a real example.
 
+**A file path is not a command, and must never be given as a fenced block.**
+*Added 4 October 2026, after it happened.* An instruction reading "paste the
+whole of" followed by a fenced
+`supabase/migrations/paste/048_quotes_match_the_baseline_paste.sql` produced
+exactly what it looks like: the **path** pasted into the Supabase SQL editor and
+`ERROR: 42601: syntax error at or near "supabase"`. Anything in a fenced block
+here is pasted verbatim, so a path belongs in the prose. Where a file's contents
+are what must be pasted, give the command that puts them on the clipboard --
+`pbcopy < ~/Desktop/anadyon/<path>` -- so what runs is byte-identical to what is
+committed, which is also the migration-033 lesson: the version pasted must be the
+version reviewed.
+
 **Paste one line at a time, and never with a trailing comment.**
 Interactive `zsh` does **not** treat `#` as a comment by default, so a line like
 `cd ~/path   # or wherever` passes the comment words to `cd` as arguments and

@@ -1046,11 +1046,17 @@ one per severity, because GitHub shows at most ten of each level per step and a
 night with fourteen `high` rows would have lost four without saying so. Read them
 with `GET /repos/{owner}/{repo}/check-runs/{id}/annotations`.
 
-**W47 — still open, and the one this cannot close.** The fingerprint reads no
-settings, so `pgaudit.role` being unset or `pgaudit.log` cleared stays invisible
-— exactly what a project reset or a restore would do, leaving the extension and
-the grants in place. It cannot be built until 047 is applied, because PGlite has
-no such setting either and the expected side would read empty every night.
+**W47 — BUILT 4 October, the hour it became possible.** The fingerprint now
+reads `pg_db_role_setting`, filtered to `pgaudit%` entries so a co-resident
+secret cannot reach a public artifact, and **compares** it rather than asserting
+it one-sidedly. That became possible by accident: 047's database-level `set` is
+accepted by PGlite and impossible on Supabase, so 049 arms the role-level switch
+*and* `reset`s the database-level one — after which both sides carry the same
+single row. Every difference is `high`, because a correct database has one row
+here and there is no noise to trade against. Fired both ways before it was
+trusted: production's real state today produces
+`setting — expected [… pgaudit.role=anadyon_audit], found [pgaudit.log…]` at
+`high`, and the armed state is silent.
 
 ### The production role inventory — read 3 October 2026
 
@@ -1129,7 +1135,35 @@ enable `pgaudit` from **Dashboard → Database → Extensions** and re-run the f
 **The migration is not done until the verification query in its header returns a
 row**; if it returns nothing, auditing is off whatever the file printed.
 
-**Not applied.** Awaiting Tasos, with the paste copy
-`supabase/migrations/paste/047_pgaudit_customer_object_audit_paste.sql`; W31, and
-the expected-change marker in force expires 17 October. W47 is the gap that
-remains even after it is applied.
+**Applied 4 October 2026 — and it did not arm the audit. Two corrections
+follow, and both are mine.**
+
+**The switch could never have worked as 047 wrote it.** 047 used
+`alter database <current> set pgaudit.role`, wrapped, on the reasoning that the
+parameter is superuser-set and might be refused. It was refused, and the header
+then told the operator to enable the extension and re-run the file — which would
+have failed identically, for ever. Supabase's own documentation for the extension
+says why: *"Supabase limits full privileges for file system and database
+variables, meaning PGAudit modifications can only occur at the role level."*
+Their published recipe is three statements and the middle one is
+`alter role "postgres" set pgaudit.role to '<audit role>'`. 047 did the first and
+the third; **migration 049 does the second.**
+
+**And it was nearly recorded as working.** The status query after the paste
+returned `switch_rows 1`, which I read as "the switch is set". It says *a* row in
+`pg_db_role_setting` mentions pgaudit, not which one. Reading the row showed only
+`pgaudit.log=ddl, role, write` on `postgres`: writes, DDL and role changes
+logged, **reads not**. A count is not an identity, and §8 exists for exactly this.
+
+**The scope claim in 047 is narrower than written.** Its header says object
+auditing means "any role touching them is logged, including one nobody
+identified". That holds for the database-level switch Supabase does not allow. At
+the role level the audit covers sessions **of the role it is set on** — here
+`postgres`, which is what the dashboard SQL editor runs as. So it covers
+precisely the path every review called the hardest and no other control can see:
+a person reading customer data in a logged-in browser. It does **not** cover the
+application's own reads, which arrive as `authenticator` →
+`anon`/`authenticated`/`service_role`. Auditing those would log every admin page
+view, and a log nobody can read is how auditing gets switched off — the same
+reasoning 047 used for the email tables. A deliberate limit, recorded as one
+(W54).
