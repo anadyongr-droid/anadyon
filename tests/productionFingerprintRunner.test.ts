@@ -106,11 +106,20 @@ describe("the runner, end to end", () => {
     expect(unexplained.stdout).toContain("undeclared_export");
     expect(unexplained.code).toBe(2);
 
-    // The marker directory is read from the repository, so declaring the change
-    // here would mean committing a marker. Instead the same path is proven by
-    // the unit tests (`explainWith`); this asserts the exit code the workflow
-    // keys on, which is the part a unit test cannot see.
-    expect(unexplained.stdout).toContain("No expected-change markers in force.");
+    // This used to assert "No expected-change markers in force", which held only
+    // while `supabase/expected-changes/` was empty — and it broke the hour the
+    // first real marker was committed. The assertion was scaffolding pretending
+    // to be a check.
+    //
+    // What it should say is the stronger thing, now that a marker does exist: a
+    // declaration in force must **not** absorb a change it did not name. That is
+    // the loose-matching risk in `explainWith`, exercised against whatever is
+    // actually committed rather than against a stub.
+    expect(unexplained.stdout).toMatch(/expected-change marker/);
+    expect(
+      unexplained.stdout,
+      "a committed marker absorbed an unrelated table — the object matching is too loose",
+    ).not.toMatch(/undeclared_export.*declared as/);
   }, 120_000);
 
   it("reports NOT RUN and exits 1 rather than passing, when it has no input", async () => {

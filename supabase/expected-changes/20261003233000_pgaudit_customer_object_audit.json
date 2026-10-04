@@ -1,0 +1,18 @@
+{
+  "migration": "20261003233000_pgaudit_customer_object_audit.sql",
+  "sha256": "2e33c029b88faad22d93efb52ab9dac42af236631aa6e3f0cbd9226d4e9ce2e3",
+  "expected_objects": [
+    "anadyon_audit",
+    "pgaudit",
+    "customers",
+    "reservations",
+    "quotes",
+    "booking_email_deliveries",
+    "booking_email_events",
+    "emails"
+  ],
+  "operator": "Tasos",
+  "declared": "2026-10-03",
+  "expires": "2026-10-17",
+  "applied": null
+}

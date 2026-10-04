@@ -185,7 +185,6 @@ export function classify(change) {
 
   if (change.kind === "grant") {
     const privs = [...(change.actual ?? [])];
-    const gained = privs.length > (change.expected ?? []).length;
     if (change.role === "anon" || change.role === "PUBLIC") {
       const deliberate = DELIBERATELY_PUBLIC_TABLES.includes(table);
       if (!deliberate && privs.length > 0) return "critical";
@@ -195,7 +194,25 @@ export function classify(change) {
       return "normal";
     }
     if (change.role === "service_role" && privs.length === 0) return "high";
-    return gained ? "high" : "normal";
+
+    // For every other role, a **missing** privilege matters and an **extra** one
+    // does not. That asymmetry is not a convenience: it is what the first real
+    // run against production taught, 3 October 2026.
+    //
+    // Thirteen of its twenty-seven `high` rows were one shape — `service_role`
+    // holding `REFERENCES`, `TRIGGER` and `TRUNCATE` on top of the four
+    // privileges the migrations grant. Supabase's default privileges grant `ALL`
+    // on a new table in `public`; PGlite has no such defaults, so the replay
+    // shows only what each migration wrote. The difference is real, permanent,
+    // and says nothing — and it buried the thirteen rows that did say something.
+    //
+    // **Permanent noise is the specific way this kind of control dies.** A
+    // report whose first screen is always the same thirteen lines gets skimmed,
+    // then filtered, then muted. So an extra privilege for a privileged role is
+    // reported at `normal`, where it stays visible and stops shouting, and a
+    // privilege the application needs and has **lost** is still `high`.
+    const missing = (change.expected ?? []).filter((priv) => !privs.includes(priv));
+    return missing.length > 0 ? "high" : "normal";
   }
 
   if (change.kind === "table.rls_enabled") return change.actual === false ? "high" : "normal";
