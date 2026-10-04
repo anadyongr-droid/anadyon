@@ -15,6 +15,93 @@ wrong place.
 
 ---
 
+## 3 October 2026 — Claude (implementer), with Codex and Fable as reviewers
+
+**Last verified:** 4 October 2026 (00:20 UTC), Claude.
+
+**The day in one line:** agent oversight was built, reviewed twice, and had its
+labels corrected downward each time — and the post-event half ran against
+production for the first time and found real drift.
+
+**No Codex worklog for today**, and that is accounted for rather than missing:
+Codex's contribution arrived as two review passes relayed by Tasos rather than
+as work in a worktree. Both are recorded — the first in
+[`agent-controls/RECONCILIATION-2026-10-03.md`](agent-controls/RECONCILIATION-2026-10-03.md),
+the second in §8 of
+[`agent-controls/CONSOLIDATED-2026-10-03.md`](agent-controls/CONSOLIDATED-2026-10-03.md).
+Fable's round-two opinion is recorded in the same place and in the open items it
+reshaped.
+
+### What was built
+
+- **The nightly production fingerprint** — runbook section 17. Production's
+  structure compared against the migrations *replayed*, declared changes absorbed
+  by `supabase/expected-changes/` markers, row counts compared night to night.
+  The first control here that can see a change made in a logged-in dashboard.
+- **The `PreToolUse` gate, repaired.** Six findings from Codex, four of which
+  meant a control was inert while its test was green. It is now labelled an
+  **advisory identifier guard** rather than a firewall, everywhere.
+- **The root-owned install** — `scripts/install-managed-gate.sh` — and the
+  operator checklist, [`agent-controls/OPERATOR-SETUP.md`](agent-controls/OPERATOR-SETUP.md).
+- **The staging email boundary**, which was the one hole that was live rather
+  than theoretical. Staging could have emailed real customers.
+- **Migration 047**, pgaudit by object rather than by role. Written, replay-
+  tested, marked, and **parked at Tasos's request**.
+
+### What Tasos did, and only he could
+
+**E28** — no production dashboard session in the agent's browser, the top item
+on the list and the only one that removes the path rather than watching it.
+**W34's local half** — the gate installed root-owned, then proven firing in a
+real session on the Mac. **E32** — staging's mail configuration read, and
+production confirmed healthy from Resend's delivery log.
+
+### What the first production run found
+
+No `critical` row — the first confirmation of §6 **against the live database**.
+Thirteen noise rows, since suppressed. Thirteen real ones: production's `quotes`
+table is looser than `001_baseline.sql` in twelve places, an index from that file
+is missing, and a policy exists that no migration declares. **W42**, with the
+hypothesis labelled: the baseline describes production rather than having created
+it. It also **removed** work — production already holds the grants migration 046
+adds, confirmed in runbook section 14.
+
+### What was decided and written down
+
+- **Documentation on agent oversight is frozen** until the blocking items have
+  run and fired, at Fable's recommendation. Findings still enter the open items
+  list and the agent worklogs, which is §11 and not a document.
+- **W34 has a ceiling**: endpoint-managed settings do not reach a cloud session,
+  and the official remedy needs a paid plan. The desktop app is not one surface.
+- **E21's open question is settled as "cannot"** — one GitHub identity means a
+  required review has nobody to come from.
+- **The dedicated agent firewall stays declined**, and **W38** — production
+  migrations applied by CI on merge — is documented as a proposal only, because
+  §13 covers who may take an operational action.
+
+### Insurance
+
+**ΙΟΖ 4176 and ΙΟΕ 2356 were renewed** on 3 October, one day before they lapsed.
+**Both new expiry dates are unverified** and no table was moved to a guessed one:
+the Gmail connector returns attachment metadata and never the bytes. F1 item 0 is
+the one line needed. The nearest known expiry is now ΙΡΜ 6966 on 8 October.
+
+### Record-keeping, which had its own failure
+
+[`OPEN-ITEMS.md`](OPEN-ITEMS.md) was carrying **six duplicated identifiers** —
+today's additions collided with an existing block, and *both* `E21` rows were the
+same subject with only one of them verified. Renumbered to E27–E32 and W33–W42,
+the pair merged, and `tests/openItemsIntegrity.test.ts` now fails on a repeated
+identifier or a row with no owner.
+
+### Left open
+
+**W31** (047 parked), **W42**, **W29**, **W37**, **W41**, **E29** (predicted
+negative and now moot), the restore drill, and W34's cloud half. Five pull
+requests merged: #201 through #205.
+
+---
+
 ## 2 October 2026 — Claude (implementer) and Codex (implementer)
 
 **Last verified:** 2 October 2026, Claude.
