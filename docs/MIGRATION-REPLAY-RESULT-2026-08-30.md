@@ -2,7 +2,9 @@
 
 **Last verified:** 4 October 2026, Claude — extended with what the production
 fingerprint found (W42), which is the same defect this document opened with,
-measured against production rather than against a replay.
+measured against production rather than against a replay. The twelve columns are
+now listed, read from the run's own annotations, and the diagnostic that has to
+precede any repair is written and paste-ready.
 
 **Branch:** `codex/test-environment-foundation`
 **Base:** `3927b10`
@@ -165,13 +167,70 @@ to describe the deployed database, each difference is a decision recorded in
 this document — production is right, or the file is — and the file says plainly
 that it is a description of a hand-built database and was never executed.
 
-### What is left, and who owns it
+### The twelve columns, read from the report — run 37189919105, 4 October
 
-- The **exact twelve columns** are in the fingerprint report, which is a run
-  artifact and 30-day retained; they are not reproduced here because reading
-  them from a chat transcript rather than from the report is how a list gets one
-  entry wrong. **Unverified until read from the report** (§8). Owner: agent,
-  next run.
+Readable at last from the check-run annotations rather than from an artifact
+nobody in a container can download (W51). They are three classes, not twelve
+problems, and the classes matter more than the list.
+
+**Six money columns lost their scale.** `balance_due`, `daily_rate`, `deposit`,
+`extras_subtotal`, `total`, `vehicle_subtotal` — declared `numeric(10,2)`, held
+as bare `numeric`. Nothing at the column enforces two decimal places, so a price
+computed to more than two can be stored as it was computed. `lib/pricing.ts` is
+the single implementation and the server's result is what is stored
+(`DEFINING-STATEMENTS.md` §5), so this has probably never produced a bad row —
+*probably* being the word the diagnostic below replaces.
+
+**Two date columns are `text` and nullable** — `pickup_date`, `dropoff_date`,
+declared `date not null`. This is the one with a named consequence outside the
+database: `lib/aadeXml.ts` places `pickup_date` directly into `<issueDate>`, so a
+value a `date` column would have refused is refused instead by the Greek tax
+authority, after the rental.
+
+**Four columns lost `not null`** — `email`, `first_name`, `last_name`,
+`vehicle_type`. §4 names first name, surname and email as the minimum to save a
+reservation; the public form is the gate and enforces them, so a null in any of
+these is a row the form could not have produced.
+
+**And the undeclared policy, in full:** `quotes.Service role only`, command `*`,
+`roles: []` — which in `pg_policy` means `to public` — and `using (false)`. It is
+a deny-all RLS policy: it grants no rows to any role that does not bypass RLS. So
+it is the belt beside §6's braces, created through the dashboard and declared
+nowhere. Harmless, and worth declaring rather than leaving as an object nobody
+can account for.
+
+### What has to be known before any of it is altered
+
+A tightening migration written without this would **fail halfway through, on live
+data, in the SQL editor**: `alter column pickup_date type date` raises on the
+first unparseable row, `set not null` on the first null, and
+`type numeric(10,2)` on a value needing more than eight digits left of the point
+— each leaving the earlier statements applied and the rest not.
+
+`scripts/sql/quotes-drift-diagnostic.sql` answers it in three rows and writes
+nothing. It is paste-ready for the SQL editor. **Until it has been run, the
+remedy is unwritten on purpose.**
+
+### A function body in production is an older revision of its migration
+
+The same run reported `check_rate_limit(…)` as a `function.definition`
+difference, and reading it settled a question parked earlier the same day
+(W49(b)): **this is not two PostgreSQL versions rendering the same object
+differently.** Postgres stores a function body verbatim, and the difference is
+two comment lines — *"One statement decides expiry and increment together, so
+two instances arriving at once cannot both read a stale count and both allow"* —
+present in the repository's migration and absent from production's stored body,
+plus one blank line.
+
+**The code is identical; the text is not.** So the comment was added to the
+migration file after it had been pasted, which is the same shape as everything
+else on this page: the repository's SQL edited after the database received it.
+Cosmetic, and recorded rather than repaired.
+
+It does mean a `definition` difference is worth more than `normal` once comments
+are normalised out of the comparison — W52.
+
+### What is left, and who owns it
 - **Whether any difference is worth a migration** then follows per column, with
   `pickup_date` the first candidate. Altering a column's type on a live table
   with rows in it is Tasos's to apply, as every migration is.
