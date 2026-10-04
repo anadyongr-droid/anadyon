@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  CHANGE_KINDS,
   DELIBERATELY_PUBLIC_TABLES,
   compareCounts,
   diffFingerprints,
@@ -53,6 +54,10 @@ type TableFingerprint = {
   policies: Record<string, unknown>;
   triggers: string[];
   indexes: string[];
+  // Definitions, added 4 October 2026: a name says an index exists, not what it
+  // indexes. Optional because most fixtures here are about something else.
+  index_definitions?: Record<string, string>;
+  trigger_definitions?: Record<string, string>;
 };
 type Fingerprint = {
   tables: Record<string, TableFingerprint>;
@@ -293,6 +298,166 @@ describe("a declared change is absorbed; an exposure never is", () => {
   });
 });
 
+describe("an object that exists on both sides is compared, not assumed identical", () => {
+  // The largest blind spot found in this check, reported by Codex on 4 October
+  // 2026 after probing it rather than reading it: `views` and `functions` were
+  // compared by existence only, so flipping an existing function to
+  // `security definer` produced no findings at all.
+  const withObjects = () => ({
+    ...clone(base),
+    views: { customer_summary: { kind: "v", definition: "SELECT id, email FROM customers" } },
+    functions: {
+      "actor_role()": { security_definer: false, returns: "text", definition: "CREATE FUNCTION actor_role() ..." },
+    },
+  });
+
+  it("HIGH: an existing function becomes security definer", () => {
+    const expected = withObjects();
+    const actual = withObjects();
+    actual.functions["actor_role()"].security_definer = true;
+    const changes = diffFingerprints(expected, actual);
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ kind: "function.security_definer", object: "actor_role()", severity: "high" });
+  });
+
+  it("reports a redefined view rather than staying silent", () => {
+    // A view is a stored select statement: widening one exposes a column with no
+    // new object to notice.
+    const expected = withObjects();
+    const actual = withObjects();
+    actual.views.customer_summary.definition = "SELECT id, email, phone, dob FROM customers";
+    const changes = diffFingerprints(expected, actual);
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ kind: "view.definition", object: "customer_summary" });
+  });
+
+  it("but not when only the server's whitespace differs", () => {
+    // The replay runs PostgreSQL 18.3 under PGlite and production is 17.6, and
+    // these definitions are re-rendered from a parse tree by the server. A line
+    // break is not a change, and a check that reported one every night would be
+    // muted within a week.
+    const expected = withObjects();
+    const actual = withObjects();
+    actual.views.customer_summary.definition = " SELECT id,\n    email\n   FROM customers;";
+    expected.views.customer_summary.definition = "SELECT id, email FROM customers";
+    expect(diffFingerprints(expected, actual)).toEqual([]);
+  });
+
+  it("reports a redefined index, which keeps its name", () => {
+    const expected = clone(base);
+    const actual = clone(base);
+    expected.tables.reservations.indexes = ["reservations_pickup_idx"];
+    actual.tables.reservations.indexes = ["reservations_pickup_idx"];
+    expected.tables.reservations.index_definitions = {
+      reservations_pickup_idx: "CREATE INDEX reservations_pickup_idx ON public.reservations USING btree (pickup_at)",
+    };
+    actual.tables.reservations.index_definitions = {
+      reservations_pickup_idx:
+        "CREATE INDEX reservations_pickup_idx ON public.reservations USING btree (pickup_at) WHERE (cancelled_at IS NULL)",
+    };
+    const changes = diffFingerprints(expected, actual);
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ kind: "index.definition", object: "reservations.reservations_pickup_idx" });
+  });
+
+  it("does not report a definition twice for an index that merely appeared", () => {
+    // It is already reported by name. Counting it twice is how a report's
+    // numbers stop meaning anything.
+    const expected = clone(base);
+    const actual = clone(base);
+    actual.tables.reservations.indexes = ["reservations_new_idx"];
+    actual.tables.reservations.index_definitions = { reservations_new_idx: "CREATE INDEX ..." };
+    const changes = diffFingerprints(expected, actual);
+    expect(changes).toHaveLength(1);
+    expect(changes[0].kind).toBe("indexes.added");
+  });
+});
+
+describe("a grant to a role a stranger can hold", () => {
+  it("CRITICAL: `authenticated` gains access to a customer table", () => {
+    // Codex probed this on 4 October 2026 and found it came back `normal`: the
+    // noise rule written for Supabase's `service_role` defaults was applied to
+    // every role but `anon`. On a Supabase project `authenticated` is any holder
+    // of a valid JWT.
+    const actual = clone(base);
+    actual.tables.reservations.grants.authenticated = ["SELECT"];
+    const changes = diffFingerprints(base, actual);
+    expect(changes[0]).toMatchObject({ kind: "grant", role: "authenticated", severity: "critical" });
+    expect(worstSeverity(changes)).toBe("critical");
+  });
+
+  it("and a marker cannot explain it away", () => {
+    const actual = clone(base);
+    actual.tables.reservations.grants.authenticated = ["SELECT"];
+    const explained = explainWith(diffFingerprints(base, actual), [
+      { expected_objects: ["reservations", "authenticated"], expected_kinds: ["grant"] },
+    ]);
+    expect(explained[0].severity).toBe("critical");
+  });
+
+  it("but a privilege the migrations themselves grant produces no row at all", () => {
+    // Which is why escalating `authenticated` cannot cry wolf: a legitimate
+    // grant is on both sides of the comparison.
+    const expected = clone(base);
+    const actual = clone(base);
+    expected.tables.reservations.grants.authenticated = ["SELECT"];
+    actual.tables.reservations.grants.authenticated = ["SELECT"];
+    expect(diffFingerprints(expected, actual)).toEqual([]);
+  });
+});
+
+describe("a marker is bound to the kind of change it declares", () => {
+  it("a grant declaration does not absorb a missing index on a table it names", () => {
+    // The one shape the 4 October narrowing would have left open: `indexes.*`
+    // was allowed to skip the kind filter as a "mechanical byproduct", and the
+    // only reason production's missing `quote_rate_limits_blocked_idx` was not
+    // masked is that migration 047's marker happens not to name that table.
+    const actual = clone(base);
+    actual.tables.reservations.indexes = [];
+    const expected = clone(base);
+    expected.tables.reservations.indexes = ["reservations_blocked_idx"];
+
+    const explained = explainWith(diffFingerprints(expected, actual), [
+      { expected_objects: ["reservations"], expected_kinds: ["grant"] },
+    ]);
+    expect(explained[0]).toMatchObject({ kind: "indexes.missing", severity: "high" });
+  });
+
+  it("and does absorb one when the marker declares that kind", () => {
+    const actual = clone(base);
+    actual.tables.reservations.indexes = [];
+    const expected = clone(base);
+    expected.tables.reservations.indexes = ["reservations_blocked_idx"];
+
+    const explained = explainWith(diffFingerprints(expected, actual), [
+      { expected_objects: ["reservations"], expected_kinds: ["indexes.missing"] },
+    ]);
+    expect(explained[0].severity).toBe("explained");
+  });
+
+  it("every kind a marker may declare is a kind the comparison produces", () => {
+    // `CHANGE_KINDS` is what `validateExpectedChange` checks a marker against,
+    // so a kind missing from it cannot be declared and a kind in it that the
+    // comparison never emits would bind nothing.
+    const produced = new Set<string>();
+    const expected = clone(base);
+    const actual = clone(base);
+    actual.tables.secret_exports = table();
+    delete actual.tables.rates;
+    actual.tables.reservations.rls_enabled = false;
+    actual.tables.reservations.rls_forced = true;
+    actual.tables.reservations.columns.extra = "text";
+    actual.tables.reservations.grants.service_role = ["SELECT", "DELETE"];
+    actual.tables.reservations.policies = { p: { using: "true" } };
+    actual.tables.reservations.triggers = ["t"];
+    actual.tables.reservations.indexes = ["i"];
+    expected.tables.reservations.triggers = ["gone"];
+    expected.tables.reservations.indexes = ["gone_idx"];
+    for (const change of diffFingerprints(expected, actual)) produced.add(change.kind);
+    for (const kind of produced) expect(CHANGE_KINDS, `${kind} is produced but not declarable`).toContain(kind);
+  });
+});
+
 describe("row counts, which are what a deletion looks like", () => {
   it("escalates a fall beyond tolerance and merely notes a small one", () => {
     expect(compareCounts({ reservations: 400 }, { reservations: 100 })[0]).toMatchObject({
@@ -372,6 +537,89 @@ describe("the catalog queries work on a real database", () => {
     expect(Object.keys(reservations.indexes).length).toBeGreaterThan(0);
   }, 120_000);
 
+  it("sees a grant that `information_schema` hides from the role we connect as", async () => {
+    // **The defect, reproduced.** Codex reported it as "PUBLIC grants are
+    // invisible", citing PostgreSQL's note that `role_table_grants` "omits
+    // tables that have been made accessible to the current user by way of a
+    // grant to PUBLIC". The real rule is broader and worse: both that view and
+    // `table_privileges` show only rows "where the grantor or grantee is a
+    // currently enabled role", so **a grant made by a role we are not a member
+    // of is invisible whoever it was granted to**.
+    //
+    // That is production's exact situation. The nightly check connects as
+    // `postgres`, and `postgres` on Supabase is **not** a superuser
+    // (`rolsuper = false`, read from production on 3 October 2026) — so a grant
+    // issued from the dashboard as `supabase_admin` would not have appeared.
+    // Reading `pg_class.relacl` through `aclexplode` has no such scoping.
+    //
+    // The probe below is the whole finding in six lines: as a non-superuser
+    // role, `information_schema` returns nothing and the fingerprint returns the
+    // grant.
+    const result = await withReplayedDatabase(async (database) => {
+      await database.exec(`
+        create role prober nologin;
+        create role hidden_reader nologin;
+        grant select on public.quotes to hidden_reader;
+        grant select on public.quotes to public;
+        set role prober;
+      `);
+      const informationSchema = await database.query(
+        "select grantee from information_schema.role_table_grants" +
+          " where table_schema = 'public' and table_name = 'quotes'" +
+          " and grantee in ('hidden_reader', 'PUBLIC')",
+      );
+      const fingerprint = await queryJson(database, "scripts/sql/production-fingerprint.sql");
+      await database.exec("reset role;");
+      return { hidden: informationSchema.rows, fingerprint };
+    });
+
+    expect(
+      result.hidden,
+      "information_schema showed the grant, so this probe is not reproducing the defect",
+    ).toEqual([]);
+    expect(result.fingerprint.tables.quotes.grants.PUBLIC).toContain("SELECT");
+  }, 120_000);
+
+  it("names a role nobody declared, once, rather than on every table", async () => {
+    // The backstop for the allow-list: the per-table `grants` map reads six
+    // named roles, so a role created through the dashboard and granted `select`
+    // on `customers` appears in none of them. `hidden_reader` in the probe above
+    // is exactly that shape.
+    const result = await withReplayedDatabase(async (database) => {
+      const before = await queryJson(database, "scripts/sql/production-fingerprint.sql");
+      await database.exec("create role sneaky nologin; grant select on public.customers to sneaky;");
+      const after = await queryJson(database, "scripts/sql/production-fingerprint.sql");
+      return { before, after };
+    });
+
+    expect(result.before.grantees, "a role is already listed, so this asserts nothing").toEqual([]);
+    expect(result.after.grantees).toEqual(["sneaky"]);
+
+    const changes = diffFingerprints(result.before, result.after);
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ kind: "grantees.added", object: "sneaky", severity: "high" });
+  }, 120_000);
+
+  it("carries the definition of every view, function, index and trigger", async () => {
+    // Names alone were the blind spot Codex probed: an index narrowed to a
+    // partial one, or a trigger repointed at another function, keeps its name.
+    const fingerprint = await withReplayedDatabase((database) =>
+      queryJson(database, "scripts/sql/production-fingerprint.sql"),
+    );
+    const views = Object.values(fingerprint.views) as { definition?: string }[];
+    expect(views.length).toBeGreaterThan(0);
+    for (const view of views) expect(view.definition, "a view with no definition").toMatch(/select/i);
+
+    const functions = Object.values(fingerprint.functions) as { definition?: string }[];
+    for (const fn of functions) expect(fn.definition, "a function with no definition").toMatch(/function/i);
+
+    const quotes = fingerprint.tables.quotes;
+    expect(Object.keys(quotes.index_definitions).length).toBeGreaterThan(0);
+    for (const definition of Object.values(quotes.index_definitions) as string[]) {
+      expect(definition).toMatch(/create (unique )?index/i);
+    }
+  }, 120_000);
+
   it("finds exactly the two tables §6 says are public — an independent check of the rule", async () => {
     const fingerprint = await withReplayedDatabase((database) =>
       queryJson(database, "scripts/sql/production-fingerprint.sql"),
@@ -419,6 +667,14 @@ describe("the SQL files cannot quietly stop being read-only", () => {
         .split("\n")
         .filter((line) => !line.trim().startsWith("--"))
         .join("\n")
+        // Quoted literals are data, not statements, and since 4 October the
+        // grant query names the seven SQL privileges as literals — `'INSERT'`,
+        // `'UPDATE'`, `'DELETE'`, `'TRUNCATE'` — to exclude PostgreSQL 18's
+        // `MAINTAIN` from a comparison whose other side is 17. Reading those as
+        // writing verbs is the same confusion between *describing* an action and
+        // *performing* one that the comment below is about; a statement that
+        // writes is a bare word, never one in quotes.
+        .replace(/'[^']*'/g, "''")
         .toLowerCase();
       // Whole words, not substrings. `pg_attribute.attisdropped` is a catalog
       // column and `role_table_grants` a catalog view, and the first version of

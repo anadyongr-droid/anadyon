@@ -48,6 +48,32 @@ import { createHash } from "node:crypto";
 /** Tables the public booking form cannot price without. `DEFINING-STATEMENTS.md` §6. */
 export const DELIBERATELY_PUBLIC_TABLES = ["rates", "extras_config"];
 
+/**
+ * The roles a stranger can act as, which is what makes a grant to one of them
+ * an exposure rather than a question.
+ *
+ * `anon` is the role the publishable key maps to — that key is in the public
+ * HTML, so a grant to `anon` is a grant to the internet. `PUBLIC` is every role
+ * at once, including `anon`.
+ *
+ * **`authenticated` was added 4 October 2026, after Codex's second review.** The
+ * severity rule below treats an *extra* privilege for any other role as
+ * `normal`, because thirteen of the first real run's `high` rows were Supabase's
+ * default privileges for `service_role` and permanent noise is what gets a check
+ * muted. Codex probed the edge of that and found a genuine hole: granting
+ * `authenticated` access to `customers` came back `normal`. That rule was
+ * written about privileged server-side roles and `authenticated` is not one —
+ * on a Supabase project it is any holder of a valid JWT, which is anyone who can
+ * sign up unless sign-ups are closed, and whether they are is not a fact this
+ * check can read.
+ *
+ * **It cannot cry wolf:** a grant the migrations make appears on both sides of
+ * the comparison and produces no row at all. Only an `authenticated` grant that
+ * the repository does not contain reaches this function, and there is no
+ * legitimate reason for one to exist.
+ */
+export const REACHABLE_WITHOUT_STAFF_CREDENTIALS = ["anon", "authenticated", "PUBLIC"];
+
 export const SEVERITIES = ["critical", "high", "normal", "explained"];
 
 /**
@@ -104,6 +130,48 @@ export function diffFingerprints(expected, actual) {
     }
   }
 
+  // **Any grantee the per-table map does not read, by name.** The `grants` map
+  // reads six named roles, so a role created through the dashboard and granted
+  // `select` on `customers` would appear nowhere in it. This list is the
+  // backstop, and it is one row per role rather than one per table.
+  const expectedGrantees = exp.grantees ?? [];
+  const actualGrantees = act.grantees ?? [];
+  for (const grantee of actualGrantees) {
+    if (!expectedGrantees.includes(grantee)) add({ kind: "grantees.added", object: String(grantee) });
+  }
+  for (const grantee of expectedGrantees) {
+    if (!actualGrantees.includes(grantee)) add({ kind: "grantees.missing", object: String(grantee) });
+  }
+
+  // **An object that exists on both sides is compared, not assumed identical.**
+  // Added 4 October 2026, and it closes the largest blind spot found in this
+  // check so far. Until now `views` and `functions` were compared by existence
+  // only: Codex flipped an existing function to `security definer` in a
+  // controlled probe and the report stayed silent. A view is a stored select
+  // statement and a function can run as its owner — widening either exposes
+  // data with no new object to notice.
+  for (const area of ["views", "functions"]) {
+    for (const [name, expectedObject] of Object.entries(exp[area] ?? {})) {
+      const actualObject = (act[area] ?? {})[name];
+      if (!actualObject || typeof expectedObject !== "object" || typeof actualObject !== "object") continue;
+      for (const field of new Set([...Object.keys(expectedObject), ...Object.keys(actualObject)])) {
+        const expectedValue = expectedObject[field];
+        const actualValue = actualObject[field];
+        const same =
+          field === "definition"
+            ? normaliseSql(expectedValue) === normaliseSql(actualValue)
+            : JSON.stringify(expectedValue) === JSON.stringify(actualValue);
+        if (same) continue;
+        add({
+          kind: `${area === "views" ? "view" : "function"}.${field}`,
+          object: name,
+          expected: expectedValue ?? null,
+          actual: actualValue ?? null,
+        });
+      }
+    }
+  }
+
   for (const [table, expectedTable] of Object.entries(exp.tables ?? {})) {
     const actualTable = (act.tables ?? {})[table];
     if (!actualTable) continue; // already reported as missing
@@ -145,11 +213,45 @@ export function diffFingerprints(expected, actual) {
         if (!actualList.includes(item)) add({ kind: `${listed}.missing`, object: `${table}.${item}` });
       }
     }
+
+    // An index narrowed to a partial one, or a trigger repointed at another
+    // function, keeps its name and changes everything it does. Only objects
+    // present on **both** sides are compared here: one that appeared or
+    // vanished is already reported by name above, and reporting it twice is how
+    // a count stops meaning anything.
+    for (const [held, kind] of [
+      ["trigger_definitions", "trigger.definition"],
+      ["index_definitions", "index.definition"],
+    ]) {
+      const expectedDefs = expectedTable[held] ?? {};
+      const actualDefs = actualTable[held] ?? {};
+      for (const [name, expectedDefinition] of Object.entries(expectedDefs)) {
+        if (!(name in actualDefs)) continue;
+        if (normaliseSql(expectedDefinition) === normaliseSql(actualDefs[name])) continue;
+        add({ kind, object: `${table}.${name}`, expected: expectedDefinition, actual: actualDefs[name] });
+      }
+    }
   }
 
   return changes.sort(
     (a, b) => SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity) || a.object.localeCompare(b.object),
   );
+}
+
+/**
+ * Whitespace in a deparsed definition is the server's, not the author's.
+ *
+ * `pg_get_viewdef` and friends re-render a parse tree, so indentation and line
+ * breaks are the server's choice and differ between major versions — and the
+ * two sides of this comparison are **not** the same major version: the replay
+ * runs PostgreSQL 18.3 under PGlite and production is 17.6 (read 19 August
+ * 2026). Collapsing whitespace removes the cheapest source of a false
+ * difference. Case and punctuation are left alone: a definition that differs in
+ * a string literal's case is a difference worth seeing.
+ */
+function normaliseSql(value) {
+  if (typeof value !== "string") return JSON.stringify(value ?? null);
+  return value.replace(/\s+/g, " ").replace(/;\s*$/, "").trim();
 }
 
 function diffMap(expected = {}, actual = {}, report) {
@@ -185,7 +287,7 @@ export function classify(change) {
 
   if (change.kind === "grant") {
     const privs = [...(change.actual ?? [])];
-    if (change.role === "anon" || change.role === "PUBLIC") {
+    if (REACHABLE_WITHOUT_STAFF_CREDENTIALS.includes(change.role)) {
       const deliberate = DELIBERATELY_PUBLIC_TABLES.includes(table);
       if (!deliberate && privs.length > 0) return "critical";
       // Losing the grant on a deliberately public table breaks public booking:
@@ -225,6 +327,36 @@ export function classify(change) {
   if (change.kind === "views.added") return "high";
   if (change.kind === "indexes.added" || change.kind === "triggers.added") return "normal";
   if (change.kind === "indexes.missing" || change.kind === "triggers.missing") return "high";
+
+  // **A structured field on an existing object is `high`.** `security_definer`
+  // in either direction is a privilege change — gaining it makes a function run
+  // as its owner, losing it breaks one that was meant to — and a view becoming
+  // a materialised view, or a function's return type changing, is nothing a
+  // nightly report should pass over.
+  if (change.kind === "function.security_definer" || change.kind === "function.returns") return "high";
+  if (change.kind === "view.kind") return "high";
+
+  // A role holding privileges on a `public` table that the repository has never
+  // heard of. It is not `critical`, because it may turn out to be a platform
+  // role nobody had catalogued — but it is a role that can read customer data
+  // and it has to be identified the same day.
+  if (change.kind === "grantees.added") return "high";
+  if (change.kind === "grantees.missing") return "normal";
+
+  // **A deparsed definition is `normal` until one run has measured it**, and
+  // that is a deliberate, dated compromise rather than a judgement that a
+  // redefined view matters less. The expected side runs PostgreSQL 18.3 under
+  // PGlite; production is 17.6. `pg_get_viewdef` and `pg_get_functiondef`
+  // re-render a parse tree, and two major versions can render the same object
+  // differently — which would put a row here for every view and all 34
+  // functions, every night. At `high` that is a permanent red; `normal` keeps
+  // the rows visible in the report without teaching anybody to skim it.
+  //
+  // **The first run decides it** (W49): if the two servers agree, these promote
+  // to `high` the same day. If they disagree, the answer is to match the
+  // versions, not to keep the noise.
+  if (change.kind.endsWith(".definition")) return "normal";
+
   return "normal";
 }
 
@@ -256,20 +388,87 @@ export function classify(change) {
  * wrong all the same. A role name is declarable — 047's marker already names
  * `anadyon_audit` — so requiring it costs a marker author nothing and makes the
  * declaration say *who* was granted what, not merely *where*.
+ *
+ * **And a marker declares the *kinds* of change it makes.** Added 4 October
+ * 2026, from Codex's second review: *"Markers need to identify the expected
+ * change type, role and effect, rather than just an object name."* A marker for
+ * a grant migration now lists `expected_kinds: ["grant"]` and cannot absorb a
+ * column, a policy, an index or a definition on the same table — the W44 defect
+ * made structurally impossible rather than narrowed. `expected_kinds` is
+ * required by `validateExpectedChange`; it is honoured here when present so an
+ * older marker keeps working rather than silently absorbing everything.
  */
 export function explainWith(changes, markers = []) {
-  const names = markers.flatMap((marker) =>
-    (marker.expected_objects ?? []).map((object) => String(object).toLowerCase()),
-  );
-  const declared = new Set(names);
+  const declarations = markers.map((marker) => ({
+    names: (marker.expected_objects ?? []).map((object) => String(object).toLowerCase()),
+    kinds:
+      Array.isArray(marker.expected_kinds) && marker.expected_kinds.length > 0
+        ? new Set(marker.expected_kinds.map((kind) => String(kind)))
+        : null,
+  }));
+
   return changes.map((change) => {
     if (change.severity === "critical") return change;
     const object = String(change.object ?? "").toLowerCase();
-    if (change.kind === "grant" && !declared.has(String(change.role ?? "").toLowerCase())) return change;
-    const hit = names.find((name) => object === name || (BYPRODUCT_KINDS.has(change.kind) && object.startsWith(`${name}.`)));
-    return hit ? { ...change, severity: "explained", explained_by: hit } : change;
+
+    for (const { names, kinds } of declarations) {
+      const byproduct = BYPRODUCT_KINDS.has(change.kind);
+      // **A declared kind binds every change, byproducts included.** The
+      // byproduct rule exists because a marker's author cannot predict that
+      // `create table x` also creates `x_pkey` — that is about the *name*, which
+      // is why it only relaxes name matching to a child path below. The *kind*
+      // is predictable: an author adding a constraint knows an index comes with
+      // it and can write `indexes.missing`. Letting byproducts skip the kind
+      // filter would have left the W44 hole open for exactly one shape — a
+      // grant declaration absorbing a genuinely missing index on a table it
+      // names — and on 4 October the only reason the missing
+      // `quote_rate_limits_blocked_idx` survived the masking was that migration
+      // 047's marker happens not to name that table.
+      if (kinds && !kinds.has(change.kind)) continue;
+      // Both halves of a grant, per the paragraph above.
+      if (change.kind === "grant" && !names.includes(String(change.role ?? "").toLowerCase())) continue;
+      const hit = names.find((name) => object === name || (byproduct && object.startsWith(`${name}.`)));
+      if (hit) return { ...change, severity: "explained", explained_by: hit };
+    }
+    return change;
   });
 }
+
+/**
+ * Every structural change kind this comparison can produce.
+ *
+ * Exported so a marker's `expected_kinds` can be checked against the real list
+ * rather than against a guess — a marker declaring `grants` or `column_change`
+ * would otherwise bind nothing and absorb nothing, and look like it had.
+ * Row-count kinds are deliberately absent: a marker declares a schema change,
+ * and rows falling is never one.
+ */
+export const CHANGE_KINDS = [
+  "tables.added",
+  "tables.missing",
+  "views.added",
+  "views.missing",
+  "functions.added",
+  "functions.missing",
+  "table.rls_enabled",
+  "table.rls_forced",
+  "column",
+  "grant",
+  "grantees.added",
+  "grantees.missing",
+  "policy",
+  "triggers.added",
+  "triggers.missing",
+  "indexes.added",
+  "indexes.missing",
+  "trigger.definition",
+  "index.definition",
+  "view.kind",
+  "view.definition",
+  "function.security_definer",
+  "function.returns",
+  "function.definition",
+];
 
 /**
  * The only kinds a table-level declaration may absorb on that table's children.
@@ -357,7 +556,15 @@ export function worstSeverity(changes) {
  * success trains the reader to skim past the message that matters
  * (`.github/workflows/backup.yml`: *"Only on failure"*).
  */
-export function renderReport({ changes, counts = [], at = new Date(), expectedDigest, actualDigest, markers = [] }) {
+export function renderReport({
+  changes,
+  counts = [],
+  at = new Date(),
+  expectedDigest,
+  actualDigest,
+  markers = [],
+  retired = [],
+}) {
   const all = [...changes, ...counts];
   const worst = worstSeverity(all);
   const headline = {
@@ -374,6 +581,9 @@ export function renderReport({ changes, counts = [], at = new Date(), expectedDi
     "",
     `Expected (migrations replayed) \`${expectedDigest}\` · actual (production) \`${actualDigest}\``,
     markers.length > 0 ? `${markers.length} expected-change marker(s) in force.` : "No expected-change markers in force.",
+    ...(retired.length > 0
+      ? [`${retired.length} marker(s) carried no weight tonight: ${retired.join("; ")}`]
+      : []),
     "",
   ];
 
@@ -403,9 +613,15 @@ export function renderReport({ changes, counts = [], at = new Date(), expectedDi
     lines.push(
       "## What to do",
       "",
-      "1. If you made this change, commit a marker in `supabase/expected-changes/` naming the objects, or merge the migration.",
-      "2. If you did not, it was made through the dashboard or with a credential. Check the Supabase audit log for the window, and read the gate's decision log on each machine.",
-      "3. A `critical` row is a customer-data exposure now, not a question: revoke the grant before anything else.",
+      "1. **Do not write a marker for this.** A declaration is committed *before* the"
+        + " change is made; one written now would explain anything, including a change"
+        + " nobody intended. Find out what happened first.",
+      "2. If you made this change, the record that belongs here is the migration and its"
+        + " paste copy, merged — and the open item saying it was applied. A marker is for"
+        + " the window between declaring a migration and pasting it, never for an"
+        + " explanation after the fact.",
+      "3. If you did not make it, it was made through the dashboard or with a credential. Check the Supabase audit log for the window, and read the gate's decision log on each machine.",
+      "4. A `critical` row is a customer-data exposure now, not a question: revoke the grant before anything else.",
       "",
     );
   }

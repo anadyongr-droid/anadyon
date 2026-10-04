@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { readExpectedChanges } from "./expectedProductionChange.mjs";
+import { liveExpectedChanges } from "./expectedProductionChange.mjs";
 import { replayedFingerprint } from "./replayedFingerprint.mjs";
 import {
   compareCounts,
@@ -87,11 +87,27 @@ async function main() {
   }
 
   const { fingerprint: expected, migrations } = await replayedFingerprint();
-  // readExpectedChanges returns { name, marker }; the comparison wants the markers.
-  // Both open and applied markers explain: an applied-but-unmerged migration is
-  // present in production and absent from the replay, which is the diff it is for.
-  const markers = readExpectedChanges().map((entry) => entry.marker);
-  const structural = explainWith(diffFingerprints(expected, actual), markers);
+
+  // **Only a marker that is valid, unexpired and unapplied explains anything.**
+  // Until 4 October 2026 this read the directory and used every file in it
+  // without validating one — so an applied marker went on absorbing changes to
+  // the objects it named, and the expiry rule bit only in CI. Codex found it
+  // twice; `liveExpectedChanges` is where the reasoning is written down.
+  const { live: markers, rejected } = liveExpectedChanges();
+
+  // A rejected marker is a finding, not a silent omission: a `high` row for one
+  // that is invalid or expired, so the night it goes stale is the night somebody
+  // is told, and a plain note for one that is simply retired.
+  const markerRows = rejected
+    .filter((entry) => entry.severity === "high")
+    .map((entry) => ({
+      kind: "marker.rejected",
+      object: entry.name,
+      severity: "high",
+      detail: entry.reason,
+    }));
+
+  const structural = [...explainWith(diffFingerprints(expected, actual), markers), ...markerRows];
   const rowChanges = counts ? compareCounts(readJson(arg("previous"), "last night's row counts") ?? null, counts) : [];
 
   const report = renderReport({
@@ -100,6 +116,7 @@ async function main() {
     expectedDigest: `${digest(expected)} (${migrations} migrations)`,
     actualDigest: digest(actual),
     markers,
+    retired: rejected.map((entry) => `${entry.name} (${entry.reason})`),
   });
 
   process.stdout.write(`${report}\n`);

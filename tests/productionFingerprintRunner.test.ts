@@ -159,3 +159,34 @@ describe("the runner, end to end", () => {
     expect(code).toBe(2);
   }, 120_000);
 });
+
+describe("the workflow cannot go quiet when the check stops checking", () => {
+  // Codex reported this twice, and it is the same defect as E21 in a second
+  // place: the notification was gated on `steps.compare.outcome == 'failure'`
+  // alone, so a missing secret or a failed production query — both of which
+  // fail the job *before* the comparison — sent nothing. GitHub applies an
+  // implicit `success()` to a step with no status function, so the alert was
+  // skipped in exactly the circumstances where the monitor had stopped
+  // monitoring.
+  const workflow = readFileSync(".github/workflows/production-fingerprint.yml", "utf8");
+
+  it("alerts on any earlier step's failure, not only the comparison's", () => {
+    const alert = workflow.slice(workflow.indexOf("- name: Tell someone"));
+    const condition = alert.slice(alert.indexOf("if:"), alert.indexOf("\n", alert.indexOf("if:")));
+    expect(condition, "the alert is gated on the comparison alone").toContain("failure()");
+    expect(condition, "a continue-on-error comparison still has to trigger it").toContain(
+      "steps.compare.outcome",
+    );
+  });
+
+  it("still says something when there is no report to quote", () => {
+    // An early failure means report.md does not exist, and an alert whose body
+    // is empty is an alert nobody can act on.
+    expect(workflow).toMatch(/if \[ -f report\.md \]/);
+    expect(workflow).toContain("NOT RUN");
+  });
+
+  it("refuses to run blind rather than passing when the secret is absent", () => {
+    expect(workflow).toContain("SUPABASE_DB_URL is not set");
+  });
+});

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { CHANGE_KINDS } from "./productionFingerprint.mjs";
 
 /**
  * A declared, committed record that a specific production change is expected.
@@ -37,11 +38,25 @@ import { join } from "node:path";
 const DIR = "supabase/expected-changes";
 const MIGRATIONS = "supabase/migrations";
 
-/** The fields Codex specified, plus the two dates the expiry rule needs. */
+/**
+ * The fields Codex specified, plus the two dates the expiry rule needs — and
+ * `expected_kinds`, added 4 October 2026.
+ *
+ * **Why `expected_kinds` is required rather than optional.** A marker naming
+ * only objects says *where* a change is expected and nothing about *what*, and
+ * on 4 October that let migration 047's marker — which grants privileges on six
+ * tables — absorb twelve unrelated column differences and a policy on one of
+ * them (W44), then two unrelated grant rows (W46). Both were narrowed in
+ * `explainWith`, but a declaration that cannot be wrong about the kind of change
+ * it predicts is the structural fix, and Codex asked for exactly that: *"Markers
+ * need to identify the expected change type, role and effect, rather than just
+ * an object name."*
+ */
 export const REQUIRED_FIELDS = [
   "migration",
   "sha256",
   "expected_objects",
+  "expected_kinds",
   "operator",
   "declared",
   "expires",
@@ -114,6 +129,17 @@ export function validateExpectedChange(marker, { now = new Date(), readFile, nam
   if (!Array.isArray(m.expected_objects) || m.expected_objects.length === 0) {
     problems.push(at("`expected_objects` must list at least one object, or the marker claims nothing checkable"));
   }
+  if (!Array.isArray(m.expected_kinds) || m.expected_kinds.length === 0) {
+    problems.push(at("`expected_kinds` must list at least one change kind, or the marker absorbs any kind of change to the objects it names"));
+  } else {
+    for (const kind of m.expected_kinds) {
+      if (!CHANGE_KINDS.includes(String(kind))) {
+        problems.push(
+          at(`lists expected kind \`${String(kind)}\`, which this comparison never produces — it would bind nothing. The kinds are: ${CHANGE_KINDS.join(", ")}`),
+        );
+      }
+    }
+  }
   if (!isIsoDate(m.declared)) problems.push(at("`declared` must be YYYY-MM-DD"));
   if (!isIsoDate(m.expires)) problems.push(at("`expires` must be YYYY-MM-DD"));
   if (isIsoDate(m.declared) && isIsoDate(m.expires) && m.expires <= m.declared) {
@@ -181,4 +207,59 @@ export function readExpectedChanges(dir = DIR) {
     .filter((name) => name.endsWith(".json"))
     .sort()
     .map((name) => ({ name, marker: JSON.parse(readFileSync(join(dir, name), "utf8")) }));
+}
+
+
+/**
+ * Splits the committed markers into the ones that explain a difference tonight
+ * and the ones that do not, with a reason for each rejection.
+ *
+ * **Why this exists, and why the runner cannot just read the directory.** Until
+ * 4 October 2026 the nightly run loaded every marker in the directory and used
+ * them all, without calling `validateExpectedChange` at all — found by Codex,
+ * twice, and it is the worst kind of hole in a control like this because it
+ * fails *open and silently*:
+ *
+ * - **An applied marker explained forever.** Once a migration is pasted, both
+ *   sides of the comparison contain it and there is nothing left to explain —
+ *   so a closed marker can only ever absorb something else. Months later it
+ *   would still be silencing changes to the objects it named.
+ * - **An expired marker kept working.** The expiry rule is the thing that makes
+ *   a forgotten migration escalate itself, and it was enforced only in the test
+ *   suite — which fails CI but says nothing to the nightly report.
+ * - **An invalid marker was trusted.** A digest that no longer matches the
+ *   migration means what would be pasted is not what was declared; that marker
+ *   should explain nothing.
+ *
+ * A rejected marker is **reported**, never dropped quietly: the runner turns
+ * each one into a `high` row, so a declaration going stale is itself a finding.
+ */
+/**
+ * @param {{ now?: Date, dir?: string, readFile?: (path: string) => string | null }} [options]
+ * @returns {{ live: Record<string, unknown>[], rejected: { name: string, reason: string, severity: "high" | "normal" }[] }}
+ */
+export function liveExpectedChanges({ now = new Date(), dir = DIR, readFile } = {}) {
+  const read = readFile ?? ((path) => (existsSync(path) ? readFileSync(path, "utf8") : null));
+  const live = [];
+  const rejected = [];
+
+  for (const { name, marker } of readExpectedChanges(dir)) {
+    const problems = validateExpectedChange(marker, { now, readFile: read, name });
+    if (problems.length > 0) {
+      rejected.push({ name, reason: problems.join("; "), severity: "high" });
+      continue;
+    }
+    const applied = /** @type {Record<string, unknown>} */ (marker).applied;
+    if (typeof applied === "string" && applied !== "") {
+      rejected.push({
+        name,
+        reason: `applied ${applied}, so it is retired — a pasted migration is in production and in the replay, and a marker that can no longer explain its own difference can only absorb somebody else's`,
+        severity: "normal",
+      });
+      continue;
+    }
+    live.push(/** @type {Record<string, unknown>} */ (marker));
+  }
+
+  return { live, rejected };
 }
