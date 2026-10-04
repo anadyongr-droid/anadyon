@@ -39,12 +39,31 @@ select jsonb_pretty(jsonb_build_object(
         -- Grants are the boundary §6 is about: "The grant is the boundary; the
         -- policy is the filter." A table reachable by `anon` is readable whatever
         -- its policies say, so this is the field the severity rules key on.
+        --
+        -- The grantee list is an allow-list, and that is a deliberate trade with
+        -- one obligation attached. Production carries a dozen platform roles
+        -- PGlite has never heard of -- `supabase_admin`, `supabase_etl_admin`,
+        -- `supabase_read_only_user`, `dashboard_user`, the `pg_*` built-ins --
+        -- and listing them would put a grant row for every one of them on every
+        -- table of every run, present on the production side and absent from the
+        -- replayed side by construction. That is the noise that gets a nightly
+        -- check muted.
+        --
+        -- **The obligation: a role this repository creates must be listed here,
+        -- or the migration that creates it is invisible to the check.** Read on
+        -- 4 October 2026 that `anadyon_audit` was not, which meant migration
+        -- 047's six grants -- the mechanism by which `pgaudit` is told which
+        -- objects to watch -- could be revoked in production and no run would
+        -- say so. `tests/productionFingerprint.test.ts` now reads every
+        -- `create role` in `supabase/migrations/` and fails naming any role
+        -- missing from this list.
         select jsonb_object_agg(g.grantee, g.privs)
           from (
             select grantee, jsonb_agg(distinct privilege_type order by privilege_type) as privs
               from information_schema.role_table_grants
              where table_schema = 'public' and table_name = c.relname
-               and grantee in ('anon', 'authenticated', 'service_role', 'postgres', 'PUBLIC')
+               and grantee in ('anon', 'authenticated', 'service_role', 'postgres', 'PUBLIC',
+                               'anadyon_audit')
              group by grantee
           ) g
       ), '{}'::jsonb),

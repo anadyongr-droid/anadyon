@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   DELIBERATELY_PUBLIC_TABLES,
@@ -249,6 +249,38 @@ describe("a declared change is absorbed; an exposure never is", () => {
     expect(explained[0].severity).toBe("high");
   });
 
+  it("does NOT absorb a grant to a role the marker never named", () => {
+    // The residual half of the 4 October failure, found while recording the
+    // first one. A grant difference is reported against the *table*, so a
+    // marker naming the table absorbed a grant to any role on it. Migration
+    // 047's marker names six tables because it grants to `anadyon_audit`, and
+    // it absorbed two `service_role` rows on `booking_email_deliveries` and
+    // `booking_email_events` — the Data API residue migration 046 closes, not
+    // anything 047 does. Only `normal` severity was masked, so nothing was
+    // lost; the mechanism was wrong all the same.
+    const actual = clone(base);
+    actual.tables.reservations.grants.service_role = ["SELECT", "DELETE"];
+    const explained = explainWith(diffFingerprints(base, actual), [
+      { expected_objects: ["reservations", "anadyon_audit"] },
+    ]);
+    expect(explained[0]).toMatchObject({ kind: "grant", role: "service_role" });
+    expect(explained[0].severity, "a marker naming the table absorbed a grant to another role").toBe(
+      "normal",
+    );
+    expect(explained[0].explained_by).toBeUndefined();
+  });
+
+  it("absorbs a grant when the marker names both the table and the grantee", () => {
+    // Which is what a marker for a grant migration should say: who was granted
+    // what, not merely where. 047's own marker already names the role.
+    const actual = clone(base);
+    actual.tables.reservations.grants.anadyon_audit = ["SELECT"];
+    const explained = explainWith(diffFingerprints(base, actual), [
+      { expected_objects: ["reservations", "anadyon_audit"] },
+    ]);
+    expect(explained[0]).toMatchObject({ kind: "grant", role: "anadyon_audit", severity: "explained" });
+  });
+
   it("NEVER absorbs a critical exposure, whatever was declared", () => {
     // A marker records what somebody intended. `critical` records what is true.
     const actual = clone(base);
@@ -398,5 +430,47 @@ describe("the SQL files cannot quietly stop being read-only", () => {
         expect(new RegExp(`\\b${verb}\\b`).test(sql), `${path} contains \`${verb}\``).toBe(false);
       }
     }
+  });
+});
+
+describe("a role this repository creates is visible to the check", () => {
+  it("lists every role a migration creates in the fingerprint's grantee filter", () => {
+    // **Why this test exists.** The grantee filter is an allow-list, because
+    // naming production's dozen platform roles would put a grant row on every
+    // table of every run. The cost of an allow-list is that it rots silently:
+    // read on 4 October 2026, `anadyon_audit` was missing from it, so migration
+    // 047's six grants — the mechanism that tells `pgaudit` which objects to
+    // watch — were invisible on both sides of the comparison. Revoking them in
+    // production would have disarmed the audit and no run would have said so.
+    //
+    // A missing role does not announce itself in a report: the rows are simply
+    // absent, and absence is what the whole check is built to notice.
+    const created = new Set<string>();
+    for (const file of readdirSync("supabase/migrations").filter((name) => name.endsWith(".sql"))) {
+      const sql = readFileSync(`supabase/migrations/${file}`, "utf8")
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("--"))
+        .join("\n");
+      for (const match of sql.matchAll(/create\s+role\s+"?([a-z_][a-z0-9_]*)"?/gi)) {
+        created.add(match[1].toLowerCase());
+      }
+    }
+    expect(created.size, "no migration creates a role, so this test asserts nothing").toBeGreaterThan(0);
+
+    const fingerprint = readFileSync("scripts/sql/production-fingerprint.sql", "utf8")
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("--"))
+      .join("\n");
+    const filter = /grantee in \(([^)]*)\)/.exec(fingerprint);
+    expect(filter, "the grantee filter has moved — this test is reading the wrong place").not.toBeNull();
+    const listed = new Set(
+      [...(filter?.[1] ?? "").matchAll(/'([^']+)'/g)].map((match) => match[1].toLowerCase()),
+    );
+
+    const missing = [...created].filter((role) => !listed.has(role));
+    expect(
+      missing,
+      `created by a migration but not read by the fingerprint: ${missing.join(", ")}`,
+    ).toEqual([]);
   });
 });
