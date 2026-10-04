@@ -230,6 +230,52 @@ Cosmetic, and recorded rather than repaired.
 It does mean a `definition` difference is worth more than `normal` once comments
 are normalised out of the comparison — W52.
 
+### The diagnostic was run, and nothing is in the way — 4 October 2026
+
+Run against production by Tasos from
+`scripts/sql/quotes-drift-diagnostic.sql`. **Zero on every question**, across
+**19 rows**:
+
+| Question | Answer |
+|---|---|
+| `pickup_date` / `dropoff_date` that will not cast to `date` | 0 / 0 |
+| `pickup_date` / `dropoff_date` null | 0 / 0 |
+| null `email`, `first_name`, `last_name`, `vehicle_type` | 0, 0, 0, 0 |
+| money too large for `numeric(10,2)` | 0 |
+| money carrying more than two decimal places | 0 |
+| rows in `public.quotes` | 19 |
+
+So every statement in the remedy is safe on the data as it stands, and the
+remedy is a plain tightening with no row-level decision in it. **The last line
+matters as much as the zeros:** the table has nineteen rows, so this is a fast
+alter on a small table rather than a rewrite anybody has to schedule.
+
+### The remedy — migration 048, written and awaiting a paste
+
+`20261004120000_quotes_match_the_baseline.sql`, with its byte-identical copy at
+`paste/048_quotes_match_the_baseline_paste.sql`. It casts the two dates to
+`date` and makes them `not null`; makes the four required columns `not null`;
+gives the six money columns their `numeric(10,2)`; creates the index the
+baseline has always declared; and declares the dashboard-created
+`Service role only` policy, created only when absent so production keeps the
+policy it already has.
+
+**No expected-change marker is needed, and the reason shows what a marker is
+for.** A marker covers the window in which the *replay* carries something
+production does not — a declared migration waiting to be pasted. Here the replay
+has carried all of it since August, and this migration brings **production** up
+to the replay. The one line that adds anything to the replay is the policy,
+which production already has.
+
+Verified before handing it over: the replay applies all **47** migrations in
+order, and the replayed `quotes` now reads `pickup_date date not null`,
+`email text not null`, `total numeric(10,2)`, the index present, and the policy
+as `{"check":null,"command":"*","permissive":true,"roles":[],"using":"false"}` —
+**byte for byte what production reported**. So the policy row leaves the nightly
+diff when this merges, and the remaining thirteen leave it when the paste runs.
+
+**It is not applied. Applying it is Tasos's**, as every migration is.
+
 ### What is left, and who owns it
 - **Whether any difference is worth a migration** then follows per column, with
   `pickup_date` the first candidate. Altering a column's type on a live table
