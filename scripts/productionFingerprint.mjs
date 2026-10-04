@@ -244,14 +244,28 @@ export function classify(change) {
  * change is never absorbed.** An anonymous grant is reported whatever anyone
  * declared, because the marker says what someone *intended* and `critical` says
  * what is *true*.
+ *
+ * **A grant needs both halves named — the table and the grantee.** Tightened
+ * 4 October 2026, from the same run that produced W44 and for the same reason. A
+ * grant difference is reported against the table, so a marker naming the table
+ * absorbed a grant to *any* role on it: migration 047's marker, which names six
+ * tables because it grants to `anadyon_audit`, absorbed two `service_role` grant
+ * rows on `booking_email_deliveries` and `booking_email_events` that it does not
+ * cause — those belong to the Data API residue migration 046 closes. The
+ * severity it masked was only `normal`, so nothing was lost; the mechanism was
+ * wrong all the same. A role name is declarable — 047's marker already names
+ * `anadyon_audit` — so requiring it costs a marker author nothing and makes the
+ * declaration say *who* was granted what, not merely *where*.
  */
 export function explainWith(changes, markers = []) {
   const names = markers.flatMap((marker) =>
     (marker.expected_objects ?? []).map((object) => String(object).toLowerCase()),
   );
+  const declared = new Set(names);
   return changes.map((change) => {
     if (change.severity === "critical") return change;
     const object = String(change.object ?? "").toLowerCase();
+    if (change.kind === "grant" && !declared.has(String(change.role ?? "").toLowerCase())) return change;
     const hit = names.find((name) => object === name || (BYPRODUCT_KINDS.has(change.kind) && object.startsWith(`${name}.`)));
     return hit ? { ...change, severity: "explained", explained_by: hit } : change;
   });

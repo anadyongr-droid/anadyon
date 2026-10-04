@@ -1,6 +1,6 @@
 # Staging and observability runbook
 
-**Last verified:** 3 October 2026 (evening), Claude — **the production role inventory is now read from production** and recorded at the end of section 17: five roles bypass RLS, `service_role` cannot log in, and `supabase_read_only_user` already exists, which bears on W29. The `pgaudit` migration stays unwritten because the deciding fact — which role the dashboard editors run as — is still unanswered. Earlier the same evening: **section 17 added: the nightly production fingerprint, which is the first control here that can see a change made in a logged-in dashboard.** Tested against a real Postgres with all 45 migrations replayed, silent when production matches, and recorded as **never yet run against production** — the first scheduled night is the first real run. Also section 16 revised after Codex reviewed these controls: two paste-ready Codex files did not load at all, the gate failed open on Codex when it could not parse an event, and two bypasses are closed. The heading is weaker and the mechanisms are unchanged. Earlier the same day: section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
+**Last verified:** 4 October 2026, Claude — **section 17 is rewritten where it had gone stale: the fingerprint has now run against production three times and every one of W42 to W46 came from running it, none from reviewing it.** The "never yet run" paragraph is replaced by what the three runs found, and "why the `pgaudit` migration is still unwritten" by the migration itself — 047 audits by object rather than by role, which makes the unanswerable dashboard-role question irrelevant; it is written, not applied, and W47 is the gap that survives applying it. Earlier: 3 October 2026 (evening), Claude — **the production role inventory is now read from production** and recorded at the end of section 17: five roles bypass RLS, `service_role` cannot log in, and `supabase_read_only_user` already exists, which bears on W29. The `pgaudit` migration stays unwritten because the deciding fact — which role the dashboard editors run as — is still unanswered. Earlier the same evening: **section 17 added: the nightly production fingerprint, which is the first control here that can see a change made in a logged-in dashboard.** Tested against a real Postgres with all 45 migrations replayed, silent when production matches, and recorded as **never yet run against production** — the first scheduled night is the first real run. Also section 16 revised after Codex reviewed these controls: two paste-ready Codex files did not load at all, the gate failed open on Codex when it could not parse an event, and two bypasses are closed. The heading is weaker and the mechanisms are unchanged. Earlier the same day: section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
 
 **Status:** the isolated Supabase project exists and was reset twice from
 current `main` on 19 September 2026. Both runs replayed all 44 migrations and
@@ -996,12 +996,38 @@ cannot run; a seeded customer value does not reach the output. Four load-bearing
 rules were neutralised one at a time and nine tests failed, then passed again
 restored.
 
-**Not run, and recorded as not run (§8):** the query has never been run against
-production. The first real run is the first scheduled night, 00:10 UTC, and its
-report is the artifact `production-fingerprint`. Until then this section
-describes a tested mechanism against an untested database — the two SQL files
-work on Postgres 17 under PGlite, and Supabase's catalogs may differ in ways
-only a run will show.
+### What three real runs found — 3 and 4 October 2026
+
+The paragraph that stood here said the query had never been run against
+production and that the first scheduled night would be the first real run. It
+has now run three times, and **every finding below came from running it, not one
+from reviewing it.** That is the part worth keeping: this mechanism was designed
+with Codex, reviewed by Fable twice, and carried 29 tests before the first run.
+
+| Run | How | What it found |
+|---|---|---|
+| 1 — 3 Oct 23:34 | `workflow_dispatch` | **W42.** Production's `quotes` differs from `001_baseline.sql` in twelve columns, all looser; `quote_rate_limits_blocked_idx` is missing; one policy is undeclared. The drift the control was built to find, found on first use. |
+| 2 — 4 Oct 05:40:42 | `schedule` (00:10 cron) | **W43** — the cron fires, five and a half hours late, so a heartbeat must look for *a* run in a day and never for a run at a time. And **W44** — every one of W42's rows came back annotated `declared as quotes`, absorbed by migration 047's marker. A declaration about grants was explaining column differences, by a migration that has not been applied. |
+| 3 — 4 Oct 07:26 | `workflow_dispatch`, after the fix | `high (14)`, `normal (10)`, `explained (2)`, exit 2 — the counts predicted before it was triggered. No masked rows. Reading *which two* rows remained `explained` produced **W45** and **W46**. |
+
+**W45** — the grantee allow-list in `production-fingerprint.sql` did not include
+`anadyon_audit`, so migration 047's six grants were invisible on both sides. Once
+047 is applied, revoking them would disarm `pgaudit` and no run would say a word.
+The allow-list stays — naming production's platform roles would put a grant row
+for each on every table of every run, which is the noise that gets a check muted
+— and the rot is caught instead: the suite reads every `create role` in
+`supabase/migrations/` and fails naming a role the SQL does not read.
+
+**W46** — a grant difference is reported against the table, so 047's marker
+absorbed two unrelated `service_role` grant rows on the tables it names. Only
+`normal` severity was masked. `explainWith` now needs the marker to name the
+table **and** the grantee.
+
+**W47 — still open, and the one this cannot close.** The fingerprint reads no
+settings, so `pgaudit.role` being unset or `pgaudit.log` cleared stays invisible
+— exactly what a project reset or a restore would do, leaving the extension and
+the grants in place. It cannot be built until 047 is applied, because PGlite has
+no such setting either and the expected side would read empty every night.
 
 ### The production role inventory — read 3 October 2026
 
@@ -1043,24 +1069,44 @@ one for *staging*. Unverified: whether its password is retrievable, whether it
 is the role behind the dashboard's read-only mode, and whether Supabase
 documents it as supported for external use. **Checked before use, not assumed.**
 
-### Why the `pgaudit` migration is still unwritten
+### The `pgaudit` migration, written 3 October — by going around the question
 
-The deciding fact is **not** in the table above. `pgaudit` is configured per
-role, and auditing the wrong role produces a log that is empty on exactly the
-activity it was installed for — present, and inert, which is the failure this
-project has hit four times this week.
+This subsection previously explained why the migration was deliberately absent:
+`pgaudit` is configured **per role**, auditing the wrong role produces a log that
+is empty on exactly the activity it was installed for, and the deciding fact —
+which role the dashboard's editors run as — could not be established. Three
+attempts failed and are worth keeping, because each looks like it should work:
+the Table Editor has **no query box**; `pg_stat_activity` showed no new
+connection, because a dashboard read is a short-lived connection already closed
+by the time the next query runs; and the Postgres logs returned nothing, because
+Supabase logs neither connections nor statements by default. All that is proven
+is that the SQL editor runs as `postgres`, tagged
+`supabase/dashboard-query-editor`.
 
-The roles list narrows it to two candidates with different costs:
+**`pgaudit` also audits per object, and that makes the question irrelevant.**
+Migration `20261003233000_pgaudit_customer_object_audit.sql` names the tables
+instead of the roles: a `nologin noinherit` role `anadyon_audit` is granted on
+the six tables worth watching, `pgaudit.role` is pointed at it, and any role
+touching them is logged — including one nobody identified. Reads are audited on
+`customers`, `reservations` and `quotes`; writes only on
+`booking_email_deliveries`, `booking_email_events` and `emails`, because the
+admin mailbox view and the delivery poll read those constantly and read-auditing
+them would produce a log nobody can read, which is how auditing gets switched
+off.
 
-| If the dashboard runs as… | Audit | Cost |
-|---|---|---|
-| `postgres` (or `supabase_admin`) | those two roles | **low** — a console is used by people, so the log is small and every line is interesting |
-| `authenticator` → `service_role` (the table editor goes through PostgREST) | `authenticator` as well | **high** — that logs every application query, which is the whole of the site's traffic |
+The grants expose nothing: the role cannot log in and has no members, so its
+privileges are never exercised — they are the documented mechanism for telling
+`pgaudit` which objects to watch. §6 holds because that boundary is unreachable.
 
-So the two editors may well need different answers, and auditing both roles
-"to be safe" is how a log becomes unreadable and then switched off. The first
-query of `scripts/sql/who-runs-the-dashboard.sql` answers it in one line, run
-once in the SQL editor and once from the table editor; the third query says
-whether anything is already configured, so a migration does not overwrite it.
+**Two statements may be refused and each is wrapped.** `pgaudit.log` and
+`pgaudit.role` are superuser-set, and `postgres` on Supabase is not a superuser
+(`rolsuper = false`, read from production 3 October). If they are refused, the
+extension, the role and the grants still apply and only the switch is missing —
+enable `pgaudit` from **Dashboard → Database → Extensions** and re-run the file.
+**The migration is not done until the verification query in its header returns a
+row**; if it returns nothing, auditing is off whatever the file printed.
 
-**Until then the migration is deliberately absent rather than guessed.** W31.
+**Not applied.** Awaiting Tasos, with the paste copy
+`supabase/migrations/paste/047_pgaudit_customer_object_audit_paste.sql`; W31, and
+the expected-change marker in force expires 17 October. W47 is the gap that
+remains even after it is applied.

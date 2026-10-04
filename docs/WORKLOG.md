@@ -15,6 +15,52 @@ wrong place.
 
 ---
 
+## 4 October 2026 — Claude (implementer)
+
+**Last verified:** 4 October 2026, Claude.
+
+**The day the nightly check was used for the first time, and found four defects
+in itself.** Detail in
+[`worklog/2026-10-04-claude.md`](worklog/2026-10-04-claude.md); the mechanism and
+the three runs are in section 17 of
+[`STAGING-AND-OBSERVABILITY-RUNBOOK.md`](STAGING-AND-OBSERVABILITY-RUNBOOK.md);
+every item is on [`OPEN-ITEMS.md`](OPEN-ITEMS.md) as W42–W47.
+
+- **W43 answered.** The 00:10 cron does fire — five and a half hours late, at
+  05:40:42 UTC. A heartbeat must therefore look for *a* run in a day, never for a
+  run at a time, and the lag is itself why a heartbeat is needed. Still to build.
+- **W44, the serious one.** Migration 047's expected-change marker absorbed all
+  of W42's unrelated `quotes` drift, because `explainWith` matched children by
+  prefix and by substring. A declaration about **grants** was explaining twelve
+  **column** differences, by a migration that has not been applied. Fixed in
+  PR #206 and confirmed by a third run — `high (14)`, `normal (10)`,
+  `explained (2)`, the counts predicted before it was triggered.
+- **W45 and W46**, both found by writing down *which* two rows the fixed marker
+  still absorbed. The grantee allow-list in the fingerprint SQL did not include
+  `anadyon_audit`, so migration 047's six grants were invisible on both sides —
+  the marker in force was declaring a change the check could not see, and once
+  047 is applied a revoke would disarm `pgaudit` silently. And a grant difference
+  is reported against the table, so the marker absorbed `service_role` rows it
+  does not cause. Both fixed, both watched failing first.
+- **W47 opened**, the gap that survives all of it: the fingerprint reads no
+  settings, so `pgaudit` being switched **off** stays invisible. Cannot be built
+  until 047 is applied, because PGlite has no such setting either.
+
+**The reusable finding, and it is not any of the fixes.** This mechanism was
+designed with Codex, reviewed by Fable twice, and carried 29 tests before its
+first real run. Four defects, found by running it three times and reading the
+output carefully. Three readers and a test suite did not substitute for using it
+once.
+
+**Documents brought level with reality:** section 17 of the runbook — the
+“never yet run against production” paragraph and “why the `pgaudit` migration is
+still unwritten” were both stale and are replaced by what happened.
+
+**Waiting on Tasos:** migration 047 and its paste copy (W31); the marker in force
+expires **17 October**, after which its six grant rows report `high`.
+
+---
+
 ## 3 October 2026 — Claude (implementer), with Codex and Fable as reviewers
 
 **Last verified:** 4 October 2026 (00:20 UTC), Claude.
