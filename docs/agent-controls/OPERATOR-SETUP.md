@@ -51,14 +51,29 @@ may write, and the rule protecting it is enforced by the gate itself. Fable's
 review called that circularity the thing that dissolves every other boundary,
 and it is right.
 
-In a terminal, from a **current** checkout (see step 7 — not the stale Desktop
-one):
+In a terminal, from your **live** checkout, which is `~/Desktop/anadyon`:
 
 ```bash
-cd ~/Documents/GitHub/anadyon
+cd ~/Desktop/anadyon
 git fetch origin main && git checkout main && git pull
 sudo bash scripts/install-managed-gate.sh
 ```
+
+**Corrected 4 October 2026, and the previous version was dangerous.** This
+block said `cd ~/Documents/GitHub/anadyon` and called the Desktop copy "the
+stale Desktop one". It is the other way round: `~/Desktop/anadyon` is the live
+checkout — `pwd` on the Mac, the fast-forward on 3 October and the gate install
+all happened there — and the stale copy was the Documents one, which step 7 has
+since moved to `~/Desktop/anadyon-STALE-114`. Codex's second review confirmed
+the Documents path no longer exists. A file that names the wrong checkout is
+worse than one that names none, because this is the file whose commands are
+pasted without reading.
+
+**Run it again whenever the gate changes.** The installed copy is a copy: it does
+not follow `main`. Codex read the root-owned gate on 4 October and found it one
+change behind — missing the `gate` field that says which copy of the gate wrote
+a decision-log line. The blocking logic was identical, so nothing was unprotected,
+but the rule is: a gate change merged is a gate change to reinstall.
 
 **Two rules for every command in this file, both learned the hard way on
 3 October.**
@@ -254,21 +269,33 @@ enterprise policy documentation, read 3 October.
 
 ## 7 · One checkout per machine — E30
 
-`~/Documents/GitHub/anadyon` was **85 pull requests stale** on 3 October: no
-production gate, no deny rules, and governance files predating two of the
-project's own principles. It was also the only path an agent trusted. Fable's
-search adds that the only local copy it could find is a frozen one on the
-Desktop.
+The checkout that was **85 pull requests stale** on 3 October — no production
+gate, no deny rules, governance files predating two of the project's own
+principles, and the only path `~/.codex/config.toml` marked trusted — was
+`~/Documents/GitHub/anadyon`. It has been moved to `~/Desktop/anadyon-STALE-114`
+and its trust entry removed. Codex's second review, 4 October, reports the
+Documents path no longer exists, which agrees.
+
+**`~/Desktop/anadyon` is the live checkout. Do not delete it.** An earlier
+version of this step said to delete or rename "any other `anadyon` folder you
+are not using — including `~/Desktop/anadyon` if it is the frozen copy", which
+had the two the wrong way round and could have removed the only current checkout
+on the machine. The frozen copy is the one with `STALE-114` in its name.
 
 ```bash
-cd ~/Documents/GitHub/anadyon && git fetch origin main && git status -sb
+cd ~/Desktop/anadyon && git fetch origin main && git status -sb
 ```
 
-If it is behind, bring it current (`git checkout main && git pull`), and delete
-or clearly rename any other `anadyon` folder you are not using — including
-`~/Desktop/anadyon` if it is the frozen copy.
+That should show `main` level with `origin/main`, or your working branch. Codex
+found it three commits behind on 4 October, which is also why step 2 asks for a
+`git pull` before reinstalling the gate.
 
-**Send me:** the `git status -sb` line.
+What is left on this item is one decision: whether `~/Desktop/anadyon-STALE-114`
+is deleted or kept. Nothing has read it since 3 October, so **whether anything
+in it is unpushed is unverified** — worth one `git status` inside it before
+deleting.
+
+**Send me:** the `git status -sb` line from the live checkout.
 
 **Rehearsed or not:** read-only git commands; the staleness was measured on
 3 October.

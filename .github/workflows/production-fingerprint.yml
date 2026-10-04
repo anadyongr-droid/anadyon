@@ -160,15 +160,37 @@ jobs:
       # reader to skim, and then the one that matters is skimmed too — the same
       # reasoning as the backup's alert, and the same script, which checks
       # Telegram's answer rather than assuming the message arrived.
+      #
+      # **Two conditions, not one, and the second is the one that was missing.**
+      # Until 4 October 2026 this read `steps.compare.outcome == 'failure'`
+      # alone, so the only failure anybody was told about was a failure of the
+      # comparison itself. A missing `SUPABASE_DB_URL`, a production query that
+      # errored, an `npm ci` that broke — each of those fails the job *before*
+      # the comparison runs, and GitHub applies an implicit `success()` to a step
+      # with no status function, so this step was skipped and nothing was sent.
+      # **The check went quiet in exactly the circumstances where it had stopped
+      # checking**, which is the defect E21 is on the open items list for, in a
+      # second place. Found by Codex, twice.
+      #
+      # `failure()` covers every earlier step; `steps.compare.outcome` is still
+      # needed because that step is `continue-on-error`, so its failure leaves
+      # the job's own status green.
       - name: Tell someone
-        if: steps.compare.outcome == 'failure'
+        if: ${{ failure() || steps.compare.outcome == 'failure' }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          HEADLINE=$(sed -n '3p' report.md 2>/dev/null || echo "the nightly production check could not run")
+          # No report means the job failed before the comparison — so the
+          # headline says that rather than leaving an empty message, and the run
+          # URL is what the reader needs either way.
+          if [ -f report.md ]; then
+            HEADLINE=$(sed -n '3p' report.md 2>/dev/null || echo "**the nightly production check could not run**")
+          else
+            HEADLINE="**NOT RUN — the nightly production check failed before it compared anything**"
+          fi
           MESSAGE="Production fingerprint: ${HEADLINE}
           ${RUN_URL}"
           node scripts/send-telegram-alert.mjs "$MESSAGE"

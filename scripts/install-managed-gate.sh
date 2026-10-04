@@ -14,9 +14,13 @@
 #   1. copies the gate and the library it imports to a root-owned directory,
 #      keeping their relative layout, because the gate imports
 #      ../../scripts/deployment-boundary-lib.mjs and a flat copy breaks it;
-#   2. writes /Library/Application Support/ClaudeCode/managed-settings.json from
-#      the reviewed template in docs/agent-controls/, pointing the PreToolUse
-#      hook at the ROOT-OWNED copy;
+#   2. MERGES the reviewed template in docs/agent-controls/ into
+#      /Library/Application Support/ClaudeCode/managed-settings.json, pointing
+#      the PreToolUse hook at the ROOT-OWNED copy. It used to overwrite that
+#      file, which Codex reported on 4 October: that removes any other managed
+#      control on the machine, and a backup nobody knows was taken is not a
+#      mitigation. scripts/merge-managed-settings.mjs holds the merge rules and
+#      is tested;
 #   3. fires one event through the installed copy to prove it denies production,
 #      and one to prove it leaves staging alone.
 #
@@ -43,6 +47,7 @@ if [ "$(id -u)" != "0" ]; then
 fi
 for f in "$REPO/.claude/hooks/production-gate.mjs" \
          "$REPO/scripts/deployment-boundary-lib.mjs" \
+         "$REPO/scripts/merge-managed-settings.mjs" \
          "$REPO/docs/agent-controls/managed-settings-template.json"; do
   [ -f "$f" ] || { echo "missing $f — run this from a current checkout" >&2; exit 1; }
 done
@@ -54,15 +59,23 @@ install -o root -g wheel -m 0644 "$REPO/scripts/deployment-boundary-lib.mjs" "$G
 
 echo "==> writing the managed policy to $MANAGED_DIR"
 install -d -o root -g wheel -m 0755 "$MANAGED_DIR"
+EXISTING="-"
 if [ -f "$MANAGED_DIR/managed-settings.json" ]; then
   cp -p "$MANAGED_DIR/managed-settings.json" "$MANAGED_DIR/managed-settings.json.before-$(date -u +%Y%m%dT%H%M%SZ)"
-  echo "    an existing policy was found and copied aside, not overwritten blind"
+  EXISTING="$MANAGED_DIR/managed-settings.json"
+  echo "    an existing policy was found; it is copied aside AND merged into, not replaced"
 fi
-sed "s|GATE_ROOT_PLACEHOLDER|$GATE_ROOT|g" \
+
+# Written to a temporary file first: a failed merge must leave the machine's
+# existing policy alone rather than truncating it, and `>` would truncate before
+# node ran.
+MERGED="$(mktemp)"
+node "$REPO/scripts/merge-managed-settings.mjs" \
+  "$EXISTING" \
   "$REPO/docs/agent-controls/managed-settings-template.json" \
-  > "$MANAGED_DIR/managed-settings.json"
-chown root:wheel "$MANAGED_DIR/managed-settings.json"
-chmod 0644 "$MANAGED_DIR/managed-settings.json"
+  "$GATE_ROOT" > "$MERGED"
+install -o root -g wheel -m 0644 "$MERGED" "$MANAGED_DIR/managed-settings.json"
+rm -f "$MERGED"
 
 echo "==> proving the installed copy works, rather than assuming it"
 PROD=$(node -e 'import("'"$GATE_ROOT"'/scripts/deployment-boundary-lib.mjs").then(m=>console.log(m.PRODUCTION_PROJECT_REF))')

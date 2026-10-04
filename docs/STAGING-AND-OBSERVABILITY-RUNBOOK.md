@@ -1006,7 +1006,7 @@ with Codex, reviewed by Fable twice, and carried 29 tests before the first run.
 
 | Run | How | What it found |
 |---|---|---|
-| 1 — 3 Oct 23:34 | `workflow_dispatch` | **W42.** Production's `quotes` differs from `001_baseline.sql` in twelve columns, all looser; `quote_rate_limits_blocked_idx` is missing; one policy is undeclared. The drift the control was built to find, found on first use. |
+| 1 — 3 Oct 23:34 | `workflow_dispatch` | **W42.** Production's `quotes` differs from `001_baseline.sql` in twelve columns, all looser; `quote_rate_limits_blocked_idx` is missing; one policy is undeclared. The drift the control was built to find, found on first use. **Answered 4 October:** the baseline was never run against production — the evidence and the per-column decisions are in [`MIGRATION-REPLAY-RESULT-2026-08-30.md`](MIGRATION-REPLAY-RESULT-2026-08-30.md). The undeclared policy carries Supabase's dashboard naming and exists nowhere in `supabase/`: the first object found to have been made through the dashboard, which is what this check is for. |
 | 2 — 4 Oct 05:40:42 | `schedule` (00:10 cron) | **W43** — the cron fires, five and a half hours late, so a heartbeat must look for *a* run in a day and never for a run at a time. And **W44** — every one of W42's rows came back annotated `declared as quotes`, absorbed by migration 047's marker. A declaration about grants was explaining column differences, by a migration that has not been applied. |
 | 3 — 4 Oct 07:26 | `workflow_dispatch`, after the fix | `high (14)`, `normal (10)`, `explained (2)`, exit 2 — the counts predicted before it was triggered. No masked rows. Reading *which two* rows remained `explained` produced **W45** and **W46**. |
 
@@ -1022,6 +1022,19 @@ for each on every table of every run, which is the noise that gets a check muted
 absorbed two unrelated `service_role` grant rows on the tables it names. Only
 `normal` severity was masked. `explainWith` now needs the marker to name the
 table **and** the grantee.
+
+**Then Codex's second review, the same afternoon, found six more** — all
+upheld, all fixed, and all of them a *missing* answer rather than a wrong one: a
+grant made by a role we are not a member of was invisible (and the check connects
+as `postgres`, which on Supabase is not a superuser, so a dashboard grant by
+`supabase_admin` would not have appeared); an object present on both sides was
+never compared, so an existing function flipped to `security definer` produced
+nothing; no marker was validated on the night, so an applied one could absorb
+somebody else's change forever; markers named objects and not kinds, which is
+W44's root rather than its symptom; an `authenticated` grant was reported
+`normal`; and the Telegram alert fired only on the comparison step's failure, so
+the check went silent in exactly the circumstances where it had stopped checking.
+W48 has each one, its reproduction and its fix.
 
 **W47 — still open, and the one this cannot close.** The fingerprint reads no
 settings, so `pgaudit.role` being unset or `pgaudit.log` cleared stays invisible

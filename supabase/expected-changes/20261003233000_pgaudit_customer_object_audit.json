@@ -11,6 +11,9 @@
     "booking_email_events",
     "emails"
   ],
+  "expected_kinds": [
+    "grant"
+  ],
   "operator": "Tasos",
   "declared": "2026-10-03",
   "expires": "2026-10-17",

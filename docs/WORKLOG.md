@@ -56,8 +56,60 @@ once.
 “never yet run against production” paragraph and “why the `pgaudit` migration is
 still unwritten” were both stale and are replaced by what happened.
 
+### Codex's second review: six findings, all upheld, one corrected upward
+
+Relayed by Tasos with authorisation to fix and test. Detail in the worklog; the
+mechanism is in runbook section 17 and every item is W48 on
+[`OPEN-ITEMS.md`](OPEN-ITEMS.md).
+
+- **A grant made by a role we are not a member of was invisible.** Reported as
+  "PUBLIC grants are invisible"; the real rule is that both candidate
+  `information_schema` views are scoped to the connected role, so the suggested
+  replacement would not have fixed it — and the check connects as `postgres`,
+  which on Supabase is not a superuser. A dashboard grant by `supabase_admin`
+  would not have appeared. Grants now come from the table's ACL.
+- **An object present on both sides was never compared.** An existing function
+  flipped to `security definer` produced no finding at all. Views, functions,
+  indexes and triggers now carry definitions.
+- **No marker was validated on the night** — the digest, the expiry and `applied`
+  bound CI and nothing else, so an applied marker could absorb somebody else's
+  change forever.
+- **Markers named objects, not kinds** — W44 and W46's root. `expected_kinds` is
+  now required.
+- **An `authenticated` grant was reported as `normal`.** Now `critical`.
+- **The alert fired only on the comparison's failure**, so the check went silent
+  in exactly the circumstances where it had stopped checking. E21's defect in a
+  second place.
+
+Plus two operational ones: the installer replaced the machine's whole managed
+policy instead of merging it, and `OPERATOR-SETUP.md` had the two checkouts the
+wrong way round — pointing, in the file whose commands get pasted without
+reading, at deleting the only live checkout on the Mac.
+
+### W42 answered, and the answer was in a migration header all along
+
+`001_baseline.sql` **was never run against production**; production's `quotes`
+was built by hand. `supabase/schema.sql` creates no `quotes` table, the root
+`supabase-migration.sql` only `ALTER`s one, and
+`010_close_schema_drift.sql` has said so since 15 August: *"The baseline declares
+columns the live database never received."* Why 010 did not finish the job is
+mechanical and is the reusable part — `ADD COLUMN IF NOT EXISTS` converges on
+presence and never on shape, so every type, `not null` and index difference
+survived it invisibly. Third occurrence in this project. Written up in
+[`MIGRATION-REPLAY-RESULT-2026-08-30.md`](MIGRATION-REPLAY-RESULT-2026-08-30.md),
+which already owned the subject — §9 for the third time this week.
+
+The undeclared `Service role only` policy on `quotes` exists nowhere in
+`supabase/` and carries Supabase's dashboard naming: **made through the
+dashboard, outside every control this project has.** It blocks rather than
+exposes, so it is not an incident. It is proof that what the fingerprint was
+built to detect does happen.
+
 **Waiting on Tasos:** migration 047 and its paste copy (W31); the marker in force
-expires **17 October**, after which its six grant rows report `high`.
+expires **17 October**, after which its six grant rows report `high`. Installing
+the corrected Codex hooks and network deny, which Codex confirms are still absent
+from the live machine and now puts ahead of everything else (E27). Reinstalling
+the root-owned gate, which is one change behind `main` (W50).
 
 ---
 
