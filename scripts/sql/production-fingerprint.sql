@@ -24,6 +24,20 @@
 -- they cannot be diffed against a baseline derived from migrations; they are
 -- compared night-to-night instead, by `compareCounts` in
 -- `scripts/productionFingerprint.mjs`.
+-- **Objects an extension owns are the extension's, not ours.** Added 4 October
+-- 2026, from the first run after `pgaudit` was installed: it created
+-- `pgaudit_ddl_command_end()` and `pgaudit_sql_drop()` in `public`, and the
+-- comparison reported two `high` rows for functions nobody added. PGlite has no
+-- `pgaudit`, so those two would have been `high` **every night for ever** -- the
+-- permanent noise that gets a nightly check muted, introduced by the very
+-- migration that was meant to strengthen it.
+--
+-- `pg_depend` with `deptype = 'e'` is the authoritative test: it is what
+-- `create extension` writes and what `drop extension` follows. The extension
+-- *list* is already out of scope for the comparison (production has a dozen
+-- Supabase extensions PGlite lacks), so excluding what those extensions install
+-- is the same decision applied one level down. A function a **person** adds to
+-- `public` still appears, which is the case this check exists for.
 select jsonb_pretty(jsonb_build_object(
   'tables', coalesce((
     select jsonb_object_agg(c.relname, jsonb_build_object(
@@ -136,6 +150,10 @@ select jsonb_pretty(jsonb_build_object(
       from pg_class c
       join pg_namespace n on n.oid = c.relnamespace
      where n.nspname = 'public' and c.relkind in ('r', 'p')
+       and not exists (
+         select 1 from pg_depend d
+          where d.objid = c.oid and d.classid = 'pg_class'::regclass and d.deptype = 'e'
+       )
   ), '{}'::jsonb),
 
   -- Views and functions carry their **definitions** as well as their shape.
@@ -154,6 +172,10 @@ select jsonb_pretty(jsonb_build_object(
     ))
       from pg_class c join pg_namespace n on n.oid = c.relnamespace
      where n.nspname = 'public' and c.relkind in ('v', 'm')
+       and not exists (
+         select 1 from pg_depend d
+          where d.objid = c.oid and d.classid = 'pg_class'::regclass and d.deptype = 'e'
+       )
   ), '{}'::jsonb),
 
   'functions', coalesce((
@@ -172,6 +194,10 @@ select jsonb_pretty(jsonb_build_object(
       ))
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.prokind in ('f', 'p')
+       and not exists (
+         select 1 from pg_depend d
+          where d.objid = p.oid and d.classid = 'pg_proc'::regclass and d.deptype = 'e'
+       )
   ), '{}'::jsonb),
 
   -- **Every grantee the allow-list above does not read, named once.**
@@ -196,6 +222,10 @@ select jsonb_pretty(jsonb_build_object(
         select case when a.grantee = 0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end as grantee
       ) g
      where n.nspname = 'public' and c.relkind in ('r', 'p')
+       and not exists (
+         select 1 from pg_depend d
+          where d.objid = c.oid and d.classid = 'pg_class'::regclass and d.deptype = 'e'
+       )
        and g.grantee not in ('anon', 'authenticated', 'service_role', 'postgres', 'PUBLIC',
                              'anadyon_audit', 'authenticator', 'dashboard_user', 'pgbouncer')
        and g.grantee not like 'pg\_%'
