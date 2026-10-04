@@ -130,6 +130,39 @@ export function diffFingerprints(expected, actual) {
     }
   }
 
+  // **The audit switch, and it is compared rather than asserted.** Added
+  // 4 October 2026 (W47), the hour migration 049 made both sides agree.
+  //
+  // `pgaudit` is the only thing here that can see a *read* of customer data, and
+  // what arms it is a row in `pg_db_role_setting`. **That row is exactly what a
+  // project reset, a restore or a plan change drops silently**, leaving the
+  // extension installed, the role present and the grants intact — an audit that
+  // is off while looking installed.
+  //
+  // It was going to need a one-sided assertion, because the replay could not
+  // hold the setting. Then 047's database-level `set` turned out to be accepted
+  // by PGlite and impossible on Supabase, and 049 both arms the role-level
+  // switch and `reset`s the database-level one — so the two sides now carry the
+  // same single row and an ordinary comparison works. **Every difference here is
+  // `high`:** this section is three lines on a correct database, so there is no
+  // noise to trade against.
+  const settingKey = (entry) => `${entry?.database ?? "?"} / ${entry?.role ?? "?"}`;
+  const expectedSettings = new Map((exp.settings ?? []).map((entry) => [settingKey(entry), entry]));
+  const actualSettings = new Map((act.settings ?? []).map((entry) => [settingKey(entry), entry]));
+  for (const [key, entry] of actualSettings) {
+    if (!expectedSettings.has(key)) add({ kind: "settings.added", object: key, actual: entry?.config ?? null });
+  }
+  for (const [key, entry] of expectedSettings) {
+    const held = actualSettings.get(key);
+    if (!held) {
+      add({ kind: "settings.missing", object: key, expected: entry?.config ?? null });
+      continue;
+    }
+    if (JSON.stringify(entry?.config ?? null) !== JSON.stringify(held?.config ?? null)) {
+      add({ kind: "setting", object: key, expected: entry?.config ?? null, actual: held?.config ?? null });
+    }
+  }
+
   // **Any grantee the per-table map does not read, by name.** The `grants` map
   // reads six named roles, so a role created through the dashboard and granted
   // `select` on `customers` would appear nowhere in it. This list is the
@@ -343,6 +376,14 @@ export function classify(change) {
   if (change.kind === "grantees.added") return "high";
   if (change.kind === "grantees.missing") return "normal";
 
+  // The audit switch. A `settings.missing` row is the audit having been
+  // disarmed; `settings.added` is somebody having changed it to something the
+  // repository does not declare. Neither is ever noise, because a correct
+  // database has exactly one row here.
+  if (change.kind === "settings.missing" || change.kind === "settings.added" || change.kind === "setting") {
+    return "high";
+  }
+
   // **A deparsed definition is `normal` until one run has measured it**, and
   // that is a deliberate, dated compromise rather than a judgement that a
   // redefined view matters less. The expected side runs PostgreSQL 18.3 under
@@ -456,6 +497,9 @@ export const CHANGE_KINDS = [
   "grant",
   "grantees.added",
   "grantees.missing",
+  "settings.added",
+  "settings.missing",
+  "setting",
   "policy",
   "triggers.added",
   "triggers.missing",
