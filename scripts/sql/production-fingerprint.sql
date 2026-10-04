@@ -202,6 +202,47 @@ select jsonb_pretty(jsonb_build_object(
        and g.grantee not like 'supabase%'
   ), '[]'::jsonb),
 
+  -- **An invariant, not a comparison** -- and the distinction is the whole point.
+  -- Added 4 October 2026, the hour migration 047 was applied (W47).
+  --
+  -- `pgaudit` is the only thing in this system that can see a *read* of customer
+  -- data, and it is switched on by `alter database ... set pgaudit.role`. That
+  -- switch is exactly what a Supabase project reset, a restore from backup or a
+  -- plan change would quietly drop, leaving the extension installed, the role
+  -- present and the six grants intact -- an audit that is **off while looking
+  -- installed**, which is the inert control this project has now produced four
+  -- times.
+  --
+  -- It cannot be checked by diffing against the replay, and that is why this
+  -- section exists rather than being another compared field: PGlite has no
+  -- `pgaudit`, so the `alter database` in 047 is refused there and the replayed
+  -- side has no such setting *by construction*. Comparing the two would print a
+  -- difference every single night on a correct database. So the runner asserts
+  -- this one **against production alone**, and only when asked with
+  -- `--expect-audit`.
+  --
+  -- **Values are filtered to `pgaudit%` on purpose.** A row in
+  -- `pg_db_role_setting` carries every setting pinned on that database or role,
+  -- and a co-resident one could hold a secret -- this report is an artifact
+  -- anyone who can read the repository's Actions can open. Only the `pgaudit.*`
+  -- entries are emitted, which name a role and a log class and never a
+  -- credential.
+  'settings', coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'database', coalesce(d.datname, '(all databases)'),
+      'role', coalesce(r.rolname, '(all roles)'),
+      'config', (
+        select jsonb_agg(entry order by entry)
+          from unnest(s.setconfig) as entry
+         where entry like 'pgaudit%'
+      )
+    ) order by coalesce(d.datname, ''), coalesce(r.rolname, ''))
+      from pg_db_role_setting s
+      left join pg_database d on d.oid = s.setdatabase
+      left join pg_roles r on r.oid = s.setrole
+     where array_to_string(s.setconfig, ',') like '%pgaudit%'
+  ), '[]'::jsonb),
+
   'extensions', coalesce((
     select jsonb_object_agg(e.extname, e.extversion) from pg_extension e
   ), '{}'::jsonb)
