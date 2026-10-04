@@ -197,15 +197,56 @@ describe("a declared change is absorbed; an exposure never is", () => {
     expect(worstSeverity(explained)).toBe("normal");
   });
 
-  it("absorbs the child objects a marker could not have predicted", () => {
+  it("absorbs the mechanical byproducts a marker could not have predicted", () => {
     // Nobody writing a marker lists the primary-key index that `create table`
-    // produces. Loose matching is deliberate; the next case is its limit.
+    // produces, so an index or trigger on a declared table is absorbed.
     const actual = clone(base);
     actual.tables.reservations.indexes = ["reservations_pkey_extra"];
     const explained = explainWith(diffFingerprints(base, actual), [
       { expected_objects: ["reservations"] },
     ]);
     expect(explained[0].severity).toBe("explained");
+  });
+
+  it("does NOT absorb a column or policy change on a declared table", () => {
+    // The real failure, 4 October 2026, on the mechanism's first use in
+    // production. Migration 047 grants privileges on six tables, so its marker
+    // names them — `quotes` among them — and the old child rule let a
+    // declaration about *grants* silence twelve unrelated *column* differences.
+    // They appeared annotated `declared as quotes`: explained by a migration
+    // that has nothing to do with them and was never applied.
+    //
+    // A marker that cries wolf gets muted. A marker that absorbs what it did
+    // not cause makes the check lie, which is worse — the report still looks
+    // attentive.
+    const actual = clone(base);
+    actual.tables.reservations.columns.pickup_date = "text";
+    actual.tables.reservations.policies = { "Service role only": { using: "false" } };
+
+    const explained = explainWith(diffFingerprints(base, actual), [
+      { expected_objects: ["reservations"] },
+    ]);
+    // Annotated because the comparison library is `.mjs` and these callbacks
+    // would otherwise be implicitly `any`.
+    type Change = { kind: string; severity: string };
+    const column = explained.find((change: Change) => change.kind === "column");
+    const policy = explained.find((change: Change) => change.kind === "policy");
+    expect(column, "no column change was produced, so this passes vacuously").toBeTruthy();
+    expect(column!.severity, "a grant declaration absorbed a column change").toBe("high");
+    expect(policy!.severity, "a grant declaration absorbed a policy change").toBe("high");
+    expect(worstSeverity(explained)).toBe("high");
+  });
+
+  it("no longer absorbs by substring, which could swallow almost anything", () => {
+    // `name.includes(object)` was the other half of the old rule and was never
+    // justified: a marker naming `booking_email_deliveries` would absorb any
+    // change whose object appeared anywhere inside that string.
+    const actual = clone(base);
+    actual.tables.rates.rls_enabled = false;
+    const explained = explainWith(diffFingerprints(base, actual), [
+      { expected_objects: ["rates_history_archive"] },
+    ]);
+    expect(explained[0].severity).toBe("high");
   });
 
   it("NEVER absorbs a critical exposure, whatever was declared", () => {

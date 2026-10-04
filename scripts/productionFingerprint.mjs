@@ -252,10 +252,37 @@ export function explainWith(changes, markers = []) {
   return changes.map((change) => {
     if (change.severity === "critical") return change;
     const object = String(change.object ?? "").toLowerCase();
-    const hit = names.find((name) => object === name || object.startsWith(`${name}.`) || name.includes(object));
+    const hit = names.find((name) => object === name || (BYPRODUCT_KINDS.has(change.kind) && object.startsWith(`${name}.`)));
     return hit ? { ...change, severity: "explained", explained_by: hit } : change;
   });
 }
+
+/**
+ * The only kinds a table-level declaration may absorb on that table's children.
+ *
+ * **Narrowed 4 October 2026, after the mechanism's first real use muted a
+ * genuine finding.** Migration 047 grants privileges on six tables, so its
+ * marker names them — `quotes` among them. The old rule absorbed any change
+ * whose object merely *started* with a declared name, so a declaration about
+ * **grants** silenced twelve unrelated **column** differences: production's
+ * `quotes.pickup_date` being `text` where the migrations say `date not null`,
+ * and eleven more. They appeared in the report annotated
+ * `declared as quotes` — explained by a migration that has nothing to do with
+ * them, and not applied.
+ *
+ * That is the failure this whole design exists to prevent, running backwards. A
+ * marker that cries wolf gets muted; **a marker that absorbs what it did not
+ * cause makes the check lie**, which is worse, because the report still looks
+ * attentive.
+ *
+ * So child matching now covers only the **mechanical byproducts** of creating an
+ * object — the primary-key index nobody writing a marker would think to list.
+ * A column, a policy or a grant on a child path is a deliberate, declarable
+ * thing: if a migration changes one, its marker can name it. The substring rule
+ * that also existed (`name.includes(object)`) is gone entirely; it was never
+ * justified and could absorb almost anything.
+ */
+const BYPRODUCT_KINDS = new Set(["indexes.added", "indexes.missing", "triggers.added", "triggers.missing"]);
 
 /**
  * Night-to-night row counts, which the structural diff cannot cover.
