@@ -544,6 +544,22 @@ brings that forward, and **no item requires it.**
 
 ## 14. Supabase removes the automatic Data API grant — 30 October 2026
 
+**Observed in production, 3 October 2026 — migration 046 needs no paste there.**
+The first production fingerprint reported `service_role` holding privileges on
+every table 046 grants: `vehicle_blocks`, `vehicle_change_requests`,
+`inspection_templates` and the rest of the nine. Supabase's default privileges
+granted them when each table was created, which is exactly what this section
+says — *"Production is unaffected"* — now confirmed against the live database
+rather than reasoned from the rule.
+
+**So 046 remains necessary and remains unapplied, deliberately.** Its purpose is
+a **replayed** environment: a staging reset, `supabase db reset`, a new project
+or a preview branch, where the automatic grant will not exist after
+30 October 2026. `lib/serviceRoleGrants.test.ts` holds the migrations to the
+rule; production never needed the fix. One fewer thing on the operator's list,
+established by the check on its first night.
+
+
 **Verified against Supabase's own documentation on 23 September 2026**, not
 taken from the notification email. `supabase.com/docs/guides/api/securing-your-api`
 states it plainly: *"Supabase is changing the platform default to revoke these
