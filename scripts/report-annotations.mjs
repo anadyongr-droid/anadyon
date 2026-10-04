@@ -86,11 +86,23 @@ const escapeData = (text) =>
   String(text).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
 
 /**
+ * **Why each row is capped as well as the group.** The first run that used these
+ * annotations, 4 October 2026, truncated its `normal` group after **one** row:
+ * a `function.definition` difference carries both function bodies, which came to
+ * some three thousand characters on its own and starved the other fourteen rows.
+ * The group said "and 12 more row(s)" honestly enough, and the twelve were the
+ * ones worth reading.
+ *
+ * So a row is cut to `rowLimit` here, and the full text stays in the report and
+ * its artifact. **The annotation is an index of findings, not the findings** —
+ * `quotes.pickup_date — column — expected "date not null", found "text"` is the
+ * whole finding in one line, and a 1,500-character function body is not.
+ *
  * @param {Map<string, string[]>} groups
- * @param {{ limit?: number }} [options] characters per annotation message
+ * @param {{ limit?: number, rowLimit?: number }} [options] characters per message, and per row
  * @returns {string[]} workflow commands, one per severity group
  */
-export function annotations(groups, { limit = 3000 } = {}) {
+export function annotations(groups, { limit = 6000, rowLimit = 300 } = {}) {
   /** @type {string[]} */
   const commands = [];
   for (const severity of SEVERITY_ORDER) {
@@ -102,9 +114,10 @@ export function annotations(groups, { limit = 3000 } = {}) {
     const kept = [];
     let used = 0;
     for (const row of rows) {
-      if (used + row.length + 3 > limit) break;
-      kept.push(`- ${row}`);
-      used += row.length + 3;
+      const line = row.length > rowLimit ? `${row.slice(0, rowLimit)}…` : row;
+      if (used + line.length + 3 > limit) break;
+      kept.push(`- ${line}`);
+      used += line.length + 3;
     }
     const omitted = rows.length - kept.length;
     const message = [

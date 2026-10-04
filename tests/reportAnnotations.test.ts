@@ -121,3 +121,27 @@ describe("one annotation per severity, because ten per level is the limit", () =
     expect(countsLine(groups)).toBe("high 1 · normal 1 · explained 1");
   });
 });
+
+describe("one enormous row must not starve the rest", () => {
+  it("caps each row, because a function body is not a finding", () => {
+    // **Measured, not anticipated.** The first run that used these annotations
+    // truncated its `normal` group after one row: a `function.definition`
+    // difference carries both function bodies, some three thousand characters,
+    // and the other fourteen rows were dropped with an honest "and 12 more
+    // row(s)" — where the twelve were the ones worth reading.
+    const body = `CREATE OR REPLACE FUNCTION public.check_rate_limit() ${"x".repeat(3000)}`;
+    const groups = parseReport(
+      report([
+        { kind: "function.definition", object: "check_rate_limit()", severity: "normal", expected: body, actual: body + "y" },
+        { kind: "indexes.added", object: "quotes.one_more_idx", severity: "normal" },
+        { kind: "triggers.added", object: "quotes.one_more_trg", severity: "normal" },
+      ]),
+    );
+    const commands = annotations(groups);
+    expect(commands).toHaveLength(1);
+    expect(commands[0], "the huge row swallowed the budget again").toContain("one_more_idx");
+    expect(commands[0]).toContain("one_more_trg");
+    expect(commands[0]).toContain("…");
+    expect(commands[0]).not.toContain("more row(s)");
+  });
+});
