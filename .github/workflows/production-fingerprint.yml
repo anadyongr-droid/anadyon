@@ -125,6 +125,21 @@ jobs:
           [ -f previous-counts.json ] && ARGS="$ARGS --previous previous-counts.json"
           node scripts/run-production-fingerprint.mjs $ARGS | tee "$GITHUB_STEP_SUMMARY"
 
+      # **The report is readable from the API after this step, and was not before.**
+      # Added 4 October 2026, after a run that found differences at `high` and
+      # from which an agent could learn only that the job had failed: GitHub
+      # serves logs and artifacts from a storage domain, so `gh api …/logs` and
+      # the artifact zip both refuse in an agent container. Check-run annotations
+      # *are* served by the API, so every unexplained row goes there too — one
+      # annotation per severity, because GitHub shows at most ten of each level
+      # per step and a night with fourteen `high` rows would silently lose four.
+      - name: Make the findings readable without downloading the artifact
+        if: always()
+        run: |
+          set -euo pipefail
+          [ -f report.md ] || { echo "  no report to annotate"; exit 0; }
+          node scripts/report-annotations.mjs report.md
+
       - name: Keep tonight's counts for tomorrow
         if: always()
         env:
@@ -191,7 +206,15 @@ jobs:
           else
             HEADLINE="**NOT RUN — the nightly production check failed before it compared anything**"
           fi
+          # The counts line is what tells a reader on a phone whether tonight is
+          # last night with the same unresolved rows or something new, which the
+          # headline alone cannot say.
+          COUNTS=""
+          if [ -f report.md ]; then
+            COUNTS=$(node scripts/report-annotations.mjs report.md --counts-line 2>/dev/null || true)
+          fi
           MESSAGE="Production fingerprint: ${HEADLINE}
+          ${COUNTS}
           ${RUN_URL}"
           node scripts/send-telegram-alert.mjs "$MESSAGE"
 

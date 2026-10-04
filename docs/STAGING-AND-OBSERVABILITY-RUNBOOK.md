@@ -1036,6 +1036,16 @@ W44's root rather than its symptom; an `authenticated` grant was reported
 the check went silent in exactly the circumstances where it had stopped checking.
 W48 has each one, its reproduction and its fix.
 
+**W51 — the report was unreadable from an agent container, and that was found
+the same way everything else was: by running the thing.** The 4 October run
+triggered to answer W49 produced its rows, sent its alert, and offered an agent
+nothing through the API but the job's failure — GitHub serves logs and artifacts
+from a storage domain, and the step summary is not in the API at all. Every
+unexplained row is now also a **check-run annotation**, which the API does serve:
+one per severity, because GitHub shows at most ten of each level per step and a
+night with fourteen `high` rows would have lost four without saying so. Read them
+with `GET /repos/{owner}/{repo}/check-runs/{id}/annotations`.
+
 **W47 — still open, and the one this cannot close.** The fingerprint reads no
 settings, so `pgaudit.role` being unset or `pgaudit.log` cleared stays invisible
 — exactly what a project reset or a restore would do, leaving the extension and
