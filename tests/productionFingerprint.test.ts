@@ -845,3 +845,79 @@ describe("an object an extension owns is the extension's, not ours", () => {
     );
   }, 120_000);
 });
+
+describe("installing an extension cannot be invisible", () => {
+  /**
+   * **The hole two reasonable decisions opened between them**, found by Codex on
+   * 5 October in a change made the night before. The extension *list* has never
+   * been diffed, because production carries a dozen Supabase extensions PGlite
+   * lacks. Then objects an extension *owns* were excluded as well, so `pgaudit`'s
+   * own functions would stop being nightly noise (W55). Together: an extension
+   * could be installed in production and the report would be empty.
+   *
+   * That matters more than the noise it fixed — `http` and `dblink` give the
+   * database outbound network reach, and an extension upgrade can replace
+   * privileged functions wholesale.
+   *
+   * The replay cannot be the reference, so a committed inventory is. **And an
+   * inventory nobody has blessed is not an inventory:** without a `recorded`
+   * date the check reports its own absence, because a self-seeded list would
+   * bless whatever happens to be installed — including whatever this check
+   * exists to catch.
+   */
+  const withExtensions = (names: string[]) => ({
+    ...clone(base),
+    extensions: Object.fromEntries(names.map((name) => [name, "1.0"])),
+  });
+  const declared = (fingerprint: object, names: string[] | null, recorded: string | null) => ({
+    ...fingerprint,
+    declared_extensions: names,
+    declared_extensions_recorded: recorded,
+  });
+
+  it("HIGH: an extension appears that the inventory does not name", () => {
+    const expected = declared(withExtensions(["plpgsql", "pgaudit"]), ["plpgsql", "pgaudit"], "2026-10-05");
+    const actual = withExtensions(["plpgsql", "pgaudit", "http"]);
+    const changes = diffFingerprints(expected, actual);
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ kind: "extensions.installed", object: "http", severity: "high" });
+  });
+
+  it("HIGH: an extension the inventory names disappears", () => {
+    const expected = declared(withExtensions(["plpgsql", "pgaudit"]), ["plpgsql", "pgaudit"], "2026-10-05");
+    const actual = withExtensions(["plpgsql"]);
+    const changes = diffFingerprints(expected, actual);
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ kind: "extensions.removed", object: "pgaudit", severity: "high" });
+  });
+
+  it("is silent when production carries exactly the recorded set", () => {
+    const expected = declared(withExtensions(["plpgsql", "pgaudit"]), ["plpgsql", "pgaudit"], "2026-10-05");
+    expect(diffFingerprints(expected, withExtensions(["plpgsql", "pgaudit"]))).toEqual([]);
+  });
+
+  it("HIGH: an inventory nobody recorded reports itself rather than passing", () => {
+    const expected = declared(withExtensions(["plpgsql"]), [], null);
+    const changes = diffFingerprints(expected, withExtensions(["plpgsql", "http"]));
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ kind: "extensions.undeclared", severity: "high" });
+    expect(changes[0].detail).toContain("nothing here would say so");
+  });
+
+  it("HIGH even when the list is filled but undated — a list nobody blessed is not an inventory", () => {
+    const expected = declared(withExtensions(["plpgsql"]), ["plpgsql", "http"], null);
+    const changes = diffFingerprints(expected, withExtensions(["plpgsql", "http"]));
+    expect(changes[0].kind).toBe("extensions.undeclared");
+  });
+
+  it("and the committed inventory is the one the runner reads", () => {
+    // If the file is renamed or its shape changes, this fails rather than the
+    // comparison silently falling back to "no inventory".
+    const inventory = JSON.parse(readFileSync("supabase/expected-extensions.json", "utf8"));
+    expect(Array.isArray(inventory.extensions)).toBe(true);
+    expect(inventory).toHaveProperty("recorded");
+    expect(readFileSync("scripts/run-production-fingerprint.mjs", "utf8")).toContain(
+      "supabase/expected-extensions.json",
+    );
+  });
+});

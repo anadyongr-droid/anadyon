@@ -39,6 +39,7 @@ usage: run-production-fingerprint.mjs --actual <fingerprint.json> [options]
   --previous <path>      last night's row counts (absent on the first run)
   --report <path>        where to write the Markdown report (default: stdout only)
   --counts-out <path>    where to write tonight's counts for tomorrow's comparison
+  --extensions <path>    the expected-extension inventory (default: supabase/expected-extensions.json)
 `;
 
 function arg(name) {
@@ -87,6 +88,26 @@ async function main() {
   }
 
   const { fingerprint: expected, migrations } = await replayedFingerprint();
+
+  // **The extension inventory is the repository's, not the replay's.** PGlite
+  // carries `plpgsql` and production carries Supabase's set, so the replayed
+  // database cannot be the reference for which extensions should exist. A
+  // committed, human-recorded list is — and when it is absent or unrecorded the
+  // comparison says so at `high` rather than passing quietly. W57.
+  // The path is an argument so a test can point at a fixture. Without that, the
+  // runner's headline property -- **silent on a correct database** -- could only
+  // be tested by filling the real inventory, and that test would then fail the
+  // moment production installed an extension. The default is the committed file,
+  // which is what the workflow uses.
+  const inventoryPath = arg("extensions") ?? "supabase/expected-extensions.json";
+  if (existsSync(inventoryPath)) {
+    const inventory = JSON.parse(readFileSync(inventoryPath, "utf8"));
+    expected.declared_extensions = Array.isArray(inventory.extensions) ? inventory.extensions : [];
+    expected.declared_extensions_recorded = inventory.recorded ?? null;
+  } else {
+    expected.declared_extensions = [];
+    expected.declared_extensions_recorded = null;
+  }
 
   // **Only a marker that is valid, unexpired and unapplied explains anything.**
   // Until 4 October 2026 this read the directory and used every file in it

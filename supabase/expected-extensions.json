@@ -1,0 +1,7 @@
+{
+  "recorded": null,
+  "recorded_by": null,
+  "extensions": [],
+  "why": "The extensions production is expected to carry. Compared against production by the nightly fingerprint; see W57. The replay cannot be the reference, because PGlite carries only plpgsql while production carries Supabase's set — so this list is the reference, and a person has to bless it once. Until `recorded` holds a date, every run reports `extensions.undeclared` at high rather than passing quietly: a check with nothing to compare against must never look green. Fill it from `scripts/sql/readonly/extensions.sql`.",
+  "how_to_fill": "Run scripts/sql/readonly/extensions.sql against production, put the names in `extensions`, set `recorded` to the date and `recorded_by` to whoever read the list. Adding a name here is accepting that extension in production — the point of the file is that the acceptance is explicit and in git."
+}

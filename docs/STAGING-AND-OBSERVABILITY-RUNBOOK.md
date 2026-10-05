@@ -945,14 +945,33 @@ records what is true.
 
 ### What it cannot see
 
-1. **A read.** Selecting every customer row changes no state. `pgaudit` is the
-   only thing that sees one, and it is blocked on a single unverified fact —
-   which Postgres role the dashboard's editors run as. `scripts/sql/who-runs-the-dashboard.sql`
-   is paste-ready for that answer; the migration is deliberately **not** written
-   until it exists, because auditing the wrong role gives a log that is empty on
-   exactly the activity it was installed for. **W31.**
-2. **A change reverted before the next run.** The window is one night.
-3. **Who did it.** A diff says what changed, never who. Attribution needs the
+1. **A read.** Selecting every customer row changes no state, so no state diff
+   will ever show it. `pgaudit` is the only thing that sees one, and **as of
+   4 October 2026 it is configured**: migration 049 sets
+   `pgaudit.role = anadyon_audit` on `postgres`, which is what the dashboard SQL
+   editor runs as, and the fingerprint now watches that setting (W47). The
+   dashboard-role question that blocked this for two days was never answered —
+   object auditing made it irrelevant.
+   **But configured is not fired, and this paragraph previously said otherwise.**
+   No harmless read has been performed and no `AUDIT: OBJECT` line confirmed in
+   the Postgres logs, and `pgaudit`'s own documentation describes logging as
+   best-effort. Until that test runs, this is a control whose output nobody has
+   seen — the shape of the four inert controls this project produced in one week.
+   Treated as **not verified**, per `DEFINING-STATEMENTS.md` §8. **W31**, and the
+   two steps are in it. Scope: `postgres` sessions, not the application's own
+   reads — **W54**.
+2. **An extension.** The fingerprint excludes objects an extension owns (W55,
+   so `pgaudit`'s own two functions stop being nightly noise) and it has never
+   compared the extension *list* at all, because production carries a dozen
+   Supabase extensions PGlite lacks. **Those two decisions together make
+   installing an extension invisible** — found by Codex on 5 October, in a change
+   made the night before. An extension can add network reach (`http`, `dblink`)
+   or privileged functions, so this is the sharpest blind spot currently known.
+   **W57** closes it with a committed inventory compared against production, and
+   until the inventory exists the check reports its own absence rather than
+   passing quietly.
+3. **A change reverted before the next run.** The window is one night.
+4. **Who did it.** A diff says what changed, never who. Attribution needs the
    gate's decision log, and only for tool calls.
 
 ### Where the credential is, and why that matters

@@ -33,9 +33,26 @@ const dir = mkdtempSync(join(tmpdir(), "fingerprint-"));
 
 type Result = { code: number; stdout: string };
 
+/**
+ * The replayed database carries `plpgsql` and nothing else, so this is the
+ * inventory a correct comparison against it would have. It is a fixture on
+ * purpose: the real `supabase/expected-extensions.json` is deliberately
+ * unrecorded until a person reads production's list (W57), and the runner's
+ * headline property -- silent on a correct database -- must stay testable
+ * meanwhile.
+ */
+const inventory = (() => {
+  const path = join(dir, "expected-extensions.json");
+  writeFileSync(path, JSON.stringify({ recorded: "2026-10-05", extensions: ["plpgsql"] }));
+  return path;
+})();
+
 async function runner(args: string[]): Promise<Result> {
   try {
-    const { stdout } = await run("node", [SCRIPT, ...args], { cwd: process.cwd(), maxBuffer: 10_000_000 });
+    const { stdout } = await run("node", [SCRIPT, ...args, "--extensions", inventory], {
+      cwd: process.cwd(),
+      maxBuffer: 10_000_000,
+    });
     return { code: 0, stdout };
   } catch (error) {
     const failure = error as { code?: number; stdout?: string };
@@ -189,4 +206,29 @@ describe("the workflow cannot go quiet when the check stops checking", () => {
   it("refuses to run blind rather than passing when the secret is absent", () => {
     expect(workflow).toContain("SUPABASE_DB_URL is not set");
   });
+});
+
+describe("the runner refuses to pass on an unrecorded extension inventory", () => {
+  /**
+   * The other half of the fixture above. A check with nothing to compare
+   * against must never look green — E21's defect, and the reason the real
+   * `supabase/expected-extensions.json` is deliberately unrecorded rather than
+   * self-seeded (W57).
+   */
+  it("exits 2 and names the inventory file when nobody has recorded it", async () => {
+    const empty = join(dir, "unrecorded-extensions.json");
+    writeFileSync(empty, JSON.stringify({ recorded: null, extensions: [] }));
+    const actual = write("actual-inventory.json", expectedFingerprint);
+
+    const result = await run("node", [SCRIPT, "--actual", actual, "--extensions", empty], {
+      cwd: process.cwd(),
+      maxBuffer: 10_000_000,
+    }).catch((error: { code?: number; stdout?: string }) => ({
+      stdout: error.stdout ?? "",
+      code: error.code,
+    }));
+
+    expect(result.stdout).toContain("expected-extensions.json");
+    expect(result.stdout).toContain("extensions.undeclared");
+  }, 120_000);
 });

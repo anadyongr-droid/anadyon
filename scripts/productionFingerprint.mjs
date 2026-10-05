@@ -130,6 +130,55 @@ export function diffFingerprints(expected, actual) {
     }
   }
 
+  // **The extension list, compared against a committed inventory — not against
+  // the replay.** Added 5 October 2026 (W57), and it closes a hole that two
+  // reasonable decisions opened between them.
+  //
+  // The extension *list* has never been diffed, because production carries a
+  // dozen Supabase extensions PGlite lacks and diffing them would print a dozen
+  // permanent rows. Then on 4 October objects an extension **owns** were excluded
+  // too, so `pgaudit`'s own two functions would stop being nightly noise (W55).
+  // **Together those make installing an extension invisible** — found by Codex
+  // the next morning, who reproduced it: an unexpected extension produced an
+  // empty change list. That matters more than the noise it fixed: `http` and
+  // `dblink` give the database outbound network reach, and an extension upgrade
+  // can replace privileged functions wholesale.
+  //
+  // The replay cannot be the reference here, so a **committed inventory** is:
+  // `supabase/expected-extensions.json`, the list production is expected to
+  // carry. Anything added is `high`; anything missing is `high` too, because an
+  // extension disappearing breaks whatever used it.
+  //
+  // **And when the inventory is absent or empty the check reports that**, rather
+  // than passing quietly — which is the whole lesson of E21 and of the "NOT RUN"
+  // path: a check with nothing to compare against must never look green.
+  const declaredExtensions = exp.declared_extensions ?? null;
+  if (declaredExtensions !== null) {
+    const actualExtensions = Object.keys(act.extensions ?? {});
+    // An inventory nobody has blessed is not an inventory. `recorded` is the
+    // date a person read production's list and accepted it; without that, a
+    // self-seeded list would bless whatever happens to be installed, including
+    // something installed by the event this check exists to catch.
+    if (!exp.declared_extensions_recorded || declaredExtensions.length === 0) {
+      add({
+        kind: "extensions.undeclared",
+        object: "supabase/expected-extensions.json",
+        severity: "high",
+        detail:
+          "no human-recorded extension inventory, so an extension could be installed in production and nothing here would say so",
+      });
+      return changes.sort(
+        (a, b) => SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity) || a.object.localeCompare(b.object),
+      );
+    }
+    for (const name of actualExtensions) {
+      if (!declaredExtensions.includes(name)) add({ kind: "extensions.installed", object: name });
+    }
+    for (const name of declaredExtensions) {
+      if (!actualExtensions.includes(name)) add({ kind: "extensions.removed", object: name });
+    }
+  }
+
   // **The audit switch, and it is compared rather than asserted.** Added
   // 4 October 2026 (W47), the hour migration 049 made both sides agree.
   //
@@ -384,6 +433,13 @@ export function classify(change) {
     return "high";
   }
 
+  // An extension installed or removed in production that the inventory does not
+  // name. `http` and `dblink` give the database outbound network reach, so this
+  // is not a cosmetic difference, and an extension that *vanished* breaks
+  // whatever used it.
+  if (change.kind === "extensions.installed" || change.kind === "extensions.removed") return "high";
+  if (change.kind === "extensions.undeclared") return "high";
+
   // **A deparsed definition is `normal` until one run has measured it**, and
   // that is a deliberate, dated compromise rather than a judgement that a
   // redefined view matters less. The expected side runs PostgreSQL 18.3 under
@@ -500,6 +556,9 @@ export const CHANGE_KINDS = [
   "settings.added",
   "settings.missing",
   "setting",
+  "extensions.installed",
+  "extensions.removed",
+  "extensions.undeclared",
   "policy",
   "triggers.added",
   "triggers.missing",

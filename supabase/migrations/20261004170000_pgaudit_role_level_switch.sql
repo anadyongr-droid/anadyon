@@ -64,8 +64,20 @@
 --     left join pg_roles r on r.oid = s.setrole
 --    where array_to_string(s.setconfig, ',') like '%pgaudit%';
 --
--- Expect two rows for `postgres`: `pgaudit.log=ddl, role, write` and
--- `pgaudit.role=anadyon_audit`. **One row means the switch is still off.**
+-- Expect **one row** for `postgres`, carrying **both** entries:
+-- `pgaudit.log=ddl, role, write` and `pgaudit.role=anadyon_audit`.
+-- `pg_db_role_setting` holds one row per (database, role) pair with every
+-- setting pinned on it in one array, so two `alter role` statements on the same
+-- role produce one row, not two.
+--
+-- *Corrected 5 October 2026, after this migration had been applied: the header
+-- said "expect two rows", which cannot happen, and an operator checking for two
+-- would have read a correct result as a failure. Found by Codex. The SQL is
+-- unchanged -- this is a comment, and the paste copy carries the identical
+-- correction so `lib/migrationPasteParity.test.ts` still holds the pair
+-- together.*
+--
+-- **Entries missing `pgaudit.role` mean the switch is still off.**
 
 alter role postgres set pgaudit.role to 'anadyon_audit';
 
