@@ -795,3 +795,53 @@ describe("a role this repository creates is visible to the check", () => {
     ).toEqual([]);
   });
 });
+
+describe("an object an extension owns is the extension's, not ours", () => {
+  /**
+   * **Found by the first run after `pgaudit` was installed.** The extension
+   * creates `pgaudit_ddl_command_end()` and `pgaudit_sql_drop()` in `public`,
+   * and the comparison reported two `high` rows for functions nobody added.
+   * PGlite has no `pgaudit`, so those two would have been `high` **every night
+   * for ever** — permanent noise introduced by the very migration meant to
+   * strengthen the check.
+   *
+   * The extension *list* is already out of scope (production carries a dozen
+   * Supabase extensions PGlite lacks), so excluding what they install is that
+   * same decision one level down. `pg_depend` with `deptype = 'e'` is the
+   * authoritative test: it is what `create extension` writes.
+   *
+   * **PGlite ships no installable extension**, so the test forges the
+   * dependency row directly under `allow_system_table_mods` — which produces a
+   * genuinely extension-owned function rather than a stub, and exercises the
+   * clause instead of grepping the file for it.
+   */
+  it("lists a function a person added, and drops the same function once an extension owns it", async () => {
+    const result = await withReplayedDatabase(async (database) => {
+      await database.exec(
+        "create function public.pretend_extension_fn() returns int language sql as $$ select 1 $$;",
+      );
+      const before = await queryJson(database, "scripts/sql/production-fingerprint.sql");
+
+      await database.exec("set allow_system_table_mods = on;");
+      await database.exec(`
+        insert into pg_depend (classid, objid, objsubid, refclassid, refobjid, refobjsubid, deptype)
+        select 'pg_proc'::regclass, p.oid, 0, 'pg_extension'::regclass, e.oid, 0, 'e'
+          from pg_proc p, pg_extension e
+         where p.proname = 'pretend_extension_fn' and e.extname = 'plpgsql';
+      `);
+      const after = await queryJson(database, "scripts/sql/production-fingerprint.sql");
+      return { before, after };
+    });
+
+    const named = (fingerprint: { functions: Record<string, unknown> }) =>
+      Object.keys(fingerprint.functions).filter((name) => name.startsWith("pretend_extension_fn"));
+
+    expect(named(result.before), "a plain function in public is not listed at all").toHaveLength(1);
+    expect(named(result.after), "an extension-owned function is still reported as drift").toHaveLength(0);
+
+    // And the exclusion is narrow: nothing else left the fingerprint with it.
+    expect(Object.keys(result.after.functions).length).toBe(
+      Object.keys(result.before.functions).length - 1,
+    );
+  }, 120_000);
+});
