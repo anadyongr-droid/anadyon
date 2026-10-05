@@ -945,14 +945,33 @@ records what is true.
 
 ### What it cannot see
 
-1. **A read.** Selecting every customer row changes no state. `pgaudit` is the
-   only thing that sees one, and it is blocked on a single unverified fact —
-   which Postgres role the dashboard's editors run as. `scripts/sql/who-runs-the-dashboard.sql`
-   is paste-ready for that answer; the migration is deliberately **not** written
-   until it exists, because auditing the wrong role gives a log that is empty on
-   exactly the activity it was installed for. **W31.**
-2. **A change reverted before the next run.** The window is one night.
-3. **Who did it.** A diff says what changed, never who. Attribution needs the
+1. **A read.** Selecting every customer row changes no state, so no state diff
+   will ever show it. `pgaudit` is the only thing that sees one, and **as of
+   4 October 2026 it is configured**: migration 049 sets
+   `pgaudit.role = anadyon_audit` on `postgres`, which is what the dashboard SQL
+   editor runs as, and the fingerprint now watches that setting (W47). The
+   dashboard-role question that blocked this for two days was never answered —
+   object auditing made it irrelevant.
+   **But configured is not fired, and this paragraph previously said otherwise.**
+   No harmless read has been performed and no `AUDIT: OBJECT` line confirmed in
+   the Postgres logs, and `pgaudit`'s own documentation describes logging as
+   best-effort. Until that test runs, this is a control whose output nobody has
+   seen — the shape of the four inert controls this project produced in one week.
+   Treated as **not verified**, per `DEFINING-STATEMENTS.md` §8. **W31**, and the
+   two steps are in it. Scope: `postgres` sessions, not the application's own
+   reads — **W54**.
+2. **An extension.** The fingerprint excludes objects an extension owns (W55,
+   so `pgaudit`'s own two functions stop being nightly noise) and it has never
+   compared the extension *list* at all, because production carries a dozen
+   Supabase extensions PGlite lacks. **Those two decisions together make
+   installing an extension invisible** — found by Codex on 5 October, in a change
+   made the night before. An extension can add network reach (`http`, `dblink`)
+   or privileged functions, so this is the sharpest blind spot currently known.
+   **W57** closes it with a committed inventory compared against production, and
+   until the inventory exists the check reports its own absence rather than
+   passing quietly.
+3. **A change reverted before the next run.** The window is one night.
+4. **Who did it.** A diff says what changed, never who. Attribution needs the
    gate's decision log, and only for tool calls.
 
 ### Where the credential is, and why that matters
@@ -1004,11 +1023,14 @@ has now run three times, and **every finding below came from running it, not one
 from reviewing it.** That is the part worth keeping: this mechanism was designed
 with Codex, reviewed by Fable twice, and carried 29 tests before the first run.
 
-| Run | How | What it found |
+| When (UTC) | How | What it found |
 |---|---|---|
-| 1 — 3 Oct 23:34 | `workflow_dispatch` | **W42.** Production's `quotes` differs from `001_baseline.sql` in twelve columns, all looser; `quote_rate_limits_blocked_idx` is missing; one policy is undeclared. The drift the control was built to find, found on first use. **Answered 4 October:** the baseline was never run against production — the evidence and the per-column decisions are in [`MIGRATION-REPLAY-RESULT-2026-08-30.md`](MIGRATION-REPLAY-RESULT-2026-08-30.md). The undeclared policy carries Supabase's dashboard naming and exists nowhere in `supabase/`: the first object found to have been made through the dashboard, which is what this check is for. |
-| 2 — 4 Oct 05:40:42 | `schedule` (00:10 cron) | **W43** — the cron fires, five and a half hours late, so a heartbeat must look for *a* run in a day and never for a run at a time. And **W44** — every one of W42's rows came back annotated `declared as quotes`, absorbed by migration 047's marker. A declaration about grants was explaining column differences, by a migration that has not been applied. |
-| 3 — 4 Oct 07:26 | `workflow_dispatch`, after the fix | `high (14)`, `normal (10)`, `explained (2)`, exit 2 — the counts predicted before it was triggered. No masked rows. Reading *which two* rows remained `explained` produced **W45** and **W46**. |
+| 3 Oct 23:34 | `workflow_dispatch` | **W42.** Production's `quotes` differs from `001_baseline.sql` in twelve columns, all looser; `quote_rate_limits_blocked_idx` is missing; one policy is undeclared. The drift the control was built to find, found on first use. **Answered 4 October:** the baseline was never run against production — the evidence and the per-column decisions are in [`MIGRATION-REPLAY-RESULT-2026-08-30.md`](MIGRATION-REPLAY-RESULT-2026-08-30.md). The undeclared policy carries Supabase's dashboard naming and exists nowhere in `supabase/`: the first object found to have been made through the dashboard, which is what this check is for. |
+| 4 Oct 05:40:42 | `schedule` (00:10 cron) | **W43** — the cron fires, five and a half hours late, so a heartbeat must look for *a* run in a day and never for a run at a time. And **W44** — every one of W42's rows came back annotated `declared as quotes`, absorbed by migration 047's marker. A declaration about grants was explaining column differences, by a migration that has not been applied. |
+| 4 Oct 07:26 | `workflow_dispatch`, after the fix | `high (14)`, `normal (10)`, `explained (2)`, exit 2 — the counts predicted before it was triggered. No masked rows. Reading *which two* rows remained `explained` produced **W45** and **W46**. |
+| 4 Oct 21:19 | `workflow_dispatch`, after 048 and 049 were applied | **W42's fourteen `high` rows all gone** — and two new ones in their place: `pgaudit_ddl_command_end()` and `pgaudit_sql_drop()`, functions the extension installs in `public` and the replay can never hold. Permanent noise introduced by the migration meant to strengthen the check (W55). |
+| 5 Oct 05:24:27 | `schedule` (00:10 cron) | **W43's second measurement: 5 h 14 min late**, after 5 h 30 min the night before. Two consistent readings, which is enough to size a heartbeat: a report is not late until it is missing for a day. Ran against the pre-fix `main`, so it still carried W55's two rows. |
+| 5 Oct 06:00 | `workflow_dispatch`, after 047/048/049 and the extension fix | **The first clean run: exit 0, no `high` row, no alert.** Production and the repository agree on everything that matters. It also answered W49: zero column rows across 29 tables means `format_type` agrees between PostgreSQL 18.3 and 17.6, so W42's twelve findings were real drift and not a rendering artifact. |
 
 **W45** — the grantee allow-list in `production-fingerprint.sql` did not include
 `anadyon_audit`, so migration 047's six grants were invisible on both sides. Once

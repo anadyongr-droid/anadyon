@@ -1,0 +1,122 @@
+name: Read production (read-only, reviewed query)
+
+# Run by hand, never on a schedule. It answers a question about production that
+# an agent cannot answer from the repository, without anybody pasting SQL into
+# the dashboard and typing the numbers back.
+on:
+  workflow_dispatch:
+    inputs:
+      query:
+        description: "A file name inside scripts/sql/readonly/ (committed, reviewed)"
+        required: true
+        type: string
+
+# WHAT THIS IS FOR, AND WHAT IT IS NOT.
+#
+# On 4 October 2026 five separate round trips asked Tasos to paste a SELECT into
+# the SQL editor and type the result back: the pgaudit status, the
+# `pg_db_role_setting` row, the `quotes` diagnostic, the 048 verification and one
+# repeat. Every one was read-only, and every one cost a person a context switch
+# on work an agent could have done. One of them went wrong in a way that matters:
+# a count was designed, misread as an identity, and nearly recorded as "the audit
+# is armed" when it was not.
+#
+# So this is a throughput control as much as an oversight one, and it is
+# deliberately the narrowest thing that closes that gap:
+#
+#   * THE CREDENTIAL STAYS WHERE IT IS. `SUPABASE_DB_URL` lives in Actions
+#     secrets, which neither agent can read. An agent triggers the job; it never
+#     holds the key. This is the same arrangement the nightly fingerprint has
+#     used since 3 October.
+#   * READ-ONLY AT THE SERVER, not by inspection. `PGOPTIONS` sets
+#     `default_transaction_read_only`, so a file edited to write is refused by
+#     Postgres rather than by our opinion of it.
+#   * ONLY A COMMITTED FILE RUNS. The input names a file inside
+#     `scripts/sql/readonly/`; a path containing `/` or `..` is refused. So every
+#     question an agent asks of production is in git, with a diff and a review,
+#     which is *better* accountability than dictating ad-hoc SQL into somebody's
+#     clipboard.
+#   * NO WRITING VERB REACHES THE DIRECTORY. `tests/productionQuery.test.ts`
+#     fails if any file under `scripts/sql/readonly/` contains one, so CI
+#     catches it before this workflow can.
+#
+# WHAT IT DOES NOT DO: it cannot write, it cannot apply a migration, and it does
+# not change who may apply one. `AGENTS.md` still reserves that for Tasos, and
+# W38 is where moving it belongs — a decision, not a workflow.
+
+permissions:
+  contents: read
+
+jobs:
+  query:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the query files
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      # A path, not a query. The input names a file; it never carries SQL, so
+      # there is nothing to inject and nothing that is not in git.
+      - name: Resolve the query file
+        id: resolve
+        env:
+          QUERY: ${{ inputs.query }}
+        run: |
+          set -euo pipefail
+          case "$QUERY" in
+            */*|*..*|"")
+              echo "::error::the query input is a bare file name inside scripts/sql/readonly/, not a path"
+              exit 1
+              ;;
+          esac
+          FILE="scripts/sql/readonly/$QUERY"
+          [ -f "$FILE" ] || { echo "::error::$FILE is not a committed query"; exit 1; }
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+          echo "  running $FILE"
+
+      - name: Refuse to run blind
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_DB_URL:-}" ]; then
+            echo "::error::SUPABASE_DB_URL is not set, so there is nothing to read."
+            exit 1
+          fi
+          echo "  the connection string is present"
+
+      - name: Read production
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000
+          FILE: ${{ steps.resolve.outputs.file }}
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 --pset=pager=off \
+            -f "$FILE" > output.txt
+          echo "  $(wc -l < output.txt) line(s) of output"
+          cat output.txt >> "$GITHUB_STEP_SUMMARY"
+
+      # The step summary is not in the REST API and artifacts are served from a
+      # storage domain an agent container cannot reach, so the output is also
+      # emitted as check-run annotations, which the API does serve. W51.
+      - name: Make the output readable without the artifact
+        if: always()
+        run: |
+          set -euo pipefail
+          [ -f output.txt ] || { echo "  no output to annotate"; exit 0; }
+          node scripts/annotate-text.mjs output.txt "production query"
+
+      - name: Keep the output
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: production-query
+          path: output.txt
+          retention-days: 7
