@@ -1,7 +1,24 @@
 {
-  "recorded": null,
-  "recorded_by": null,
-  "extensions": [],
-  "why": "The extensions production is expected to carry. Compared against production by the nightly fingerprint; see W57. The replay cannot be the reference, because PGlite carries only plpgsql while production carries Supabase's set — so this list is the reference, and a person has to bless it once. Until `recorded` holds a date, every run reports `extensions.undeclared` at high rather than passing quietly: a check with nothing to compare against must never look green. Fill it from `scripts/sql/readonly/extensions.sql`.",
-  "how_to_fill": "Run scripts/sql/readonly/extensions.sql against production, put the names in `extensions`, set `recorded` to the date and `recorded_by` to whoever read the list. Adding a name here is accepting that extension in production — the point of the file is that the acceptance is explicit and in git."
+  "recorded": "2026-10-06",
+  "recorded_by": "Tasos",
+  "extensions": [
+    "pg_stat_statements",
+    "pgaudit",
+    "pgcrypto",
+    "plpgsql",
+    "supabase_vault",
+    "uuid-ossp"
+  ],
+  "read_from_production": "run 37313440476, 5 October 2026, via .github/workflows/production-query.yml and scripts/sql/readonly/extensions.sql",
+  "versions_when_read": {
+    "pg_stat_statements": "1.11",
+    "pgaudit": "17.1",
+    "pgcrypto": "1.3",
+    "plpgsql": "1.0",
+    "supabase_vault": "0.3.1",
+    "uuid-ossp": "1.1"
+  },
+  "why": "The extensions production is expected to carry, compared against production by the nightly fingerprint (W57). The replay cannot be the reference, because PGlite carries only plpgsql while production carries Supabase's set. Five of these six are Supabase's own defaults; pgaudit is the one this project installed, by migration 047. Notably absent, and the reason the check exists: http and dblink, which would give the database outbound network reach.",
+  "versions_are_not_compared": "Deliberately. Supabase upgrades extension versions on its own schedule, so comparing them would print a row nobody can act on. Names are compared; a version change is invisible here and that is a known limit of this file.",
+  "how_to_change_it": "Adding a name is accepting that extension in production. Read the list again with scripts/sql/readonly/extensions.sql, then update `recorded` and `recorded_by` \u2014 the point of the file is that the acceptance is explicit, dated and in git."
 }
