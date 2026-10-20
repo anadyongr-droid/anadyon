@@ -17,7 +17,7 @@ machine or a six-month gap.
 
 ## Where things stand — 3 October 2026
 
-**Last verified:** 3 October 2026, Claude — **agent oversight is built and its
+**Last verified:** 20 October 2026, Claude — **the backups are proven, not assumed.** The nightly fingerprint has been green every night 11–20 October; the off-site bucket holds 30 archives on 30 consecutive dates; and **E23 is closed — the restore drill ran and the archive restores**, 29 of 29 tables and 1,742 of 1,744 rows, into a throwaway PostgreSQL 17. It also established that `auth` and `storage` cannot restore outside Supabase, so the rental data recovers anywhere and the login layer is a rebuild rather than a restore. Runbook sections 18–21 carry the alert-path inventory, the bucket reading, the drill and the **30 October Data API change, which needs nothing**. Two new items: **W59**, the staging Supabase hostname no longer resolves, and **W60**, rebuilding a whole project from the backup. Earlier: 3 October 2026, Claude — **agent oversight is built and its
 labels are now honest.** A `PreToolUse` gate denies a directly addressed
 production call on both agents (advisory, not a firewall: three bypasses are
 documented, one unfixable by that mechanism), and the **nightly production
