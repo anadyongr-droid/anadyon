@@ -1,0 +1,220 @@
+name: Restore drill
+
+# Monthly, and on demand. It takes the newest archive back out of R2, restores
+# it into a Postgres that exists for the length of this job, and compares the
+# result against production.
+on:
+  schedule:
+    - cron: "20 5 1 * *"
+  workflow_dispatch:
+    inputs:
+      archive:
+        description: "A specific daily archive to restore (default: the newest)"
+        required: false
+        type: string
+
+# WHY THIS EXISTS, AND WHY IT IS NOT A PERSON'S ERRAND.
+#
+# E23 — "perform a real recovery drill" — had been open since the backups
+# began, because it was filed as something Tasos would do one afternoon. Three
+# automated checks existed and not one of them ever opened an archive that had
+# been *stored*: the nightly job decrypts the file it has just made, in memory,
+# before uploading it, and `backup-inventory.yml` lists the bucket. A bucket of
+# thirty undecryptable objects passes both of them.
+#
+# On 20 October 2026 the question "have we actually been taking backups?" was
+# answered from the bucket listing, and the honest answer ended "...but nothing
+# has ever restored one". The archive, the passphrase and a throwaway Postgres
+# all fit inside one Actions job, so this runs on a schedule like anything else.
+#
+# IT TOUCHES NOTHING REAL. The restore target is a service container that is
+# destroyed with the job. Production is read, read-only, for one thing: the row
+# counts to compare against.
+#
+# IT PRINTS NO CUSTOMER DATA. The archive holds dates of birth, addresses and
+# phone numbers. The only thing extracted from either database is
+# `scripts/sql/production-counts.sql`, one JSON object of `{table: rows}` — its
+# own header explains that a cardinality cannot carry a customer's data. No
+# step here selects a row, and the step summary and annotations carry counts
+# and error text only.
+#
+# POSTGRES 17 ON PURPOSE. Production is 17.6. The migration replay uses PGlite,
+# which is 18, and W49 parks what that difference costs. A drill that restored
+# into the wrong major version would be answering a question nobody asked.
+
+permissions:
+  contents: read
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      target:
+        # Tagged, not digest-pinned, and that is a deliberate difference from
+        # every `uses:` in this repository. An action is code that runs with
+        # the job's secrets, so it is pinned by SHA. This is a database the job
+        # throws data *into* and then destroys; what matters is that it is
+        # PostgreSQL 17, the major version production runs. Pinning a digest
+        # here would also freeze the image's security patches, which is the
+        # wrong trade for a container that holds a copy of the backup for
+        # fifteen minutes.
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: drill
+          POSTGRES_DB: restored
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+        ports:
+          - 5432:5432
+
+    env:
+      TARGET_URL: postgresql://postgres:drill@localhost:5432/restored
+
+    steps:
+      - name: Check out the drill scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Refuse to run blind
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -z "${SUPABASE_DB_URL:-}" ] && missing="$missing SUPABASE_DB_URL"
+          [ -z "${BACKUP_PASSPHRASE:-}" ] && missing="$missing BACKUP_PASSPHRASE"
+          [ -z "${R2_BUCKET:-}" ] && missing="$missing R2_BUCKET"
+          if [ -n "$missing" ]; then
+            echo "::error::not set:$missing — a drill that cannot reach the archive must fail, not skip"
+            exit 1
+          fi
+          echo "  the credentials are present"
+
+      # Read-only, and the only thing production is asked for.
+      - name: Read production's row counts
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=120000
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -At \
+            -f scripts/sql/production-counts.sql > production-counts.json
+          size=$(stat -c%s production-counts.json)
+          echo "  production counts: $size bytes"
+          [ "$size" -gt 20 ] || { echo "::error::production returned no counts"; exit 1; }
+
+      - name: Fetch the archive from R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          WANTED: ${{ inputs.archive }}
+        run: |
+          set -euo pipefail
+          ACCOUNT="${R2_ACCOUNT_ID#https://}"
+          ACCOUNT="${ACCOUNT%%.r2.cloudflarestorage.com*}"
+          ACCOUNT="${ACCOUNT%%/*}"
+          R2_ENDPOINT="https://${ACCOUNT}.r2.cloudflarestorage.com"
+          if [ -n "${WANTED:-}" ]; then
+            case "$WANTED" in */*|*..*) echo "::error::name a file, not a path"; exit 1;; esac
+            ARCHIVE="$WANTED"
+          else
+            # Newest by name, which sorts chronologically because the stamp is
+            # ISO-8601 — the same property the prune step relies on.
+            ARCHIVE=$(aws s3 ls "s3://$R2_BUCKET/daily/" --endpoint-url "$R2_ENDPOINT" \
+              | awk '{print $4}' | sort | tail -1)
+          fi
+          [ -n "$ARCHIVE" ] || { echo "::error::the daily prefix is empty"; exit 1; }
+          echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
+          aws s3 cp "s3://$R2_BUCKET/daily/$ARCHIVE" "$ARCHIVE" --endpoint-url "$R2_ENDPOINT"
+          ls -lh "$ARCHIVE"
+
+      # The first time an archive that was *stored* is opened. Everything
+      # before this point was reading metadata about it.
+      - name: Decrypt and unpack
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          mkdir -p restored
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+            -pass env:BACKUP_PASSPHRASE -in "$ARCHIVE" \
+          | tar -xzf - -C restored
+          echo "  unpacked:"
+          ls -lh restored/
+
+      - name: Prepare the throwaway target
+        run: |
+          set -euo pipefail
+          node scripts/print-supabase-stubs.mjs > stubs.sql
+          psql "$TARGET_URL" -v ON_ERROR_STOP=1 -f stubs.sql > /dev/null
+          psql "$TARGET_URL" -v ON_ERROR_STOP=1 -f scripts/sql/restore-drill-platform-roles.sql > /dev/null
+          echo "  roles and schemas in place"
+
+      # Deliberately WITHOUT ON_ERROR_STOP. A Supabase dump restored into a
+      # plain Postgres always produces platform errors, and stopping at the
+      # first would prove nothing about the data. Every error is captured and
+      # classified by scripts/restoreDrill.mjs instead: the ones that are about
+      # Supabase are tolerated by pattern, and anything else fails the drill.
+      - name: Restore it
+        run: |
+          set -uo pipefail
+          : > restore-errors.txt
+          for f in roles schema data; do
+            [ -f "restored/$f.sql" ] || { echo "::error::restored/$f.sql is not in the archive"; exit 1; }
+            echo "  restoring $f.sql ($(stat -c%s "restored/$f.sql") bytes)"
+            psql "$TARGET_URL" -f "restored/$f.sql" >> restore-out.txt 2>> restore-errors.txt || true
+          done
+          echo "  $(grep -ci 'ERROR' restore-errors.txt || true) error line(s) captured for classification"
+
+      - name: Count what came back
+        run: |
+          set -euo pipefail
+          psql "$TARGET_URL" -v ON_ERROR_STOP=1 -At \
+            -f scripts/sql/production-counts.sql > restored-counts.json
+          echo "  restored counts: $(stat -c%s restored-counts.json) bytes"
+
+      - name: Did it restore?
+        id: verdict
+        run: |
+          set -euo pipefail
+          node scripts/restoreDrill.mjs \
+            production-counts.json restored-counts.json restore-errors.txt "$ARCHIVE" \
+            > drill.txt 2>&1 || echo "DRILL FAILED" >> drill.txt
+          cat drill.txt
+          cat drill.txt >> "$GITHUB_STEP_SUMMARY"
+          grep -q "DRILL FAILED\|did NOT restore usably" drill.txt && exit 1
+          exit 0
+
+      # Logs and artifacts come from a storage domain an agent container cannot
+      # reach; annotations are in the REST API. W51.
+      - name: Make the verdict readable without the artifact
+        if: always()
+        run: |
+          set -euo pipefail
+          [ -f drill.txt ] || { echo "  no verdict to annotate"; exit 0; }
+          node scripts/annotate-text.mjs drill.txt "restore drill"
+
+      # Any earlier step failing counts. A drill that could not fetch, decrypt
+      # or unpack the archive has found something worse than a mismatch.
+      - name: Tell someone
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          MSG="❌ <b>Restore drill failed</b>"$'\n'"The newest off-site archive did not restore into a usable copy of the database. The backups may be unrecoverable — this is the check that opens one."
+          node scripts/send-telegram-alert.mjs "$MSG"
