@@ -1,6 +1,6 @@
 # Staging and observability runbook
 
-**Last verified:** 20 October 2026, Claude — **section 18 added: all four alert paths, which of them has actually fired, and why the application's own path cannot be proven by reading the code.** The channel was re-proven today (run 39397051787); `backup.yml` gains an on-demand failure so its repaired alert can be exercised; and `alert-outbox-health.sql` turns half of E20 from a dashboard errand into an agent task. Earlier: 4 October 2026, Claude — **section 17 is rewritten where it had gone stale: the fingerprint has now run against production three times and every one of W42 to W46 came from running it, none from reviewing it.** The "never yet run" paragraph is replaced by what the three runs found, and "why the `pgaudit` migration is still unwritten" by the migration itself — 047 audits by object rather than by role, which makes the unanswerable dashboard-role question irrelevant; it is written, not applied, and W47 is the gap that survives applying it. Earlier: 3 October 2026 (evening), Claude — **the production role inventory is now read from production** and recorded at the end of section 17: five roles bypass RLS, `service_role` cannot log in, and `supabase_read_only_user` already exists, which bears on W29. The `pgaudit` migration stays unwritten because the deciding fact — which role the dashboard editors run as — is still unanswered. Earlier the same evening: **section 17 added: the nightly production fingerprint, which is the first control here that can see a change made in a logged-in dashboard.** Tested against a real Postgres with all 45 migrations replayed, silent when production matches, and recorded as **never yet run against production** — the first scheduled night is the first real run. Also section 16 revised after Codex reviewed these controls: two paste-ready Codex files did not load at all, the gate failed open on Codex when it could not parse an event, and two bypasses are closed. The heading is weaker and the mechanisms are unchanged. Earlier the same day: section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
+**Last verified:** 20 October 2026, Claude — **section 19 added: the backups are there, read from the bucket — 30 dailies on 30 consecutive dates, 21 September to 20 October, no missing night** (run 39402993779), after three existing pieces of evidence each turned out to be circumstantial; a count of thirty-one objects is not a distribution, which is the second time `switch_rows 1`'s error has nearly been repeated. Also **section 18 added: all four alert paths, which of them has actually fired, and why the application's own path cannot be proven by reading the code.** The channel was re-proven today (run 39397051787); `backup.yml` gains an on-demand failure so its repaired alert can be exercised; and `alert-outbox-health.sql` turns half of E20 from a dashboard errand into an agent task. Earlier: 4 October 2026, Claude — **section 17 is rewritten where it had gone stale: the fingerprint has now run against production three times and every one of W42 to W46 came from running it, none from reviewing it.** The "never yet run" paragraph is replaced by what the three runs found, and "why the `pgaudit` migration is still unwritten" by the migration itself — 047 audits by object rather than by role, which makes the unanswerable dashboard-role question irrelevant; it is written, not applied, and W47 is the gap that survives applying it. Earlier: 3 October 2026 (evening), Claude — **the production role inventory is now read from production** and recorded at the end of section 17: five roles bypass RLS, `service_role` cannot log in, and `supabase_read_only_user` already exists, which bears on W29. The `pgaudit` migration stays unwritten because the deciding fact — which role the dashboard editors run as — is still unanswered. Earlier the same evening: **section 17 added: the nightly production fingerprint, which is the first control here that can see a change made in a logged-in dashboard.** Tested against a real Postgres with all 45 migrations replayed, silent when production matches, and recorded as **never yet run against production** — the first scheduled night is the first real run. Also section 16 revised after Codex reviewed these controls: two paste-ready Codex files did not load at all, the gate failed open on Codex when it could not parse an event, and two bypasses are closed. The heading is weaker and the mechanisms are unchanged. Earlier the same day: section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
 
 **Status:** the isolated Supabase project exists and was reset twice from
 current `main` on 19 September 2026. Both runs replayed all 44 migrations and
@@ -1312,3 +1312,78 @@ channel cannot report over Telegram that it is broken.
 So E20 does not need a Vercel expedition after all. It needs one admin login and
 one button — and the deployment answers the question about itself, which is what
 section 17's reasoning said a control should do.
+
+## 19. Are the backups actually there — answered from the bucket, 20 October 2026
+
+*Asked by Tasos on seeing the simulated failure alert: "I now wonder if we only
+got a backup failure because we checked — have we been creating backups for the
+last four weeks?" The question was better than the evidence available to answer
+it, which is why this section exists.*
+
+**The answer is yes, and it is now read from the bucket rather than inferred.**
+`backup-inventory.yml`, run 39402993779:
+
+```
+=== daily ===
+30 archive(s), 2026-09-21 to 2026-10-20, median 163400 bytes
+The backups are present and unbroken.
+
+=== monthly (reported, not enforced) ===
+  2026-09-01 23:33:31     138176 anadyon-2026-09-01T23-33-24Z.tar.gz.enc
+  2026-10-01 02:16:38     162368 anadyon-2026-10-01T02-16-33Z.tar.gz.enc
+```
+
+Thirty dailies on thirty consecutive dates — the retention limit exactly, so the
+bucket is full rather than short — no missing night, nothing stale, nothing
+below a fifth of the median size. Two monthlies, one per month since the scheme
+started.
+
+### Why the three things that already existed were not good enough
+
+Each of these *was* true, and none of them answers the question:
+
+1. **The run history.** 30 scheduled runs on 30 consecutive dates, all green.
+   This is the weakest evidence in the building, because it is **specifically
+   the evidence that lied on this workflow**: four failed backups reported the
+   alert step as successful while nothing was delivered (E17). A green tick
+   means a step exited 0.
+2. **Last night's log.** The archive was built (161K), `archive decrypts and
+   lists cleanly`, and `aws` confirmed `upload: … to s3://***/daily/…`. Good
+   evidence about **one night**.
+3. **The prune line.** `removing daily/anadyon-2026-09-20T16-17-50Z…` — the
+   prune keeps thirty, so deleting exactly one dated 20 September means
+   thirty-one objects existed spanning a month. **But a count is not a
+   distribution.** Thirty-one objects between 20 September and 20 October is
+   equally consistent with a fortnight of doubled uploads and a fortnight of
+   nothing. This is the same error as `switch_rows 1` in section 17: *a count
+   is not an identity*, and it is the second time it has nearly been made here.
+
+The listing is the only one of the four that distinguishes those cases, which
+is the general lesson: **the artefact, not the job that was supposed to produce
+it.**
+
+### What the check enforces, and what it deliberately does not
+
+Three failures, each chosen against a way this could rot silently:
+
+| Failure | Why it is a failure |
+| --- | --- |
+| A missing day inside the window | The job is nightly; a date with no archive is a night that produced nothing, whatever the run log said. |
+| Newest older than 48 hours | A bucket of correct but old archives is a stopped schedule. 48 rather than 24 because the job starts at 23:30 UTC and has drifted past midnight. |
+| An archive under a fifth of the median | The dump guard refuses a file under 100 bytes, but it runs **before** compression and cannot see an archive that shrank because a table stopped being dumped. Measured against the bucket's own median so no constant needs maintaining as the database grows. |
+
+Two archives on one day is **reported, not failed**: a re-run produces one
+legitimately, and a doubled schedule produces one illegitimately, so it is said
+rather than enforced. The monthlies are listed but not checked — one object a
+month makes "a missing day" meaningless there.
+
+### What it still does not prove, and this is the honest limit
+
+**That an archive restores.** Listing a file is not opening it, and the nightly
+job's own decrypt check reads only the archive it has just made in memory — it
+has never opened one that came back out of R2. A 30-object bucket of
+undecryptable files would pass every check in this section.
+
+That is **E23**, the restore drill, and it stays open. This section narrows what
+E23 has left to prove — the archives exist, are the right size, and cover every
+night — which is worth having, and is not the same as proving one restores.
