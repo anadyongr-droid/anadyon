@@ -106,6 +106,45 @@ describe("telling platform noise from a real restore failure", () => {
     expect(real).toHaveLength(1);
   });
 
+  it("tolerates the platform schemas a plain Postgres cannot host", () => {
+    // Every one of these is from the first real run, 20 October 2026
+    // (39407010918). `auth` and `storage` are created by Supabase's own
+    // migrations, not by anything in this repository, so a bare server has
+    // nowhere to put them — the actual shape of a restore, recorded in
+    // runbook section 20 rather than hidden.
+    const stderr = [
+      'psql:restored/data.sql:365: ERROR:  relation "auth.sso_providers" does not exist',
+      'psql:restored/data.sql:2429: ERROR:  relation "storage.objects" does not exist',
+      'psql:restored/data.sql:2461: ERROR:  relation "auth.refresh_tokens_id_seq" does not exist',
+      'psql:restored/schema.sql:3560: ERROR:  publication "supabase_realtime" does not exist',
+      'psql:restored/schema.sql:3814: ERROR:  function public.pgaudit_ddl_command_end() does not exist',
+      'psql:restored/data.sql:52: ERROR:  column "instance_id" of relation "users" does not exist',
+      'psql:restored/data.sql:2403: ERROR:  column "avif_autodetection" of relation "buckets" does not exist',
+    ].join("\n");
+    const { real } = classifyErrors(stderr);
+    expect(real).toEqual([]);
+  });
+
+  it("still fails on anything in public, which is the whole point of drawing the line there", () => {
+    // If this ever passes, the classification has become "tolerate
+    // everything" and the drill is decoration.
+    const stderr = [
+      'psql:restored/data.sql:99: ERROR:  relation "public.reservations" does not exist',
+      'psql:restored/data.sql:120: ERROR:  column "total" of relation "quotes" does not exist',
+    ].join("\n");
+    const { real, tolerated } = classifyErrors(stderr);
+    expect(tolerated).toEqual([]);
+    expect(real).toHaveLength(2);
+  });
+
+  it("does not let a public table borrow the stub tables' exemption", () => {
+    // The column exemption names `users` and `buckets` because those are the
+    // two tables the shared stubs create narrower than Supabase's. A public
+    // table losing a column must not ride along on it.
+    const stderr = 'psql:restored/data.sql:7: ERROR:  column "plate" of relation "vehicles" does not exist';
+    expect(classifyErrors(stderr).real).toHaveLength(1);
+  });
+
   it("does not mistake a warning or a notice for an error", () => {
     const stderr = ["NOTICE:  table does not exist, skipping", "WARNING:  no privileges"].join("\n");
     expect(classifyErrors(stderr)).toEqual({ tolerated: [], real: [] });

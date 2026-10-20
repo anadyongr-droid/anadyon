@@ -40,13 +40,44 @@ import { readFileSync } from "node:fs";
  *     since the dump. Reported.
  */
 
-/** Platform noise a vanilla Postgres always produces restoring a Supabase dump. */
+/**
+ * Platform noise a vanilla Postgres always produces restoring a Supabase dump.
+ *
+ * **The line is the schema, and it is drawn where it is on purpose.** `public`
+ * is ours — every table this application reads or writes lives there, and an
+ * error naming one is always a real failure. `auth`, `storage`, `realtime`,
+ * `graphql`, `vault` and `extensions` belong to the Supabase platform: their
+ * tables are created by Supabase's own migrations, not by anything in this
+ * repository, and no plain Postgres can host them.
+ *
+ * That is not a loophole, it is the actual shape of a recovery. Restoring into
+ * a fresh Supabase project would reload them; restoring into a bare server
+ * cannot, and pretending otherwise would make this drill fail for ever on a
+ * finding that is already understood and recorded (runbook section 20).
+ *
+ * The two column-level entries are narrower still and name the two tables
+ * `scripts/pgliteSupabaseStubs.mjs` stubs — its `auth.users` and
+ * `storage.buckets` have fewer columns than Supabase's real ones. A public
+ * table losing a column is **not** covered by them, and would be caught twice
+ * over: by this classification, and by the row count of the table whose COPY
+ * failed coming back zero.
+ */
+const PLATFORM_SCHEMAS = "auth|storage|realtime|graphql|graphql_public|vault|extensions|net|cron|pgbouncer";
 const TOLERATED = [
   /role "(supabase|pgbouncer|dashboard_user|authenticator|anon|authenticated|service_role)[^"]*" does not exist/i,
-  /schema "(auth|storage|graphql|graphql_public|realtime|vault|extensions|pgbouncer|net|cron)" (already exists|does not exist)/i,
+  new RegExp(`schema "(${PLATFORM_SCHEMAS})" (already exists|does not exist)`, "i"),
   /extension "(pg_graphql|pg_net|pgsodium|supabase_vault|pg_cron|pgjwt|pg_stat_statements|pgaudit)" is not available/i,
   /must be owner of|permission denied to set role|no privileges could be revoked/i,
   /unrecognized configuration parameter/i,
+  // Relations and sequences inside a platform schema, always schema-qualified
+  // by `supabase db dump`.
+  new RegExp(`relation "(${PLATFORM_SCHEMAS})\\.[^"]+" does not exist`, "i"),
+  // The two stub tables, which exist but are narrower than Supabase's.
+  /column "[^"]+" of relation "(users|buckets)" does not exist/i,
+  // Logical replication and the pgaudit event triggers, neither of which a
+  // plain Postgres has. Named exactly rather than by prefix.
+  /publication "supabase_realtime" does not exist/i,
+  /function public\.pgaudit_(ddl_command_end|sql_drop)\(\) does not exist/i,
 ];
 
 /**
