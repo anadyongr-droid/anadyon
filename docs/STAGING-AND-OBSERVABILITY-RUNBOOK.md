@@ -1265,3 +1265,50 @@ This is the same correction `simulate_early_failure` made to the fingerprint on
 successful while nothing arrived, and every run since has succeeded. A repair
 that has not been exercised is a repair nobody has seen work. Re-fire it whenever
 this workflow changes.
+
+### What the queue actually said — read 20 October, run 39397701195
+
+```
+ section        | prefix               | rows | unsent | newest      | oldest
+ by prefix      | booking-confirmation | 2    | 0      | 2026-08-23  | 2026-08-23
+ by prefix      | briefing             | 64   | 0      | 2026-10-20  | 2026-08-16
+ by prefix      | urgent               | 27   | 0      | 2026-08-22  | 2026-08-16
+ by prefix      | watchdog             | 7    | 0      | 2026-08-21  | 2026-08-17
+ telegram queue | tg:                  | 0    | 0      | 0 abandoned | none ever queued
+```
+
+No `delivery error` row came back at all, so nothing in the table has ever
+carried an `error`.
+
+**What this establishes.** The Vercel cron runs — 64 `briefing` rows, the newest
+dated **today**, across 65 days. And `queue()` has **never** written a row, so no
+alert has ever been recorded as undelivered.
+
+**What it does not establish, and this is the trap the query was built to
+avoid.** Zero `tg:` rows is consistent with two opposite worlds:
+
+1. every application alert was accepted by Telegram first time; or
+2. **`TELEGRAM_BOT_TOKEN` is absent in Vercel**, in which case `sendTelegram`
+   returns *before* `deliver()` and therefore before `queue()` — total silence,
+   nothing sent and nothing recorded.
+
+The `briefing` rows cannot break the tie either: the row is inserted with
+`sent_at` already set, **after** `sendTelegram(msg)` and regardless of what it
+returned. It records that the cron reached the end, not that a message arrived.
+
+### The thing that does break the tie, and it is a button
+
+`lib/healthChecks.ts` already has `checkAlertChannel`, and it is written to
+distinguish exactly these cases: no token ("alerts are skipped silently, not
+even queued"), a token that is not shaped like one (the two variables holding
+each other's values), and otherwise the **last four digits of the chat id in
+use** — which answers "is it the hardcoded fallback or the configured group?"
+without echoing a credential.
+
+It runs behind **Admin → Settings → Site health**, on a button, by deliberate
+design: `formatHealthAlert` delivers failures over Telegram, so a broken alert
+channel cannot report over Telegram that it is broken.
+
+So E20 does not need a Vercel expedition after all. It needs one admin login and
+one button — and the deployment answers the question about itself, which is what
+section 17's reasoning said a control should do.
