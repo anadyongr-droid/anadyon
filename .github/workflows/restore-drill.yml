@@ -208,13 +208,24 @@ jobs:
           [ -f drill.txt ] || { echo "  no verdict to annotate"; exit 0; }
           node scripts/annotate-text.mjs drill.txt "restore drill"
 
-      # Any earlier step failing counts. A drill that could not fetch, decrypt
-      # or unpack the archive has found something worse than a mismatch.
+      # Any earlier step failing counts: a drill that could not fetch, decrypt
+      # or unpack the archive has found something, even if not a mismatch.
+      #
+      # **The message is built from the verdict, not from the worst case.** The
+      # first real run (20 October 2026) failed on the classifier, not on the
+      # data — 29 of 29 tables and 1,742 of 1,744 rows had restored — and the
+      # alert it sent said "the backups may be unrecoverable". That is not
+      # information, it is a guess dressed as one, and an alert that announces
+      # a disaster during a successful restore teaches the reader to discount
+      # the next one. `scripts/restore-drill-alert.mjs` keeps the three cases
+      # apart: data missing, errors in our own schema with the data intact, and
+      # a drill that never got far enough to say.
       - name: Tell someone
         if: failure()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          MSG="❌ <b>Restore drill failed</b>"$'\n'"The newest off-site archive did not restore into a usable copy of the database. The backups may be unrecoverable — this is the check that opens one."
+          set -euo pipefail
+          MSG="$(node scripts/restore-drill-alert.mjs drill.txt)"
           node scripts/send-telegram-alert.mjs "$MSG"
