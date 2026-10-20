@@ -1466,3 +1466,40 @@ drill proves the archive is complete and loadable; it does not create a project
 and point the application at it. That is a larger exercise, it needs Tasos's
 dashboard, and it is now the only part of E23 left — recorded as **W60** rather
 than left inside a closed item.
+
+### The first alert it sent was wrong, and that is a defect in the alert
+
+The run above failed, so the drill sent:
+
+> ❌ **Restore drill failed.** The newest off-site archive did not restore into
+> a usable copy of the database. The backups may be unrecoverable — this is the
+> check that opens one.
+
+**The alarm was real and the diagnosis inside it was invented.** The job had
+failed, so firing was correct; but the same run had restored 29 of 29 tables
+and 1,742 of 1,744 rows. Nothing about it suggested the backups were
+unrecoverable. Tasos asked whether the message was valid information, which is
+how it was found.
+
+This is worse than a clumsy sentence, and `backup.yml`'s own comment says why:
+a nightly "backup succeeded" message trains the reader to ignore the channel.
+An alert that announces a disaster during a **successful** restore does the
+same thing faster, because the next real one is read as another false alarm —
+and this project has already spent weeks on an alert channel nobody trusted.
+
+`scripts/restore-drill-alert.mjs` now builds the message from the verdict file
+and keeps three cases apart:
+
+| What the run established | What the alert says |
+| --- | --- |
+| A table missing, or empty where production has rows | *Data did not come back*, naming the table and the counts, because the alert is read on a phone away from the log |
+| Errors in `public` but the counts came back | *The data itself came back* — serious, worth reading, **not** a lost backup |
+| It never reached a restore | *The drill could not complete* — this says nothing yet about whether the archive is good |
+
+`tests/restoreDrillAlert.test.ts` holds them apart: restoring the original
+wording fails six of its nine tests, which was run before trusting them.
+
+**The general rule this is an instance of.** An alert may state what the run
+established and what to do about it. It may not state what the failure might
+mean. The fingerprint learned the same lesson from the other direction when a
+count was read as an identity — here a failure was read as a diagnosis.
