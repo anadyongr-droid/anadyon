@@ -1,6 +1,6 @@
 # Staging and observability runbook
 
-**Last verified:** 4 October 2026, Claude — **section 17 is rewritten where it had gone stale: the fingerprint has now run against production three times and every one of W42 to W46 came from running it, none from reviewing it.** The "never yet run" paragraph is replaced by what the three runs found, and "why the `pgaudit` migration is still unwritten" by the migration itself — 047 audits by object rather than by role, which makes the unanswerable dashboard-role question irrelevant; it is written, not applied, and W47 is the gap that survives applying it. Earlier: 3 October 2026 (evening), Claude — **the production role inventory is now read from production** and recorded at the end of section 17: five roles bypass RLS, `service_role` cannot log in, and `supabase_read_only_user` already exists, which bears on W29. The `pgaudit` migration stays unwritten because the deciding fact — which role the dashboard editors run as — is still unanswered. Earlier the same evening: **section 17 added: the nightly production fingerprint, which is the first control here that can see a change made in a logged-in dashboard.** Tested against a real Postgres with all 45 migrations replayed, silent when production matches, and recorded as **never yet run against production** — the first scheduled night is the first real run. Also section 16 revised after Codex reviewed these controls: two paste-ready Codex files did not load at all, the gate failed open on Codex when it could not parse an event, and two bypasses are closed. The heading is weaker and the mechanisms are unchanged. Earlier the same day: section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
+**Last verified:** 20 October 2026, Claude — **section 18 added: all four alert paths, which of them has actually fired, and why the application's own path cannot be proven by reading the code.** The channel was re-proven today (run 39397051787); `backup.yml` gains an on-demand failure so its repaired alert can be exercised; and `alert-outbox-health.sql` turns half of E20 from a dashboard errand into an agent task. Earlier: 4 October 2026, Claude — **section 17 is rewritten where it had gone stale: the fingerprint has now run against production three times and every one of W42 to W46 came from running it, none from reviewing it.** The "never yet run" paragraph is replaced by what the three runs found, and "why the `pgaudit` migration is still unwritten" by the migration itself — 047 audits by object rather than by role, which makes the unanswerable dashboard-role question irrelevant; it is written, not applied, and W47 is the gap that survives applying it. Earlier: 3 October 2026 (evening), Claude — **the production role inventory is now read from production** and recorded at the end of section 17: five roles bypass RLS, `service_role` cannot log in, and `supabase_read_only_user` already exists, which bears on W29. The `pgaudit` migration stays unwritten because the deciding fact — which role the dashboard editors run as — is still unanswered. Earlier the same evening: **section 17 added: the nightly production fingerprint, which is the first control here that can see a change made in a logged-in dashboard.** Tested against a real Postgres with all 45 migrations replayed, silent when production matches, and recorded as **never yet run against production** — the first scheduled night is the first real run. Also section 16 revised after Codex reviewed these controls: two paste-ready Codex files did not load at all, the gate failed open on Codex when it could not parse an event, and two bypasses are closed. The heading is weaker and the mechanisms are unchanged. Earlier the same day: section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
 
 **Status:** the isolated Supabase project exists and was reset twice from
 current `main` on 19 September 2026. Both runs replayed all 44 migrations and
@@ -1189,3 +1189,79 @@ application's own reads, which arrive as `authenticator` →
 view, and a log nobody can read is how auditing gets switched off — the same
 reasoning 047 used for the email tables. A deliberate limit, recorded as one
 (W54).
+
+## 18. Every alert path, and which of them has actually fired — 20 October 2026
+
+*Written in answer to a one-line question — "are all alert firing scripts up and
+running now?" — which turned out not to have a one-line answer. There are four
+paths, not one, they do not share a credential, and "configured" and "proven"
+are different states. The list below is what each one is and how it was
+established, so the next person asking does not have to re-derive it (§9).*
+
+**The channel is one Telegram group; the credential is two different places.**
+Three paths run on GitHub's machines and read `TELEGRAM_BOT_TOKEN` and
+`TELEGRAM_CHAT_ID` from **Actions secrets**. The fourth is the application, and
+it reads the same two names from **Vercel → Project → Settings → Environment
+Variables**. Proving one says nothing about the other, which is why E17 closing
+did not close E20.
+
+| Path | What fires it | Proven? |
+| --- | --- | --- |
+| `production-fingerprint.yml` | Nightly, 00:10 UTC. Any `high` difference, **or any earlier step failing**. | **Both directions.** Fired for real four times (4–5 October); silent across ten consecutive clean nights, 11–20 October; and the early-failure branch fired deliberately on 8 October via `simulate_early_failure` — run 37783295976, step 6 `failure`, "Tell someone" **success**. |
+| `backup.yml` | Nightly, 23:30 UTC, `if: failure()` only. | **Channel yes, this path no.** Twelve consecutive successes to 20 October, so the step has not run since it was repaired on 21 September. `simulate_failure` is added today for exactly this reason — see below. |
+| `alert-test.yml` | Manual only. Its whole purpose is proving the channel. | **Yes, today.** Run 39397051787, 20 October 08:56 UTC, success — and `scripts/send-telegram-alert.mjs` fails the step unless Telegram answers `ok: true`, so a green run means a message arrived rather than that a request was sent. |
+| The application — `lib/telegram.ts`, called by the Stripe webhook, the morning briefing cron, the email watchdog and the mailer | Deposit received, booking not stored, briefing, health check. Vercel credentials. | **No. This is E20 and it has never fired in evidence anyone can read.** |
+
+**`ci.yml` is deliberately not on this list.** Its two `if: failure()` steps
+upload Playwright artefacts; they send nothing. A failed CI run reaches Tasos
+through GitHub's own notification email, and adding a Telegram alert for a red
+branch would train the reader to skim the channel — the habit the backup alert
+depends on not existing.
+
+### Why the application path cannot be proven by reading the code
+
+`lib/telegram.ts` is the one path that fails quietly, and in two different ways:
+
+- **No token:** it logs `TELEGRAM_BOT_TOKEN not set — skipping Telegram alert`
+  and **returns**. Nothing goes red, nothing queues, and the console it writes
+  to is Vercel's.
+- **No chat id:** it falls back to a **hardcoded** group,
+  `-1003920236402`. So a missing variable does not fail — it posts somewhere,
+  possibly somewhere nobody is watching.
+
+Both are reasonable for a library that must not turn a missed alert into a
+failed payment, and both mean the code cannot tell you whether the path works.
+The Actions-side script `scripts/send-telegram-alert.mjs` makes the opposite
+choice on purpose — it requires both names and exits 1 — because a workflow step
+has nothing to protect.
+
+### What does answer it: `alert_outbox`
+
+`scripts/sql/readonly/alert-outbox-health.sql`, run through the read-only
+production query workflow, reads the table that `lib/telegram.ts` writes to when
+a delivery fails. The four outcomes it distinguishes are in the file's own
+header. The one that needs care is **no `tg:` rows at all**, which means either
+every send succeeded first time or none was attempted — distinguished by the
+`briefing:` rows the morning cron writes on every run whether or not it alerted.
+
+**It reads no payload.** An alert body can carry a customer's name and booking,
+and this output lands in check-run annotations on a public repository; keys,
+timestamps and Telegram's own error description are what is diagnostic anyway.
+
+So E20 splits. Half of it is now an agent task — read the table, which needs
+nobody at a keyboard. The other half, confirming the two names exist in Vercel,
+is a dashboard an agent cannot see, and stays with Tasos.
+
+### `backup.yml` gains an on-demand failure
+
+`workflow_dispatch` now takes `simulate_failure`, which exits the dump step
+non-zero **before it connects to anything** — so the job fails where a real dump
+failure would, with no database access, nothing uploaded, and the previous
+night's archive untouched.
+
+This is the same correction `simulate_early_failure` made to the fingerprint on
+8 October, and it is here for the same reason: the alert was rewritten on
+21 September after four failed runs had each reported the old inline `curl` as
+successful while nothing arrived, and every run since has succeeded. A repair
+that has not been exercised is a repair nobody has seen work. Re-fire it whenever
+this workflow changes.

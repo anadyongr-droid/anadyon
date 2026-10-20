@@ -7,6 +7,11 @@ on:
   schedule:
     - cron: "30 23 * * *"
   workflow_dispatch:
+    inputs:
+      simulate_failure:
+        description: "Fail the dump step on purpose, to fire the alert path without waiting for a real failure"
+        type: boolean
+        default: false
 
 # The Supabase free plan takes no backups at all — daily backups are a Pro
 # feature, and their documentation tells free projects to export their own data
@@ -60,11 +65,30 @@ jobs:
       # Three dumps rather than one, following Supabase's guidance. Roles and
       # schema are what a data-only export misses — and what turns a restore
       # from "rebuild it by hand and hope" into something reproducible.
+      #
+      # **A way to fire the alert path on demand, and it exists because this
+      # path has not fired since it was repaired.** The alert was rewritten on
+      # 21 September 2026, after four failed runs had each reported the old
+      # inline `curl` step as successful while Tasos received nothing. Every
+      # run since has succeeded -- twelve consecutively to 20 October -- so the
+      # repair is configured and unexercised, which is the same criticism that
+      # produced `simulate_early_failure` on the nightly fingerprint.
+      #
+      # Dispatching with `simulate_failure` exits non-zero **before the dump
+      # connects to anything**, so the job fails where a real dump failure
+      # would, with no database access and nothing uploaded. The archive from
+      # the previous night is untouched: this step is the first that could
+      # write, and it never runs.
       - name: Dump roles, schema and data
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SIMULATE: ${{ inputs.simulate_failure }}
         run: |
           set -euo pipefail
+          if [ "${SIMULATE:-false}" = "true" ]; then
+            echo "::error::simulated dump failure — firing the alert path on purpose, nothing was dumped or uploaded"
+            exit 1
+          fi
           mkdir -p dump
           node scripts/safe-supabase-backup.mjs
 
