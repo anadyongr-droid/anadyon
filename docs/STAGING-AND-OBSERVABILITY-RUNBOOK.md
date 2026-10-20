@@ -1,6 +1,6 @@
 # Staging and observability runbook
 
-**Last verified:** 20 October 2026, Claude — **section 20 added: E23's restore drill RAN, and the archive restores — 29 of 29 tables, 1742 of 1744 rows** (run 39407010918); it also established that `auth` and `storage` cannot restore outside Supabase, so the login layer is a rebuild rather than a restore, which nobody had written down because nobody had tried it. Also **section 19 added: the backups are there, read from the bucket — 30 dailies on 30 consecutive dates, 21 September to 20 October, no missing night** (run 39402993779), after three existing pieces of evidence each turned out to be circumstantial; a count of thirty-one objects is not a distribution, which is the second time `switch_rows 1`'s error has nearly been repeated. Also **section 18 added: all four alert paths, which of them has actually fired, and why the application's own path cannot be proven by reading the code.** The channel was re-proven today (run 39397051787); `backup.yml` gains an on-demand failure so its repaired alert can be exercised; and `alert-outbox-health.sql` turns half of E20 from a dashboard errand into an agent task. Earlier: 4 October 2026, Claude — **section 17 is rewritten where it had gone stale: the fingerprint has now run against production three times and every one of W42 to W46 came from running it, none from reviewing it.** The "never yet run" paragraph is replaced by what the three runs found, and "why the `pgaudit` migration is still unwritten" by the migration itself — 047 audits by object rather than by role, which makes the unanswerable dashboard-role question irrelevant; it is written, not applied, and W47 is the gap that survives applying it. Earlier: 3 October 2026 (evening), Claude — **the production role inventory is now read from production** and recorded at the end of section 17: five roles bypass RLS, `service_role` cannot log in, and `supabase_read_only_user` already exists, which bears on W29. The `pgaudit` migration stays unwritten because the deciding fact — which role the dashboard editors run as — is still unanswered. Earlier the same evening: **section 17 added: the nightly production fingerprint, which is the first control here that can see a change made in a logged-in dashboard.** Tested against a real Postgres with all 45 migrations replayed, silent when production matches, and recorded as **never yet run against production** — the first scheduled night is the first real run. Also section 16 revised after Codex reviewed these controls: two paste-ready Codex files did not load at all, the gate failed open on Codex when it could not parse an event, and two bypasses are closed. The heading is weaker and the mechanisms are unchanged. Earlier the same day: section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
+**Last verified:** 20 October 2026, Claude — **section 21 added: the Data API change re-checked ten days out — the position holds, nothing is needed for 30 October, and a migration written for views was withdrawn because the view's own migration already grants it.** Production having *more* privileges than the repository read like the repository having *none*. §6 is now verified for views for the first time. Also **section 20 added: E23's restore drill RAN, and the archive restores — confirmed on re-run 39417766890, green with the alert correctly silent, so the drill has now fired on a failure and stayed quiet on a success on the same archive. The first run's alert wording was itself a defect and is fixed. Originally — 29 of 29 tables, 1742 of 1744 rows** (run 39407010918); it also established that `auth` and `storage` cannot restore outside Supabase, so the login layer is a rebuild rather than a restore, which nobody had written down because nobody had tried it. Also **section 19 added: the backups are there, read from the bucket — 30 dailies on 30 consecutive dates, 21 September to 20 October, no missing night** (run 39402993779), after three existing pieces of evidence each turned out to be circumstantial; a count of thirty-one objects is not a distribution, which is the second time `switch_rows 1`'s error has nearly been repeated. Also **section 18 added: all four alert paths, which of them has actually fired, and why the application's own path cannot be proven by reading the code.** The channel was re-proven today (run 39397051787); `backup.yml` gains an on-demand failure so its repaired alert can be exercised; and `alert-outbox-health.sql` turns half of E20 from a dashboard errand into an agent task. Earlier: 4 October 2026, Claude — **section 17 is rewritten where it had gone stale: the fingerprint has now run against production three times and every one of W42 to W46 came from running it, none from reviewing it.** The "never yet run" paragraph is replaced by what the three runs found, and "why the `pgaudit` migration is still unwritten" by the migration itself — 047 audits by object rather than by role, which makes the unanswerable dashboard-role question irrelevant; it is written, not applied, and W47 is the gap that survives applying it. Earlier: 3 October 2026 (evening), Claude — **the production role inventory is now read from production** and recorded at the end of section 17: five roles bypass RLS, `service_role` cannot log in, and `supabase_read_only_user` already exists, which bears on W29. The `pgaudit` migration stays unwritten because the deciding fact — which role the dashboard editors run as — is still unanswered. Earlier the same evening: **section 17 added: the nightly production fingerprint, which is the first control here that can see a change made in a logged-in dashboard.** Tested against a real Postgres with all 45 migrations replayed, silent when production matches, and recorded as **never yet run against production** — the first scheduled night is the first real run. Also section 16 revised after Codex reviewed these controls: two paste-ready Codex files did not load at all, the gate failed open on Codex when it could not parse an event, and two bypasses are closed. The heading is weaker and the mechanisms are unchanged. Earlier the same day: section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
 
 **Status:** the isolated Supabase project exists and was reset twice from
 current `main` on 19 September 2026. Both runs replayed all 44 migrations and
@@ -1503,3 +1503,111 @@ wording fails six of its nine tests, which was run before trusting them.
 established and what to do about it. It may not state what the failure might
 mean. The fingerprint learned the same lesson from the other direction when a
 count was read as an identity — here a failure was read as a diagnosis.
+
+### The confirming run, 39417766890
+
+With the classification corrected, the same archive run again:
+
+```
+restored anadyon-2026-10-20T01-58-16Z.tar.gz.enc
+  29 table(s) restored, 29 in production; 1742 rows restored against 1744 live
+  45 platform error(s) tolerated (Supabase roles and schemas a plain Postgres lacks)
+  note: 2 table(s) are behind production, which is expected of an overnight dump:
+        alert_outbox (99/100), quote_rate_limits (9/10)
+The archive restores to a usable copy of production.
+```
+
+Exit 0, and the "Tell someone" step **skipped** — the drill is silent when the
+backups are good, which is the behaviour the whole alert design depends on.
+Forty-five platform errors tolerated and none in `public`.
+
+**Both directions are therefore exercised**, which is the standard section 18
+holds every alert path to: this one has fired on a failure (39407010918) and
+stayed quiet on a success (39417766890), on the same archive, hours apart.
+
+## 21. The Data API change, checked once more ten days out — 20 October 2026
+
+*Supabase emailed a reminder on 20 October: from **30 October** a table created
+in `public` receives no Data API privileges unless a `GRANT` says so. This
+section is what re-checking the position found, and it belongs here rather than
+in a new document because section 14 already owns the subject (§9).*
+
+**The position is unchanged and holds.** Migration 046 is applied and verified
+in production (28 September, open item M5), `lib/serviceRoleGrants.test.ts`
+keeps every table a migration creates granted to `service_role`, and no
+migration since 046 creates a table. Nothing in the email was new.
+
+### Two things the email's generic advice would get wrong here
+
+Supabase's suggested snippet grants `select` to `anon` and full CRUD to
+`authenticated`. **Following it would break §6.** This application talks to the
+database only as `service_role`, through `supabaseAdmin`; `anon` and
+`authenticated` are revoked deliberately and `scripts/check-grants.mjs` asserts
+they hold nothing. The two exceptions — `rates` and `extras_config` — are
+granted `select` to `anon` by migration 023 explicitly, so a replay recreates
+them without help from the platform.
+
+**Sequences are a non-issue, and for a reason rather than by luck.** Every
+primary key in this schema is a `uuid` with `gen_random_uuid()`; there is no
+`serial` or identity column anywhere, so no sequence needs `usage`. Migration
+023's `grant all privileges on all sequences in schema public to service_role`
+covers what exists. A future migration introducing a serial column would need
+its own sequence grant, and the test does not model that — recorded here rather
+than left as a surprise.
+
+### What re-checking nearly got wrong
+
+**Views were outside the model, and that looked like a live defect.**
+`public.vehicle_open_damage` is a view created on 30 August 2026, after 023's
+one-time blanket grant; migration 046 and the test both matched `create table`;
+and the nightly fingerprint's grant section filters `relkind in ('r','p')`, so
+nothing in this project inspects a view's privileges. The admin damages
+endpoint reads that view as `service_role`.
+
+Production was then read through the read-only query workflow, run
+**39493105577**:
+
+```
+      view_name      |   grantee    |                      privileges
+---------------------+--------------+--------------------------------------------------
+ vehicle_open_damage | postgres     | DELETE, INSERT, MAINTAIN, REFERENCES, SELECT,
+                                      TRIGGER, TRUNCATE, UPDATE
+ vehicle_open_damage | service_role | DELETE, INSERT, MAINTAIN, REFERENCES, SELECT,
+                                      TRIGGER, TRUNCATE, UPDATE
+```
+
+A migration was written on the strength of that — **and withdrawn, because
+there was nothing to fix.** The view's own migration grants it on line 55:
+
+```sql
+grant select on public.vehicle_open_damage to service_role;
+```
+
+**The trap is worth naming, because it is specific to reading grants.**
+Production holds *all eight* privileges where the migration grants exactly one.
+Production having **more** than the repository reads like the repository having
+**none** — and the platform default had in fact added the other seven on top of
+our `select`. §8 says verify against the live system; it does not say a single
+reading cannot be misread. The second grep — for a grant naming the view, in
+the view's own file — is what settled it, and it should have been the first.
+
+### What was kept
+
+- **`scripts/sql/readonly/view-grants.sql`**, so a view's privileges are
+  answerable without a dashboard. Nothing else in the project could answer it.
+- **The test now models views as well as tables** — a preventive extension, not
+  a fix. It passes today because the one view is granted; it was proved able to
+  fail by injecting a synthetic ungranted view, which it named.
+- **§6 is now verified for views, which it never had been.** No `anon`, no
+  `authenticated` on `vehicle_open_damage`, and the reason is worth keeping:
+  023's `alter default privileges in schema public revoke all on tables from
+  public, anon, authenticated` reaches objects created *later*, so it covered a
+  view written six weeks afterwards. **The revoke side was future-proof; the
+  grant side was not** — which is exactly why 046 had to exist and why the
+  automatic grant's removal is survivable here.
+
+### Nothing is needed from Tasos for 30 October
+
+No migration to apply, no setting to change. The deadline passes without
+action: production keeps its existing grants, and a replayed database carries
+every grant it needs in the migrations themselves.
