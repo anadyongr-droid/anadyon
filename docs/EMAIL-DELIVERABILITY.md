@@ -1,6 +1,6 @@
 # How Anadyon's email actually leaves the building
 
-**Last verified:** 19 September 2026, Claude — from live DNS *and* from the full
+**Last verified:** 21 October 2026, Claude — **PHP exposure section added, on the day PHP shipped emergency fixes for two CVSS 9.2 unauthenticated-RCE flaws (CVE-2026-109618, CVE-2026-109619).** This project has no PHP in the application, the public website or Supabase, and the three `php` strings in the repository are competitors' endpoints we fetch **from**. The exposure is the Papaki/Plesk server `213.158.90.117`, which serves `mail.anadyon.gr` and `webmail.anadyon.gr` and is itself a PHP application with Roundcube webmail — **its PHP version is unverified from here** and the three things needed are Tasos's (E33). Earlier: 19 September 2026, Claude — from live DNS *and* from the full
 headers of a delivered message. Two conclusions from the 11 September pass were
 withdrawn; both had reasoned from DNS alone where only a header could answer.
 
@@ -162,6 +162,85 @@ wildcard. Open item **E6**.
 **Not verifiable from this environment.** The egress proxy re-terminates TLS, so
 `openssl s_client` returns the proxy's own certificate for any host, not the
 real one. Confirming what that certificate is bound to takes one look at Plesk.
+
+## PHP exposure, and the 21 October 2026 critical PHP release
+
+*Asked by Tasos on 21 October: "we don't have anywhere any PHP exposure right?"
+The answer is not a flat no, and this section exists so the next person asking
+gets the whole shape rather than the reassuring half of it.*
+
+**The advisory.** PHP shipped emergency fixes on **21 October 2026** for
+**CVE-2026-109618** and **CVE-2026-109619**, rated **CVSS v4.0 9.2**:
+unauthenticated remote code execution in the core runtime, plus memory
+disclosure. Fixed in **8.5.12, 8.4.27, 8.3.36 and 8.2.35**; everything from
+PHP 5.4 up to 8.5.11 is listed vulnerable. Public proof-of-concept exploits
+exist and large-scale exploitation is expected, though no active exploitation
+was reported as of that date. 8.1 and earlier are end of life — Google Cloud
+says no fix ships for them; another source says source patches exist. Either
+reading means the same thing: an 8.1-or-older server needs upgrading, not
+patching.
+
+### Where this project has no PHP at all
+
+- **The application.** No `.php` file, no `composer.json`, no PHP dependency.
+  Next.js and TypeScript on Vercel, which runs Node.
+- **The public website.** `anadyon.gr` and `www` resolve to `76.76.21.21`
+  (Vercel). A visitor-facing PHP compromise of the website is not possible,
+  because there is no PHP in front of a visitor.
+- **Supabase.** PostgreSQL and PostgREST; no PHP in the data plane.
+
+### The three `php` strings in the repository are outbound, and are not exposure
+
+`lib/farosRates.ts` posts to `includes/ajax.php` and `lib/competitorRates.ts`
+builds `vehicle.results.php` URLs. Those are **competitors' endpoints**, fetched
+as a client through `lib/boundedFetch.ts`. Their PHP version is their business.
+
+Worth stating the second-order case rather than leaving it implied: if a
+competitor's PHP site were compromised, our scraper would fetch
+attacker-controlled HTML. That is a parsing-robustness question for a Node
+process, not a path to running PHP here, and the fetch is already bounded. Not
+a finding; recorded so the next reader does not have to re-reason it.
+
+### Where the exposure actually is
+
+**The Papaki/Plesk server, `213.158.90.117`.** Both `mail.anadyon.gr` and
+`webmail.anadyon.gr` resolve to it (checked 21 October 2026). **Plesk is itself
+a PHP application and its webmail is Roundcube, also PHP** — so that host is an
+internet-facing PHP surface, and it carries staff mail.
+
+Nothing about the website's move to Vercel changed this. The certificate section
+above is about the same server for the same reason: it is still there, still
+serving, and still the part of this estate that an agent cannot see inside.
+
+**The version is unverified and is deliberately not guessed (§8).** The same
+limit as the certificate: this environment's egress proxy re-terminates TLS, so
+`curl -I` returns only the proxy's `200 Connection Established` and a WebFetch
+of the webmail host returned `503`. No banner, no version, no conclusion.
+
+### What is needed, and it needs Tasos
+
+Three things, in order, none of which an agent can do:
+
+1. **Ask Papaki whether they patch PHP on this plan, naming the two CVEs.** If
+   it is managed shared hosting they do it; if it is a VPS, nobody has yet.
+   That single question decides whether anything else on this list is urgent.
+2. **In Plesk → Tools & Settings → Updates**, read the PHP version actually
+   serving, and the Plesk build. Anything **below 8.2.35, 8.3.36, 8.4.27 or
+   8.5.12** needs the update; anything on **8.1 or older** needs a version
+   upgrade instead.
+3. **Check what else that server still serves.** The website moved to Vercel but
+   the old document root may not have been emptied. A leftover PHP site nobody
+   uses is the worst version of this, because nobody is watching it.
+
+**Also worth asking Papaki about while there:** Roundcube's own August 2026
+emergency release fixed a **pre-authentication IMAP command injection** needing
+no credentials. Whether that reached this Plesk build is unverified here.
+
+### What does not need doing
+
+Nothing on Vercel, nothing in Supabase, nothing in this repository, and no
+migration. The application is not affected by a PHP CVE because it contains no
+PHP.
 
 ## Before diagnosing the next bounce
 
