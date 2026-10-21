@@ -217,6 +217,71 @@ limit as the certificate: this environment's egress proxy re-terminates TLS, so
 `curl -I` returns only the proxy's `200 Connection Established` and a WebFetch
 of the webmail host returned `503`. No banner, no version, no conclusion.
 
+### The attack vector, read 21 October — and it makes the webmail answer worse
+
+*Added after Tasos asked the right follow-up: "so for the webmail we are
+exposed?" The first version of this section said the version was unverified and
+left it there. That was true and not enough, because the vector decides whether
+a login page is a sufficient attack surface. It is.*
+
+From CERT-EU advisory 2026-018:
+
+- **CVE-2026-109619** — stale per-request global state surviving after its
+  backing memory is freed. A demonstrated exploit in which **"one
+  unauthenticated request can trigger the attack before any application code
+  runs."**
+- **CVE-2026-109618** — memory corruption during an out-of-memory error:
+  `memory_limit` is enforced with `longjmp()`, which can interrupt request
+  parsing while internal data is only partly initialised, after which cleanup
+  frees memory that was never initialised and may hold attacker-controlled
+  data. Form-based file upload parsing is the advisory's example.
+- **Prerequisites for both: "any PHP installation serving web requests"** —
+  PHP-FPM, Apache `mod_php`, `php-cgi`, FrankenPHP, LiteSpeed. The PHP team
+  considers `mod_php` the highest risk.
+- **No authentication and no user interaction.**
+
+**Three consequences for `webmail.anadyon.gr` specifically.**
+
+1. **The login page is enough.** Nobody has to sign in, and no Roundcube
+   feature has to be reachable. The flaw is in the runtime underneath, and
+   109619 lands *before application code runs*.
+2. **"Unverified version" is no longer a neutral answer.** The fixes were
+   published on **21 October 2026** — the same day. Every release from PHP 5.4
+   to 8.5.11 is affected, so **any server not patched within hours of the
+   release is running a vulnerable version by definition.** The honest
+   statement is therefore not "we do not know whether we are exposed" but
+   "we are exposed unless Papaki patched today, and that is the thing to
+   confirm."
+3. **Mail itself is not PHP, and that is the useful part.** IMAP, SMTP and
+   delivery are Postfix and Dovecot — no PHP in the path. Only two things on
+   that server are PHP: **Roundcube webmail** and **the Plesk panel**. So the
+   attack surface can be removed without interrupting mail, by having staff use
+   a desktop or phone mail client over IMAP while webmail is off.
+
+### Mitigations if Papaki cannot patch immediately
+
+From the same advisory, and **all of them are partial — only the update fixes
+it**:
+
+- `session.upload_progress.enabled=0` in `php.ini` or the FPM pool, **then
+  restart every worker**. Not via `ini_set()` or `.user.ini`, which are too
+  late. (109619)
+- `memory_limit=-1` set so applications cannot override it — `php_admin_value`.
+  (109618)
+- A low `post_max_size` — 8M, or 32M if uploads are needed — with
+  `upload_max_filesize` below it. (109618)
+- On PHP 8.5, `fatal_error_backtraces=0`, then restart workers.
+- Request size, field, part, header and nesting limits at the web server.
+- A container or cgroup memory limit. **Not** `RLIMIT_AS` or `RLIMIT_DATA`.
+- The advisory's own last resort: *"isolate internet-facing PHP applications
+  from public networks until the fix is applied and verified."* Here that means
+  turning webmail off, or restricting it to known addresses, and leaving staff
+  on IMAP.
+
+**PHP 8.1 and older:** minimal backports exist for 7.4, 8.0 and 8.1 for builds
+from source, but a distribution or vendor build needs the vendor. Upgrading to
+a supported branch is the real answer.
+
 ### What is needed, and it needs Tasos
 
 Three things, in order, none of which an agent can do:
@@ -235,6 +300,76 @@ Three things, in order, none of which an agent can do:
 **Also worth asking Papaki about while there:** Roundcube's own August 2026
 emergency release fixed a **pre-authentication IMAP command injection** needing
 no credentials. Whether that reached this Plesk build is unverified here.
+
+### Paste-ready, for Papaki
+
+Greek first, since that is the support channel. Both versions ask the same four
+questions, and question 3 is the one that decides everything else.
+
+```
+Θέμα: Επείγον — PHP 21/10/2026 security release (CVE-2026-109618 / CVE-2026-109619)
+
+Καλημέρα σας,
+
+Σχετικά με τον server που φιλοξενεί το anadyon.gr (mail.anadyon.gr /
+webmail.anadyon.gr, 213.158.90.117):
+
+Στις 21/10/2026 το PHP εξέδωσε επείγουσες διορθώσεις για δύο κρίσιμα κενά
+ασφαλείας, CVE-2026-109618 και CVE-2026-109619 (CVSS 9.2, unauthenticated
+remote code execution). Επηρεάζονται όλες οι εκδόσεις από 5.4 έως 8.5.11.
+Διορθωμένες εκδόσεις: 8.5.12, 8.4.27, 8.3.36, 8.2.35.
+
+Παρακαλώ επιβεβαιώστε:
+
+1. Ποια έκδοση PHP τρέχει ο server αυτή τη στιγμή;
+2. Έχει εφαρμοστεί η ενημέρωση της 21/10/2026; Αν όχι, πότε θα εφαρμοστεί;
+3. Είναι η ενημέρωση δική σας ευθύνη στο πακέτο που έχουμε, ή δική μας;
+4. Έχει ενημερωθεί το Roundcube webmail για το κενό ασφαλείας του
+   Αυγούστου 2026 (pre-authentication IMAP command injection);
+
+Μέχρι να επιβεβαιωθεί η ενημέρωση, θα θέλαμε να απενεργοποιηθεί προσωρινά
+το webmail (ή να περιοριστεί η πρόσβαση σε συγκεκριμένες IP). Το προσωπικό
+θα χρησιμοποιεί IMAP από mail client, που δεν επηρεάζεται.
+
+Ευχαριστώ,
+Τάσος Μαρούδας
+Anadyon
+```
+
+```
+Subject: Urgent — PHP security release 21/10/2026 (CVE-2026-109618 / CVE-2026-109619)
+
+Hello,
+
+Regarding the server hosting anadyon.gr (mail.anadyon.gr /
+webmail.anadyon.gr, 213.158.90.117):
+
+On 21 October 2026 PHP released emergency fixes for two critical
+vulnerabilities, CVE-2026-109618 and CVE-2026-109619 (CVSS 9.2,
+unauthenticated remote code execution). All versions from 5.4 to 8.5.11 are
+affected. Fixed versions: 8.5.12, 8.4.27, 8.3.36, 8.2.35.
+
+Please confirm:
+
+1. Which PHP version is this server currently running?
+2. Has the 21 October 2026 update been applied? If not, when will it be?
+3. On our plan, is applying it your responsibility or ours?
+4. Has Roundcube webmail been updated for the August 2026
+   pre-authentication IMAP command injection?
+
+Until the update is confirmed, we would like webmail temporarily disabled,
+or access restricted to specific IP addresses. Staff will use IMAP from a
+mail client, which is unaffected.
+
+Thank you,
+Tasos Maroudas
+Anadyon
+```
+
+**Turning webmail off is Tasos's call, not an agent's.** It changes how staff
+work, which `DEFINING-STATEMENTS.md` §13 reserves to him; this is the proposal
+and the reasoning, not a decision taken. It is also reversible in a click,
+which is why it is worth proposing rather than waiting for a version number.
 
 ### What does not need doing
 
