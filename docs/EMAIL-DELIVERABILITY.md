@@ -1098,6 +1098,48 @@ the request that cannot be validated.
 3. The next failure of any kind should bounce from `…@grserver.gr` rather than
    from `googlemail.com` — that alone proves the relay is carrying mail again.
 
+### Plesk's certificate repository — the diagnosis in the vendor's own words
+
+A third screen, 23 October: the certificate **repository** for the
+subscription, with upload controls and the buttons **Add SSL/TLS Certificate**,
+**Secure Webmail**, **Secure Mail** and **Remove**.
+
+```
+3 items total
+  Lets Encrypt anadyon.gr            ✉ Secures both mail and webmail     Used: 3
+  Lets Encrypt rentals.anadyon.gr                                        Used: 1
+  www_anadyon_gr_9114_4208236                                            Used: 0
+```
+
+**`Lets Encrypt anadyon.gr` is labelled by Plesk itself as "Secures both mail
+and webmail".** That is the certificate whose `Valid To` is 12 October 2026.
+The inference chain built over the previous screens — that the expired
+certificate is what the SMTP service presents — is now a statement by the
+vendor's own panel rather than a deduction. **E6 and E34 are the same incident
+and the diagnosis is closed.**
+
+**Two things on this screen matter for the fix.**
+
+1. **`Secure Mail` and `Secure Webmail` are buttons here.** They assign a
+   chosen certificate from this list to the mail and webmail services. So
+   pointing mail at a *different, valid* certificate does not require issuing
+   anything — it is a selection.
+2. **There is a third certificate, `www_anadyon_gr_9114_4208236`, `Used: 0`.**
+   The naming is the pattern of a commercial certificate rather than a Let's
+   Encrypt one — plausibly issued through Papaki and never assigned. **If it is
+   still valid and covers `mail.anadyon.gr`, selecting it and pressing
+   `Secure Mail` fixes the outage in one action, tonight, with no issuance and
+   no DNS.**
+
+   **Entirely unverified:** its validity dates and the names it covers are not
+   on this screen, and nothing read so far says either. Opening it shows both.
+   It may equally be long expired, or be a `www.anadyon.gr`-only certificate
+   that is useless for mail. It is a lead, not an answer.
+
+**`Remove` is on this screen and should not be touched.** Removing a
+certificate that is still assigned — `Used: 3` and `Used: 1` — would unsecure
+whatever depends on it.
+
 ## The email intelligence pipeline has ingested nothing since August
 
 **Found 23 October 2026 while looking for bounces, and it is unrelated to the
