@@ -637,6 +637,69 @@ of this domain month by month, from the receivers themselves. Not needed to
 justify the fix — the configuration is provably wrong today — but it is the
 record that would say how much mail was affected.
 
+### Read from the mailbox, 23 October — and it corrects two things said above
+
+*Tasos asked whether an agent could do these checks itself. The Gmail connector
+has no settings tool, so the SMTP change is not an agent's to make — but the
+mailbox is readable, so the falsifier and the history were run here instead of
+being handed over as homework. Addresses below are redacted; the raw records
+are in the mailbox.*
+
+**Correction 1 — the message that "did not bounce" did bounce.** Two messages
+went to Yahoo addresses on 23 October, and `mailer-daemon@googlemail.com`
+returned *"Message blocked"* for **both**:
+
+| Sent | To | Blocked at |
+| --- | --- | --- |
+| 19:14:54 | the customer's Yahoo address | 19:15:08, 14 seconds later |
+| 20:12:55 | a second Yahoo address | 20:13:07, 12 seconds later |
+
+The second bounce arrived twelve seconds after sending and was evidently not
+noticed. **So there is no surviving example of a Yahoo message succeeding
+today**, and the puzzle that produced the "reputation slide" theory does not
+exist.
+
+**Correction 2 — and this one retires that theory. It genuinely used to
+work.** The mailbox holds a long history of replies from
+`customerservice@anadyon.gr` to Yahoo recipients — August 2024, July and
+August 2025, June, July, August and **2 September 2026** — with **no bounce in
+any of those threads**. One is conclusive rather than merely silent: in June
+2026 a Yahoo recipient **replied to the reply**, which only happens if it
+arrived.
+
+So the statement made earlier in this document — *"the configuration has been
+wrong since August and was merely tolerated"* — **is withdrawn. It was wrong.**
+Mail from this alias reached Yahoo inboxes for over two years.
+
+**What the evidence now says.** The last Yahoo message that did not bounce was
+around **2 September 2026**; the next attempts, on **23 October**, both
+bounced. Something changed in that window. The SPF record is not it — it read
+`v=spf1 +mx include:_spf.fastmail.gr -all` on 19 September and reads
+identically today. **Unverified, and the most likely candidate:** a hard-fail
+`-all` combined with no aligned DKIM leaves Yahoo nothing to accept on, and
+Yahoo's tolerance for that combination is reputation-weighted rather than
+fixed. Whether `-all` itself predates September could not be established from
+here.
+
+**Not Yahoo-specific, which matters.** On **26 September** a message sent from
+`anadyon.gr@gmail.com` was blocked by **`epsilonnet.gr`** — the accountant's
+system — with the same `Message blocked` response. Different recipient,
+different sending identity, same class of failure. Whatever is degrading is
+not one receiver's opinion.
+
+**The account is a free Gmail, which settles the fix.** Every one of these was
+sent from **`anadyon.gr@gmail.com`** using *Send mail as* for
+`customerservice@anadyon.gr`. A free Gmail account **cannot** DKIM-sign for
+another domain — that needs Workspace — so no amount of DNS will make the
+Google path pass. Routing the alias through `mail.anadyon.gr` remains the fix,
+and it is now the *only* fix: SPF passes on `+mx` and the published `default`
+selector signs.
+
+**Still true from the earlier analysis, and now better supported:** the
+commercial risk is mail that is *accepted* and filed as spam rather than
+bounced. Yahoo bounced, so those two are known. Gmail and Outlook do not
+bounce, so nothing here says how recent replies to those providers fared.
+
 ## The email intelligence pipeline has ingested nothing since August
 
 **Found 23 October 2026 while looking for bounces, and it is unrelated to the
