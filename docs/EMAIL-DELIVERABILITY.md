@@ -700,6 +700,75 @@ commercial risk is mail that is *accepted* and filed as spam rather than
 bounced. Yahoo bounced, so those two are known. Gmail and Outlook do not
 bounce, so nothing here says how recent replies to those providers fared.
 
+### The relay WAS in use, and stopped — E6's certificate is back as the root cause
+
+*Tasos, 23 October: "But I had already done this many years ago plus there are
+more emails sent around 14 Sep to yahoo that didn't bounce back."*
+
+**He is right, and the proof was already in the data gathered above.** On
+**11 September 2026** a message sent from `customerservice@anadyon.gr` bounced
+— and the bounce came from:
+
+```
+MAILER-DAEMON@relay12.grserver.gr
+```
+
+**`relay12.grserver.gr` is the Papaki relay.** A rejection issued *by* that
+relay means the message was travelling *through* it. So on 11 September the
+"Send mail as" alias was relaying through `mail.anadyon.gr` exactly as Tasos
+says he configured it years ago. (That particular bounce is the known E5 case —
+Naver refusing the grserver relay — which is why it is in the mailbox at all.)
+
+**Today the same alias bounced from `mailer-daemon@googlemail.com`, with Yahoo
+naming `209.85.218.42` — a Google address.** Same alias, same mailbox, a
+different path out.
+
+**So the route changed between 11 September and 23 October, and that is the
+whole answer.** Nothing about the configuration was ever wrong; something
+stopped it working and Gmail fell back to sending through Google, where the
+domain has neither SPF authorisation nor a DKIM key it could ever use.
+
+**E6 is the obvious cause and is hereby un-retired.** The Plesk certificate for
+`anadyon.gr` and `*.anadyon.gr` was failing renewal and due to expire **around
+13 October 2026** — inside that window — and was never reissued. Gmail's
+"Send mail as" relay requires TLS and validates the certificate; an expired
+one breaks the relay, and Gmail reverts to its own servers.
+
+**Two earlier conclusions in this document are therefore wrong and are
+withdrawn:**
+
+- *"The configuration has been wrong since August and was merely tolerated"* —
+  withdrawn once already, correctly.
+- *"E6's certificate is not implicated, because no SMTP relay was in use to be
+  broken"* — **withdrawn now.** That inference was drawn from a single bounce
+  naming a Google IP, which showed the path *today* and said nothing about the
+  path in September. The relay bounce from 11 September was in the same dataset
+  and was not read. Looking at one message and generalising to a configuration
+  is the same mistake as reading `switch_rows 1` as an identity.
+
+### What this changes, in order
+
+1. **E6 stops being cosmetic.** It was recorded as "staff mail clients will
+   warn". It is in fact breaking outbound mail authentication for every reply
+   the office sends, to every provider — Yahoo bounces, the rest filter
+   silently.
+2. **The Gmail setting probably does not need changing** — it needs the
+   certificate behind it fixed. Gmail will show the `customerservice@anadyon.gr`
+   entry in **Settings → Accounts and Import → Send mail as** either with an
+   error or reverted to "Send through Gmail"; that display is the confirmation.
+3. **The fix order is therefore: reissue the Plesk certificate (E6), then
+   re-point the alias at `mail.anadyon.gr` if Gmail has dropped it, then
+   verify.**
+4. **The 26 September block by `epsilonnet.gr` is a separate case** and should
+   not be folded in: it was sent from `anadyon.gr@gmail.com`, the Gmail
+   identity, not the alias.
+
+**Verification once the certificate is back:** send one message from the alias
+to any Gmail address, **Show original**, expect `SPF: PASS` and
+`DKIM: PASS with domain anadyon.gr`. A bounce arriving from
+`…@grserver.gr` rather than from `googlemail.com` is also a positive sign — it
+means the relay is carrying the mail again.
+
 ## The email intelligence pipeline has ingested nothing since August
 
 **Found 23 October 2026 while looking for bounces, and it is unrelated to the
