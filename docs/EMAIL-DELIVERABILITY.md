@@ -524,6 +524,54 @@ Settings → Accounts and Import → **Send mail as** → the `@anadyon.gr` entr
   shows an error or has reverted it → reading 2, and **E6 is the root cause**,
   which makes that certificate urgent rather than cosmetic.
 
+### A Yahoo message a few days ago did not bounce — what that does and does not prove
+
+*Tasos, 23 October, checking rather than accepting the explanation: "A few days
+ago I sent an email to yahoo.com that didn't bounce back."*
+
+**It weakens reading 1 but does not kill it, and the distinction is the whole
+point.** "Did not bounce" means Yahoo **accepted the message at SMTP**. It does
+not mean the message reached an inbox: an accepted message can still be filed
+as spam, and the sender sees nothing either way. So a silent delivery and a
+silent spam-filing look identical from here.
+
+**What it does establish** is that Yahoo is not rejecting every message from
+this sender uniformly, so *something differs between the two messages*. The
+candidates, in the order worth checking:
+
+1. **A different `From` alias.** Gmail picks the sending address on a *reply*
+   from the address the original was addressed to. If Anadyon has more than one
+   address and only some are configured to relay through `mail.anadyon.gr`,
+   two replies take two different routes with two different outcomes — and the
+   sender does nothing differently in either case. **This is the most likely
+   explanation and the easiest to check.**
+2. **A change on the Papaki server in the last 48 hours.** On 21 October this
+   project told Tasos to press Papaki about the PHP release (E33), including a
+   request to disable or restrict webmail. **If Papaki patched, restarted mail
+   services, or changed the configuration in response, that is a change to the
+   sending path dated between the message that worked and the one that did
+   not.** Worth asking them directly; it would be an unwelcome irony, not a
+   reason to have left the server unpatched.
+3. **Recipient-side reputation.** Yahoo treats a recipient who has corresponded
+   with the sender before more leniently than a cold one.
+
+**What settles it, and it is a comparison rather than a theory:** open Gmail's
+**Sent** folder, find both messages — the Yahoo one from a few days ago that
+went through, and today's that bounced — and run **Show original** on each.
+Three lines decide it:
+
+| Header | What it tells you |
+| --- | --- |
+| `From:` | whether the two replies used the **same alias**. Different aliases → explanation 1, and only one of them is configured correctly. |
+| `Received:` / `Return-Path` | whether one left via **`mail.anadyon.gr`** and the other via **Google**. Different paths → the route is per-alias or it changed. |
+| `DKIM-Signature: d=` | whether either carried **`d=anadyon.gr`**. Present on the one that worked and absent on the one that failed is the complete answer. |
+
+**Not verified, and recorded as such (§8):** an attempt to date the Plesk
+certificate from public Certificate Transparency logs failed —
+`crt.sh` returned HTTP 502 on 23 October. So whether E6's certificate expired
+around 13 October, and whether anything has been issued since, is still
+unestablished from this environment. It is visible in Plesk in one look.
+
 ## The email intelligence pipeline has ingested nothing since August
 
 **Found 23 October 2026 while looking for bounces, and it is unrelated to the
