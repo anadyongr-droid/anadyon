@@ -469,6 +469,111 @@ original**, and read the header block. Expect `SPF: PASS` and
 `DKIM: PASS with domain anadyon.gr`. Anything else means the SMTP setting did
 not take.
 
+### "Why now?" — the question that matters, and it is not fully answered
+
+*Tasos, 23 October: "I simply responded from the Gmail of Anadyon on a quote
+request email. I have done this several times since we went live back in August
+and we never had an issue. Why all of a sudden?"*
+
+**Ruled out: Yahoo did not change anything.** The `550 5.7.9`
+"sender is unauthenticated" rejection dates from **May 2024** and has applied
+since. There is no October 2026 policy change — searched, and none of the
+vendor or community sources describes one. So "Yahoo tightened" is not the
+explanation.
+
+That leaves two, and they call for different actions:
+
+1. **Nothing changed; only the recipient did.** The Google path has failed SPF
+   and DKIM since August, but Gmail, Outlook and most corporate filters do not
+   *hard-reject* an individual sender for it — they accept, and may file it as
+   spam. **Yahoo rejects.** On this reading the problem is two months old and
+   today is simply the first Yahoo address. The uncomfortable corollary:
+   **some earlier replies may have been silently spam-filed**, which the sender
+   never sees.
+2. **The route changed around 13 October.** If the alias had been relaying
+   through `mail.anadyon.gr`, both checks would have passed — SPF on `+mx`,
+   DKIM on the published `default` selector. **E6's certificate for
+   `anadyon.gr` and `*.anadyon.gr` was due to expire around 13 October 2026**,
+   ten days before this bounce, and it was never reissued. An expired
+   certificate breaks an SMTP relay that requires TLS.
+
+**The attempt to settle it from the mailbox failed, and the failure is
+recorded rather than dressed up.** `scripts/sql/readonly/bounce-history.sql`
+counts delivery-failure messages per month against total mail per month, which
+would separate the two: earlier bounces support reading 1, a clean record
+before October supports reading 2. Run against production (**40014211739**) it
+returned one row:
+
+```
+      section      |  month  | sender_domain | messages
+-------------------+---------+---------------+----------
+ all mail by month | 2026-08 | (any sender)  | 48
+```
+
+**There is no September or October mail in the table at all**, so the query
+has nothing to measure and the question stays open from this direction. That
+is a finding in itself — see the next section.
+
+**What does settle it, in ten seconds, and only Tasos can look:** Gmail →
+Settings → Accounts and Import → **Send mail as** → the `@anadyon.gr` entry.
+
+- If it says **"Send through Gmail"** → reading 1. It has always been this way,
+  the fix is the SMTP change above, and it is worth checking whether earlier
+  replies reached people.
+- If it is configured for **`mail.anadyon.gr` SMTP**, and especially if Gmail
+  shows an error or has reverted it → reading 2, and **E6 is the root cause**,
+  which makes that certificate urgent rather than cosmetic.
+
+## The email intelligence pipeline has ingested nothing since August
+
+**Found 23 October 2026 while looking for bounces, and it is unrelated to the
+Yahoo question except that it is why that question could not be answered.**
+
+`public.emails` holds **48 rows, every one from August 2026**. Nothing in
+September. Nothing in October.
+
+**The code is still wired in and still running.** `app/api/cron/morning-briefing/route.ts`
+imports and calls all three stages every morning —
+
+```
+const sync     = await withBudget("email sync", 25_000, () => syncEmails({ budgetMs: 20_000 }));
+const replies  = await withBudget("reply detection", 10_000, detectReplies);
+const watchdog = await withBudget("watchdog", 5_000, runWatchdog);
+```
+
+— `lib/emailSync.ts` still writes to `public.emails`, and the cron itself is
+demonstrably alive: `alert_outbox` carries **64 `briefing:` rows, the newest
+dated today**.
+
+**So the cron runs every morning, calls the sync, and stores nothing.**
+
+The `alert_outbox` reading taken on 20 October said the same thing and it was
+not noticed at the time, which is worth admitting because the data was already
+in hand:
+
+| prefix | newest row | reading |
+| --- | --- | --- |
+| `briefing` | **2026-10-20** | alive |
+| `watchdog` | 2026-08-21 | stopped |
+| `urgent` | 2026-08-22 | stopped |
+| `booking-confirmation` | 2026-08-23 | stopped |
+
+Three of the four stopped within three days of each other in late August.
+
+**What this costs.** The watchdog exists to notice a customer email nobody has
+answered, and `urgency` drives the immediate alert. Both have been blind for
+two months. A quote request that went unanswered in that window would have
+produced no alert at all — which is the same inert-control failure this project
+has now found several times, and the reason the fingerprint and the backup
+inventory were built.
+
+**Likeliest causes, none verified:** the Gmail OAuth token has expired or been
+revoked and `getGmailClient()` fails silently inside the budget wrapper; the
+25-second budget is exhausted every run; or the connection was deliberately
+removed. `system_settings` holds the stored tokens and the cron's own
+`console.info` output would say which — neither readable from here. Raised as
+**E35**.
+
 ### Why the SPF health check did not catch this
 
 `lib/healthChecks.ts` watches the SPF record, and it is working as designed.
