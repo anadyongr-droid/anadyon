@@ -1013,6 +1013,69 @@ then this route is exhausted and the remaining options are the server-level
 worth recording when it happens, because it is the difference between a
 two-minute fix and a support ticket.
 
+### CONFIRMED: the mail component is on this certificate, and the chain is complete
+
+The collapsed section expanded (23 October, Plesk →
+Websites & Domains → anadyon.gr → SSL/TLS Certificates):
+
+```
+Hide additional components to secure
+  Wildcard SSL/TLS certificate   *.anadyon.gr                        ❗ Not Secured
+  Mail access   IMAP, POP, SMTP on anadyon.gr                        ❗ Not Secured
+  Mail access   IMAP, POP, SMTP on mail.anadyon.gr                   ❗ Not Secured
+  DANE support  Add TLSA records for mail services                   ❗ Not Secured
+Subdomains
+  rentals.anadyon.gr                                                 ❗ Not Secured
+```
+
+**`Mail access — IMAP, POP, SMTP on mail.anadyon.gr` is a component of this
+certificate, and it is Not Secured.** That component is the SMTP service on
+port 587 that Gmail's "Send mail as" relays through. The certificate behind it
+expired on **12 October 2026**.
+
+**The chain is now complete and every link is evidenced:**
+
+| Date | Event | Evidence |
+| --- | --- | --- |
+| 11 Sep | The alias is relaying through Papaki | a bounce issued **by** `relay12.grserver.gr` |
+| **12 Oct** | **The certificate expires** | Plesk: `Valid To: October 12, 2026`; CT: issued 14 Jul |
+| 12–23 Oct | Gmail's TLS relay fails validation and falls back to Google; replies go out unauthenticated | no Yahoo mail was sent in this window, and Gmail/Outlook recipients accept rather than bounce |
+| 23 Oct | First Yahoo recipient since the break | `550 5.7.9`, DKIM and SPF both FAILURE, Google IP |
+
+**The eleven-day gap between the expiry and the first bounce is explained
+rather than awkward:** the mailbox shows no mail to a Yahoo address between
+2 September and 23 October. Everything sent in that window went to providers
+that accept unauthenticated mail and filter it instead of rejecting it — so
+nothing bounced, and nothing announced the breakage. **That is the same silent
+failure mode as E35, arrived at from a different direction.**
+
+### The reissue, exactly — tick two, untick everything else
+
+| Component | Action | Why |
+| --- | --- | --- |
+| `Mail access … on mail.anadyon.gr` | ✅ **tick** | the whole point; resolves to `213.158.90.117` |
+| `Webmail access  webmail.anadyon.gr` | ✅ tick | also resolves there; staff webmail |
+| `Domain  anadyon.gr` | ❌ untick | resolves to Vercel — HTTP-01 can never pass |
+| `Domain with "www"` | ❌ untick | same |
+| `Mail access … on anadyon.gr` | ❌ untick | would add `anadyon.gr` to the request and fail it |
+| `Wildcard  *.anadyon.gr` | ❌ untick | needs DNS-01 every renewal; nothing needs it |
+| `rentals.anadyon.gr` | ❌ untick | **does not resolve at all** |
+| `DANE support` | ❌ **leave off** | TLSA records pin the certificate; publishing them beside a certificate that is being re-issued can stop mail being delivered **at all**. Not a hardening step to take in the same change that is fixing an outage. |
+
+**After it issues**, both remaining names validate over HTTP-01 because both
+point at the Plesk server, and the renewal should resume on its own — the
+reason it stopped was never a broken renewal mechanism, it was three names in
+the request that cannot be validated.
+
+**Verification, in this order:**
+
+1. Plesk shows `Mail access … on mail.anadyon.gr` as **Secured**.
+2. Send one message from `customerservice@anadyon.gr` to any Gmail address →
+   **Show original** → expect `SPF: PASS` and
+   `DKIM: PASS with domain anadyon.gr`.
+3. The next failure of any kind should bounce from `…@grserver.gr` rather than
+   from `googlemail.com` — that alone proves the relay is carrying mail again.
+
 ## The email intelligence pipeline has ingested nothing since August
 
 **Found 23 October 2026 while looking for bounces, and it is unrelated to the
