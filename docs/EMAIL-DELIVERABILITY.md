@@ -1049,7 +1049,24 @@ that accept unauthenticated mail and filter it instead of rejecting it — so
 nothing bounced, and nothing announced the breakage. **That is the same silent
 failure mode as E35, arrived at from a different direction.**
 
-### The reissue, exactly — tick two, untick everything else
+### The reissue — and a correction about what has actually been seen
+
+**Corrected 23 October, immediately after writing it.** The table below was
+first written as "tick two, untick everything else", as though the component
+list were a set of checkboxes. **It is not.** The screenshots show *status
+rows* — each component with `❗ Not Secured` beside it — and the only controls
+visible on that page are the three buttons at the top: **Reissue Certificate**,
+**Unassign Certificate**, **Advanced Settings**.
+
+Tasos asked where the checkboxes were. The answer is that they were not on the
+screen; they were assumed from how Plesk's Let's Encrypt dialog usually works.
+**Whether the Reissue dialog offers a component choice at all is unverified**,
+and it is the next thing to find out — a reissue that simply repeats the
+existing component set will fail exactly as before, because three of those
+names cannot be validated.
+
+So the table below is **what the request must end up containing**, not a
+description of a UI anyone has looked at:
 
 | Component | Action | Why |
 | --- | --- | --- |
@@ -1061,6 +1078,11 @@ failure mode as E35, arrived at from a different direction.**
 | `Wildcard  *.anadyon.gr` | ❌ untick | needs DNS-01 every renewal; nothing needs it |
 | `rentals.anadyon.gr` | ❌ untick | **does not resolve at all** |
 | `DANE support` | ❌ **leave off** | TLSA records pin the certificate; publishing them beside a certificate that is being re-issued can stop mail being delivered **at all**. Not a hardening step to take in the same change that is fixing an outage. |
+
+**If the Reissue dialog offers no choice of components**, this route is
+finished and the remaining options are the server-level
+**Tools & Settings → SSL/TLS Certificates** page, or Papaki. Worth
+photographing the dialog either way, because it decides which.
 
 **After it issues**, both remaining names validate over HTTP-01 because both
 point at the Plesk server, and the renewal should resume on its own — the
