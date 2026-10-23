@@ -903,6 +903,54 @@ as approximate:
 was failing before, and nothing on that server needs it: the two hostnames
 above are the only ones left there.
 
+### Two WordPress installations are still on the Plesk server, one rated 10.0 — 23 October
+
+**Found by Tasos**, who opened Plesk looking for the certificate screen and
+landed on **WP Toolkit** instead. The panel is `linux207.papaki.gr:8443`, which
+resolves to `213.158.90.117` — the same host as `mail.anadyon.gr`.
+
+Two installations, neither of them needed:
+
+| Installation | WP Toolkit status |
+| --- | --- |
+| `anadyon.gr/wordpress` | **BROKEN** |
+| `anadyon.gr` | **10.0 SECURITY RISK**, plus `SSL/TLS` and `UPDATES` warnings |
+
+**10.0 is WP Toolkit's maximum severity.** This is the item E33 listed third
+and framed as a hypothetical — *"the old document root may not have been
+emptied, and a leftover PHP site nobody uses is the worst case because nobody
+is watching it"* — and it is not hypothetical. **WordPress is PHP**, it is
+sitting on the server whose PHP runtime is unpatched against two CVSS 9.2
+unauthenticated-RCE flaws (E33), and it is carrying maximum-rated
+vulnerabilities of its own with updates outstanding.
+
+**How exposed is it, measured rather than assumed.** Checked 23 October:
+
+- `anadyon.gr` → `76.76.21.21` (Vercel). The live site is **not** this
+  WordPress.
+- `rentals.anadyon.gr` → **does not resolve at all.**
+
+So neither installation is reachable at a friendly hostname, which is better
+than feared. It does **not** make them safe: a Plesk site typically remains
+reachable by the server's own hostname or IP, and an unpatched PHP application
+on a shared host is a foothold whether or not anybody links to it.
+
+**This also corrects the certificate theory.** `rentals.anadyon.gr`'s
+certificate stopped renewing after 24 July and expired 22 October — and the
+reason is now obvious and dull: **its DNS record was removed**, so HTTP-01
+validation could no longer succeed. The expiry is explained by that, not by
+anything to do with mail. **The "22 October, the day before the bounces" date
+fit is therefore a coincidence until something else supports it**, and is
+withdrawn as evidence. The root-cause case for E6 still rests on the
+11 September relay bounce, which is independent of this.
+
+**What should happen, and it is Tasos's call because it destroys data.** The
+website runs on Vercel; neither WordPress serves anything. The clean outcome is
+to back both up and **remove them**, which deletes a whole class of risk rather
+than patching it. An agent can propose that and cannot do it — the panel needs
+a login, and `AGENTS.md` reserves irreversible destruction to a person
+regardless. Raised as **E36**.
+
 ## The email intelligence pipeline has ingested nothing since August
 
 **Found 23 October 2026 while looking for bounces, and it is unrelated to the
