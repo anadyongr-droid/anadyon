@@ -951,6 +951,68 @@ than patching it. An agent can propose that and cannot do it — the panel needs
 a login, and `AGENTS.md` reserves irreversible destruction to a person
 regardless. Raised as **E36**.
 
+### The Plesk certificate screen, read 23 October — what it shows and what it reissues
+
+Tasos reached **Websites & Domains → anadyon.gr → SSL/TLS Certificates**. The
+page confirms the dates from Certificate Transparency exactly and adds the one
+thing CT could not give: **which components the certificate is meant to cover.**
+
+```
+SSL/TLS Certificate for anadyon.gr
+  Let's Encrypt — "Lets Encrypt anadyon.gr"
+  Valid To: October 12, 2026        "Will be automatically renewed"
+  Certificate attributes are not available.
+
+Secured Components
+  Domain                 anadyon.gr            ❗ Not Secured
+  Domain with "www"      www.anadyon.gr        ❗ Not Secured
+  Webmail access         webmail.anadyon.gr    ❗ Not Secured
+  ▸ Show additional components to secure        (collapsed)
+Subdomains
+  rentals.anadyon.gr                           ❗ Not Secured
+```
+
+**Four things follow.**
+
+1. **The expiry is confirmed as 12 October 2026**, matching the CT record for
+   the 14 July issuance. "Will be automatically renewed" is the panel stating an
+   intention, not a fact — it has not renewed for six weeks, which is E6.
+2. **Every component reads "Not Secured"** because the certificate behind them
+   has lapsed. Including `webmail.anadyon.gr`.
+3. **`mail.anadyon.gr` does not appear in the list.** It may be under the
+   collapsed *"Show additional components to secure"*, which is where Plesk puts
+   the mail option — **unverified, and it is the single most important thing to
+   check on this screen**, because it determines whether this certificate is
+   what the SMTP relay on port 587 presents.
+4. **A plain "Reissue Certificate" will fail**, and the screen shows why: the
+   component list contains `anadyon.gr`, `www.anadyon.gr` and
+   `rentals.anadyon.gr`. The first two resolve to Vercel and the third does not
+   resolve at all, so HTTP-01 cannot validate any of them. The request fails as a
+   whole, which is precisely the loop E6 has been stuck in since mid-September.
+
+**The reissue that should work**, in this panel rather than in the abstract:
+
+1. Expand **"Show additional components to secure"** and tick **Mail**
+   (`mail.anadyon.gr`) if it is offered.
+2. Press **Reissue Certificate**.
+3. In the dialog, **untick** `anadyon.gr`, `www.anadyon.gr` and
+   `rentals.anadyon.gr`; **leave ticked** `webmail.anadyon.gr` and Mail.
+4. Do **not** tick the wildcard option.
+
+Both remaining names resolve to `213.158.90.117`, so validation succeeds.
+
+**Unticking the domain costs nothing.** The public site is served by Vercel,
+which issues and renews its own certificate — CT shows a current one for
+`anadyon.gr` and `www` valid to 16 November. Plesk's copy secures a WordPress
+no visitor reaches (E36).
+
+**If Plesk refuses to let the domain be unticked** — some versions force the
+subscription's primary domain into every per-domain Let's Encrypt request —
+then this route is exhausted and the remaining options are the server-level
+**Tools & Settings → SSL/TLS Certificates** page, or Papaki. That refusal is
+worth recording when it happens, because it is the difference between a
+two-minute fix and a support ticket.
+
 ## The email intelligence pipeline has ingested nothing since August
 
 **Found 23 October 2026 while looking for bounces, and it is unrelated to the
