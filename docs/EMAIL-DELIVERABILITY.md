@@ -1,6 +1,6 @@
 # How Anadyon's email actually leaves the building
 
-**Last verified:** 23 October 2026, Claude — **Yahoo is blocking mail sent from Gmail as `anadyon.gr`, and it is the office mail setup rather than anything this repository deploys.** The sending IP `209.85.218.42` is Google — a fourth sending path beside Resend, the grserver relay and the Papaki host — and **nothing in this repository can send through Gmail**: `lib/gmail.ts` is read-only and `lib/mailer.ts` is Resend. Live DNS re-read today: SPF authorises `+mx` and fastmail and **nothing Google**, ending `-all`; there is no `google._domainkey`; but **`default._domainkey` exists**, so Papaki already signs. The fix is one Gmail setting — send that alias through `mail.anadyon.gr` instead of through Google — after which SPF and DKIM both pass with no DNS change at all (E34). Booking mail is unaffected. Earlier: 21 October 2026, Claude — **PHP exposure section added, on the day PHP shipped emergency fixes for two CVSS 9.2 unauthenticated-RCE flaws (CVE-2026-109618, CVE-2026-109619).** This project has no PHP in the application, the public website or Supabase, and the three `php` strings in the repository are competitors' endpoints we fetch **from**. The exposure is the Papaki/Plesk server `213.158.90.117`, which serves `mail.anadyon.gr` and `webmail.anadyon.gr` and is itself a PHP application with Roundcube webmail — **its PHP version is unverified from here** and the three things needed are Tasos's (E33). Earlier: 19 September 2026, Claude — from live DNS *and* from the full
+**Last verified:** 23 October 2026, Claude — **Yahoo blocks mail sent from Gmail as `anadyon.gr`, and the configuration has been wrong since August — it was tolerated, not working.** Both the message that bounced and one a few days earlier that did not came from `customerservice@anadyon.gr`, so both took the same unauthenticated Google route and Yahoo simply stopped tolerating it; E6's certificate is **not** implicated. **The commercial risk is the message that did not bounce** — accepted and possibly spam-filed, as replies to quote requests may have been for two months. It is the office mail setup rather than anything this repository deploys.** The sending IP `209.85.218.42` is Google — a fourth sending path beside Resend, the grserver relay and the Papaki host — and **nothing in this repository can send through Gmail**: `lib/gmail.ts` is read-only and `lib/mailer.ts` is Resend. Live DNS re-read today: SPF authorises `+mx` and fastmail and **nothing Google**, ending `-all`; there is no `google._domainkey`; but **`default._domainkey` exists**, so Papaki already signs. The fix is one Gmail setting — send that alias through `mail.anadyon.gr` instead of through Google — after which SPF and DKIM both pass with no DNS change at all (E34). Booking mail is unaffected. Earlier: 21 October 2026, Claude — **PHP exposure section added, on the day PHP shipped emergency fixes for two CVSS 9.2 unauthenticated-RCE flaws (CVE-2026-109618, CVE-2026-109619).** This project has no PHP in the application, the public website or Supabase, and the three `php` strings in the repository are competitors' endpoints we fetch **from**. The exposure is the Papaki/Plesk server `213.158.90.117`, which serves `mail.anadyon.gr` and `webmail.anadyon.gr` and is itself a PHP application with Roundcube webmail — **its PHP version is unverified from here** and the three things needed are Tasos's (E33). Earlier: 19 September 2026, Claude — from live DNS *and* from the full
 headers of a delivered message. Two conclusions from the 11 September pass were
 withdrawn; both had reasoned from DNS alone where only a header could answer.
 
@@ -571,6 +571,71 @@ certificate from public Certificate Transparency logs failed —
 `crt.sh` returned HTTP 502 on 23 October. So whether E6's certificate expired
 around 13 October, and whether anything has been issued since, is still
 unestablished from this environment. It is visible in Plesk in one look.
+
+### Both messages came from `customerservice@anadyon.gr` — so the configuration was never working, it was tolerated
+
+*Tasos, 23 October: "Both yahoo emails the successful/silent and the
+unsuccessful were sent by customerservice@anadyon.gr."*
+
+**That rules out the alias explanation.** One address means one "Send mail as"
+entry, one configured route, and therefore the same route for both messages.
+The bounce proves that route is **Google**, unauthenticated. So both messages
+were unauthenticated, and Yahoo **accepted one and refused the other**.
+
+**The conclusion follows, and it is not the comfortable one.** Yahoo's
+enforcement is not a switch — it is reputation-weighted, applied per message
+and per recipient. An unauthenticated sender is tolerated while the volume and
+the signals are small, and stops being tolerated as they accumulate. *"It
+worked since August and broke today"* is therefore a **slide, not a change**:
+nothing on either side was reconfigured, the sender's standing simply ran out.
+
+This retires the two theories that were competing:
+
+- **E6's certificate is not implicated.** The route is Google for both
+  messages, so no SMTP relay was in use to be broken by an expired
+  certificate. E6 remains open on its own merits — staff mail clients will
+  warn — but it is not the cause here.
+- **Nor is anything Papaki did in the last 48 hours.** A server-side change
+  cannot explain a difference between two messages that never touched that
+  server.
+
+### The part that matters commercially, and it is not the bounce
+
+**The message that "did not bounce" is the worrying one.** Yahoo accepted it at
+SMTP and may well have filed it as spam; nothing distinguishes that from
+delivery at the sending end. Since the configuration has been wrong since
+August, the same is true of **every reply sent from Gmail as `anadyon.gr` in
+that period**, to every provider — Gmail and Outlook do not bounce an
+individual unauthenticated sender, they filter.
+
+For a rental business whose replies are **answers to quote requests**, the
+failure mode is a customer who asked for a price and appears never to have
+received one. That is lost bookings, invisible from this side, for two months.
+It is a stronger reason to fix the setting than the bounce is.
+
+**It also compounds E35.** The watchdog that exists to notice an unanswered
+customer thread has itself been blind since August, so the one control that
+might have surfaced "this customer never replied to our quote" was not running
+either.
+
+### What is still worth confirming, in ten seconds
+
+The reasoning above rests on one inference — that both messages left via
+Google — and it is confirmable rather than assumed. Gmail → **Sent** → the
+message that went through → **Show original**:
+
+- A `Received:` chain through **Google** with no `DKIM-Signature: d=anadyon.gr`
+  confirms it.
+- A chain through **`mail.anadyon.gr`** would overturn it, and the certificate
+  theory would come back.
+
+**And the history is already in the mailbox.** DMARC aggregate reports go to
+`rua=mailto:customerservice@anadyon.gr` and have been arriving daily since the
+record was published; each one carries per-IP pass and fail counts. Searching
+that mailbox for `Report Domain: anadyon.gr` gives the authentication history
+of this domain month by month, from the receivers themselves. Not needed to
+justify the fix — the configuration is provably wrong today — but it is the
+record that would say how much mail was affected.
 
 ## The email intelligence pipeline has ingested nothing since August
 
