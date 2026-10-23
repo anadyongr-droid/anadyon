@@ -366,6 +366,56 @@ Tasos Maroudas
 Anadyon
 ```
 
+**Add this to the same message — the certificate (E6/E34).** It is the same
+server and the same support queue, and it is now the more urgent of the two
+for day-to-day operations.
+
+```
+Επιπλέον, σχετικά με το πιστοποιητικό SSL του ίδιου server:
+
+Η ανανέωση Let's Encrypt για το anadyon.gr αποτυγχάνει, επειδή το
+anadyon.gr και το www δείχνουν πλέον στο Vercel (76.76.21.21) — άρα το
+HTTP-01 challenge δεν φτάνει ποτέ στον Plesk.
+
+Αυτό που χρειαζόμαστε είναι πιστοποιητικό ΜΟΝΟ για τους hosts που
+παραμένουν στον server σας:
+
+  - mail.anadyon.gr
+  - webmail.anadyon.gr
+
+Και τα δύο δείχνουν στο 213.158.90.117, οπότε το HTTP-01 validation
+λειτουργεί κανονικά γι' αυτά. ΔΕΝ χρειαζόμαστε wildcard (*.anadyon.gr)
+ούτε το anadyon.gr.
+
+Είναι σημαντικό: το ληγμένο πιστοποιητικό φαίνεται να έχει σταματήσει
+την αποστολή email μέσω SMTP relay (mail.anadyon.gr:587), με αποτέλεσμα
+να αποτυγχάνει η ταυτοποίηση DKIM/SPF των email μας.
+
+Μπορείτε να το εκδώσετε, ή να μας πείτε πώς να το κάνουμε από το Plesk;
+```
+
+```
+Also, regarding the SSL certificate on the same server:
+
+Let's Encrypt renewal for anadyon.gr is failing because anadyon.gr and www
+now point to Vercel (76.76.21.21), so the HTTP-01 challenge never reaches
+Plesk.
+
+What we need is a certificate for ONLY the hosts still on your server:
+
+  - mail.anadyon.gr
+  - webmail.anadyon.gr
+
+Both resolve to 213.158.90.117, so HTTP-01 validation works for them. We do
+NOT need a wildcard (*.anadyon.gr) or anadyon.gr itself.
+
+This matters: the expired certificate appears to have stopped outbound mail
+going through the SMTP relay (mail.anadyon.gr:587), which is breaking
+DKIM/SPF authentication on our email.
+
+Could you issue it, or tell us how to do it from Plesk?
+```
+
 **Turning webmail off is Tasos's call, not an agent's.** It changes how staff
 work, which `DEFINING-STATEMENTS.md` §13 reserves to him; this is the proposal
 and the reasoning, not a decision taken. It is also reversible in a click,
@@ -768,6 +818,90 @@ to any Gmail address, **Show original**, expect `SPF: PASS` and
 `DKIM: PASS with domain anadyon.gr`. A bounce arriving from
 `…@grserver.gr` rather than from `googlemail.com` is also a positive sign — it
 means the relay is carrying the mail again.
+
+### Certificate Transparency, read 23 October — and a better date than 13 October
+
+`crt.sh` answered on the third attempt (it 502s and times out often; it then
+refused every follow-up, so **this is common names only — the SAN lists could
+not be retrieved**, and whether any of these covers `mail.anadyon.gr` is
+therefore **unverified**).
+
+| Issued | Expires | Common name |
+| --- | --- | --- |
+| 2026-08-18 | **2026-11-16** | `anadyon.gr` |
+| 2026-08-18 | **2026-11-16** | `www.anadyon.gr` |
+| 2026-07-24 | **2026-10-22** | `rentals.anadyon.gr` |
+| 2026-07-14 | **2026-10-12** | `anadyon.gr` |
+| 2026-05-25 | 2026-08-23 | `rentals.anadyon.gr` |
+| 2026-05-15 | 2026-08-13 | `anadyon.gr` |
+
+**Two things stand out.**
+
+**1. `rentals.anadyon.gr` expired on 22 October and was never renewed.** Its
+chain had been renewing every two months without a break — 25 Nov, 25 Jan,
+26 Mar, 25 May, 24 Jul — and then stopped. **The bounces began on 23 October,
+the day after it lapsed.** That is a far tighter fit than E6's estimated
+"around 13 October", and it is the first date in this investigation that lines
+up to the day.
+
+**2. A current certificate for `anadyon.gr` and `www` does exist**, issued
+18 August and valid to 16 November. That is almost certainly **Vercel's** — it
+renews the site's certificate itself — which is consistent with E6's finding
+that the *Plesk* renewal is the one failing. The Plesk-side `anadyon.gr`
+certificate is the 14 July one, and it **expired on 12 October**.
+
+**What this does not establish:** which certificate the SMTP server on
+`mail.anadyon.gr:587` actually presents. Plesk assigns a certificate "for
+securing mail" and it need not be the domain's. If it was the `rentals`
+certificate, or one renewed on the same schedule, the 22 October expiry
+explains the 23 October failure exactly. **That is a hypothesis with a very
+good date fit, not a verified fact** — the proxy re-terminates TLS here, so the
+presented certificate cannot be read from this environment. One look at Plesk
+settles it.
+
+### How to reissue it — and why the obvious route fails
+
+**The reason renewal has been failing is in the DNS, and only for some names:**
+
+| Hostname | Resolves to | HTTP-01 can validate at Plesk? |
+| --- | --- | --- |
+| `anadyon.gr` | `76.76.21.21` (Vercel) | **No** — the challenge lands on Vercel |
+| `www.anadyon.gr` | `76.76.21.21` (Vercel) | **No** |
+| `mail.anadyon.gr` | `213.158.90.117` (Plesk) | **Yes** |
+| `webmail.anadyon.gr` | `213.158.90.117` (Plesk) | **Yes** |
+
+So a Let's Encrypt request that *includes* `anadyon.gr` can never succeed
+again, and one limited to the mail hostnames should succeed immediately. That
+is the whole fix.
+
+**The catch:** Plesk's per-domain Let's Encrypt dialog
+(**Websites & Domains → anadyon.gr → SSL/TLS Certificates → Install a free
+basic certificate**) normally forces the domain itself to be included, with
+`mail` and `webmail` as optional extras. Ticking only the extras is often not
+possible there, which is why simply re-running it fails the same way it has
+been failing.
+
+**Three routes, in the order worth trying.** The exact menu wording varies by
+Plesk version and this environment cannot see the panel, so treat the labels
+as approximate:
+
+1. **Secure mail at the server level, not the domain level.**
+   **Tools & Settings → SSL/TLS Certificates** — this page manages the
+   certificates used for the Plesk panel and for the mail server, independently
+   of any website. Issue or assign one covering `mail.anadyon.gr` and
+   `webmail.anadyon.gr` only. Because both resolve to the Plesk server, HTTP-01
+   validation works.
+2. **DNS-01 instead of HTTP-01**, if the dialog offers "use DNS validation".
+   Plesk prints the `_acme-challenge` TXT records to create. DNS is at Papaki
+   rather than Plesk, so the records go in by hand at the registrar — workable,
+   but it must be repeated at every renewal unless Plesk is given DNS control.
+3. **Ask Papaki to do it.** It is their managed server, the request is small
+   and specific, and **a message to them is needed anyway for E33** — so this
+   is one support ticket, not two. Paste-ready text below.
+
+**Do not re-request the wildcard.** `*.anadyon.gr` needs DNS-01 every time, it
+was failing before, and nothing on that server needs it: the two hostnames
+above are the only ones left there.
 
 ## The email intelligence pipeline has ingested nothing since August
 
