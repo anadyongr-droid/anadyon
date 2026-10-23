@@ -1,6 +1,6 @@
 # How Anadyon's email actually leaves the building
 
-**Last verified:** 21 October 2026, Claude — **PHP exposure section added, on the day PHP shipped emergency fixes for two CVSS 9.2 unauthenticated-RCE flaws (CVE-2026-109618, CVE-2026-109619).** This project has no PHP in the application, the public website or Supabase, and the three `php` strings in the repository are competitors' endpoints we fetch **from**. The exposure is the Papaki/Plesk server `213.158.90.117`, which serves `mail.anadyon.gr` and `webmail.anadyon.gr` and is itself a PHP application with Roundcube webmail — **its PHP version is unverified from here** and the three things needed are Tasos's (E33). Earlier: 19 September 2026, Claude — from live DNS *and* from the full
+**Last verified:** 23 October 2026, Claude — **Yahoo is blocking mail sent from Gmail as `anadyon.gr`, and it is the office mail setup rather than anything this repository deploys.** The sending IP `209.85.218.42` is Google — a fourth sending path beside Resend, the grserver relay and the Papaki host — and **nothing in this repository can send through Gmail**: `lib/gmail.ts` is read-only and `lib/mailer.ts` is Resend. Live DNS re-read today: SPF authorises `+mx` and fastmail and **nothing Google**, ending `-all`; there is no `google._domainkey`; but **`default._domainkey` exists**, so Papaki already signs. The fix is one Gmail setting — send that alias through `mail.anadyon.gr` instead of through Google — after which SPF and DKIM both pass with no DNS change at all (E34). Booking mail is unaffected. Earlier: 21 October 2026, Claude — **PHP exposure section added, on the day PHP shipped emergency fixes for two CVSS 9.2 unauthenticated-RCE flaws (CVE-2026-109618, CVE-2026-109619).** This project has no PHP in the application, the public website or Supabase, and the three `php` strings in the repository are competitors' endpoints we fetch **from**. The exposure is the Papaki/Plesk server `213.158.90.117`, which serves `mail.anadyon.gr` and `webmail.anadyon.gr` and is itself a PHP application with Roundcube webmail — **its PHP version is unverified from here** and the three things needed are Tasos's (E33). Earlier: 19 September 2026, Claude — from live DNS *and* from the full
 headers of a delivered message. Two conclusions from the 11 September pass were
 withdrawn; both had reasoned from DNS alone where only a header could answer.
 
@@ -376,6 +376,133 @@ which is why it is worth proposing rather than waiting for a version number.
 Nothing on Vercel, nothing in Supabase, nothing in this repository, and no
 migration. The application is not affected by a PHP CVE because it contains no
 PHP.
+
+## Yahoo blocks mail sent from Gmail as `anadyon.gr` — 23 October 2026
+
+*A `550 5.7.9` from Yahoo, reported by Tasos with the question "could this be
+linked to something not working on our side?" The short answer is **no, not the
+booking system** — and yes, something is genuinely misconfigured, in the office
+mail setup rather than in anything this repository deploys.*
+
+**The bounce:**
+
+> `550 5.7.9 This message has been blocked because the sender has not been
+> authenticated. Yahoo requires this sender to be authenticated with DKIM. SPF
+> alone is not sufficient. Authentication results: DKIM = FAILURE — SPF
+> anadyon.gr with ip 209.85.218.42 = FAILURE.`
+
+### The sending IP identifies the path, and it is a fourth one
+
+**`209.85.218.42` is Google.** It is none of the three paths this document
+already describes:
+
+| Path | IP seen in evidence | What it carries |
+| --- | --- | --- |
+| Resend / Amazon SES | `54.240.3.27` | booking confirmations |
+| grserver relay (Papaki) | `88.99.38.195` | staff replies from the mailbox |
+| Papaki mail host | `213.158.90.117` | `mail.anadyon.gr`, IMAP/SMTP |
+| **Google** | **`209.85.218.42`** | **this bounce** |
+
+### It is not the application, and that is checkable rather than asserted
+
+**Nothing in this repository can send mail through Google.** `lib/gmail.ts`
+exports `createOAuthClient`, `getAuthUrl`, `getStoredTokens`, `saveTokens`,
+`getGmailClient`, `parseFromHeader`, `htmlToText`, `listAttachments` and
+`fetchAttachment` — **every one of them a read.** There is no send function,
+and a search across `lib/`, `app/` and `scripts/` for a Gmail send call returns
+only the column name `gmail_thread_id`. The application's one sending path is
+`lib/mailer.ts`, which is Resend.
+
+So this message was composed **by a person in Gmail**, using Gmail's *"Send
+mail as"* with an `@anadyon.gr` address, and sent through Google's servers.
+
+### Why Yahoo refused it — both checks fail, and they fail for different reasons
+
+Live DNS, read 23 October 2026 (the records in this document above were last
+read on 19 September, so they were re-read rather than assumed):
+
+```
+anadyon.gr                    TXT   v=spf1 +mx include:_spf.fastmail.gr -all
+_dmarc.anadyon.gr             TXT   v=DMARC1; p=none; rua=mailto:customerservice@anadyon.gr; fo=1
+anadyon.gr                    MX    10 mail.anadyon.gr.
+default._domainkey.anadyon.gr TXT   v=DKIM1; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A…   ← EXISTS
+google._domainkey.anadyon.gr  TXT   (none)
+```
+
+- **SPF fails** because the record authorises `+mx` (the Papaki host) and
+  `_spf.fastmail.gr`, and **nothing Google**. The record ends `-all`, a hard
+  fail, so Google's IP is positively unauthorised rather than merely unlisted.
+- **DKIM fails** because Gmail signs outgoing mail as the Google account's own
+  domain, not as `anadyon.gr`, and no `google._domainkey.anadyon.gr` exists to
+  let it do otherwise. Yahoo requires a signature whose `d=` aligns with the
+  `From:` domain.
+- Yahoo's message is explicit that **SPF alone is not sufficient**, so
+  authorising Google in SPF would not by itself fix this.
+
+### The fix is one setting, because the domain already has a DKIM key
+
+**`default._domainkey.anadyon.gr` is published** — the `default` selector is
+Plesk's, so the Papaki server already has DKIM signing set up for this domain.
+Mail that leaves through Papaki is therefore signed as `anadyon.gr` **and**
+authorised by `+mx`.
+
+So the correction is to stop routing that alias through Google:
+
+**Gmail → Settings → Accounts and Import → "Send mail as" → edit the
+`@anadyon.gr` address → choose "Send through `anadyon.gr` SMTP servers"**, with
+`mail.anadyon.gr`, port 587, the mailbox username and password, TLS.
+
+After that the same message leaves via Papaki, SPF passes on `+mx`, and DKIM
+signs with the `default` selector. Both of Yahoo's requirements are met by
+configuration that already exists.
+
+**The alternative needs Google Workspace and is worse.** Keeping the Google
+route means adding `include:_spf.google.com` to SPF *and* enabling Google's DKIM
+for the domain — and **Google only signs for a domain on Workspace, not on a
+free Gmail with a send-as alias.** Adding the SPF include alone would authorise
+Google while leaving DKIM failing, which Yahoo rejects anyway, and would widen
+`-all` for no benefit.
+
+**How to verify, in thirty seconds and without waiting for another bounce:**
+send one message from the alias to any Gmail address, open it, choose **Show
+original**, and read the header block. Expect `SPF: PASS` and
+`DKIM: PASS with domain anadyon.gr`. Anything else means the SMTP setting did
+not take.
+
+### Why the SPF health check did not catch this
+
+`lib/healthChecks.ts` watches the SPF record, and it is working as designed.
+`SPF_SENDERS` lists the services known to send as this domain — currently
+Resend, with tokens `amazonses.com`, `spf.resend.com`, `_spf.resend.com` — and
+the check asserts those tokens are present.
+
+**Google was never declared as a sending path, so the check never asked about
+it.** That is the real lesson and it generalises: the check validates the
+senders we told it about, so an undeclared sender is invisible to it by
+construction. Either a path is declared and checked, or it should not exist.
+Once the Gmail alias routes through Papaki there is no fourth path to declare,
+which is the better outcome.
+
+### What is **not** affected
+
+- **Booking confirmations.** They leave through Resend with the
+  `send.anadyon.gr` envelope and a root-domain DKIM signature, and the measured
+  headers recorded earlier in this document show `spf=pass`, `dkim=pass
+  header.d=anadyon.gr`, `dmarc=pass`. Unchanged by any of this.
+- **The PHP advisory (E33).** Same server, unrelated problem. A mail
+  authentication failure is not a symptom of an unpatched runtime.
+- **Mail delivery into the mailbox.** This is an outbound authentication
+  problem only.
+
+### The risk if it is left
+
+Yahoo blocks today. The same requirement is now enforced by Gmail and Microsoft
+for bulk senders and is spreading to ordinary traffic, and `-all` means other
+receivers are entitled to reject on SPF alone. **Staff replying to a customer
+from Gmail can therefore fail silently from the customer's point of view** —
+the sender sees a bounce, the customer sees nothing. DMARC is still `p=none`,
+which is the only reason the failure is not worse; tightening it later, which is
+otherwise desirable, would make this path fail harder rather than fixing it.
 
 ## Before diagnosing the next bounce
 
