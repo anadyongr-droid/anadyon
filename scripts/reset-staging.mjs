@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { parseEnvFile, validateStagingTarget } from "./staging-safety.mjs";
 import { seedStagingAuth } from "./seed-staging-auth.mjs";
 import { redactDatabaseCredentials, schemaDumpFailureMessage } from "./schema-parity-lib.mjs";
+import { stagingSeedProblems, stagingSeedSummary } from "./stagingSeedFixtures.mjs";
 
 const root = join(import.meta.dirname, "..");
 const stagingFile = parseEnvFile(join(root, ".env.staging.local"));
@@ -51,19 +52,37 @@ await seedStagingAuth(env);
 const db = createClient(target.apiUrl, env.STAGING_SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
+// `rates` and `extras_config` are counted here as well as the fixtures, and
+// that is the point of this block rather than a tidy-up. They are the two
+// tables DEFINING-STATEMENTS.md §6 grants to `anon`, because the public
+// booking form cannot price a rental without them -- so a reset that loaded
+// no rates leaves staging showing a fleet it cannot quote for, and until
+// 24 October this check would have called that a success. The expectations
+// live in scripts/stagingSeedFixtures.mjs so this and the credential-free
+// replay check cannot drift apart.
 const checks = await Promise.all([
   db.from("vehicles").select("id", { count: "exact", head: true }).like("name", "STAGING %"),
   db.from("customers").select("id", { count: "exact", head: true }).like("email", "%@example.invalid"),
   db.from("reservations").select("id", { count: "exact", head: true }).like("notes", "Synthetic %"),
   db.storage.listBuckets(),
+  db.from("rates").select("id", { count: "exact", head: true }),
+  db.from("extras_config").select("key", { count: "exact", head: true }),
 ]);
 for (const result of checks) {
   if (result.error) throw result.error;
 }
-const bucketExists = checks[3].data?.some((bucket) => bucket.id === "reservation-documents");
-if (checks[0].count !== 29 || checks[1].count !== 5 || checks[2].count !== 6 || !bucketExists) {
-  throw new Error("Staging verification counts or reservation-documents bucket did not match the seed");
+const seedProblems = stagingSeedProblems({
+  vehicles: checks[0].count ?? undefined,
+  customers: checks[1].count ?? undefined,
+  reservations: checks[2].count ?? undefined,
+  rates: checks[4].count ?? undefined,
+  extras: checks[5].count ?? undefined,
+  bucket: Boolean(checks[3].data?.some((bucket) => bucket.id === "reservation-documents")),
+});
+if (seedProblems.length) {
+  throw new Error(`Staging reset did not produce the expected state:\n  ${seedProblems.join("\n  ")}`);
 }
+console.log(`Staging state verified: ${stagingSeedSummary()}.`);
 
 execFileSync(process.execPath, [join(root, "scripts", "check-grants.mjs")], {
   cwd: root,

@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { SUPABASE_COMPATIBILITY_STUBS } from "./pgliteSupabaseStubs.mjs";
+import { stagingSeedProblems, stagingSeedSummary } from "./stagingSeedFixtures.mjs";
 
 const migrationsDirectory = join(process.cwd(), "supabase", "migrations");
 const stagingSeedFile = join(process.cwd(), "supabase", "seeds", "staging.sql");
@@ -80,23 +81,33 @@ try {
       (select count(*)::int from vehicles where name like 'STAGING %') as vehicles,
       (select count(*)::int from customers where email like '%@example.invalid') as customers,
       (select count(*)::int from reservations where notes like 'Synthetic %') as reservations,
+      (select count(*)::int from rates) as rates,
+      (select count(*)::int from extras_config) as extras,
       (select count(*)::int from vehicle_damages where repaired_on is null) as open_damages,
       (select count(*)::int from storage.buckets where id = 'reservation-documents') as buckets
   `);
   const counts = seedCounts.rows[0];
-  if (
-    counts.vehicles !== 29 ||
-    counts.customers !== 5 ||
-    counts.reservations !== 6 ||
-    counts.open_damages < 1 ||
-    counts.buckets !== 1
-  ) {
-    throw new Error(`Staging seed produced unexpected fixture counts: ${JSON.stringify(counts)}`);
+  // `rates` and `extras_config` are counted here and not only after a hosted
+  // reset, because this check needs no credentials: a seed that stopped
+  // producing prices is caught in CI rather than on whoever next resets
+  // staging. See scripts/stagingSeedFixtures.mjs for why those two carry more
+  // weight than the rest of the list.
+  const seedProblems = stagingSeedProblems({
+    vehicles: counts.vehicles,
+    customers: counts.customers,
+    reservations: counts.reservations,
+    rates: counts.rates,
+    extras: counts.extras,
+    openDamages: counts.open_damages,
+    bucket: counts.buckets === 1,
+  });
+  if (seedProblems.length) {
+    throw new Error(`Staging seed produced unexpected fixtures:\n  ${seedProblems.join("\n  ")}`);
   }
 
   console.log(`\nMigration replay passed: ${migrationFiles.length} migrations applied in filename order.`);
   console.log("Verified customers.name is nullable text with its compatibility trigger attached.");
-  console.log("Verified the synthetic staging seed is idempotent: 29 vehicles, 5 customers, 6 reservations, an open damage and the private documents bucket.");
+  console.log(`Verified the synthetic staging seed is idempotent: ${stagingSeedSummary()}.`);
   console.log(
     "PGlite compatibility stubs: roles anon/authenticated/service_role, storage.buckets, and the auth schema (auth.users, auth.uid). See scripts/pgliteSupabaseStubs.mjs."
   );

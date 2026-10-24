@@ -1745,3 +1745,78 @@ branch, so main's code is now building and running in the staging environment
 against the staging Supabase project. That is the half of "in line with
 production" that is finished: same code, same deployment boundary, a database
 still carrying 2 October's fixtures until the reset above is run.
+
+### The reset verified fixtures and not prices — closed 24 October 2026
+
+Codex reviewed section 22 and raised four follow-ups. One was wrong, one had the
+right remedy for the wrong reason, and the remedy was worth doing anyway. Both
+are recorded because the reasoning is what the next reader needs.
+
+**"Restore the synthetic rates and `extras_config` staging seed" — declined; there
+is nothing to restore.** `supabase/seeds/staging.sql` carries both inserts and
+always has: **18 rate rows** (six pricing groups × three seasons) and **5
+`extras_config` rows**, each with `on conflict … do update` so the seed stays
+idempotent. `git log -p --follow` on that file shows the two inserts only ever
+**added**, never removed. The two later commits that touched them — #116 and
+#118 — changed values, not presence.
+
+**"The reset script does not verify them despite the runbook saying it does" —
+half right, and the half that is wrong matters.** The script genuinely did not
+count them. But the runbook line being read as the claim is section 11's *"public
+rates and extras remained read-only"*, which is a statement about **grants**, not
+row counts — and that claim is true and *is* verified: `check-grants.mjs` holds
+`PUBLIC_READABLE = new Set(["rates", "extras_config"])`, and `reset-staging.mjs`
+runs it automatically after every reset. Nothing in the runbook ever claimed the
+rows were counted. The gap was a genuine omission, not a documented check that
+had quietly stopped running.
+
+**Why the omission was worth closing anyway, which is a stronger reason than the
+one offered.** `rates` and `extras_config` are the two tables
+`DEFINING-STATEMENTS.md` §6 deliberately grants to `anon`, and §6's stated reason
+is that *"the public booking form cannot price a rental without them"*. So a seed
+that loaded no rates leaves staging showing a fleet it cannot quote for — and the
+reset would have called that a success, having counted 29 vehicles, 5 customers,
+6 reservations and the bucket without ever asking whether a price could be
+produced. **A control that is green while the thing it protects is broken** is
+the defect this project has now found in its own instruments five times.
+
+**What was built.** `scripts/stagingSeedFixtures.mjs` holds the expectations once
+and returns the *names* of what is wrong rather than a boolean, because a reset
+is read on a terminal by someone deciding whether to run it again. Both verifiers
+now use it:
+
+- **`check-migration-replay.mjs`**, which matters more because **it needs no
+  credentials**: a seed that stops producing prices now fails in CI rather than
+  waiting for whoever next resets staging. Run today — *"48 migrations applied in
+  filename order… the synthetic staging seed is idempotent: 29 vehicles, 5
+  customers, 6 reservations, **18 rates and 5 extras**, an open damage and the
+  private documents bucket."*
+- **`reset-staging.mjs`**, which now also selects `rates` and `extras_config` and
+  prints what it verified.
+
+**Proven by breaking it, not by reading it.** `tests/stagingSeedFixtures.test.ts`
+has 11 tests, and the fail-first rule was satisfied twice over:
+
+1. Removing the two rows from the expectation list — the code exactly as it was
+   this morning — fails five tests, including *"fails when no rates loaded, which
+   is the case that used to pass"*, which reports `[]` where a problem was due.
+2. Drifting the constant from 18 to 17 fails the anti-drift test, which counts
+   the rows in `staging.sql` itself rather than trusting the number. That guard
+   exists because a hand-written constant and a hand-written seed diverge the
+   moment someone adds a pricing group to one of them, and the resulting failure
+   is silent — the verifier asserts the old number against the new seed and
+   passes.
+
+A missing count is also treated as a failure rather than as "not asserted", since
+a caller that forgets to select `rates` would otherwise reintroduce the original
+defect in a new costume.
+
+**One thing deliberately NOT changed.** The seed prices the Full Damage Waiver at
+**€12**, and production charges **€5.00**. That is not drift to be corrected:
+`DEFINING-STATEMENTS.md` §10 records that the €12 figure *came from this very
+file* and was wrongly quoted as a real price across five documents, and commit
+#116 is titled *"Stop staging fixtures being quoted as prices"*. Syncing the
+fixture to production's rate would make a synthetic number look authoritative
+again, which is the error §10 exists to prevent. **"In line with production" means
+the schema and the code, never the prices in a file whose first line reads
+"Synthetic staging fixtures only".**
