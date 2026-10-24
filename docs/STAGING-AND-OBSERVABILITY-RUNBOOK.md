@@ -1739,6 +1739,9 @@ history, not from querying staging. It does not change the action: a reset
 replays all 48 regardless of what is there now, which is why the reset is the
 answer rather than applying three files.
 
-**Whether the hosted staging deployment came up green** on the fast-forwarded
-branch is a Vercel status, tracked at the time of writing and recorded in
-`docs/OPEN-ITEMS.md` rather than asserted here.
+**The hosted staging deployment did come up green.** Vercel reported
+`success — Deployment has completed` against `2287438` on the fast-forwarded
+branch, so main's code is now building and running in the staging environment
+against the staging Supabase project. That is the half of "in line with
+production" that is finished: same code, same deployment boundary, a database
+still carrying 2 October's fixtures until the reset above is run.
