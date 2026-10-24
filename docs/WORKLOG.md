@@ -15,6 +15,50 @@ wrong place.
 
 ---
 
+## 20 October 2026 — Claude (implementer)
+
+**Last verified:** 20 October 2026, Claude.
+
+Four alert paths inventoried, the backups proved rather than assumed, **E23
+closed by running the restore drill**, and one migration written and withdrawn.
+PRs #225, #226, #227, #228. Detail in
+[`docs/worklog/2026-10-20-claude.md`](worklog/2026-10-20-claude.md); the
+knowledge is in **runbook sections 18–21**.
+
+**The day's one sentence:** *check the artefact, not the job that was supposed
+to produce it.*
+
+- **Alerting — runbook §18.** Four paths, not one, and they do not share a
+  credential. The channel was re-proven (39397051787) and `backup.yml`'s
+  repaired alert **fired for the first time since 21 September** via a new
+  `simulate_failure` input (39397705999). `ci.yml` stays deliberately off the
+  list.
+- **Backups — runbook §19.** 30 archives on 30 consecutive dates, 21 September
+  to 20 October, **read from the bucket** (39402993779). The three pieces of
+  evidence that already existed were all circumstantial, and the most
+  persuasive was the worst: a count of thirty-one objects is not a
+  distribution.
+- **The restore drill — runbook §20, E23 closed.** 29 of 29 tables, 1,742 of
+  1,744 rows (39407010918, confirmed 39417766890). It also established that
+  `auth` and `storage` cannot restore outside Supabase, so **the rental data
+  recovers anywhere and the login layer is a rebuild, not a restore** — written
+  down for the first time because nobody had tried it. **W60** opened for the
+  part a disposable container cannot do.
+- **The Data API deadline — runbook §21.** Re-checked ten days out; the
+  position holds and **nothing is needed for 30 October**. A migration written
+  for views was **withdrawn**: the view's own migration already grants it, and
+  production holding more privileges than the repository read like the
+  repository holding none.
+- **An alert's wording is part of the alert.** The drill's first message said
+  "the backups may be unrecoverable" during a run that had restored 1,742 of
+  1,744 rows. Fixed, and the rule recorded: an alert may say what the run
+  established, never what the failure might mean.
+- **W59 opened** — the staging Supabase hostname no longer resolves, so the
+  staging e2e suite is red on `main` and has been for up to twelve days.
+  Production unaffected.
+
+---
+
 ## 4 October 2026 — Claude (implementer)
 
 **Last verified:** 4 October 2026, Claude.
