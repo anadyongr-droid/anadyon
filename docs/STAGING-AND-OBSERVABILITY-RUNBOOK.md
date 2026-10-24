@@ -1820,3 +1820,22 @@ fixture to production's rate would make a synthetic number look authoritative
 again, which is the error §10 exists to prevent. **"In line with production" means
 the schema and the code, never the prices in a file whose first line reads
 "Synthetic staging fixtures only".**
+
+### The staging end-to-end check, rerun on the fast-forwarded state
+
+Codex's fourth follow-up. Run **40119491330**, dispatched on `main` via
+`workflow_dispatch` on 24 October: **`build` success, `End-to-end against
+staging` success.**
+
+**What that does and does not establish.** It exercised `main`'s current code
+against the staging Supabase project and passed, so the commercial path works
+against staging's database as it stands. It does **not** say staging's schema
+matches production — the database still predates 047/048/049 and its fixtures are
+from 2 October, because the reset is Tasos's. The suite passing against the older
+schema is consistent with the finding above that those three migrations are not
+app-visible, and is a second, independent piece of evidence for it: had 048
+mattered to application behaviour, a quote would have failed here.
+
+It is also the first green run of this suite whose dispatch was not contending
+with anything else, which is the W62 workaround applied deliberately rather than
+discovered.
