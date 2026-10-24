@@ -19,8 +19,9 @@ wrong place.
 
 **Last verified:** 24 October 2026, Claude.
 
-**E6 closed, Zoho chosen, and the merge queue cleared — seven dependency pull
-requests, including the one the security advisories sat behind.** Detail in
+**E6 closed, Zoho chosen, and the dependency queue emptied — eight pull requests
+landed, including the one the security advisories sat behind, and only the two
+genuinely blocked upstream remain open.** Detail in
 [`docs/worklog/2026-10-24-claude.md`](worklog/2026-10-24-claude.md); the
 knowledge is in [`EMAIL-DELIVERABILITY.md`](EMAIL-DELIVERABILITY.md),
 [`MAILBOX-PROVIDER-OPTIONS.md`](MAILBOX-PROVIDER-OPTIONS.md),
@@ -35,8 +36,8 @@ unblocked**, its precondition having been a clean renewal.
 
 **Decided: Zoho**, with the migration order written before any DNS moves and the
 three records that must survive it named. Self-hosting was researched at Tasos's
-request and rejected with reasons. PRs #221, #222, #230, #233, #220, #215, #223
-merged; #214 closed as superseded; #170 and #87 left open as upstream-blocked
+request and rejected with reasons. PRs #221, #222, #230, #233, #220, #215, #223,
+#224 and #234 merged; #214 closed as superseded; #170 and #87 left open as upstream-blocked
 (**W63**). **New: W62** — the staging e2e concurrency group cancels queued runs,
 which is why pull requests sat unmergeable with nothing red.
 
