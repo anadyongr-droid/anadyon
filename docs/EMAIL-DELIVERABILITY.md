@@ -1,6 +1,6 @@
 # How Anadyon's email actually leaves the building
 
-**Last verified:** 23 October 2026, Claude — **Yahoo blocks mail sent from Gmail as `anadyon.gr`, and the configuration has been wrong since August — it was tolerated, not working.** Both the message that bounced and one a few days earlier that did not came from `customerservice@anadyon.gr`, so both took the same unauthenticated Google route and Yahoo simply stopped tolerating it; E6's certificate is **not** implicated. **The commercial risk is the message that did not bounce** — accepted and possibly spam-filed, as replies to quote requests may have been for two months. It is the office mail setup rather than anything this repository deploys.** The sending IP `209.85.218.42` is Google — a fourth sending path beside Resend, the grserver relay and the Papaki host — and **nothing in this repository can send through Gmail**: `lib/gmail.ts` is read-only and `lib/mailer.ts` is Resend. Live DNS re-read today: SPF authorises `+mx` and fastmail and **nothing Google**, ending `-all`; there is no `google._domainkey`; but **`default._domainkey` exists**, so Papaki already signs. The fix is one Gmail setting — send that alias through `mail.anadyon.gr` instead of through Google — after which SPF and DKIM both pass with no DNS change at all (E34). Booking mail is unaffected. Earlier: 21 October 2026, Claude — **PHP exposure section added, on the day PHP shipped emergency fixes for two CVSS 9.2 unauthenticated-RCE flaws (CVE-2026-109618, CVE-2026-109619).** This project has no PHP in the application, the public website or Supabase, and the three `php` strings in the repository are competitors' endpoints we fetch **from**. The exposure is the Papaki/Plesk server `213.158.90.117`, which serves `mail.anadyon.gr` and `webmail.anadyon.gr` and is itself a PHP application with Roundcube webmail — **its PHP version is unverified from here** and the three things needed are Tasos's (E33). Earlier: 19 September 2026, Claude — from live DNS *and* from the full
+**Last verified:** 24 October 2026, Claude — **E6 IS RESOLVED: the mail certificate is reissued and verified, and it is scoped exactly as this document recommended.** SSL Labs' own handshake against `webmail.anadyon.gr` returns grade **A**, `issues: 0`, `CN=webmail.anadyon.gr` with SAN **`mail.anadyon.gr, webmail.anadyon.gr`**, **valid 24 October 2026 → 22 January 2027**, Let's Encrypt — read that way because ports 587 and 465 are unreachable from a container and the egress proxy re-terminates TLS on 443. **Yesterday's Certificate Transparency reading is withdrawn:** a `q=anadyon.gr` query cannot surface a certificate whose only names are `mail.` and `webmail.`, so the narrow shape recommended here is the shape that search method is blind to — a measurement's silence was read as a statement about the server. **E34 is not closed by this:** the certificate was the broken link, not a tested chain, and one send to a Yahoo address from `customerservice@anadyon.gr` decides it. **E10 (CAA) is unblocked**, and must authorise both Let's Encrypt and Vercel's issuer, read from the live chain. Earlier: 21 October 2026, Claude — **PHP exposure section added, on the day PHP shipped emergency fixes for two CVSS 9.2 unauthenticated-RCE flaws (CVE-2026-109618, CVE-2026-109619).** This project has no PHP in the application, the public website or Supabase, and the three `php` strings in the repository are competitors' endpoints we fetch **from**. The exposure is the Papaki/Plesk server `213.158.90.117`, which serves `mail.anadyon.gr` and `webmail.anadyon.gr` and is itself a PHP application with Roundcube webmail — **its PHP version is unverified from here** and the three things needed are Tasos's (E33). Earlier: 19 September 2026, Claude — from live DNS *and* from the full
 headers of a delivered message. Two conclusions from the 11 September pass were
 withdrawn; both had reasoned from DNS alone where only a header could answer.
 
@@ -1139,6 +1139,104 @@ and the diagnosis is closed.**
 **`Remove` is on this screen and should not be touched.** Removing a
 certificate that is still assigned — `Used: 3` and `Used: 1` — would unsecure
 whatever depends on it.
+
+### RESOLVED 24 October 2026 — the certificate is reissued, and it is the right shape
+
+Papaki reported that they had renewed the mail certificates. That claim was
+recorded as unverified on 24 October, because the only instrument that had so
+far disagreed with it — Certificate Transparency — showed nothing issued for
+`anadyon.gr` since 18 August. **The claim was true and the instrument was
+blind.**
+
+Read from SSL Labs' own TLS handshake, which happens on their network rather
+than through this container's egress proxy:
+
+```
+GET https://api.ssllabs.com/api/v3/analyze?host=webmail.anadyon.gr&all=done
+
+status  : READY            grade: A         issues: 0
+subject : CN=webmail.anadyon.gr
+names   : mail.anadyon.gr, webmail.anadyon.gr
+valid   : 2026-10-24  ->  2027-01-22
+issuer  : CN=YR2, O=Let's Encrypt, C=US
+ip      : 213.158.90.117
+```
+
+**`mail.anadyon.gr` is in the name list.** That is the host the SMTP service
+answers on, and the host Gmail's relay connects to — the component Plesk had
+been reporting as `Mail access — IMAP, POP, SMTP on mail.anadyon.gr — Not
+Secured`. The expired wildcard of 12 October is no longer what mail presents.
+
+**Why this route, and not `openssl`.** Ports 587 and 465 are not reachable from
+an agent container, and on 443 the session's egress proxy re-terminates TLS, so
+`openssl s_client` returns the proxy's certificate rather than the server's —
+the same limitation recorded against E6 on 14 September. SSL Labs performs the
+handshake itself and reports the chain it was served, which makes it a genuine
+observation of the remote server rather than of the path to it.
+
+**The certificate is scoped exactly as this document recommended**, and that is
+worth stating plainly because the recommendation was contested as impractical:
+two names, `mail.` and `webmail.`, with no apex, no `www`, no `rentals.` and no
+wildcard. Every name on it resolves to `213.158.90.117`, so HTTP-01 can
+validate all of them at Plesk, and the renewal that had been failing since
+`anadyon.gr` moved to Vercel should now succeed unaided. Whether Papaki reached
+that shape through the Reissue dialog, through server-level SSL/TLS, or by
+issuing afresh is unknown and no longer interesting.
+
+#### The search that missed it, and why it missed it
+
+This is the part worth keeping. On 23 and 24 October a Certificate Transparency
+query on `q=anadyon.gr` returned nothing newer than Vercel's certificate of 18
+August, and that absence was written into `docs/OPEN-ITEMS.md` as *"evidence
+against, or at least unexplained"*, with the inference that Papaki had assigned
+an existing certificate rather than issuing one.
+
+**The narrow shape this document asked for is the shape that query cannot
+see.** A CT search on an apex domain surfaces certificates whose common name or
+SAN entries match that apex or a wildcard over it. A certificate whose only
+names are `mail.anadyon.gr` and `webmail.anadyon.gr` matches neither. The
+recommendation and the verification method were in direct conflict, and nobody
+noticed because the conflict only appears once the recommendation is followed.
+
+§8 requires an unverifiable claim to be labelled unverified, and it was. The
+error was narrower and worth naming on its own: **a measurement's silence was
+read as a statement about the world.** "CT shows no new certificate" is a fact
+about an index; "no new certificate exists" is a fact about a server, and the
+first does not imply the second unless the index is known to be complete for
+the thing being asked about. It was not.
+
+For the next certificate question, search CT for `mail.anadyon.gr` and
+`webmail.anadyon.gr` as well as the apex, or skip CT and read the handshake.
+
+#### What this proves, and what it does not
+
+**Proven.** TLS on the mail host is valid until 22 January 2027. Gmail's relay
+to `mail.anadyon.gr` will no longer fail certificate verification, so it will
+no longer fall back to sending as Google — which is the mechanism that stripped
+authentication from every office reply between 12 and 23 October.
+
+**Not proven, and deliberately not assumed.** That a reply from
+`customerservice@anadyon.gr` to a Yahoo address now passes DMARC end to end.
+The certificate was the broken link; a chain with one link repaired is a
+repaired link, not a tested chain. Confirming it needs a send, and a send needs
+the mailbox:
+
+> Reply to the Yahoo address that bounced on 23 October, or send anything to any
+> Yahoo or AOL address from `customerservice@anadyon.gr`.
+
+If it lands, E34 closes. If it bounces, the text discriminates between the two
+remaining possibilities: a repeated `550 5.7.9` with DKIM and SPF both failing
+means the alias is still leaving via Google and the remedy is the Gmail
+"send mail as" setting described above, not anything at Papaki; anything else is
+a new finding.
+
+**One item is unblocked by this.** E10 — adding a CAA record — was held behind
+E6 on the stated ground that a CAA record set slightly wrong would block
+issuance for Vercel and Plesk at once, and that this was not a change to make
+while a renewal was already failing. The renewal is no longer failing. E10 can
+proceed, and the record must authorise **both** issuers: Let's Encrypt for the
+Plesk mail certificate and whatever Vercel's certificates are issued by, read
+from the live chain rather than assumed.
 
 ## The email intelligence pipeline has ingested nothing since August
 

@@ -15,6 +15,46 @@ wrong place.
 
 ---
 
+## 24 October 2026 — Claude (implementer)
+
+**Last verified:** 24 October 2026, Claude.
+
+**E6 closed, Zoho chosen, and the merge queue cleared — seven dependency pull
+requests, including the one the security advisories sat behind.** Detail in
+[`docs/worklog/2026-10-24-claude.md`](worklog/2026-10-24-claude.md); the
+knowledge is in [`EMAIL-DELIVERABILITY.md`](EMAIL-DELIVERABILITY.md),
+[`MAILBOX-PROVIDER-OPTIONS.md`](MAILBOX-PROVIDER-OPTIONS.md),
+[`PAPAKI-DEPENDENCY-AND-EXIT-OPTIONS.md`](PAPAKI-DEPENDENCY-AND-EXIT-OPTIONS.md)
+and [`ENGINEERING-SAFETY-NET.md`](ENGINEERING-SAFETY-NET.md).
+
+**E6 is closed.** The mail certificate was reissued and verified through SSL
+Labs' own handshake — SAN `mail.anadyon.gr, webmail.anadyon.gr`, valid to
+22 January 2027. **E34 is not closed by it:** the certificate was the broken
+link, not a tested chain, and one send to a Yahoo address decides it. **E10 is
+unblocked**, its precondition having been a clean renewal.
+
+**Decided: Zoho**, with the migration order written before any DNS moves and the
+three records that must survive it named. Self-hosting was researched at Tasos's
+request and rejected with reasons. PRs #221, #222, #230, #233, #220, #215, #223
+merged; #214 closed as superseded; #170 and #87 left open as upstream-blocked
+(**W63**). **New: W62** — the staging e2e concurrency group cancels queued runs,
+which is why pull requests sat unmergeable with nothing red.
+
+**The day's one sentence:** *a measurement's silence is not a statement about
+the world* — Certificate Transparency showed no certificate because the one
+issued was exactly the narrow shape our own document had argued for, and that
+shape is invisible to a query on the apex domain.
+
+**A gap in this file, recorded rather than filled.** No consolidated entries
+exist for **21 and 23 October**, and no agent worklogs either, though both days
+produced work that reached the repository — the no-merge-on-red rule, the MCP
+review, and three days of mail diagnosis (PRs #231, #232). Writing them now
+would be reconstruction from a chat transcript, which §11 says is not a
+handover. The findings themselves are in the subject documents and in
+`OPEN-ITEMS.md`; what is missing is the dated index to them.
+
+---
+
 ## 20 October 2026 — Claude (implementer)
 
 **Last verified:** 20 October 2026, Claude.

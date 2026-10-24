@@ -67,6 +67,125 @@ development minor/patch npm updates are grouped separately, while major updates
 remain individual review decisions. A dedicated pull-request workflow rejects
 new dependencies with a known `high` or `critical` advisory.
 
+### Three ways a Dependabot pull request fails for reasons that are not the dependency
+
+*Added 24 October 2026, after eleven queued pull requests were worked through
+in one sitting and three of them failed for reasons the diff could not show.*
+
+The queue had built up behind the W59 merge hold. Working it revealed that a red
+`build` on a dependency bump is usually **not** about whether the new version
+works, and each of the three causes below is diagnosable in minutes once it is
+named — and cost an hour each before it was.
+
+**1. An exact peer pin makes a split bump unsatisfiable.** `@vitest/coverage-v8`
+peer-depends on an exact `vitest` version — `4.1.11` requires `vitest@4.1.11`,
+`5.0.5` requires `vitest@5.0.5` — so #214 and #215 each bumped one half and
+**neither could ever go green**, failing at `npm ci`:
+
+```
+npm error Conflicting peer dependency: vitest@4.1.11
+npm error   peer vitest@"4.1.11" from @vitest/coverage-v8@4.1.11
+```
+
+Dependabot opens one pull request per package and cannot combine two, so the fix
+is to push the other half onto one of the branches and let the second be closed
+as superseded. **The tell is that the failure is at the install step**, before
+any test runs. Any package pair pinned to each other exactly behaves this way;
+`@vitest/*` is the family to expect it from.
+
+**2. A grouped action bump cannot contain a workflow that did not exist yet.**
+#220 bumped `actions/setup-node` in four places and was opened on 20 October;
+`restore-drill.yml` was added to the repository later the same day with the old
+pin. Merging `main` into the branch therefore produced a tree with two different
+SHAs for one action, and `lib/actionPinParity.test.ts` failed naming the line:
+
+```
+.github/workflows/restore-drill.yml:83 actions/setup-node v7.0.0
+```
+
+This is the parity test doing its job — it exists because #83 once bumped
+`codeql-action/init` alone and would have run a split CodeQL bundle. **The fix
+is to complete the bump by hand**, and the general rule is that any action pin
+added to a *new* workflow while a group bump is open will collide with it. Worth
+checking `git grep` for the old SHA whenever a grouped action pull request goes
+red after a branch update.
+
+**3. A loose peer range hides a plugin that does not support the new major.**
+#170 (eslint 9 → 10) fails the Lint step with exit code 2 — eslint's fatal
+configuration error, not a lint violation — because `eslint-plugin-react@7.37.5`,
+vendored inside `eslint-config-next@16.3.5`, calls `context.getFilename()`, which
+ESLint 10 removed. `eslint-config-next` declares `eslint: ">=9.0.0"` while the
+plugin it bundles declares `^3 || … || ^9.7`, so npm installs the combination
+without complaint and the failure appears only at lint time. **There is no
+version to upgrade to**: `eslint-plugin-react@latest` is still 7.37.5 with the
+same ceiling, so no released version supports ESLint 10, and an `overrides` entry
+has nothing newer to point at. #170 is blocked upstream and the honest action is
+to say so and leave it open, not to reach for a canary `eslint-config-next`.
+
+*Provenance, and it is not flattering.* This diagnosis was **already in
+`docs/README.md`'s open-pull-requests table** from early October, in almost
+these words, and it was re-derived from scratch today before the existing entry
+was noticed. §9 is the rule that was broken, and the mechanism is worth naming
+because it is not the one §9 warns about: the file *was* found by a grep, and
+its status section *was* read — the pull-request table further down was not.
+Finding the right document is not reading it. What today added is a dated
+re-verification rather than a discovery: the plugin is **still** 7.37.5 as of
+24 October, so "no fix exists yet" is now true with a date against it rather
+than true whenever it was last looked at.
+
+**What the three have in common** is that the annotation GitHub exposes says only
+`Process completed with exit code N`. Logs and artifacts are unreachable from an
+agent container (W51), and the step index in the annotation is not a file line.
+So the method that works is to **reproduce the install and the failing step
+locally** — `npm ci` from an empty `node_modules`, then the one step that failed
+— rather than reading the diff and reasoning about what the new version might
+break. All three causes above were found that way in minutes; none was visible
+in the diff.
+
+### The staging e2e concurrency group silently cancels queued runs
+
+*Found 24 October 2026, and it is the reason four pull requests sat at
+`mergeable_state: unstable` with nothing red.*
+
+`ci.yml`'s `e2e-staging` job carries:
+
+```yaml
+concurrency:
+  group: anadyon-staging-e2e
+  cancel-in-progress: false
+```
+
+The group name is a **constant**, deliberately: the job writes to the shared
+staging database and two runs must not overlap. But a constant group is shared
+across every branch and pull request, and GitHub holds only **one** pending run
+per group — when a third arrives, the one already waiting is **cancelled**.
+
+With one or two pull requests open this is invisible. With a queue of eleven,
+`End-to-end against staging` came back `cancelled` over and over, on diffs that
+had nothing to do with staging. **A cancelled required check is not a red check
+and not a green one**, so the pull request is unmergeable with no failure to
+investigate — which reads exactly like a flake and is not one.
+
+**The workaround used today:** merge strictly one at a time, and re-run the
+cancelled job (`actions/runs/<id>/rerun-failed-jobs`) for each pull request on
+its own rather than updating several branches at once. Slow but reliable.
+
+**Not fixed, and the options are a genuine trade-off rather than an oversight:**
+
+- *Per-ref group* (`anadyon-staging-e2e-${{ github.ref }}`) stops the
+  cancellations but allows two runs to hit the one staging database at once,
+  which is the thing the constant group exists to prevent.
+- *Run it on `main` only* and drop it as a required check on pull requests. That
+  removes the serialisation problem entirely, at the cost of learning about a
+  staging break after merge rather than before. It also needs a branch-protection
+  change, which is a dashboard action.
+- *Keep it and accept serial merging*, which is what happened today and is fine
+  for a queue of two or three, not of eleven.
+
+Recorded as **W62** in `docs/OPEN-ITEMS.md` rather than decided here, because the
+right answer depends on how much the pre-merge staging signal is worth — and that
+is worth one deliberate decision rather than three silent cancellations.
+
 ### Coverage as a diagnostic only
 
 `npm run test:coverage` produces text, JSON summary and LCOV output across API
