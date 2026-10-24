@@ -122,6 +122,17 @@ same ceiling, so no released version supports ESLint 10, and an `overrides` entr
 has nothing newer to point at. #170 is blocked upstream and the honest action is
 to say so and leave it open, not to reach for a canary `eslint-config-next`.
 
+*Provenance, and it is not flattering.* This diagnosis was **already in
+`docs/README.md`'s open-pull-requests table** from early October, in almost
+these words, and it was re-derived from scratch today before the existing entry
+was noticed. §9 is the rule that was broken, and the mechanism is worth naming
+because it is not the one §9 warns about: the file *was* found by a grep, and
+its status section *was* read — the pull-request table further down was not.
+Finding the right document is not reading it. What today added is a dated
+re-verification rather than a discovery: the plugin is **still** 7.37.5 as of
+24 October, so "no fix exists yet" is now true with a date against it rather
+than true whenever it was last looked at.
+
 **What the three have in common** is that the annotation GitHub exposes says only
 `Process completed with exit code N`. Logs and artifacts are unreachable from an
 agent container (W51), and the step index in the annotation is not a file line.
