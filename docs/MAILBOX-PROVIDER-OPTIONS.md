@@ -65,6 +65,53 @@ Password: a Resend API key
 second device reading the account independently of Gmail. It is forwarding plus
 relay — excellent as a zero-cost interim, not a mail service.
 
+### The free tier's cap is not close to binding — measured 24 October
+
+Tasos confirmed the project is on Resend's **free plan** (3,000/month, 100/day).
+`scripts/sql/readonly/resend-volume.sql`, run against production
+(**40101058605**):
+
+```
+busiest days          by month                all time
+2026-10-23  2         2026-10   5             2026-08-25 .. 2026-10-23   19
+2026-09-14  2         2026-09  10
+2026-09-12  2         2026-08   4
+2026-08-25  2
+```
+
+**The busiest day in the system's history sent two emails.** The busiest month
+sent ten. Nineteen in total across two months.
+
+So booking mail consumes **2% of the daily allowance at its peak** and well
+under 1% of the monthly one. Staff replies would have to run at roughly
+**fifty times** the entire current volume before the free tier bound. **Caveat
+worth stating:** these are two months of early operation, not a full season —
+but the headroom is two orders of magnitude, so a busy summer does not change
+the conclusion.
+
+**The third caveat in §2 is therefore closed.** The free option is viable on
+the plan already held.
+
+### And the fix decomposes — the broken half needs no DNS change at all
+
+**This is the most useful finding in this document.** The outbound problem
+(E34) and the inbound migration are independent, and only the first is broken:
+
+- **Outbound** — Gmail *Send mail as* currently relays through
+  `mail.anadyon.gr`, whose certificate expired. Pointing it at
+  `smtp.resend.com` instead fixes authentication **immediately**: Resend's DKIM
+  key for this domain is already published, so the reply is signed
+  `d=anadyon.gr` and aligns with the `From:` header. **No DNS record changes.
+  No new supplier. Reversible in a minute** by putting the old server back.
+- **Inbound** — mail still arrives perfectly well through Papaki's MX today.
+  Nothing is broken about receiving, so moving it to Cloudflare Email Routing
+  is a *tidying* exercise that can happen calmly, later, or never.
+
+**So the sequencing is: fix sending this week with one Gmail setting; decide
+about DNS, inbound and cancelling Plesk separately.** That separation also
+means the urgent fix carries none of the MX-cutover risk that made the
+migration look daunting.
+
 ## 3. Real mailboxes, ranked against what was actually asked
 
 | Provider | Price | IMAP | Dependability | Note |
