@@ -100,6 +100,78 @@ it fixes the authentication problem this week at zero cost, and if DNS has
 already moved to Cloudflare it can be replaced by a real mailbox later with no
 further DNS change.
 
+## 4a. Self-hosting on a cheap VPS — asked 24 October, and the answer is no
+
+*A fair question, and it deserves more than a reflex. Modern tooling —
+Mailcow, Mail-in-a-Box, Poste.io — has made self-hosted mail far more
+approachable than it was ten years ago. The objection is not that it is hard.*
+
+**It is not cheaper at this scale, which settles it before the technical
+argument begins.**
+
+| | Annual cost |
+| --- | --- |
+| Zoho Mail Lite, 3 mailboxes | **~$36** |
+| Hetzner CX-class VPS (~€4.50/month) | **~€54**, before a minute of anyone's time |
+
+Self-hosting becomes economic somewhere around twenty mailboxes, because the
+VPS cost is flat while per-user pricing is not. Anadyon has a handful. **The
+one scale argument for self-hosting does not apply.**
+
+### What it would actually take
+
+Recorded so the question does not have to be re-researched:
+
+1. **Port 25 outbound, which is blocked by default almost everywhere.**
+   **DigitalOcean** blocks 25, 465 *and* 587 on all droplets and documents no
+   unblock route — their own guidance is to use a third-party email service.
+   **Hetzner** is contested across sources: some say 25 is open, others that
+   25 and 465 are blocked with 587 left open, and that a limit request is
+   considered **case by case after a month as a customer and a paid invoice**.
+   Either way it is a negotiation before the server can send at all.
+2. **A clean dedicated IPv4 with a matching PTR record.** Cheap VPS ranges are
+   frequently already on blocklists; the address has to be checked against
+   Spamhaus and others *before* committing.
+3. **Reputation from zero.** A new IP is treated harshly by Gmail, Outlook and
+   Yahoo. **This is the decisive point for Anadyon specifically: the problem
+   being solved is already a deliverability problem.** Trading a known
+   authentication fault for an unknown reputation fault is not an improvement —
+   it swaps a bounce that tells you what is wrong for silent spam-filing that
+   does not.
+4. **Certificate renewal — owned by us.** Mailcow automates Let's Encrypt, but
+   the renewal still depends on the server being healthy, the ports open and
+   DNS correct. **This outage is an unrenewed certificate.** Self-hosting does
+   not remove that failure mode; it removes the person you can escalate it to.
+5. **Security patching, for ever.** A mail server is a high-value target.
+   **The evidence against us here is our own:** this project currently has a
+   Plesk server running PHP unpatched against a CVSS 9.2 unauthenticated RCE
+   (E33) and a WordPress rated 10.0 (E36), precisely because nobody maintains
+   it. Adding a second server to maintain — for the most business-critical
+   communication channel there is — would repeat the pattern knowingly.
+
+### The hybrid that *is* legitimate, and still loses
+
+Self-host the mailboxes and **relay outbound through a reputable sender**
+(Resend, SES, Brevo). This is a real architecture and it solves the reputation
+problem properly, because delivery happens from the relay's IPs.
+
+It still costs a VPS plus maintenance plus the relay, to replace a $12/mailbox
+service. **It is strictly more work and more money than Zoho, for the same
+outcome.**
+
+### Where self-hosting would be right
+
+Twenty or more mailboxes; or an in-house technical operator who wants the
+control; or a hard data-residency requirement. **None of those is true here**,
+and the first is the only one that would change the arithmetic.
+
+### The honest trade
+
+Self-hosting fixes exactly one of Tasos's complaints — vendor
+unresponsiveness — and it fixes it by making Anadyon the vendor. That is a good
+trade only for someone who wants to be the vendor. The frustration with Papaki
+is about *having to operate infrastructure at all*; self-hosting is more of it.
+
 ## 5. Needed from Tasos
 
 1. **How many mailboxes?** Still the missing number, and the whole cost question.
