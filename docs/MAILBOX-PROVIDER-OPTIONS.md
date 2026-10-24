@@ -219,6 +219,82 @@ unresponsiveness — and it fixes it by making Anadyon the vendor. That is a goo
 trade only for someone who wants to be the vendor. The frustration with Papaki
 is about *having to operate infrastructure at all*; self-hosting is more of it.
 
+## 4b. DECIDED — Zoho, 24 October 2026
+
+**Tasos created the Zoho account on 24 October.** That settles §4: real
+mailboxes at roughly $12/mailbox/year rather than the free forwarding-and-relay
+arrangement. This section is the migration's safety rail, written **before** any
+DNS is touched.
+
+### The one thing that must not break: booking confirmations
+
+Staff mail and booking mail share a domain but **not a path**, and the
+distinction is what makes this migration safe:
+
+| | Staff replies (changing) | Booking confirmations (must not change) |
+| --- | --- | --- |
+| Sends through | Papaki → **Zoho** | **Resend**, unchanged |
+| Envelope domain | `anadyon.gr` | **`send.anadyon.gr`** |
+| SPF record consulted | the **root** record | **`send.anadyon.gr`'s own** record |
+| DKIM key | Papaki's `default` → **Zoho's** | **`resend._domainkey.anadyon.gr`** |
+
+**Because Resend's envelope is on the subdomain, the root SPF and the MX
+records can both change without touching booking mail at all.** That is not
+luck — it is the layout recorded earlier in `EMAIL-DELIVERABILITY.md`, where
+the September investigation established that booking mail passes SPF on
+`send.anadyon.gr` and DKIM as `d=anadyon.gr`.
+
+**Three records must survive the migration untouched:**
+
+```
+resend._domainkey.anadyon.gr    TXT   p=MIGfMA0GCSqGSIb3…       ← Resend DKIM
+send.anadyon.gr                 TXT   v=spf1 include:amazonses.com ~all
+_dmarc.anadyon.gr               TXT   v=DMARC1; p=none; rua=…
+```
+
+**Delete or overwrite any of those and booking confirmations start failing
+authentication** — silently, because `p=none` means receivers will not bounce
+them. That is the failure this section exists to prevent.
+
+### The root SPF needs editing, not replacing
+
+Today: `v=spf1 +mx include:_spf.fastmail.gr -all`
+
+- **`+mx`** authorises whatever the MX records point at. Once MX moves to Zoho
+  this authorises **Zoho's inbound servers**, which are *not* the servers Zoho
+  sends from — so `+mx` alone is **not** sufficient.
+- **`include:_spf.fastmail.gr`** is Papaki's. It can go once nothing sends
+  through them.
+- **Zoho's own include must be added**, and the exact token depends on the
+  **data region** the account was created in (`.eu` and `.com` differ).
+
+**The region is the thing to confirm first**, because MX hostnames, the SPF
+include and the DKIM selector all follow from it.
+
+### Order of operations — MX last
+
+1. **Verify the domain** in Zoho (a TXT or CNAME record).
+2. **Create the mailboxes.**
+3. **Publish Zoho's DKIM** record.
+4. **Edit the root SPF** to add Zoho's include — keeping `-all`.
+5. **Migrate existing mail** with Zoho's IMAP tool, *before* cutover, so
+   nothing is stranded on Papaki.
+6. **Change MX last.** This is the only irreversible-feeling step and the only
+   one with a propagation window.
+7. **Then** reconfigure or retire Gmail's *Send mail as*.
+8. **Only after mail is confirmed working**, cancel the Plesk subscription —
+   which closes E33 and E36 with it.
+
+**Steps 1–5 change nothing about where mail arrives.** The cutover is step 6
+alone, which is why it goes last.
+
+### Verification at each stage
+
+After step 4, and again after step 6: send to any Gmail address, open **Show
+original**, and expect `SPF: PASS` and `DKIM: PASS with domain anadyon.gr`.
+Separately, confirm a **booking confirmation** still shows the same — that is
+the regression this section is guarding.
+
 ## 5. Needed from Tasos
 
 1. **How many mailboxes?** Still the missing number, and the whole cost question.
