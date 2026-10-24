@@ -284,4 +284,48 @@ never as passed. Coverage is available on demand with `npm run test:coverage`,
 but is intentionally not a threshold or merge gate: executing a line does not
 prove that a regression test detects the defect. The fail-first regression rule
 above remains mandatory.
+
+## Nothing merges while a CI check is red
+
+*Added 21 October 2026, by Tasos, in those words: "Yes please hold PRs while
+that check is red."*
+
+**A red check on a pull request is a stop, whatever the check is and whatever
+the diff is.** Not a judgement call, not something to reason past because the
+failure looks unrelated, and not something a documentation-only change is
+exempt from.
+
+**Why this is written down rather than assumed.** Between 20 and 21 October
+five pull requests — #225, #226, #227, #228, #229 and #231 — were merged with
+`End-to-end against staging` failing. Each time the reasoning was sound: the
+check was red on `main` itself, the cause was W59 (the staging Supabase
+hostname no longer resolving), and several of those diffs were nothing but
+markdown. Each time it was reported rather than hidden. And the reasoning was
+offered six times, which is six times too many: a merge gate that an agent
+argues its way through on every pull request is not a gate.
+
+So the rule replaces the judgement. **If a check is red, say what is red and
+stop.** The pull request stays open; the branch stays pushed; the work is not
+lost. What does not happen is a merge.
+
+**What to do instead, and in this order:**
+
+1. **Work the red check itself**, if it is this branch's to fix. A failure
+   caused by the diff is the task, not an obstacle to the task.
+2. **If it is not this branch's** — red on the base branch too, or an outage —
+   say so once, with the evidence, and **leave the pull request open**. Do not
+   re-argue it on the next one.
+3. **Raise what the hold is blocking.** A hold has a cost, and the cost is the
+   point of reporting it: as of 21 October it blocks every pull request
+   including the Dependabot security updates, so the person deciding needs to
+   know that, not just that something is waiting.
+
+**The one exception is Tasos's to give, per pull request, not an agent's to
+infer.** A general instruction to carry on is not it — the same standard
+`DEFINING-STATEMENTS.md` §13 sets for its own list.
+
+**And note where this leaves the rule itself.** The pull request that added
+this paragraph could not be merged under it, because the check was red when it
+was written. That is not a flaw in the rule; it is the rule working on its
+first day, and it is why the hold needs a person to lift it.
 <!-- END:anadyon-agent-roles -->
