@@ -1,0 +1,104 @@
+name: Are the backups actually there
+
+# Weekly, and on demand. Read-only: it lists the bucket and deletes nothing.
+on:
+  schedule:
+    - cron: "40 6 * * 1"
+  workflow_dispatch:
+
+# WHY A SECOND JOB, WHEN THE BACKUP JOB ALREADY REPORTS SUCCESS.
+#
+# Because on 20 October 2026 Tasos asked whether backups had been taken over
+# the previous four weeks, and nothing here could answer it. What existed was
+# a run history of green ticks and one inference — the prune step had deleted
+# `daily/anadyon-2026-09-20T…`, so thirty-one objects must have been present.
+#
+# Both are circumstantial, and the first is specifically the evidence that has
+# already lied on this workflow: four failed backups reported their alert step
+# as successful while nothing was delivered. A count of thirty-one says nothing
+# about *which* thirty-one, so a fortnight of doubled uploads followed by a
+# fortnight of nothing looks exactly like thirty consecutive nights.
+#
+# This lists the objects and checks them: no missing night, nothing stale,
+# nothing that shrank. `scripts/backup-inventory.mjs` holds the rules and
+# `tests/backupInventory.test.ts` proves each one fails when blinded.
+#
+# WHAT IT STILL DOES NOT PROVE. That an archive restores. Listing a file is not
+# opening it, and the nightly job's own decrypt check reads only the archive it
+# just made. The restore drill is E23 and this does not close it.
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the inventory script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      # `ls` only. The credential this job holds can write, which is why the
+      # job does not: nothing below is a mutating command, and the check that
+      # would catch one being added is the review of this file.
+      - name: List the bucket
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          # Accepts the bare account id or the whole endpoint URL, the same way
+          # the backup job does and for the same reason.
+          ACCOUNT="${R2_ACCOUNT_ID#https://}"
+          ACCOUNT="${ACCOUNT%%.r2.cloudflarestorage.com*}"
+          ACCOUNT="${ACCOUNT%%/*}"
+          R2_ENDPOINT="https://${ACCOUNT}.r2.cloudflarestorage.com"
+          aws s3 ls "s3://$R2_BUCKET/daily/" --endpoint-url "$R2_ENDPOINT" > daily.txt
+          aws s3 ls "s3://$R2_BUCKET/monthly/" --endpoint-url "$R2_ENDPOINT" > monthly.txt || true
+          echo "  daily: $(wc -l < daily.txt) object(s), monthly: $(wc -l < monthly.txt)"
+
+      # The monthlies are reported but not failed on: they accumulate one a
+      # month from the first of the month, so "a missing day" is meaningless
+      # there and a young bucket legitimately has very few.
+      - name: Say whether they are all there
+        id: check
+        run: |
+          set -euo pipefail
+          {
+            echo "=== daily ==="
+            node scripts/backup-inventory.mjs daily.txt
+            echo
+            echo "=== monthly (reported, not enforced) ==="
+            sed 's/^/  /' monthly.txt
+          } > inventory.txt 2>&1 || echo "DAILY CHECK FAILED" >> inventory.txt
+          cat inventory.txt
+          cat inventory.txt >> "$GITHUB_STEP_SUMMARY"
+          grep -q "DAILY CHECK FAILED\|are NOT what they should be" inventory.txt && exit 1
+          exit 0
+
+      # Logs and artifacts are served from a storage domain an agent container
+      # cannot reach; annotations are in the REST API. W51.
+      - name: Make the result readable without the artifact
+        if: always()
+        run: node scripts/annotate-text.mjs inventory.txt "backup inventory"
+
+      # Any earlier step failing counts, not just the check — a job that cannot
+      # reach the bucket is exactly as uninformative as one that finds a gap,
+      # and the fingerprint learned this on 4 October.
+      - name: Tell someone
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          MSG="❌ <b>Backup inventory check failed</b>"$'\n'"The off-site archives are not what they should be — a night is missing, the newest is stale, or the bucket could not be read. The nightly backup job may still be reporting success."
+          node scripts/send-telegram-alert.mjs "$MSG"

@@ -7,6 +7,11 @@ on:
   schedule:
     - cron: "10 0 * * *"
   workflow_dispatch:
+    inputs:
+      simulate_early_failure:
+        description: "Fail before reading production, to fire the alert path on demand"
+        type: boolean
+        default: false
 
 # The post-event half of agent oversight, and the only part of it that can see
 # the path the reviews all named as the largest residual risk: an action taken
@@ -72,12 +77,29 @@ jobs:
       # edited to write would be refused by the server — belt as well as braces,
       # since tests/productionFingerprint.test.ts only checks that the SQL
       # *contains* no writing statement.
+      # **A way to fire the alert path on demand, and it exists because that path
+      # had never fired.** The alert was widened on 4 October 2026 to trigger on
+      # *any* earlier step failing, not just the comparison -- a missing secret, a
+      # failed production query. Nothing failed early after that, so the fix was
+      # configured and unexercised: the same criticism Codex rightly made of
+      # `pgaudit`, and the shape of the four inert controls this project produced
+      # in one week.
+      #
+      # Dispatching with `simulate_early_failure` makes this step exit non-zero
+      # **before it connects to anything**, so the job fails exactly where a real
+      # early failure would, with no production access at all. Re-fire it whenever
+      # this workflow changes; a notification path is not a thing to believe in.
       - name: Read production's structure and row counts
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=120000
+          SIMULATE: ${{ inputs.simulate_early_failure }}
         run: |
           set -euo pipefail
+          if [ "${SIMULATE:-false}" = "true" ]; then
+            echo "::error::simulated early failure — firing the alert path on purpose, production was not read"
+            exit 1
+          fi
           psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -At \
             -f scripts/sql/production-fingerprint.sql > actual.json
           psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -At \
