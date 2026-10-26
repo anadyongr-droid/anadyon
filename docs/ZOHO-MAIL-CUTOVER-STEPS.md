@@ -423,3 +423,79 @@ domain, and nothing else does.**
 `send.anadyon.gr` keeps its own separate record throughout — it ends `~all`,
 which is Resend's own specification for a transactional subdomain and is not
 affected by any of this.
+
+---
+
+## Papaki's DNS panel: the exact field values — 26 October 2026
+
+DNS for `anadyon.gr` is hosted at **Papaki** (`dns1.papaki.gr`,
+`dns2.papaki.gr`), so these records go in Papaki's panel, not Zoho's and not a
+registrar's.
+
+**Papaki's host field appends the zone automatically.** The input is displayed
+as `[ ______ ] .anadyon.gr`, and the panel's own help text says, in Greek:
+
+> *"Για την εισαγωγή εγγραφής στο naked domain δεν χρειάζεται να εισάγετε τον
+> χαρακτήρα @, απλά αφήνετε κενό το πεδίο."*
+> — to enter a record for the naked domain you do not need the `@` character,
+> simply leave the field empty.
+
+So **`@` is wrong here and so is `anadyon.gr`**: for an apex record the field is
+left **blank**. Zoho's table says `@` because that is the common convention; it
+is not Papaki's.
+
+| Record | Papaki **host** field | Value | Priority |
+|---|---|---|---|
+| MX | *(blank)* | `mx.zoho.eu` | 10 |
+| MX | *(blank)* | `mx2.zoho.eu` | 20 |
+| MX | *(blank)* | `mx3.zoho.eu` | 50 |
+| TXT — SPF | *(blank)* | `v=spf1 include:zohomail.eu +mx include:_spf.fastmail.gr -all` | — |
+| TXT — DKIM | `zmail._domainkey` | `v=DKIM1; k=rsa; p=MIGf…DAQAB` | — |
+
+**The DKIM row is where this bites.** Enter **`zmail._domainkey`** and nothing
+more. Pasting `zmail._domainkey.anadyon.gr` produces
+`zmail._domainkey.anadyon.gr.anadyon.gr`, which fails DKIM verification silently
+and presents as a propagation delay — hours of waiting for a record that will
+never verify. Zoho's own table invites the error by writing its *ZeptoMail* DKIM
+host in fully-qualified form while writing the mail one relative.
+
+The general rule, for any future record here: **if the panel shows the zone as a
+suffix beside the input, type only the part to the left of it.**
+
+### The state the migration was found in, and the order it forced
+
+Read from live DNS on 26 October, part-way through Tasos's edits:
+
+```
+MX   0  mx.zoho.eu        <- added, priority 0 rather than 10
+MX  10  mail.anadyon.gr   <- still present
+zmail._domainkey          -> not published
+apex SPF                  -> still v=spf1 +mx include:_spf.fastmail.gr -all
+TTL                       -> 3600s on everything
+```
+
+**Priority 0 outranks 10, so inbound mail was already being delivered to Zoho**
+while outbound from Zoho was still unauthenticated — no DKIM record, and an SPF
+record that does not cover Zoho's sending IPs. A reply sent from Zoho in that
+window would have been rejected for exactly the reason the Gmail ones were.
+
+Nothing was lost: mail arrived, and `mail.anadyon.gr` at 10 remained a fallback.
+But it inverts this file's ordering, which put MX last precisely so outbound
+could be proved first. **The recovery order, where the sequence has already been
+broken this way:**
+
+1. **Publish DKIM and the merged SPF immediately** — minutes, and they are what
+   make replies from Zoho deliverable.
+2. Add `mx2.zoho.eu` (20) and `mx3.zoho.eu` (50).
+3. **Change `mx.zoho.eu` from 0 to 10 and delete `10 mail.anadyon.gr` in the
+   same edit.** Not before: leaving Papaki at 10 alongside Zoho at 10 is a tie,
+   and delivery would alternate between the two at random.
+4. Then the Yahoo test send.
+
+**And check both mailboxes meanwhile.** With two MX records live and a 3600s
+TTL, recent customer mail may be split between Zoho and Papaki for up to an
+hour after each change. Nothing is lost, but it is in two places.
+
+**Worth doing before step 3 if Papaki allows it:** lower the MX TTL to five
+minutes, make the change, then put it back. A 3600s TTL means an hour of
+split delivery after the cutover rather than minutes.
