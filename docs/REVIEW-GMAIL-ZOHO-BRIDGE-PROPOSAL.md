@@ -273,3 +273,91 @@ lesson, not more.
 who works in that mailbox every day. If Tasos judges the Gmail-web continuity
 worth the cost, this design is a reasonable basis — with BLOCKER 2 accepted
 explicitly, HIGH 2's detector added, and the naming fixed.
+
+---
+
+## Addendum — Tasos states the requirement: one mailbox for office staff
+
+**26 October 2026, after the review above.** Tasos: *"It's important to have
+only one mailbox for those working in the office."*
+
+That is a decision, not a preference to be argued with, and it changes the
+recommendation. **It also argues against the bridge rather than for it**, which
+is worth setting out because the proposal reads as though it were the thing that
+delivers it.
+
+### The bridge does not give one mailbox. It gives one view over two.
+
+Under PR #241, office staff see a Gmail account that contains:
+
+- their own administrative mail, which actually lives in Gmail;
+- **forwarded copies** of incoming reservation mail, which actually lives in
+  Zoho;
+- **BCC'd copies** of the remote employee's replies, which actually live in Zoho;
+- and replies they send themselves, which leave via a relay and are saved in
+  Zoho's Sent folder, not Gmail's.
+
+That is two mailboxes stitched together with forwarding, an outgoing filter and
+a relay. **Every seam is a place the unification can be incomplete**, and HIGH 2
+and HIGH 3 above are exactly those seams: Auto BCC that may not fire for a mobile
+workflow, and copies that may not thread. The office would have one window
+showing an approximation of two mailboxes, with no indication when the
+approximation is wrong.
+
+**Measured against the stated requirement, a single real mailbox is strictly
+better than a synthesised one** — and both of the alternatives below provide one.
+
+### Two options give one genuine mailbox
+
+| | **Zoho for everyone** | **Google Workspace** |
+|---|---|---|
+| One real mailbox for office staff | yes | yes |
+| Interface | Zoho webmail or any IMAP client | **Gmail, the one they know** |
+| Existing Gmail history | migrate in over IMAP | migrate in (Google-to-Google) |
+| Remote-employee isolation | separate Zoho user, access to the reservation mailbox only | separate Workspace user with delegated access to a shared reservations mailbox only |
+| Authentication | **working today** — `dkim=pass header.s=zmail`, verified | native, the account *is* the address |
+| January 2027 | irrelevant — no *Send as* anywhere | irrelevant — a Workspace alias, explicitly unaffected |
+| Custom code | **none** | **none** |
+| Cost | the plan already bought | per user, per month, recurring |
+| Work still to do | migrate the Gmail history, add office users | migrate mail and DNS again, add users |
+
+**Both deliver the isolation natively**, which is the part the bridge was built
+to achieve and the part that needs no building at all: in Workspace through
+delegated access to a shared mailbox, in Zoho through a second user scoped to the
+operational mailbox. Neither needs an extension with read access to the
+administrative mailbox — **BLOCKER 2 disappears in both.**
+
+### The question that decides it
+
+**Does "one mailbox" mean one *interface*, or specifically *Gmail's* interface?**
+
+- **If any single interface is acceptable** — then Zoho already is that mailbox.
+  It works, it is authenticated, it is paid for, and the remaining work is
+  migrating the Gmail history into it and adding office users. Cheapest path,
+  and mostly done.
+- **If it must be Gmail** — then **Google Workspace**, and the cost is the price
+  of that requirement. It is the only option that puts one real, authenticated,
+  domain-addressed mailbox inside the Gmail interface with the history carried
+  over. Codex's §16 C called it *"the cleanest hosted alternative"*, and under
+  this requirement it is also the correct one.
+
+**In neither case is the bridge the answer.** It is more work than Workspace,
+permanently maintained rather than vendor-maintained, and it delivers a worse
+version of the thing being asked for.
+
+### What is still unknown, and it is the cost driver
+
+**How many office mailboxes are needed?** Neither this review,
+`PAPAKI-DEPENDENCY-AND-EXIT-OPTIONS.md` §6 nor PR #241's unresolved #9 can
+answer it, and it is the only input the Workspace comparison needs. One user is a
+small annual figure; five is five times that and starts to rival the bridge's
+build cost — though not its maintenance.
+
+### On today's Zoho work, in case it looks wasted
+
+It is not, whichever option wins. It ended a live outage — Yahoo had been
+refusing every office reply — and it did so in hours. It also proved the whole
+DNS procedure end to end, which is the same procedure a Workspace move would
+follow, now written down with the traps named. If the answer turns out to be
+Workspace, today bought working mail in the interim and a rehearsed runbook for
+the move.
