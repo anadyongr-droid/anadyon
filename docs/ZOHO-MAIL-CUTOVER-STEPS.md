@@ -707,3 +707,69 @@ what a fallback is for.
 2027 deadline mattered because office mail depended on Gmail's *Send as*; it no
 longer does. What remains of E38 is housekeeping — removing the alias — rather
 than a deadline.
+
+---
+
+## MIGRATION COMPLETE — 26 October 2026
+
+The MX cleanup was done and verified propagated:
+
+```
+anadyon.gr   MX  10  mx.zoho.eu
+anadyon.gr   MX  20  mx2.zoho.eu
+anadyon.gr   MX  50  mx3.zoho.eu
+             (mail.anadyon.gr deleted)
+```
+
+Every record mail depends on re-checked at the same time and present:
+`zmail._domainkey`, `resend._domainkey`, `_dmarc`, and `send.anadyon.gr`'s SPF.
+The two doubled-name ZeptoMail records are confirmed gone.
+
+**So the zone is now, in full — 4 A, 4 MX, 8 TXT:**
+
+| Type | Name | Value |
+|---|---|---|
+| A | `anadyon.gr`, `www` | `76.76.21.21` (Vercel) |
+| A | `mail`, `webmail` | `213.158.90.117` (Papaki — kept for webmail access) |
+| MX | `anadyon.gr` | `mx.zoho.eu` 10, `mx2` 20, `mx3` 50 |
+| MX | `send` | `feedback-smtp.eu-west-1.amazonses.com` 10 |
+| TXT | `anadyon.gr` | SPF + `zoho-verification` |
+| TXT | `_dmarc` | `p=none`, rua to `customerservice@anadyon.gr` |
+| TXT | `zmail._domainkey` | Zoho Mail DKIM — **the one that fixed Yahoo** |
+| TXT | `resend._domainkey` | Resend DKIM — booking mail |
+| TXT | `default._domainkey` | Papaki DKIM — legacy, drop when their mailbox goes |
+| TXT | `send` | Resend SPF |
+| TXT | `_domainkey` | `o=-` — obsolete ADSP, droppable any time |
+
+### What remains, and it is short
+
+**Today:**
+
+1. **Remove the Gmail *Send as* alias** for `customerservice@anadyon.gr`. The
+   last remaining way to send a customer the wrong address, demonstrated here
+   when a test through it bounced from a Google IP while Zoho was already
+   working.
+2. **Check the Papaki mailbox** for anything that arrived during the TTL window
+   and is not in Zoho. Look, do not delete.
+
+**Next sitting:**
+
+3. **Move the zone to Cloudflare** — `DNS-MOVE-TO-CLOUDFLARE.md`, with the
+   complete record set and the two traps. Note **W64**: the account already
+   exists because the backups are in R2, which concentrates DNS and backups
+   together.
+4. **Then cancel the Plesk hosting**, which deletes **E33** and **E36**. Only
+   after the zone has moved — it currently lives on `dns1.papaki.gr`.
+5. **Drop the `mail` and `webmail` A records** once nothing needs Papaki webmail.
+
+**Later, deliberately not now:**
+
+6. Simplify SPF to `v=spf1 include:zohomail.eu -all` — 2 DNS terms instead of 8 —
+   once nothing has sent through Papaki for a week or two.
+7. Consider DMARC `p=quarantine` after reading a few weeks of aggregate reports.
+   The headers show `p=NONE sp=NONE dis=NONE`: nothing is enforced today.
+8. Add the CAA record (**E10**), which becomes easy with API-driven DNS and must
+   authorise both issuers.
+
+**The registration stays at Papaki.** One invoice a year, and nothing
+operational depends on them answering any more — which was the whole point.

@@ -15,6 +15,44 @@ wrong place.
 
 ---
 
+## 26 October 2026 — Claude (implementer)
+
+**Last verified:** 26 October 2026, Claude.
+
+**The Yahoo failure is fixed and E34 is closed — on the headers of a delivered
+message, not on the absence of a bounce.** Office mail now leaves Zoho signed
+by Zoho. Detail in
+[`docs/worklog/2026-10-26-claude.md`](worklog/2026-10-26-claude.md); the
+knowledge is in [`ZOHO-MAIL-CUTOVER-STEPS.md`](ZOHO-MAIL-CUTOVER-STEPS.md),
+[`DNS-MOVE-TO-CLOUDFLARE.md`](DNS-MOVE-TO-CLOUDFLARE.md),
+[`EMAIL-DELIVERABILITY.md`](EMAIL-DELIVERABILITY.md) and
+[`PAPAKI-DEPENDENCY-AND-EXIT-OPTIONS.md`](PAPAKI-DEPENDENCY-AND-EXIT-OPTIONS.md)
+section 10.
+
+**The root cause was the sending path, not the certificate**, and my 24 October
+mechanism is withdrawn — it predicted that fixing E6 would stop the bounce and
+it did not. Mail had been leaving Google all along, which has no DKIM key for
+this domain and cannot have one from a consumer account. Third superseded
+reading of this one incident; all three kept.
+
+**Migration executed with Tasos**: DKIM (`zmail`), SPF (`include:zohomail.eu`,
+merged to keep `-all`), MX 10/20/50 on `mx*.zoho.eu`, Papaki MX removed.
+Verified both directions — `dkim=pass spf=pass dmarc=pass` from headers, and an
+inbound test arriving in Zoho. **E38 downgraded** from a January 2027 deadline
+to one housekeeping action, because office mail no longer uses Gmail's *Send
+as*. **New: W64** — moving DNS to Cloudflare puts the zone in the same account
+as the only off-site backup. Also: four dependency PRs merged, PR #240 landed,
+the staging seed verification taught to notice a staging environment that cannot
+price, M6/M7/M8 added for three untracked migrations, and **W62 withdrawn as a
+duplicate of E11**.
+
+**The day's one sentence:** *an absence is only evidence once you have shown it
+could have been a presence* — Tasos asked "unless we are not receiving emails",
+which was the same hole as the Certificate Transparency reading two days
+earlier, and it was the right question both times.
+
+---
+
 ## 24 October 2026 — Claude (implementer)
 
 **Last verified:** 24 October 2026, Claude.
