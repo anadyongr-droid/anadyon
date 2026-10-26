@@ -643,10 +643,17 @@ the earlier Zoho→Yahoo send that produced no bounce is corroborated rather tha
 proved. A Yahoo header would settle it outright, and is worth capturing the next
 time one is to hand.
 
-**Inbound to the Zoho mailbox is still not confirmed.** This proves *outbound*.
-Whether mail addressed to `customerservice@anadyon.gr` reliably lands in Zoho is
-a separate question, and the reason the Papaki MX stays as a demoted fallback
-until it is answered.
+**Inbound to the Zoho mailbox — CONFIRMED shortly afterwards.** The test sent
+from `anadyon.gr@gmail.com` to `customerservice@anadyon.gr` arrived **in Zoho**.
+So mail flow works in both directions, and the Papaki MX is no longer load-
+bearing.
+
+**That also retroactively validates the no-bounce reading.** Tasos's objection
+— *"unless we are not receiving emails"* — was the right challenge, and the
+answer is now in: because inbound works, a bounce from the Yahoo send *would*
+have been delivered to this mailbox. Its absence therefore does mean Yahoo
+accepted the message. The inference was sound; what it had been missing was a
+tested premise, and the order of operations was wrong rather than the logic.
 
 ### What this unlocks
 
@@ -660,3 +667,43 @@ read the aggregate reports first, and that advice is stronger now rather than
 weaker: the reports will show whether anything *else* still sends as
 `anadyon.gr` and would be caught by a stricter policy. Revisit after a few weeks
 of clean reports, once the Papaki MX is gone and the Gmail alias is removed.
+
+---
+
+## Mail flow is complete — 26 October 2026
+
+**Both directions verified:**
+
+| | Evidence |
+|---|---|
+| **Outbound** | `dkim=pass header.s=zmail`, `spf=pass` from `136.143.169.15`, `dmarc=pass header.from=anadyon.gr`, read from a delivered message's headers |
+| **Inbound** | a message sent from `anadyon.gr@gmail.com` to `customerservice@anadyon.gr` arrived in Zoho |
+
+**The Papaki MX can now go.** It was kept as a demoted fallback only while
+inbound was unproven. Keeping it longer is now the *riskier* option, not the
+safer one: a temporary deferral at Zoho would route customer mail into a Papaki
+mailbox nobody is watching, which is how a customer enquiry gets lost quietly.
+The three `mx*.zoho.eu` hosts already provide redundancy within Zoho, which is
+what a fallback is for.
+
+**Remaining steps, in order:**
+
+1. **MX** — set `mx.zoho.eu` 10, `mx2.zoho.eu` 20, `mx3.zoho.eu` 50, and
+   **delete** `anadyon.gr → mail.anadyon.gr`. One edit, so there is never a tie
+   at priority 10.
+2. **Remove the Gmail *Send as* alias** for `customerservice@anadyon.gr`. This is
+   now the only remaining way to send a customer the wrong address — proven
+   today, when a test sent that way bounced from a Google IP while the Zoho path
+   was already working.
+3. **Keep the `mail.` and `webmail.` A records** for now. They cost nothing and
+   are how Papaki's webmail is reached to check for stragglers during the TTL
+   window and for a few days after.
+4. **Later:** simplify SPF to `v=spf1 include:zohomail.eu -all` (2 DNS terms
+   instead of 8); consider DMARC `p=quarantine` after reading aggregate reports;
+   then the DNS-to-Cloudflare and hosting-cancellation questions in
+   `PAPAKI-DEPENDENCY-AND-EXIT-OPTIONS.md` section 10.
+
+**E34 and E38's immediate pressure are both resolved by this.** E38's January
+2027 deadline mattered because office mail depended on Gmail's *Send as*; it no
+longer does. What remains of E38 is housekeeping — removing the alias — rather
+than a deadline.
