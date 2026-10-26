@@ -1,6 +1,6 @@
 # How Anadyon's email actually leaves the building
 
-**Last verified:** 24 October 2026, Claude — **E6 IS RESOLVED: the mail certificate is reissued and verified, and it is scoped exactly as this document recommended.** SSL Labs' own handshake against `webmail.anadyon.gr` returns grade **A**, `issues: 0`, `CN=webmail.anadyon.gr` with SAN **`mail.anadyon.gr, webmail.anadyon.gr`**, **valid 24 October 2026 → 22 January 2027**, Let's Encrypt — read that way because ports 587 and 465 are unreachable from a container and the egress proxy re-terminates TLS on 443. **Yesterday's Certificate Transparency reading is withdrawn:** a `q=anadyon.gr` query cannot surface a certificate whose only names are `mail.` and `webmail.`, so the narrow shape recommended here is the shape that search method is blind to — a measurement's silence was read as a statement about the server. **E34 is not closed by this:** the certificate was the broken link, not a tested chain, and one send to a Yahoo address from `customerservice@anadyon.gr` decides it. **E10 (CAA) is unblocked**, and must authorise both Let's Encrypt and Vercel's issuer, read from the live chain. Earlier: 21 October 2026, Claude — **PHP exposure section added, on the day PHP shipped emergency fixes for two CVSS 9.2 unauthenticated-RCE flaws (CVE-2026-109618, CVE-2026-109619).** This project has no PHP in the application, the public website or Supabase, and the three `php` strings in the repository are competitors' endpoints we fetch **from**. The exposure is the Papaki/Plesk server `213.158.90.117`, which serves `mail.anadyon.gr` and `webmail.anadyon.gr` and is itself a PHP application with Roundcube webmail — **its PHP version is unverified from here** and the three things needed are Tasos's (E33). Earlier: 19 September 2026, Claude — from live DNS *and* from the full
+**Last verified:** 26 October 2026, Claude — **THE CERTIFICATE IS VALID AND WAS NOT THE CAUSE. The mail still leaves Google, and the 24 October root-cause claim is WITHDRAWN.** The certificate re-reads clean today — SAN `mail.anadyon.gr, webmail.anadyon.gr`, valid to 22 January 2027, grade A, 89 days left, zero issues. But a bounce dated **25/26 October**, two days *after* it was issued, names sending IP **`209.85.208.51` = `mail-ed1-f51.google.com`** — Google, exactly as before. SPF is `v=spf1 +mx include:_spf.fastmail.gr -all`, authorising only **213.158.90.117** (`linux207.papaki.gr`) and fastmail; `google._domainkey` does not exist. So from Google SPF hard-fails and there is no DKIM key at all, and Yahoo requires DKIM. **My 24 October mechanism — expired certificate → Gmail relay fails → falls back to Google — made a testable prediction and the prediction failed.** The simpler reading, consistent with every bounce held, is that the alias has been sending through Google all along and the certificate expiry was a real but separate fault adjacent in the calendar. The 11 September `relay12.grserver.gr` bounce is withdrawn as evidence of the outbound path. **Two fixes, alternatives not steps:** (A) point the Gmail *Send mail as* alias at `mail.anadyon.gr:587` with TLS — minutes, and only possible now the certificate is valid, which is where that work actually pays off; (B) finish the Zoho migration, already begun per the live `zoho-verification` TXT. **Reading that one Gmail screen settles which route the alias uses**, and nothing outside the account can. Also recorded: a hostname in the *web* certificate's SAN list is **not** proof the SMTP service presents it — Plesk assigns mail separately — and 24 October treated it as proof. Earlier: 21 October 2026, Claude — **PHP exposure section added, on the day PHP shipped emergency fixes for two CVSS 9.2 unauthenticated-RCE flaws (CVE-2026-109618, CVE-2026-109619).** This project has no PHP in the application, the public website or Supabase, and the three `php` strings in the repository are competitors' endpoints we fetch **from**. The exposure is the Papaki/Plesk server `213.158.90.117`, which serves `mail.anadyon.gr` and `webmail.anadyon.gr` and is itself a PHP application with Roundcube webmail — **its PHP version is unverified from here** and the three things needed are Tasos's (E33). Earlier: 19 September 2026, Claude — from live DNS *and* from the full
 headers of a delivered message. Two conclusions from the 11 September pass were
 withdrawn; both had reasoned from DNS alone where only a header could answer.
 
@@ -1237,6 +1237,131 @@ while a renewal was already failing. The renewal is no longer failing. E10 can
 proceed, and the record must authorise **both** issuers: Let's Encrypt for the
 Plesk mail certificate and whatever Vercel's certificates are issued by, read
 from the live chain rather than assumed.
+
+### 26 October 2026 — THE CERTIFICATE WAS NOT THE CAUSE. The mail still leaves Google, and my 24 October conclusion is withdrawn
+
+Tasos reports Yahoo still refuses mail from Anadyon. He asked whether the
+certificates are valid. **They are** — and that is now beside the point.
+
+**The certificate, re-read today** (SSL Labs handshake against
+`webmail.anadyon.gr`, status `READY`, grade **A**):
+
+```
+subject : CN=webmail.anadyon.gr
+names   : mail.anadyon.gr, webmail.anadyon.gr
+valid   : 2026-10-24 -> 2027-01-22   (89 days remaining)
+issuer  : CN=YR2, O=Let's Encrypt, C=US
+issues  : 0
+```
+
+**And the bounce, dated two days AFTER that certificate was issued** — read from
+the mailbox, not inferred:
+
+```
+Last-Attempt-Date: Sun, 25 Oct 2026 17:14:58 -0700
+Remote-MTA: dns; mta5.am0.yahoodns.net.
+550 5.7.9 This mail has been blocked because the sender is unauthenticated.
+  Yahoo requires this sender to authenticate with DKIM. SPF alone is not
+  sufficient. Authentication results:
+  DKIM = FAILURE - SPF anadyon.gr with ip 209.85.208.51 = FAILURE
+```
+
+**`209.85.208.51` reverse-resolves to `mail-ed1-f51.google.com`.** The 23 October
+bounce named `209.85.218.42` → `mail-ej1-f42.google.com`. Both are Google's
+outbound mail servers. **The mail is still leaving Google, exactly as it was
+before the certificate was fixed.**
+
+#### Why that fails, arithmetically, with the live records
+
+| Record | Value today | Consequence |
+|---|---|---|
+| SPF | `v=spf1 +mx include:_spf.fastmail.gr -all` | `+mx` authorises **213.158.90.117** only (`linux207.papaki.gr`), plus the fastmail.gr includes. **Google is not in it**, and the record ends `-all`, a hard fail. |
+| `google._domainkey` | **does not exist** | Gmail cannot DKIM-sign as `anadyon.gr`. |
+| `default._domainkey` | exists | Papaki/Plesk can sign — but only for mail that leaves *their* server. |
+| DMARC | `p=none; fo=1` | Reports, does not enforce. Yahoo blocks on its own policy regardless. |
+
+So from Google: SPF hard-fails and there is no DKIM key to sign with. Yahoo
+requires DKIM and says SPF alone would not have been enough anyway. The refusal
+is correct behaviour, not a reputation problem and not a TLS problem.
+
+#### What I got wrong, and it is the third time on this one incident
+
+On 24 October I wrote that E6 was closed and that *"Gmail's relay to
+`mail.anadyon.gr` will no longer fail certificate verification and no longer fall
+back to sending as Google — which is the mechanism that stripped authentication
+from every office reply between 12 and 23 October."*
+
+**That mechanism is withdrawn.** It made a testable prediction — fix the
+certificate and the Yahoo bounce stops — and the prediction failed. There is no
+evidence Gmail ever "fell back": the simpler reading, consistent with every
+bounce in hand, is that **the alias has been sending through Google all along**,
+and the certificate's expiry on 12 October was a real but *separate* fault that
+happened to sit next to this one in the calendar.
+
+The error was reasoning from a coincidence of dates to a causal chain. Two
+things made it feel solid and neither was evidence: the certificate expired
+eleven days before the first Yahoo bounce, and an 11 September bounce had been
+*issued by* `relay12.grserver.gr`, which I read as proof the Papaki relay was in
+use for outbound mail. A bounce issued by a host does not establish that host as
+the outbound path for later mail, and that inference is withdrawn with the rest.
+
+The three readings of this incident, now all superseded, are kept in this
+document deliberately: *"always broken, merely tolerated"*; *"a reputation
+slide, E6 not implicated"*; and *"E6's certificate is the root cause"*. Each
+pointed the fix somewhere different, and the only one that survived contact with
+a test is the plainest — **the sending path is wrong**.
+
+#### The certificate work was not wasted, and it is worth being precise about why
+
+It fixed a genuine fault: the wildcard had expired, mail clients were warning,
+and `webmail.anadyon.gr` was returning 503. It is also a **precondition** for the
+first of the two fixes below, because Gmail verifies TLS when it relays through a
+third-party SMTP server and would refuse to use an expired one. So the right
+description is: necessary for Option A, insufficient on its own, and never the
+cause of the Yahoo refusal.
+
+#### Two fixes, and they are alternatives rather than steps
+
+**Option A — send the alias through Papaki's server.** In Gmail → See all
+settings → **Accounts and Import** → *Send mail as* → **edit**
+`customerservice@anadyon.gr` → choose **"Send through anadyon.gr SMTP server"**
+with host `mail.anadyon.gr`, **port 587**, TLS, and the mailbox's own username and
+password. Mail then leaves **213.158.90.117**, which SPF authorises through
+`+mx`, and Papaki signs it with `default._domainkey`. Both checks pass and Yahoo
+accepts.
+
+*Note the possibility this raises.* If that setting is currently on "Send through
+Gmail", it may have been switched — by a person, or by Gmail itself after
+repeated TLS failures against the expired certificate, which it does do. Either
+way the remedy is the same and it can only be done now that the certificate is
+valid. **Reading that one screen also settles the question**: it says in plain
+text which route the alias uses, and no amount of DNS or certificate inspection
+from outside can.
+
+**Option B — finish the Zoho migration, which has already started.** The live
+TXT records now include `zoho-verification=zb99013245.zmverify.zoho.eu`, so the
+domain is part-way there. Zoho issues its own DKIM key and SPF include; once MX,
+SPF and DKIM point at Zoho and the mailbox sends from Zoho, authentication passes
+natively with no dependency on Papaki at all — which is the reason Zoho was
+chosen on 24 October. `MAILBOX-PROVIDER-OPTIONS.md` has the order, and the three
+records that must survive it: `resend._domainkey.anadyon.gr`, the
+`send.anadyon.gr` SPF record, and `_dmarc.anadyon.gr`.
+
+**Which to do.** Option A is minutes and restores Yahoo delivery today, on an
+infrastructure the project is leaving. Option B is the decided direction and
+removes the dependency permanently, but until MX moves the office mailbox is
+still Papaki's. They are compatible: doing A now costs nothing that B undoes,
+because B replaces the whole path anyway.
+
+**What still cannot be checked from here, and has not changed.** Whether the
+*SMTP service* on ports 25/465/587 presents the new certificate is a separate
+Plesk assignment from the web vhost — Plesk has a distinct `Secure Mail` action —
+and those ports are unreachable from an agent container, so the only certificate
+read today is the one the **web** server offers on 443. On 24 October this
+document treated the hostname's presence in that certificate's SAN list as
+proof the SMTP service was secured. **It is not proof**, and the distinction is
+recorded now rather than left implicit. It does not affect the diagnosis above,
+because the failing mail never reaches that server.
 
 ## The email intelligence pipeline has ingested nothing since August
 
