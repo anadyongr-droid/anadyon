@@ -119,8 +119,12 @@ recreate Papaki's.
 
 ## The order
 
-1. **Create the Cloudflare account** and add `anadyon.gr`. Choose the **Free**
-   plan — nothing here needs more.
+1. **Add `anadyon.gr` to the EXISTING Cloudflare account** — do not create a new
+   one. **There is already a Cloudflare account**: the off-site backups live in
+   **Cloudflare R2**, used by `backup.yml`, `backup-inventory.yml`,
+   `restore-drill.yml` and `production-fingerprint.yml` against
+   `<account>.r2.cloudflarestorage.com`. Adding a DNS zone is free and
+   independent of R2 billing.
 2. **Let Cloudflare scan**, then **check its import against every row above.**
    Expect it to find the A records, `www` and the MX, and to miss some or all of
    the TXT records. Add whatever is missing.
@@ -158,3 +162,50 @@ With API-driven DNS and a 300s TTL, adding the CAA record (E10) stops being
 risky. It must authorise **both** issuers — Let's Encrypt for anything still on
 Papaki, and whatever Vercel uses, read from the live chain rather than assumed.
 Do it after the move has settled, not during.
+
+---
+
+## The account already exists — and that is worth a second thought
+
+**Correction, 26 October 2026.** The steps above originally said to *create* a
+Cloudflare account. Tasos pointed out there already is one: **the off-site
+backups are in Cloudflare R2**, used by `backup.yml`, `backup-inventory.yml`,
+`restore-drill.yml` and `production-fingerprint.yml` against
+`<account>.r2.cloudflarestorage.com`. So this is adding a zone to an existing
+account, not onboarding a vendor — simpler, one fewer credential, and no new
+billing relationship.
+
+### But it concentrates two unrelated things in one account
+
+Worth naming rather than discovering later. **R2 holds the only off-site copy of
+the production database** — thirty nightly archives, proven restorable on
+20 October (E23). If the DNS zone moves to the same account, then a single
+account that is lost, locked or compromised takes out **both**:
+
+- **DNS** — the apex, `www`, the Zoho MX, three DKIM keys, two SPF records and
+  the DMARC policy. Mail and the website stop.
+- **The backups** — the thing you would reach for while fixing the first
+  problem.
+
+The whole point of an off-site backup is independence from the thing it is
+protecting against. Putting the zone beside it narrows that independence.
+
+**This is not an argument against moving the zone.** The alternative — leaving
+DNS at a provider who does not answer tickets, on hour-long TTLs, in a panel
+that silently doubles record names — is a worse risk and a daily one, whereas
+this is a tail risk. But two things follow:
+
+1. **Strong authentication on that Cloudflare account is now load-bearing for
+   two separate systems.** Hardware or app-based two-factor, and a recovery path
+   that does not depend on the `anadyon.gr` mailbox — which would itself be down
+   if DNS were lost. A personal address for account recovery, not
+   `customerservice@anadyon.gr`.
+2. **A second backup destination becomes more valuable than it was.** Not urgent
+   and not free, but the argument for one is now stronger: at present a single
+   vendor account would hold the DNS, the backups and the restore path. **W60**
+   (rebuilding a whole Supabase project from the backup) is the related open
+   item; this adds a reason to keep a copy somewhere that is not Cloudflare.
+
+Recorded here rather than acted on: a second backup target is spend and a
+decision, so it is Tasos's. The 2FA point is not — it is a five-minute check and
+should simply be true.
