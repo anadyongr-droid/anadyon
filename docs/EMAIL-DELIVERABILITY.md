@@ -1320,6 +1320,34 @@ third-party SMTP server and would refuse to use an expired one. So the right
 description is: necessary for Option A, insufficient on its own, and never the
 cause of the Yahoo refusal.
 
+#### The obvious third fix is impossible, and it is worth ruling out explicitly
+
+The tempting repair is to leave the alias on Google and simply **authorise
+Google in SPF** — add `include:_spf.google.com` and the hard fail goes away.
+**It cannot work**, for two independent reasons, and both are worth writing
+down because the idea will recur every time someone reads the SPF line.
+
+**One: Yahoo says so in the rejection itself.** *"Yahoo requires this sender to
+authenticate with DKIM. **SPF alone is not sufficient.**"* Fixing SPF fixes the
+half Yahoo has already said it will not accept on its own.
+
+**Two: this account cannot produce a DKIM signature for `anadyon.gr` at all.**
+The bounces are delivered to **`anadyon.gr@gmail.com`** — a consumer Gmail
+address, not a Google Workspace account on the domain. DKIM signing for a custom
+domain is a Workspace feature, configured in the admin console and published at
+`google._domainkey`; a consumer account's *Send mail as* alias gets no such key.
+Confirmed against live DNS today: **`google._domainkey.anadyon.gr` does not
+exist**, and nothing in a free Gmail account can create it.
+
+So the only way to make Google an authenticated sender for this domain is to buy
+Google Workspace — which is a paid tier and therefore Tasos's decision under
+`AGENTS.md` (*money and contracts*), and which `MAILBOX-PROVIDER-OPTIONS.md`
+already assessed and did not choose. **Both remaining fixes therefore move the
+sending away from Google**, and that is not a coincidence: the domain's two
+existing DKIM keys, `default._domainkey` (Papaki) and `resend._domainkey`
+(Resend), belong to the two senders that *are* authenticated. Google is the one
+path with no key.
+
 #### Two fixes, and they are alternatives rather than steps
 
 **Option A — send the alias through Papaki's server.** In Gmail → See all
