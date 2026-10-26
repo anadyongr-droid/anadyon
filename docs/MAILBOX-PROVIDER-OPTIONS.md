@@ -304,3 +304,51 @@ the regression this section is guarding.
 
 The migration itself is ordinary work: the DNS records are already documented,
 which is the part that usually goes wrong.
+
+## The Zoho cutover now has a deadline: January 2027 — added 26 October 2026
+
+This document chose Zoho on 24 October as the better option. **It is now the
+only option that does not cost money**, and it has a date on it.
+
+Google's own documentation for *Send mail as*
+(`support.google.com/mail/answer/22370`, read directly rather than from a search
+summary) states:
+
+> *"Starting January 2027, Gmail will no longer support the 'Send as' feature for
+> third-party email addresses."*
+
+and that the change *"does not affect Google Workspace aliases or other Gmail
+addresses you own"*.
+
+**`customerservice@anadyon.gr` is squarely in scope.** It is a third-party
+address — hosted at Papaki, not a Gmail address and not a Workspace alias — sent
+from a **consumer** `anadyon.gr@gmail.com` account. So the arrangement that
+currently carries all office mail **stops working in about two months**, with no
+action required by anyone to break it.
+
+**What this changes, and what it does not.**
+
+- **It does not change the choice.** Zoho was already chosen on the merits:
+  cost, independence from Papaki, native DKIM.
+- **It removes "do nothing" as an option**, which was previously tenable — the
+  Gmail arrangement worked for years and the only live complaint was E34.
+- **It demotes E34's Option A to a stopgap.** Repointing the Gmail alias at
+  `mail.anadyon.gr:587` fixes Yahoo delivery and is still worth doing if mail
+  must flow this week, but it buys roughly two months and no more, because the
+  feature being repointed is the feature being withdrawn.
+- **It gives the fallback a price.** If the cutover slips past January, the only
+  way to keep sending as `anadyon.gr` from Google is **Google Workspace** on the
+  domain — which would also fix E34 outright by giving the domain a real
+  `google._domainkey`. That is a paid tier, so it is Tasos's under `AGENTS.md`
+  (*money and contracts*), and it is the option this document assessed and did
+  not choose.
+
+**The order and the safety rail are unchanged** and are above: MX last, and
+three records must survive the cutover —
+`resend._domainkey.anadyon.gr`, the `send.anadyon.gr` SPF record, and
+`_dmarc.anadyon.gr`. Booking mail goes through Resend and is the half that
+currently works; breaking it to fix the half that does not would be a poor trade.
+
+**Calendar note.** Google name no day in January. Treat **1 January 2027** as the
+effective date and keep December clear, rather than discovering the precise date
+from an outage. Tracked as **E38** in `docs/OPEN-ITEMS.md`.
