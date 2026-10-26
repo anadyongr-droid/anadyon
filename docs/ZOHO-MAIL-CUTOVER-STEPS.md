@@ -174,16 +174,44 @@ check it for a week afterwards — do not cancel anything at Papaki on cutover d
 
 ### Step 6 — tell the staff where the mail now lives
 
-After cutover, office mail is answered **in Zoho** — webmail in a browser, or the
-Zoho Mail app on a phone — or in a desktop client (Outlook, Apple Mail,
-Thunderbird) pointed at Zoho's IMAP/SMTP.
+After cutover, office mail is answered in one of three places. **The first one
+is worth knowing about, because it keeps the Gmail interface staff already
+use** — and it is not the "forwarding workaround" people reach for.
 
-**One warning that matters, because it reaches a customer.** The Gmail app will
-still let staff *read* a third-party mailbox after January 2027, but **not send
-as it**. So a reply attempted from Gmail will either fail or go out as
-`anadyon.gr@gmail.com`. Either way the customer sees the wrong address. Tell
-whoever answers mail to use Zoho, not Gmail, and remove the *Send as* alias from
-Gmail once Zoho is working, so the wrong path is not available to click.
+| Where | Works after Jan 2027? | Notes |
+|---|---|---|
+| **Gmail app on a phone, with the mailbox added as a full IMAP account** | **Yes** | Google's own words: *"you can continue to read and send emails from your other account in the Gmail app"* over *"a standard IMAP connection"*. This is **not** *Send as* — Gmail is acting as an ordinary mail client, sending through Zoho's SMTP, so DKIM and SPF are Zoho's and pass. Google recommends this route for sending. |
+| **Zoho webmail in a browser**, or the Zoho Mail app | Yes | The straightforward route, and the only one that works on a desktop with the Gmail look-and-feel gone. |
+| **Outlook / Apple Mail / Thunderbird** pointed at Zoho IMAP/SMTP | Yes | For anyone who wants one program holding several mailboxes. |
+
+**Gmail on the desktop web cannot do this.** The IMAP-account route exists only
+in the mobile apps; on a computer, *Send as* was the only mechanism and it is
+the one being withdrawn. So a member of staff working at a desk needs Zoho
+webmail or a desktop client. On a phone they can keep using Gmail.
+
+#### The forwarding idea, and why it only does half the job
+
+A tempting arrangement is to forward `customerservice@anadyon.gr` into
+`anadyon.gr@gmail.com` and carry on in Gmail. **Forwarding is fine and
+unaffected — for receiving.** Google offers it precisely as a way to get new
+mail into a Gmail inbox.
+
+**It does nothing for sending**, which is the half that is broken. Replying to a
+forwarded message from a plain Gmail account sends as
+**`anadyon.gr@gmail.com`**, because the From address is a property of the sending
+account and forwarding never changes it. Google's page offers forwarding for
+getting mail *in* and recommends the app-with-IMAP route for sending; it does
+not offer forwarding as a way to send.
+
+So forwarding plus plain Gmail gives staff the mail and gives the customer the
+wrong address. **It is not a workaround for this problem**, and it is worth
+writing down because it looks like one.
+
+**The genuinely dangerous version of that arrangement** is the one that happens
+by accident: mail arrives in Gmail by forwarding, staff hit reply out of habit,
+and every customer gets a `@gmail.com` reply without anyone noticing. That is a
+change to what a customer receives, so **remove the Gmail *Send as* alias once
+Zoho works** (step 7) rather than leaving a path that half-works.
 
 ### Step 7 — then, and only then, tidy up
 
