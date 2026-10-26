@@ -352,3 +352,70 @@ currently works; breaking it to fix the half that does not would be a poor trade
 **Calendar note.** Google name no day in January. Treat **1 January 2027** as the
 effective date and keep December clear, rather than discovering the precise date
 from an outage. Tracked as **E38** in `docs/OPEN-ITEMS.md`.
+
+### What exactly ends, and what staff keep — read from Google's scope page, 26 October 2026
+
+The question that matters operationally is whether the office can still answer
+customers as `customerservice@anadyon.gr`. **It can. What changes is the program
+they do it in.** Read from
+`support.google.com/mail/answer/17101213` (the scope article the *Send mail as*
+page links to), not from the one-line notice.
+
+**Ends in January 2027:**
+
+- **Sending as a third-party address — on the web *and* in the mobile apps.**
+  Verbatim: *"You will no longer be able to send mail from third-party email
+  accounts in Gmail on the web or in the Gmail mobile apps."* **The phone is not
+  a way round this**, which is worth stating because the earlier reading of a
+  search summary suggested it might be.
+- **Gmailify and POP fetching** from third-party accounts on the web
+  (*"Check mail from other accounts"*).
+- **Adding or syncing** a third-party account in Gmail on the web — *already*
+  unavailable, not a future change.
+- Google may **restrict new configurations** of these during a Q3–Q4 2026
+  transition, so the window to set anything up in Gmail is effectively now or
+  never.
+
+**Survives, and staff lose less than it first appears:**
+
+- **Reading** the mailbox in the Gmail mobile app: *"Access through the Gmail
+  mobile app for Android, iPhone, and iPad will not change."* Android keeps
+  accessing third-party mail over POP.
+- **Mail already imported** stays in the mailbox.
+- **IMAP/POP/SMTP from desktop clients** — Outlook, Thunderbird, Apple Mail —
+  untouched, because that is not a Gmail feature.
+- **Forwarding** from a third-party provider into Gmail still works.
+- *Send as* for Workspace aliases and other Gmail addresses.
+
+**The trap in that combination, and it is customer-facing.** Reading continues
+while sending stops. So a member of staff can keep the mailbox visible in Gmail
+after January 2027, hit reply, and have the reply go out as
+**`anadyon.gr@gmail.com`** instead of `customerservice@anadyon.gr` — or fail.
+Either way the customer sees something other than the company address. That is
+a change to what a customer receives, so it is `DEFINING-STATEMENTS.md` §13
+territory and must be a decision taken in advance, not a discovery in January.
+
+**Google's own recommended alternatives**, in their order:
+
+1. **The provider's own website or app** — for Anadyon, Zoho webmail or the Zoho
+   Mail app. Sends natively as the address, with no *Send as* involved, so the
+   January change simply does not apply.
+2. **A desktop client over IMAP/SMTP** — Outlook, Apple Mail or Thunderbird
+   pointed at Zoho. The closest thing to the current habit for anyone who wants
+   one program holding several mailboxes.
+3. **The Gmail mobile app** for *access* to third-party accounts — reading only,
+   not sending as.
+4. **Google Workspace** on the domain, which is the paid route and would also
+   fix E34 outright.
+
+Google also **cautions against third-party tools that replicate "Send as"**,
+because they require handing over credentials or OAuth tokens. Worth recording
+because such a tool will look like an easy fix and would hand a third party the
+mailbox's password.
+
+**So the staff-workflow consequence, plainly.** After the cutover the office
+answers customer mail **in Zoho** — browser or app — or in a desktop client
+pointed at Zoho. They keep the address, the history and the signature; they lose
+having it inside the same Gmail inbox as `anadyon.gr@gmail.com`. Whether that is
+acceptable, and whether anyone needs a desktop client set up rather than
+webmail, is an operating decision for Tasos under §13 rather than an agent's.
