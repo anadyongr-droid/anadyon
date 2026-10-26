@@ -592,3 +592,71 @@ confirmation is the recipient looking, spam folder included. Until then this is
    above; it is now the main remaining way to send a customer the wrong address.
 5. Simplify SPF to `v=spf1 include:zohomail.eu -all` once nothing has sent
    through Papaki for a week or two: 2 DNS terms instead of 8.
+
+---
+
+## CONFIRMED by headers — 26 October 2026, 20:27 CET
+
+A message sent from Zoho webmail as `customerservice@anadyon.gr` was delivered
+and its full headers read. **All three checks pass, and the DKIM selector is the
+one this file predicted.** This is no longer an inference from a non-event.
+
+```
+Authentication-Results: mx.google.com;
+  dkim=pass   header.i=@anadyon.gr  header.s=zmail  header.b=BukLGl1Y;
+  spf=pass    (domain of customerservice@anadyon.gr designates
+               136.143.169.15 as permitted sender)
+              smtp.mailfrom=customerservice@anadyon.gr;
+  dmarc=pass  (p=NONE sp=NONE dis=NONE) header.from=anadyon.gr
+
+Received: from sender-op-o15.zoho.eu (136.143.169.15)
+          version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384
+Return-Path: <customerservice@anadyon.gr>
+DKIM-Signature: s=zmail; d=anadyon.gr; i=customerservice@anadyon.gr
+```
+
+**Every element of the diagnosis is now verified rather than reasoned:**
+
+| Claim made earlier | Evidence in these headers |
+|---|---|
+| mail would leave Zoho, not Google | `sender-op-o15.zoho.eu`, **136.143.169.15** |
+| that IP would be SPF-authorised | `spf=pass`, and `136.143.169.15` sits in `136.143.169.0/24`, one of the ranges published by `spf.zohomail.eu` |
+| the signing selector would be `zmail` | `header.s=zmail` — **the inference was right, and is now a reading** |
+| DKIM would align with the From domain | `d=anadyon.gr`, `i=customerservice@anadyon.gr`, `header.from=anadyon.gr` |
+| DMARC would therefore pass | `dmarc=pass` |
+
+Zoho's own ARC seal records the same three passing on its side
+(`arc=pass (i=1 spf=pass dkim=pass dmarc=pass fromdomain=anadyon.gr)`), so the
+chain agrees end to end.
+
+**E34 is closed.** The root cause — office mail leaving an unauthenticated path
+— is fixed, and the fix is proven by the headers of a delivered message rather
+than by the absence of a bounce.
+
+### Two honest qualifications
+
+**This receipt is from Google, not Yahoo.** The message went to a Gmail address.
+What Yahoo demanded was specifically DKIM — *"requires this sender to
+authenticate with DKIM. SPF alone is not sufficient."* — and DKIM now passes
+with the domain aligned, which is precisely the condition it was refusing on. So
+the earlier Zoho→Yahoo send that produced no bounce is corroborated rather than
+proved. A Yahoo header would settle it outright, and is worth capturing the next
+time one is to hand.
+
+**Inbound to the Zoho mailbox is still not confirmed.** This proves *outbound*.
+Whether mail addressed to `customerservice@anadyon.gr` reliably lands in Zoho is
+a separate question, and the reason the Papaki MX stays as a demoted fallback
+until it is answered.
+
+### What this unlocks
+
+With SPF and DKIM both passing reliably and aligned, **tightening DMARC from
+`p=none` becomes viable** — the headers show `p=NONE sp=NONE dis=NONE`, meaning
+nothing is being enforced. `p=quarantine` would start protecting the domain from
+spoofing rather than merely reporting it.
+
+**Not yet, and not on cutover day.** `EMAIL-DELIVERABILITY.md` has always said to
+read the aggregate reports first, and that advice is stronger now rather than
+weaker: the reports will show whether anything *else* still sends as
+`anadyon.gr` and would be caught by a stricter policy. Revisit after a few weeks
+of clean reports, once the Papaki MX is gone and the Gmail alias is removed.
