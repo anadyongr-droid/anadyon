@@ -499,3 +499,96 @@ hour after each change. Nothing is lost, but it is in two places.
 **Worth doing before step 3 if Papaki allows it:** lower the MX TTL to five
 minutes, make the change, then put it back. A 3600s TTL means an hour of
 split delivery after the cutover rather than minutes.
+
+---
+
+## The outbound test, and what it does and does not prove — 26 October 2026
+
+**Sent from Zoho webmail as `customerservice@anadyon.gr` to the Yahoo address
+that had been rejecting. No bounce.**
+
+**The reasoning, and the hole Tasos found in it.** Yahoo's `550 5.7.9` is
+returned *synchronously*, inside the SMTP transaction, which is why every
+previous failure produced a bounce within seconds. So silence looks like
+acceptance.
+
+**It only looks like acceptance if the bounce had somewhere to land.** Tasos
+asked: *"unless we are not receiving emails"* — and he is right. The message was
+sent as `customerservice@anadyon.gr`, so its Return-Path is that address, which
+now resolves through the new MX to **Zoho**. If inbound to Zoho is not working,
+a bounce could not be delivered and the silence would mean nothing at all.
+
+**That premise was asserted here without being tested, and it is the same error
+as the Certificate Transparency one on 24 October** — reading an absence as
+evidence without first establishing that the absence could have been a presence.
+Caught in minutes this time rather than days, because it was questioned.
+
+**So the claim is narrowed:** what is *proven* is the DNS, below, which does not
+depend on inbound at all. Yahoo's acceptance is **probable and unconfirmed**
+until inbound delivery is verified.
+
+So, with the DNS verified across two independent resolvers at full TTL:
+
+| | Before | Now |
+|---|---|---|
+| Sending IP | `209.85.x.x` (Google) | Zoho EU (`185.20.211.225/27` et al.) |
+| SPF | `-all`, Google not authorised → **hard fail** | `include:zohomail.eu` → **pass** |
+| DKIM | no key existed for the domain | `zmail._domainkey` → **pass** |
+| Yahoo | `550 5.7.9`, four times | accepted |
+
+### The false start worth recording
+
+The first attempt at this test **bounced again**, with IP `209.85.208.47` →
+`mail-ed1-f47.google.com`. The DNS was already correct at that point; the message
+had simply been sent **from Gmail's *Send as* alias rather than from Zoho**, so
+it never exercised the new path.
+
+That is worth writing down for two reasons. It is the obvious way to mis-test
+this fix — the old path still exists and still looks like the right one. And it
+is a live demonstration of **why the Gmail alias must be removed**: anyone
+replying out of habit reproduces the bounce today, and after January 2027 the
+same habit sends as `anadyon.gr@gmail.com` with no bounce at all to reveal it.
+
+**The diagnostic that settled it in one number** is worth keeping as a method:
+read the IP in the bounce. `209.85.x.x` means the message came from Google;
+`185.20.211.x`, `31.186.226.x`, `136.143.169.x`, `185.172.199.x` or
+`136.143.171.x` mean it came from Zoho. Nothing else needs checking first.
+
+### What this does and does not close
+
+**Proven, and independent of everything else:** the outbound authentication
+records. DKIM is published at the correct name with its `v=DKIM1` tag and a
+216-character key, and SPF resolves through `zohomail.eu` to Zoho's real EU
+sending ranges — both confirmed at two independent resolvers at full TTL, so
+fetched fresh from Papaki's nameservers rather than served from cache. Mail sent
+*from Zoho* is now authenticated. That conclusion rests on DNS, not on the
+absence of a bounce.
+
+**Probable but NOT proven:** that Yahoo accepted the test. See above.
+
+**Untested at the time of writing:** inbound delivery to the Zoho mailbox. A
+message was sent from `anadyon.gr@gmail.com` to `customerservice@anadyon.gr` to
+settle it; the outcome belongs in this section once known. Three readings: it
+arrives in Zoho (inbound works, and the Yahoo inference holds); it arrives in
+Papaki webmail (MX not yet effective for that resolver, 3600s TTL); or it
+bounces into Gmail (inbound broken, which would also explain the silence).
+
+**Also not proven, and not to be assumed:** that the message reached the
+**inbox** rather than the spam folder. Acceptance at SMTP time and inbox
+placement are different things, and a domain that has been failing
+authentication for weeks may carry some reputation cost for a while. The
+confirmation is the recipient looking, spam folder included. Until then this is
+*accepted*, not *delivered to the inbox*.
+
+**Still outstanding, and unaffected by the test:**
+
+1. MX priorities are all `0`; they should be 10 / 20 / 50.
+2. `anadyon.gr → mail.anadyon.gr` MX (priority 10) still present and should go —
+   the **MX** record only, never the A records for `mail.` or `webmail.`.
+3. The two doubled-zone ZeptoMail records are live and should be deleted:
+   `bounce-zem.anadyon.gr.anadyon.gr` (CNAME) and
+   `24165319._domainkey.anadyon.gr.anadyon.gr` (TXT).
+4. Remove the Gmail *Send as* alias for `customerservice@anadyon.gr` — see
+   above; it is now the main remaining way to send a customer the wrong address.
+5. Simplify SPF to `v=spf1 include:zohomail.eu -all` once nothing has sent
+   through Papaki for a week or two: 2 DNS terms instead of 8.
