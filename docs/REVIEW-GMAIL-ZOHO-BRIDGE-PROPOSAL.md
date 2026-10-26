@@ -458,3 +458,95 @@ The interim mailbox is also the fallback while Workspace is proven.
   there is no third-party *Send as* anywhere in the estate.
 - **The remote-employee isolation** stops being a build and becomes a
   configuration.
+
+---
+
+## The three requirements conflict after January 2027 — 26 October 2026
+
+Tasos added: *"We are looking for a non costly solution."* Taken with the two
+stated requirements, that is **one mailbox + Gmail UI + no recurring cost**, and
+after January 2027 **no option delivers all three**. This section exists so the
+trade is made deliberately rather than discovered.
+
+### Why they conflict
+
+A mailbox at `@anadyon.gr` inside the Gmail interface requires one of:
+
+- **a Workspace account** — the address is the account, and that costs money; or
+- **Gmail's *Send as*** — free, and withdrawn in January 2027; or
+- **something custom** that re-creates *Send as* — PR #241's bridge, which costs
+  engineering time rather than subscription.
+
+There is no fourth mechanism. Google removed the free one.
+
+### The options, with costs stated honestly
+
+| | Recurring cost | One mailbox | Gmail UI | Survives Jan 2027 |
+|---|---|---|---|---|
+| **Workspace** | ~€7–8 / user / month | **yes** | **yes** | **yes** |
+| **Zoho for everyone** | already paid | **yes** | no — Zoho's UI | **yes** |
+| Gmail + forward, reply in Zoho | already paid | no — two places | partly | yes |
+| **PR #241's bridge** | no subscription, but **permanent maintenance** | no — a view over two | yes | yes |
+
+### "Non-costly" probably points at Workspace, and the reason is the user count
+
+**This is the part worth pausing on.** The bridge has no subscription, which
+makes it look like the cheap option. It is not free — it is **5–10 focused build
+days plus an open-ended liability**: an extension coupled to Gmail's DOM, which
+Google changes without notice or compatibility contract, maintained by two agents
+and one person, forever.
+
+Against that, Workspace at the order of magnitude found today:
+
+| Office users | Workspace per year |
+|---|---|
+| 1 | ≈ €85–100 |
+| 2 | ≈ €170–200 |
+| 4 | ≈ €340–400 |
+
+**If the office is one or two people, Workspace is very likely the cheaper
+option outright**, not merely the safer one — €170–200 a year is less than the
+cost of the first week of keeping a browser extension working. The honest
+comparison is subscription versus permanent engineering, and at small user
+counts the subscription wins decisively.
+
+**Which is why the user count is not a detail.** It is the whole decision, and it
+is the one number nobody in this project has.
+
+### The genuinely free option, and what it actually costs
+
+**Zoho for everyone.** Already paid for, already working, authentication already
+verified. One mailbox, native isolation for the remote employee, nothing to
+build, nothing to maintain, January 2027 irrelevant.
+
+**What it costs is the Gmail interface** — and that is a real cost, not a
+rounding error: years of habit, labels, filters and muscle memory. It is just
+not a *monetary* cost, and it is worth deciding knowingly rather than paying
+€200 a year or a permanent maintenance burden to avoid it.
+
+Mitigations that cost nothing: the Gmail **mobile app** can hold the Zoho mailbox
+as a full IMAP account and still send after January 2027 — Google recommend it —
+so phones keep the familiar app. Only the desktop changes.
+
+### There is no emergency, and that matters
+
+**The current arrangement works until January 2027.** *Send as* still functions,
+office mail is authenticated as of today, and the Yahoo outage is closed. So
+there are roughly **two months** to decide, which is enough to answer the user
+count, read Google's real European price, and try Zoho's interface for a week
+before paying to avoid it.
+
+**What should not happen in those two months** is building the bridge to save a
+subscription that may turn out to be €85 a year.
+
+### Recommendation
+
+1. **Count the office mailboxes.** One number, and it decides everything.
+2. **If it is one or two:** Workspace. Cheaper than the bridge once maintenance
+   is priced, and it meets every stated requirement natively.
+3. **If it is four or more, or if any recurring cost is unacceptable in
+   principle:** Zoho for everyone, and accept the interface change — with the
+   Gmail app over IMAP on phones to soften it.
+4. **Either way, not the bridge.** It is the most expensive option once
+   maintenance is counted, and the only one that adds a custom component with
+   read access to the administrative mailbox.
