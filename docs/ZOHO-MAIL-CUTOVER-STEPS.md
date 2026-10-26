@@ -352,3 +352,74 @@ normally the gate, so it should. **If Zoho blocks the test send until MX is
 set**, say so — the fallback is to lower the MX TTL first, switch MX, and keep the
 Papaki mailbox alive and monitored for a week, which is a slightly riskier order
 rather than a broken one.
+
+### The SPF value, settled from the console — and take the merged one
+
+Zoho's console detected the existing record and offered two options. **The
+console's include is `zohomail.eu`, not the `zoho.eu` suggested above** — and
+that is the better of the two, because `zohomail.eu` is Mail-specific while
+`zoho.eu` covers every Zoho product. The console wins, as this file said it
+would.
+
+**Use Zoho's merged option, exactly as given:**
+
+```
+v=spf1 include:zohomail.eu +mx include:_spf.fastmail.gr -all
+```
+
+**Not their first option**, `v=spf1 include:zohomail.eu ~all`, for two reasons
+that their generic advice cannot know:
+
+1. **It downgrades `-all` to `~all`.** The live record ends `-all`, a hard fail.
+   `~all` is a soft fail, which receivers may accept. Taking it would weaken
+   this domain's anti-spoofing posture at the exact moment the domain is being
+   spoofed badly enough that Yahoo refuses it. Keep `-all`.
+2. **It drops `+mx` and fastmail immediately.** Nothing has established that
+   *nothing* still sends through Papaki or fastmail. Dropping them in the same
+   edit that adds Zoho would break any such sender silently, and there would be
+   two changes to untangle rather than one.
+
+#### The lookup arithmetic, because `-all` makes it matter
+
+SPF allows **10** DNS-querying terms. Exceed it and the result is `permerror`,
+which receivers treat as a failure — so an over-long record with `-all` would
+break *all* mail from the domain, which is worse than the problem being fixed.
+Counted today, term by term:
+
+```
+v=spf1 include:zohomail.eu +mx include:_spf.fastmail.gr -all
+
+ 1  include:zohomail.eu
+ 2    └ include:spf.zohomail.eu        → ip4 only, chain ends
+ 3  +mx
+ 4  include:_spf.fastmail.gr
+ 5    ├ include:_spf1.fastmail.gr      → ip4/ip6 only
+ 6    ├ include:_spf2.fastmail.gr      → ip4/ip6 only
+ 7    └ include:_spf3.fastmail.gr
+ 8        └ include:relay.mailchannels.net → ip4 only, chain ends
+
+ total: 8 of 10
+```
+
+**It fits, with two to spare.** The margin is thin though: if fastmail adds a
+fourth include, or Zoho lengthens its chain, this record silently becomes a
+`permerror`. That is a reason to simplify once the migration is done, not a
+reason to avoid the merged value now.
+
+#### Simplify after MX has moved and mail is confirmed
+
+Once inbound is on Zoho and nothing has sent through Papaki for a week or two:
+
+```
+v=spf1 include:zohomail.eu -all
+```
+
+**2 terms instead of 8.** At that point `+mx` would be authorising Zoho's
+*inbound* servers, which never send, and `_spf.fastmail.gr` would be
+authorising a provider the domain has left. Dropping both restores the headroom
+and leaves a record that says exactly what is true: **Zoho sends for this
+domain, and nothing else does.**
+
+`send.anadyon.gr` keeps its own separate record throughout — it ends `~all`,
+which is Resend's own specification for a transactional subdomain and is not
+affected by any of this.
