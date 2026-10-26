@@ -361,3 +361,100 @@ DNS procedure end to end, which is the same procedure a Workspace move would
 follow, now written down with the traps named. If the answer turns out to be
 Workspace, today bought working mail in the interim and a rehearsed runbook for
 the move.
+
+---
+
+## DECIDED — Gmail UI, so Google Workspace
+
+**26 October 2026.** Tasos: *"It needs to be gmail UI."* With the one-mailbox
+requirement, that settles it: **Google Workspace on `anadyon.gr`**.
+
+**PR #241's bridge is not the route**, and the reason is now simple rather than
+a list of findings: Workspace delivers natively what the bridge was built to
+synthesise. The account **is** `…@anadyon.gr`, so there is no *Send as* to be
+withdrawn, no extension, no relay, no forwarding seams, and no custom component
+with read access to the administrative mailbox.
+
+### What Workspace gives, against the requirements as stated
+
+| Requirement | How Workspace meets it |
+|---|---|
+| One mailbox for office staff | one real Workspace account, not a stitched view |
+| Gmail UI | it **is** Gmail |
+| Years of history, labels, contacts | migrated from `anadyon.gr@gmail.com` with Google's own migration tooling, Google-to-Google |
+| Reservation replies authenticated as `@anadyon.gr` | native DKIM at `google._domainkey`; the account is the address |
+| January 2027 | **moot** — Google's page says the withdrawal *"does not affect Google Workspace aliases or other Gmail addresses you own"* |
+| Remote employee isolated from administrative mail | native, by account separation — see the open question below |
+| Booking mail unchanged | Resend on `send.anadyon.gr` untouched, as always |
+| Custom code | **none** |
+
+### Cost — and the number this still needs
+
+Checked today and **no reliable current euro figure was found**, which is worth
+saying rather than quoting a stale one. What the sources give:
+
+- **Business Starter at €8.10 per user per month** on flexible monthly billing,
+  after a price rise that took effect 17 March 2025 — but that figure is from a
+  2025 article.
+- **$7 per user per month on annual billing**, $8.40 monthly, in several guides
+  updated in 2026.
+- **£5.90 per user per month** annual, excluding VAT, in a UK guide.
+
+So the order of magnitude is **€7–8 per user per month**, and the exact European
+annual price should be read from Google's own pricing page before committing.
+
+**The blocking input is unchanged and is still unanswered: how many office
+mailboxes are needed?** One user is roughly €85–100 a year. Four is four times
+that. Neither this project's documents nor PR #241's unresolved #9 can supply it,
+and it is the only number the decision now lacks.
+
+### The one design question that is genuinely open
+
+Office staff need **one inbox** holding both administrative and reservation mail.
+The remote employee needs reservation mail and **not** administrative mail. In
+Workspace there are three patterns, and they are not equally safe:
+
+1. **`customerservice@` as an alias on the office account.** Aliases are
+   explicitly exempt from the January change, and all mail lands in one inbox —
+   which is exactly the requirement. **But an alias belongs to one account**, so
+   this alone does not give the remote employee access.
+2. **`customerservice@` as a Google Group** with the office user and the remote
+   employee as members. Mail delivers to both inboxes: the office sees it in
+   their single inbox, the employee in theirs, and neither sees the other's
+   private mail. **Sending** as the group address is set up per user through
+   Gmail's *Send mail as* with a confirmation code to the group.
+   **UNVERIFIED and worth checking before relying on it:** whether sending as a
+   *group* address falls under the January exemption. Google's wording is
+   *"Workspace aliases or other Gmail addresses you own"*; a group address is on
+   your own domain, so it very probably qualifies — but "probably" is not the
+   standard this project uses, and the Admin console should be checked.
+3. **`customerservice@` as its own user with delegated access.** Robust and
+   unambiguous, but Gmail shows a delegated mailbox as a **separate view**, which
+   is two mailboxes again and conflicts with the stated requirement.
+
+**Pattern 2 is the one that satisfies both requirements**, with pattern 1 as the
+fallback for the office side if group send-as turns out to be affected. This is
+the piece to settle during setup, with evidence, not by assumption.
+
+### Sequencing, and what happens to Zoho
+
+**Do not cancel Zoho when Workspace is set up.** Same discipline as Papaki: keep
+it until Workspace is proven for both directions, then decommission. The DNS
+procedure is the one rehearsed today — DKIM and SPF first, test, MX last — and
+`DNS-MOVE-TO-CLOUDFLARE.md` plus `ZOHO-MAIL-CUTOVER-STEPS.md` both apply almost
+unchanged, with Google's values in place of Zoho's.
+
+**And today's Zoho work was not wasted**, which is worth stating plainly because
+it will look like it was. It ended a live outage within hours — Yahoo had been
+refusing every office reply for days — and it rehearsed the entire DNS procedure
+end to end, with the traps named, on the exact zone a Workspace move will touch.
+The interim mailbox is also the fallback while Workspace is proven.
+
+### What this closes
+
+- **PR #241** should be closed or left as a recorded alternative. Its design is
+  sound for the problem it set itself; the problem has a native answer.
+- **E38** becomes fully moot rather than one housekeeping action: with Workspace
+  there is no third-party *Send as* anywhere in the estate.
+- **The remote-employee isolation** stops being a build and becomes a
+  configuration.
