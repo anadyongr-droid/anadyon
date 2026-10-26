@@ -144,6 +144,34 @@ in the diff.
 
 ### The staging e2e concurrency group silently cancels queued runs
 
+> **Correction, 26 October 2026 — this was not a discovery, and the section
+> below originally read as one.** All of it except the measurement was already
+> in **E11** of `docs/OPEN-ITEMS.md`, and had been since **20 September**: the
+> group name, the one-pending-run mechanism, the fact that the check goes grey
+> rather than red, the operational rule *"check the E2E conclusion explicitly
+> before merging and re-run a cancelled one"* — which is the workaround used on
+> 24 October and presented here as a method — and the same two candidate fixes.
+> **W62 is withdrawn as a duplicate** and the new evidence is folded into E11.
+>
+> What was genuinely new is one thing: **the measurement, and that it corrects
+> E11's own observation (2)**, which had concluded the hazard *"does not arise"*
+> with a single agent merging serially. With eleven pull requests queued it
+> arises badly — four sat unmergeable with nothing red, and five of the nine
+> merges that day paid a wasted `build`-plus-e2e cycle, about an hour, on
+> nothing to do with any diff. So contention is the condition, as E11 says, but
+> serial merging does not make it safe; it makes it **invisible until the queue
+> is long**, which is when it costs most.
+>
+> **The §9 failure is the part worth keeping.** This is the second in three
+> days — the first being the eslint 10 diagnosis already recorded in
+> `README.md`'s pull-request table — and both have the same shape: the right
+> document was opened and the relevant row was not read. `OPEN-ITEMS.md` is the
+> file §12 obliges every agent to read at the start of every day, and it had
+> been read that morning. §9 says to search for the subject rather than the
+> filename; the sharper rule these two misses point at is that **opening the
+> right file is not reading it**, and a file of this length has to be searched
+> *within*.
+
 *Found 24 October 2026, and it is the reason four pull requests sat at
 `mergeable_state: unstable` with nothing red.*
 

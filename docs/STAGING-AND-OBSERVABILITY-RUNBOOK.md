@@ -1,6 +1,6 @@
 # Staging and observability runbook
 
-**Last verified:** 20 October 2026, Claude — **section 21 added: the Data API change re-checked ten days out — the position holds, nothing is needed for 30 October, and a migration written for views was withdrawn because the view's own migration already grants it.** Production having *more* privileges than the repository read like the repository having *none*. §6 is now verified for views for the first time. Also **section 20 added: E23's restore drill RAN, and the archive restores — confirmed on re-run 39417766890, green with the alert correctly silent, so the drill has now fired on a failure and stayed quiet on a success on the same archive. The first run's alert wording was itself a defect and is fixed. Originally — 29 of 29 tables, 1742 of 1744 rows** (run 39407010918); it also established that `auth` and `storage` cannot restore outside Supabase, so the login layer is a rebuild rather than a restore, which nobody had written down because nobody had tried it. Also **section 19 added: the backups are there, read from the bucket — 30 dailies on 30 consecutive dates, 21 September to 20 October, no missing night** (run 39402993779), after three existing pieces of evidence each turned out to be circumstantial; a count of thirty-one objects is not a distribution, which is the second time `switch_rows 1`'s error has nearly been repeated. Also **section 18 added: all four alert paths, which of them has actually fired, and why the application's own path cannot be proven by reading the code.** The channel was re-proven today (run 39397051787); `backup.yml` gains an on-demand failure so its repaired alert can be exercised; and `alert-outbox-health.sql` turns half of E20 from a dashboard errand into an agent task. Earlier: 4 October 2026, Claude — **section 17 is rewritten where it had gone stale: the fingerprint has now run against production three times and every one of W42 to W46 came from running it, none from reviewing it.** The "never yet run" paragraph is replaced by what the three runs found, and "why the `pgaudit` migration is still unwritten" by the migration itself — 047 audits by object rather than by role, which makes the unanswerable dashboard-role question irrelevant; it is written, not applied, and W47 is the gap that survives applying it. Earlier: 3 October 2026 (evening), Claude — **the production role inventory is now read from production** and recorded at the end of section 17: five roles bypass RLS, `service_role` cannot log in, and `supabase_read_only_user` already exists, which bears on W29. The `pgaudit` migration stays unwritten because the deciding fact — which role the dashboard editors run as — is still unanswered. Earlier the same evening: **section 17 added: the nightly production fingerprint, which is the first control here that can see a change made in a logged-in dashboard.** Tested against a real Postgres with all 45 migrations replayed, silent when production matches, and recorded as **never yet run against production** — the first scheduled night is the first real run. Also section 16 revised after Codex reviewed these controls: two paste-ready Codex files did not load at all, the gate failed open on Codex when it could not parse an event, and two bypasses are closed. The heading is weaker and the mechanisms are unchanged. Earlier the same day: section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
+**Last verified:** 24 October 2026, Claude — **section 22 added: staging's branch is level with production, its database reset is Tasos's, and W61's premise was wrong.** The `staging` branch was 34 commits behind `main` and 0 ahead, so it fast-forwarded cleanly — and it is **not decorative**: `scripts/deployment-boundary-lib.mjs` makes it the only Vercel Preview branch permitted to carry staging Supabase credentials, so it *is* the hosted staging environment, and it had been serving code from 2 October. **The correction that matters:** W61 held that a green staging e2e proved nothing about recent work because it ran against that old deployment. It does not — `e2e-staging` checks out **the pull request's own code** and runs it under vitest against the staging *database*; nothing fetches a deployed URL and no workflow references the branch. The overstatement ran in the costly direction, reading as "do not trust the gate". **The branch was safe to move without a database reset**, verified rather than assumed: the three migrations staging lacks are 047/049 (pgaudit configuration, a `nologin` role — nothing app-visible) and 048, whose every statement is a no-op on a database built from the baseline, which staging is and production never was. **Preflight green:** all 48 migrations replay in filename order and the synthetic seed is idempotent at exactly the counts the reset asserts. **The reset stays with Tasos for three independent reasons** — it applies migrations, it drops the hosted staging database, and it reads `.env.staging.local`. Earlier: 4 October 2026, Claude — **section 17 is rewritten where it had gone stale: the fingerprint has now run against production three times and every one of W42 to W46 came from running it, none from reviewing it.** The "never yet run" paragraph is replaced by what the three runs found, and "why the `pgaudit` migration is still unwritten" by the migration itself — 047 audits by object rather than by role, which makes the unanswerable dashboard-role question irrelevant; it is written, not applied, and W47 is the gap that survives applying it. Earlier: 3 October 2026 (evening), Claude — **the production role inventory is now read from production** and recorded at the end of section 17: five roles bypass RLS, `service_role` cannot log in, and `supabase_read_only_user` already exists, which bears on W29. The `pgaudit` migration stays unwritten because the deciding fact — which role the dashboard editors run as — is still unanswered. Earlier the same evening: **section 17 added: the nightly production fingerprint, which is the first control here that can see a change made in a logged-in dashboard.** Tested against a real Postgres with all 45 migrations replayed, silent when production matches, and recorded as **never yet run against production** — the first scheduled night is the first real run. Also section 16 revised after Codex reviewed these controls: two paste-ready Codex files did not load at all, the gate failed open on Codex when it could not parse an event, and two bypasses are closed. The heading is weaker and the mechanisms are unchanged. Earlier the same day: section 16 added: the production Supabase data plane is now denied to both agents, verified by firing the rules in a live session rather than by reading the config, with the three things it does not cover named. Earlier: 2 October 2026, Codex.
 
 **Status:** the isolated Supabase project exists and was reset twice from
 current `main` on 19 September 2026. Both runs replayed all 44 migrations and
@@ -1611,3 +1611,231 @@ the view's own file — is what settled it, and it should have been the first.
 No migration to apply, no setting to change. The deadline passes without
 action: production keeps its existing grants, and a replayed database carries
 every grant it needs in the migrations themselves.
+
+## 22. Bringing staging level with production — 24 October 2026
+
+Asked for directly: *"bring the staging project in line with production."* It
+decomposes into two halves that are **not** the same thing, and only one of them
+is an agent's to do.
+
+### W61's premise was wrong, and the correction changes what needs doing
+
+W61 said the staging end-to-end suite *"passes — but against a deployment built
+from `6276d32` (PR #196, 2 October), so a green staging run currently says
+nothing about anything merged in the last three weeks."*
+
+**That is not how the suite runs.** `.github/workflows/ci.yml`'s `e2e-staging`
+job checks out **the pull request's own code** and runs it in-process under
+vitest; `tests/e2e/setup.ts` then points that code at the staging *database*,
+asserting the host is exactly `${STAGING_SUPABASE_PROJECT_REF}.supabase.co`
+before any client is constructed. Nothing in the job fetches a deployed URL, and
+no workflow in the repository references the `staging` branch at all.
+
+So the code under test has always been current. When #223 ran its staging e2e
+today it ran **#223's** code. **The green run was a real signal about recent
+work, not a stale one** — W61 overstated the problem, and in the direction that
+reads as "do not trust the gate", which is the costlier error.
+
+**What was genuinely stale is different, and there are two of them:**
+
+1. **The hosted staging deployment.** The branch named `staging` is not
+   decorative: `scripts/deployment-boundary-lib.mjs` makes it the *only* Vercel
+   Preview branch permitted to carry staging Supabase credentials, and it
+   *requires* them — every other preview branch fails the boundary if it has
+   any. So `staging` **is** the hosted staging environment, and it was serving
+   code from 2 October.
+2. **The staging database.** Three migrations exist on `main` that a staging
+   reset would replay and that staging's last reset predates — 047, 048, 049.
+   Its synthetic fixtures are also from the 2 October reset.
+
+### Done: the branch, fast-forwarded
+
+`staging` was **34 commits behind `main` and 0 ahead**, so it took a
+`--ff-only` merge with no merge commit and nothing to reconcile.
+`git diff origin/main..origin/staging` is now empty.
+
+**It was safe to do without touching the database**, and that is worth stating
+because the obvious worry is deploying new code onto an old schema. The three
+migrations staging lacks cannot break application code:
+
+| Migration | What it does | App-visible? |
+|---|---|---|
+| 047 | `create extension pgaudit`, a `nologin` role `anadyon_audit`, grants to it, pgaudit settings | **No** — audit configuration only |
+| 049 | `alter role postgres set pgaudit.role` | **No** — one configuration parameter |
+| 048 | `alter column … type date` / `set not null` / `numeric(10,2)` on `public.quotes`, one `create index if not exists`, one policy if absent | **No** — see below |
+
+048 is the one that looks dangerous and is not. It exists because
+**production's `quotes` was never built from the baseline** — `001_baseline.sql`
+was never run against it — so production had drifted in *shape* and 048 closes
+that. Staging is built by replaying every migration **from** the baseline, so
+staging's `quotes` already has the shape 048 imposes; every statement in it is a
+no-op against a correct schema. Confirmed by replay rather than assumed: 048
+applies cleanly on top of a database built from the baseline alone.
+
+### Preflight run, so the reset is not a leap
+
+`npm run check:migration-replay` — **48 migrations applied in filename order,
+passed**, including 046–049, and it also verified the synthetic seed is
+idempotent and produces exactly the counts `scripts/reset-staging.mjs` asserts
+afterwards: **29 vehicles, 5 customers, 6 reservations**, an open damage and the
+private `reservation-documents` bucket.
+
+That is the same work a hosted reset does, so a clean replay is direct evidence
+the reset will succeed rather than fail halfway.
+
+### Not done, and it is Tasos's for three separate reasons
+
+The database half is `npm run staging:reset`, and an agent must not run it:
+
+1. **It applies migrations.** `AGENTS.md` and `DEFINING-STATEMENTS.md` put that
+   with Tasos without distinguishing staging from production, and the reason —
+   a stale paste copy once reached production — does not become irrelevant on a
+   staging target.
+2. **It is destructive.** `supabase db reset --db-url` **drops the hosted
+   staging database** before replaying. No real data is lost (the fixtures are
+   synthetic and `supabase/seeds/staging.sql` says so on its first line), but an
+   irreversible drop against a hosted project is not an agent's unprompted call,
+   and `.claude/settings.json` denies the command as a reminder of exactly that.
+3. **It needs credentials an agent cannot read.** The script loads
+   `.env.staging.local`, and `Read(./.env*)` is denied precisely so a
+   service-role key never enters an agent's context or transcript.
+
+**The steps, paste-ready, in order.** Run from the repository root on a machine
+with Docker Desktop running and `.env.staging.local` present:
+
+```sh
+# 1. Preflight — already green here on 24 October, but it is seconds and it is
+#    the thing that proves the replay the reset is about to perform.
+npm run check:migration-replay
+
+# 2. The reset itself. CONFIRM_STAGING_RESET is deliberately not readable from
+#    any env file, so it must be typed each time.
+CONFIRM_STAGING_RESET=yes npm run staging:reset
+```
+
+`reset-staging.mjs` verifies its own target three ways before touching anything,
+then replays all 48 migrations, loads the synthetic fixtures, seeds both
+synthetic Auth users, asserts the counts above, and runs `check:grants`
+automatically. If any count is wrong it throws rather than reporting success.
+
+**Then, optionally, the two-way schema comparison** — this is the only step that
+answers *"is staging now identical to production?"* rather than *"is staging
+built from the repository?"*, and it needs both database URLs:
+
+```sh
+PRODUCTION_SUPABASE_DB_URL=… STAGING_SUPABASE_DB_URL=… npm run check:schema:parity
+```
+
+Section 4 covers how that check protects the credentials in its own failure
+output, and why the captured runner must never be replaced with
+`stdio: "inherit"`.
+
+### What remains unverified from here, deliberately
+
+**Which migrations the staging database currently holds has not been read**, and
+cannot be from an agent container — there are no staging credentials in it. The
+047/048/049 gap above is inferred from the branch's date and the migration
+history, not from querying staging. It does not change the action: a reset
+replays all 48 regardless of what is there now, which is why the reset is the
+answer rather than applying three files.
+
+**The hosted staging deployment did come up green.** Vercel reported
+`success — Deployment has completed` against `2287438` on the fast-forwarded
+branch, so main's code is now building and running in the staging environment
+against the staging Supabase project. That is the half of "in line with
+production" that is finished: same code, same deployment boundary, a database
+still carrying 2 October's fixtures until the reset above is run.
+
+### The reset verified fixtures and not prices — closed 24 October 2026
+
+Codex reviewed section 22 and raised four follow-ups. One was wrong, one had the
+right remedy for the wrong reason, and the remedy was worth doing anyway. Both
+are recorded because the reasoning is what the next reader needs.
+
+**"Restore the synthetic rates and `extras_config` staging seed" — declined; there
+is nothing to restore.** `supabase/seeds/staging.sql` carries both inserts and
+always has: **18 rate rows** (six pricing groups × three seasons) and **5
+`extras_config` rows**, each with `on conflict … do update` so the seed stays
+idempotent. `git log -p --follow` on that file shows the two inserts only ever
+**added**, never removed. The two later commits that touched them — #116 and
+#118 — changed values, not presence.
+
+**"The reset script does not verify them despite the runbook saying it does" —
+half right, and the half that is wrong matters.** The script genuinely did not
+count them. But the runbook line being read as the claim is section 11's *"public
+rates and extras remained read-only"*, which is a statement about **grants**, not
+row counts — and that claim is true and *is* verified: `check-grants.mjs` holds
+`PUBLIC_READABLE = new Set(["rates", "extras_config"])`, and `reset-staging.mjs`
+runs it automatically after every reset. Nothing in the runbook ever claimed the
+rows were counted. The gap was a genuine omission, not a documented check that
+had quietly stopped running.
+
+**Why the omission was worth closing anyway, which is a stronger reason than the
+one offered.** `rates` and `extras_config` are the two tables
+`DEFINING-STATEMENTS.md` §6 deliberately grants to `anon`, and §6's stated reason
+is that *"the public booking form cannot price a rental without them"*. So a seed
+that loaded no rates leaves staging showing a fleet it cannot quote for — and the
+reset would have called that a success, having counted 29 vehicles, 5 customers,
+6 reservations and the bucket without ever asking whether a price could be
+produced. **A control that is green while the thing it protects is broken** is
+the defect this project has now found in its own instruments five times.
+
+**What was built.** `scripts/stagingSeedFixtures.mjs` holds the expectations once
+and returns the *names* of what is wrong rather than a boolean, because a reset
+is read on a terminal by someone deciding whether to run it again. Both verifiers
+now use it:
+
+- **`check-migration-replay.mjs`**, which matters more because **it needs no
+  credentials**: a seed that stops producing prices now fails in CI rather than
+  waiting for whoever next resets staging. Run today — *"48 migrations applied in
+  filename order… the synthetic staging seed is idempotent: 29 vehicles, 5
+  customers, 6 reservations, **18 rates and 5 extras**, an open damage and the
+  private documents bucket."*
+- **`reset-staging.mjs`**, which now also selects `rates` and `extras_config` and
+  prints what it verified.
+
+**Proven by breaking it, not by reading it.** `tests/stagingSeedFixtures.test.ts`
+has 11 tests, and the fail-first rule was satisfied twice over:
+
+1. Removing the two rows from the expectation list — the code exactly as it was
+   this morning — fails five tests, including *"fails when no rates loaded, which
+   is the case that used to pass"*, which reports `[]` where a problem was due.
+2. Drifting the constant from 18 to 17 fails the anti-drift test, which counts
+   the rows in `staging.sql` itself rather than trusting the number. That guard
+   exists because a hand-written constant and a hand-written seed diverge the
+   moment someone adds a pricing group to one of them, and the resulting failure
+   is silent — the verifier asserts the old number against the new seed and
+   passes.
+
+A missing count is also treated as a failure rather than as "not asserted", since
+a caller that forgets to select `rates` would otherwise reintroduce the original
+defect in a new costume.
+
+**One thing deliberately NOT changed.** The seed prices the Full Damage Waiver at
+**€12**, and production charges **€5.00**. That is not drift to be corrected:
+`DEFINING-STATEMENTS.md` §10 records that the €12 figure *came from this very
+file* and was wrongly quoted as a real price across five documents, and commit
+#116 is titled *"Stop staging fixtures being quoted as prices"*. Syncing the
+fixture to production's rate would make a synthetic number look authoritative
+again, which is the error §10 exists to prevent. **"In line with production" means
+the schema and the code, never the prices in a file whose first line reads
+"Synthetic staging fixtures only".**
+
+### The staging end-to-end check, rerun on the fast-forwarded state
+
+Codex's fourth follow-up. Run **40119491330**, dispatched on `main` via
+`workflow_dispatch` on 24 October: **`build` success, `End-to-end against
+staging` success.**
+
+**What that does and does not establish.** It exercised `main`'s current code
+against the staging Supabase project and passed, so the commercial path works
+against staging's database as it stands. It does **not** say staging's schema
+matches production — the database still predates 047/048/049 and its fixtures are
+from 2 October, because the reset is Tasos's. The suite passing against the older
+schema is consistent with the finding above that those three migrations are not
+app-visible, and is a second, independent piece of evidence for it: had 048
+mattered to application behaviour, a quote would have failed here.
+
+It is also the first green run of this suite whose dispatch was not contending
+with anything else, which is the W62 workaround applied deliberately rather than
+discovered.
