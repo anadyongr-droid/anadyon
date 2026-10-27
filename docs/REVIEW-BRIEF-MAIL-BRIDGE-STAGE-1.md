@@ -489,3 +489,52 @@ deleted the tests for `handleListSenders` and `handleStatus` entirely. Restored.
 credentials — not even test ones — until that exists and has been reviewed.**
 That is the right order and it is now the recorded position. §6.2's boundary,
 E39 and the red-check rule are unchanged by any of this.
+
+
+---
+
+## 12. Codex third review — 27 October 2026
+
+**Basis:** PR #242 at `ed710a440e8d93254c471c2e6e22f4cd2b1c665a`.
+**Verdict:** the two W68 runtime defects are fixed correctly, but the branch
+remains non-deployable and four findings remain. Review
+[5669326598](https://github.com/anadyongr-droid/anadyon/pull/242#pullrequestreview-5669326598)
+contains the inline evidence.
+
+Confirmed improvements:
+
+- an expired claim settles as delivery-unknown and cannot be re-admitted;
+- a never-attempted request releases its exact key/token admission;
+- the built-in credential origins are narrowed to exact EU origins;
+- the status result no longer describes an unknown delivery as not sent;
+- the latest CI, CodeQL, dependency review and Vercel status were green.
+
+Remaining findings:
+
+1. **The mutation sweep can report success without running every declared
+   mutation.** A missing target prints `SKIP`, is not counted as a survivor and
+   does not make the process fail. At least four declared targets are already
+   absent from the current tree: the old `extensionOf(filename)` check, the
+   removed `lookup` return, the old one-line Zoho allowlist and the removed
+   explicit protocol guard. The claim “61 mutations, 0 surviving” therefore
+   does not establish that 61 mutations ran. A skipped mutation must fail the
+   sweep, and executed/skipped/caught counts must be reported separately.
+2. **Status polling never expires an abandoned claim.** Lease expiry runs only
+   inside `admit`; `inspect` returns `in_flight` indefinitely. A caller that
+   obeys the guidance to wait and poll never reaches the new delivery-unknown
+   result unless it submits the message again. Inspection or a durable
+   background transition must resolve expired claims safely.
+3. **`extraAllowedOrigins` reopens arbitrary credential destinations.** A
+   caller can add any HTTPS origin and cause refresh credentials or the bearer
+   token to be sent there. This contradicts the configuration document's
+   statement that a data-centre move requires a reviewed code change. Remove
+   the escape hatch or constrain it to a compiled list of exact Zoho Mail
+   origins.
+4. **The extension permission document is stale.** It says Gmail is the only
+   host permission and that any other host fails tests, while the manifest and
+   tests correctly require Gmail plus the compiled relay origin.
+
+The acknowledged Stage 2 gaps still independently block deployment: no durable
+store, Authenticator, server adapter, isolated repository/deployment, Gmail DOM
+or build, real relay origin, scheduled reconciliation, or controlled extension
+distribution. W71 tracks this review.
