@@ -22,6 +22,26 @@ wrong place.
 One subject, one incident. Detail in
 [`worklog/2026-10-27-claude.md`](worklog/2026-10-27-claude.md).
 
+**§12 ESCALATION, found while sequencing the action list: `ΗΒΙ 467`'s recorded
+insurance cover ends today**, joining ten vehicles already past — ΙΡΜ 6966,
+the eight motorbikes, ΙΜΙ 2840 — with ΗΒΙ 1568 on 4 November. F1's own figures
+had been written on 3 October and were counting down to dates that had since
+passed; both the row and the file header are re-dated. Not a claim that eleven
+vehicles are uninsured — the broker sends certificates on the day — but nobody
+here can tell, no expiry is recorded against any of the 29 vehicles, and
+`rentalBar` bars only on `expired`. One call answers it.
+
+**New: [`ACTIONS-FOR-TASOS-2026-10-27.md`](ACTIONS-FOR-TASOS-2026-10-27.md)**,
+sequencing the fifty-two items that need Tasos by what goes wrong if they wait,
+with the steps written out. It re-prioritises one item rather than finding it:
+**the Papaki server is now a decision, not a support problem.** Office mail has
+left it for Zoho and nothing else appears to need it, so cancelling the hosting
+would close E33, E36 and E6 and remove E37's dependency on an operator who has
+left two tickets at Νέο since 21 October and 19 September. Second on that list
+is the only item where a customer is currently told something untrue: the site
+lists theft and CDW as included in all rentals, which no inspected certificate
+provides.
+
 **Mail bridge Stage 1 is complete and with Codex for review.** The morning
 landed `store.ts`, `relay.ts` and the extension skeleton (`1c4870f`); the
 afternoon finished it end to end on Tasos's instruction — the real Zoho client
