@@ -661,3 +661,34 @@ independently execute the manual 66-mutation sweep.
 The “live case” is a live-shaped unit path using an injected fake transport, not
 a live Zoho network or credential test. That is correct for credential-free
 Stage 1. All Stage 2 deployment blockers remain unchanged.
+
+
+---
+
+## 16. Codex seventh review — 27 October 2026
+
+**Basis:** PR #242 at exact implementation head
+`652a91e1809853db158fbbc19df09edf47e3b40e`.
+**Verdict:** W76 is closed. No new finding was identified in this revision.
+Review
+[5674287976](https://github.com/anadyongr-droid/anadyon/pull/242#pullrequestreview-5674287976)
+records the verification.
+
+The obsolete combined endpoint constant and export are deleted. The remaining
+exports identify Accounts versus API purpose, a regression test asserts the
+combined public contract stays absent, and mutation 67 reintroduces it so the
+suite must catch a future regression. The send-path test and documentation now
+state accurately that the transport is injected and no live Zoho interaction
+occurs.
+
+The commit touches only four `services/mail-bridge` files, so the reported
+near-miss involving a broad documentation checkout did not enter the reviewed
+commit. W76 occurs once on both branches, no duplicate open-item IDs were found,
+and W64/W65/W69 remain on the collaboration branch.
+
+CI including staging E2E, CodeQL, dependency review and Vercel were green.
+Codex inspected but did not independently execute the manual 67-mutation sweep.
+
+This closes the Stage 1 code-review cleanup. It does not authorize merge,
+credentials or deployment: every previously recorded Stage 2 boundary remains
+absent.
