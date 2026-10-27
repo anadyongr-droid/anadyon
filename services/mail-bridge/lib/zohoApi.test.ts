@@ -1,0 +1,327 @@
+import { describe, expect, it } from "vitest";
+import {
+  NOTHING_PROVEN,
+  RefreshTokenSource,
+  ZOHO_EU_ACCOUNTS_HOST,
+  ZohoApiMailClient,
+  buildSendBody,
+  classify,
+  extractMessageId,
+  type HttpFetch,
+  type TokenSource,
+  type ZohoCapabilities,
+} from "./zohoApi";
+import type { ValidatedSend } from "./sendRequest";
+
+const send = (over: Partial<ValidatedSend> = {}): ValidatedSend => ({
+  sender: { address: "customerservice@anadyon.gr", displayName: "Anadyon" },
+  to: ["one@example.com"],
+  cc: [],
+  bcc: [],
+  subject: "Your booking",
+  text: "Body",
+  attachments: [],
+  idempotencyKey: "k-0123456789abcdef",
+  ...over,
+});
+
+const tokens = (token = "tok", apiDomain = "https://mail.zoho.eu"): TokenSource => ({
+  async token() {
+    return { accessToken: token, apiDomain };
+  },
+});
+
+type Call = { url: string; init: Parameters<HttpFetch>[1] };
+
+const recording = (status = 200, body = '{"data":{"messageId":"zm-1"}}') => {
+  const calls: Call[] = [];
+  const fetch: HttpFetch = async (url, init) => {
+    calls.push({ url, init });
+    return { status, text: async () => body };
+  };
+  return { calls, fetch };
+};
+
+const proven: ZohoCapabilities = { multipleRecipientsPerField: true, threadingHeaders: true, attachments: true };
+
+describe("the request body matches what Zoho documents", () => {
+  it("uses the documented field names and nothing else", () => {
+    const body = buildSendBody(send({ cc: ["c@example.com"], bcc: ["b@example.com"] }));
+    expect(Object.keys(body).sort()).toEqual(
+      ["askReceipt", "bccAddress", "ccAddress", "content", "encoding", "fromAddress", "mailFormat", "subject", "toAddress"].sort(),
+    );
+  });
+
+  it("omits ccAddress and bccAddress rather than sending empty ones", () => {
+    const body = buildSendBody(send());
+    expect("ccAddress" in body).toBe(false);
+    expect("bccAddress" in body).toBe(false);
+  });
+
+  it("sends plaintext as plaintext and html as html", () => {
+    expect(buildSendBody(send()).mailFormat).toBe("plaintext");
+    expect(buildSendBody(send({ html: "<p>x</p>", text: undefined })).mailFormat).toBe("html");
+  });
+
+  it("carries the display name from the allowlist, never a bare address when one is configured", () => {
+    expect(buildSendBody(send()).fromAddress).toBe("Anadyon <customerservice@anadyon.gr>");
+  });
+
+  it("never carries a threading field, because Zoho documents none", () => {
+    const body = buildSendBody(send({ inReplyTo: "<a@b>", references: "<a@b>" }));
+    expect(JSON.stringify(body)).not.toContain("a@b");
+  });
+});
+
+describe("what is undocumented is refused, not guessed", () => {
+  it("refuses a second recipient until the separator is proved", async () => {
+    const { calls, fetch } = recording();
+    const client = new ZohoApiMailClient({ accountId: "1", tokens: tokens(), fetch });
+    const outcome = await client.send(send({ to: ["a@example.com", "b@example.com"] }));
+    expect(outcome.ok).toBe(false);
+    expect(outcome.ok === false && outcome.failure).toContain("more than one address");
+    // The point of the refusal: nothing reached Zoho.
+    expect(calls).toEqual([]);
+  });
+
+  it("counts cc and bcc towards that, because they are the same undocumented field", async () => {
+    const { calls, fetch } = recording();
+    const client = new ZohoApiMailClient({ accountId: "1", tokens: tokens(), fetch });
+    const outcome = await client.send(send({ cc: ["c@example.com"] }));
+    expect(outcome.ok).toBe(false);
+    expect(calls).toEqual([]);
+  });
+
+  it("refuses a reply carrying In-Reply-To, rather than silently breaking the thread", async () => {
+    const { calls, fetch } = recording();
+    const client = new ZohoApiMailClient({ accountId: "1", tokens: tokens(), fetch });
+    const outcome = await client.send(send({ inReplyTo: "<prev@example.com>" }));
+    expect(outcome.ok).toBe(false);
+    expect(outcome.ok === false && outcome.failure).toContain("thread");
+    expect(calls).toEqual([]);
+  });
+
+  it("refuses References for the same reason", async () => {
+    const { fetch } = recording();
+    const client = new ZohoApiMailClient({ accountId: "1", tokens: tokens(), fetch });
+    expect((await client.send(send({ references: "<prev@example.com>" }))).ok).toBe(false);
+  });
+
+  it("refuses attachments even when the capability is on, because the bytes are not in the request", async () => {
+    const { calls, fetch } = recording();
+    const client = new ZohoApiMailClient({
+      accountId: "1",
+      tokens: tokens(),
+      fetch,
+      capabilities: proven,
+    });
+    const outcome = await client.send(
+      send({ attachments: [{ filename: "a.pdf", contentType: "application/pdf", bytes: 10 }] }),
+    );
+    expect(outcome.ok).toBe(false);
+    expect(outcome.ok === false && outcome.failure).toContain("upload step cannot run");
+    expect(calls).toEqual([]);
+  });
+
+  it("allows the multi-recipient send once it is proved and enabled", async () => {
+    const { calls, fetch } = recording();
+    const client = new ZohoApiMailClient({ accountId: "1", tokens: tokens(), fetch, capabilities: proven });
+    const outcome = await client.send(send({ to: ["a@example.com", "b@example.com"] }));
+    expect(outcome.ok).toBe(true);
+    expect(JSON.parse(calls[0].init.body).toAddress).toBe("a@example.com,b@example.com");
+  });
+
+  it("starts with nothing proved", () => {
+    expect(NOTHING_PROVEN).toEqual({ multipleRecipientsPerField: false, threadingHeaders: false, attachments: false });
+  });
+});
+
+describe("the request itself", () => {
+  it("posts to the api_domain the token gave, not a compiled-in host", async () => {
+    const { calls, fetch } = recording();
+    const client = new ZohoApiMailClient({ accountId: "99", tokens: tokens("t", "https://mail.zoho.eu/"), fetch });
+    await client.send(send());
+    expect(calls[0].url).toBe("https://mail.zoho.eu/api/accounts/99/messages");
+  });
+
+  it("refuses when the token response carried no api_domain, rather than guessing one", async () => {
+    const { calls, fetch } = recording();
+    const client = new ZohoApiMailClient({ accountId: "1", tokens: tokens("t", ""), fetch });
+    const outcome = await client.send(send());
+    expect(outcome.ok).toBe(false);
+    expect(outcome.ok === false && outcome.retryable).toBe(false);
+    expect(calls).toEqual([]);
+  });
+
+  it("uses Zoho's own authorization scheme, not Bearer", async () => {
+    const { calls, fetch } = recording();
+    await new ZohoApiMailClient({ accountId: "1", tokens: tokens("secret-tok"), fetch }).send(send());
+    expect(calls[0].init.headers.Authorization).toBe("Zoho-oauthtoken secret-tok");
+  });
+
+  it("treats a missing token as retryable, because the next refresh may succeed", async () => {
+    const { fetch } = recording();
+    const none: TokenSource = { async token() { return undefined; } };
+    const outcome = await new ZohoApiMailClient({ accountId: "1", tokens: none, fetch }).send(send());
+    expect(outcome.ok === false && outcome.retryable).toBe(true);
+  });
+
+  it("treats a thrown transport as retryable and says nothing about the cause", async () => {
+    const fetch: HttpFetch = async () => {
+      throw new Error("ECONNRESET to mail.zoho.eu with token abc123");
+    };
+    const outcome = await new ZohoApiMailClient({ accountId: "1", tokens: tokens(), fetch }).send(send());
+    expect(outcome.ok === false && outcome.retryable).toBe(true);
+    expect(JSON.stringify(outcome)).not.toContain("abc123");
+    expect(JSON.stringify(outcome)).not.toContain("ECONNRESET");
+  });
+
+  it("never puts the access token in the outcome", async () => {
+    const { fetch } = recording(401, "unauthorised");
+    const outcome = await new ZohoApiMailClient({ accountId: "1", tokens: tokens("super-secret"), fetch }).send(send());
+    expect(JSON.stringify(outcome)).not.toContain("super-secret");
+  });
+
+  it("does not echo Zoho's response text into the outcome", async () => {
+    const { fetch } = recording(400, '{"status":{"description":"internal host mail-int-7.zoho.eu refused"}}');
+    const outcome = await new ZohoApiMailClient({ accountId: "1", tokens: tokens(), fetch }).send(send());
+    expect(JSON.stringify(outcome)).not.toContain("mail-int-7");
+  });
+});
+
+describe("status classification decides whether a key may be spent again", () => {
+  it("only a server error and a transport failure are retryable", () => {
+    expect(classify(200)).toMatchObject({ ok: true });
+    expect(classify(201)).toMatchObject({ ok: true });
+    for (const status of [400, 401, 403, 404, 418]) {
+      expect(classify(status)).toMatchObject({ ok: false, retryable: false });
+    }
+    for (const status of [500, 502, 503]) {
+      expect(classify(status)).toMatchObject({ ok: false, retryable: true });
+    }
+  });
+});
+
+describe("a 200 with an unreadable body is a send, not a failure", () => {
+  it("reports success with a key-derived identifier rather than releasing the key", async () => {
+    const { fetch } = recording(200, "<html>Zoho's proxy said hello</html>");
+    const outcome = await new ZohoApiMailClient({ accountId: "1", tokens: tokens(), fetch }).send(send());
+    expect(outcome.ok).toBe(true);
+    expect(outcome.ok === true && outcome.providerMessageId).toBe("unidentified:k-0123456789abcdef");
+  });
+
+  it("finds the identifier under each shape Zoho uses elsewhere", () => {
+    expect(extractMessageId('{"data":{"messageId":"a"}}', "k")).toBe("a");
+    expect(extractMessageId('{"data":{"messageID":"b"}}', "k")).toBe("b");
+    expect(extractMessageId('{"data":{"msgId":12345}}', "k")).toBe("12345");
+    expect(extractMessageId("not json", "k")).toBe("unidentified:k");
+    expect(extractMessageId('{"data":{}}', "k")).toBe("unidentified:k");
+  });
+
+  it("never claims the copy reached Sent, which Zoho does not document", async () => {
+    const { fetch } = recording();
+    const outcome = await new ZohoApiMailClient({ accountId: "1", tokens: tokens(), fetch }).send(send());
+    expect(outcome.ok === true && outcome.savedToSent).toBe(false);
+  });
+});
+
+describe("the refresh token source", () => {
+  const tokenBody = (over: Record<string, unknown> = {}) =>
+    JSON.stringify({ access_token: "at-1", api_domain: "https://mail.zoho.eu", expires_in: 3600, token_type: "Bearer", ...over });
+
+  const source = (status: number, body: string, now = () => 1_000_000) => {
+    const calls: Call[] = [];
+    const fetch: HttpFetch = async (url, init) => {
+      calls.push({ url, init });
+      return { status, text: async () => body };
+    };
+    return {
+      calls,
+      src: new RefreshTokenSource({
+        accountsHost: ZOHO_EU_ACCOUNTS_HOST,
+        clientId: "cid",
+        clientSecret: "csecret",
+        refreshToken: "rt",
+        fetch,
+        now,
+      }),
+    };
+  };
+
+  it("posts the documented refresh grant to the European accounts host", async () => {
+    const { calls, src } = source(200, tokenBody());
+    await src.token();
+    expect(calls[0].url).toBe("https://accounts.zoho.eu/oauth/v2/token");
+    const body = new URLSearchParams(calls[0].init.body);
+    expect(body.get("grant_type")).toBe("refresh_token");
+    expect(body.get("client_id")).toBe("cid");
+    expect(body.get("client_secret")).toBe("csecret");
+    expect(body.get("refresh_token")).toBe("rt");
+  });
+
+  it("returns the api_domain from the response rather than assuming one", async () => {
+    const { src } = source(200, tokenBody({ api_domain: "https://mail.zoho.com" }));
+    expect((await src.token())?.apiDomain).toBe("https://mail.zoho.com");
+  });
+
+  it("caches within the hour and refreshes when the margin is reached", async () => {
+    let clock = 1_000_000;
+    const calls: Call[] = [];
+    const fetch: HttpFetch = async (url, init) => {
+      calls.push({ url, init });
+      return { status: 200, text: async () => tokenBody() };
+    };
+    const src = new RefreshTokenSource({
+      accountsHost: ZOHO_EU_ACCOUNTS_HOST,
+      clientId: "c",
+      clientSecret: "s",
+      refreshToken: "r",
+      fetch,
+      now: () => clock,
+    });
+    await src.token();
+    await src.token();
+    expect(calls).toHaveLength(1);
+    clock += 3_600_000;
+    await src.token();
+    expect(calls).toHaveLength(2);
+  });
+
+  it("treats a 200 with no access_token as no token — Zoho answers that way for a revoked grant", async () => {
+    const { src } = source(200, JSON.stringify({ error: "invalid_code" }));
+    expect(await src.token()).toBeUndefined();
+  });
+
+  it("treats a 200 with no api_domain as no token, rather than a token with a guessed host", async () => {
+    const { src } = source(200, tokenBody({ api_domain: undefined }));
+    expect(await src.token()).toBeUndefined();
+  });
+
+  it("returns nothing on a non-200 and on a thrown transport", async () => {
+    expect(await source(400, "{}").src.token()).toBeUndefined();
+    const thrown = new RefreshTokenSource({
+      accountsHost: ZOHO_EU_ACCOUNTS_HOST,
+      clientId: "c",
+      clientSecret: "s",
+      refreshToken: "r",
+      fetch: async () => {
+        throw new Error("no route");
+      },
+    });
+    expect(await thrown.token()).toBeUndefined();
+  });
+
+  it("does not cache a failure, so the next send retries the refresh", async () => {
+    let status = 500;
+    const calls: Call[] = [];
+    const fetch: HttpFetch = async (url, init) => {
+      calls.push({ url, init });
+      return { status, text: async () => tokenBody() };
+    };
+    const src = new RefreshTokenSource({ accountsHost: ZOHO_EU_ACCOUNTS_HOST, clientId: "c", clientSecret: "s", refreshToken: "r", fetch });
+    expect(await src.token()).toBeUndefined();
+    status = 200;
+    expect((await src.token())?.accessToken).toBe("at-1");
+    expect(calls).toHaveLength(2);
+  });
+});
