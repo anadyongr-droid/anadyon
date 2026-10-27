@@ -15,6 +15,53 @@ wrong place.
 
 ---
 
+## 27 October 2026 — Claude (implementer)
+
+**Last verified:** 27 October 2026, Claude.
+
+One subject, one incident. Detail in
+[`worklog/2026-10-27-claude.md`](worklog/2026-10-27-claude.md).
+
+**Mail bridge Stage 1 is complete** — `store.ts`, `relay.ts` and the MV3
+extension skeleton, pushed as `1c4870f` on top of yesterday's `7c3c88a`. 62
+tests in the service; `verify:fast` clean. Two positions in the check order are
+load-bearing and each has a test that fails when the control is **moved** rather
+than removed: the kill switch precedes authentication, because a switch checked
+after it cannot stop an attacker holding a valid session; the rate limit
+precedes the idempotency claim, so a refused request does not spend a key and
+leave the retry answered "already settled". Both were proved by breaking them.
+**New: W65** carries what is built, what is named as absent — a real Zoho
+client, the HTTP transport, the extension's relay call, and the **HIGH 2
+reconciliation detector** — and the two preconditions of Stage 2: extraction to
+its own repository and credential boundary, and four inputs that are Tasos's.
+**E39 is unchanged**: building Stage 1 removes the engineering unknowns from one
+side of that decision, it does not settle it, and the recommendation stands.
+Subject documents: [`services/mail-bridge/README.md`](../services/mail-bridge/README.md),
+[`REVIEW-GMAIL-ZOHO-BRIDGE-PROPOSAL.md`](REVIEW-GMAIL-ZOHO-BRIDGE-PROPOSAL.md).
+
+**The incident: four finished files were lost and recovered by luck.** Three of
+yesterday's four increments were written, tested and left uncommitted to be
+batched at the end; the container was reclaimed and the next session opened on a
+fresh clone with none of it. They were recovered from the session transcript,
+which stores the heredocs that wrote them and happened still to be on disk —
+a usable recovery route, not a safeguard. The rule that follows is in
+[`ENGINEERING-SAFETY-NET.md`](ENGINEERING-SAFETY-NET.md): commit and push each
+increment when its tests go green. §11's *"unpushed branches are not a
+handover"* applies to the session's own next hour, not only to the next agent.
+Before committing, both ordering breaks were re-applied and re-watched to fail
+in the restored copy — a test recovered from a transcript is not proved until it
+has failed here.
+
+**Already recorded, nearly re-filed: R10.** The `Last verified:` gap has been
+open since the 2 October audit; searching the list first caught it. The
+re-measurement is kept because the raw count misleads — 34 of 76 against 32 of
+55 reads as a regression, but `docs/worklog/` has grown by nineteen dated
+records that should never carry a freshness marker. **18 of 37 living documents**
+is the real figure, and R10 now says the check needs the living/historical split
+first.
+
+---
+
 ## 26 October 2026 — Claude (implementer)
 
 **Last verified:** 26 October 2026, Claude.
