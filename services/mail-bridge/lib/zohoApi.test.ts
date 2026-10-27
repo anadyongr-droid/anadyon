@@ -319,6 +319,22 @@ describe("credentials only go to Zoho, and each credential to its own class of h
       expect(isZohoApiOrigin("https://accounts.zoho.in", ["https://accounts.zoho.in"])).toBe(false);
     });
 
+    it("exports no combined list that would let future code use the old contract", async () => {
+      // Codex's sixth review: the superseded combined list and its export
+      // survived the split as dead code. Deleted — and asserted, because the
+      // risk he named is a later change importing the old contract and
+      // silently undoing the separation.
+      const api = (await import("./zohoApi")) as Record<string, unknown>;
+      const exported = Object.keys(api);
+      expect(exported).not.toContain("ZOHO_OVERRIDE_CANDIDATES");
+      expect(exported).not.toContain("ZOHO_ALLOWED_ORIGINS");
+      expect(exported).not.toContain("isZohoHost");
+      // Every exported allowlist name says which credential it governs.
+      for (const name of exported.filter((n) => /ALLOWED|CANDIDATES|isZoho/.test(n))) {
+        expect(name).toMatch(/ACCOUNTS|API|Accounts|Api/);
+      }
+    });
+
     it("the two candidate lists do not overlap", () => {
       const overlap = ZOHO_ACCOUNTS_OVERRIDE_CANDIDATES.filter((o: string) =>
         ZOHO_API_OVERRIDE_CANDIDATES.includes(o),
@@ -326,9 +342,14 @@ describe("credentials only go to Zoho, and each credential to its own class of h
       expect(overlap).toEqual([]);
     });
 
-    it("refuses a real send whose api_domain is an accounts origin", async () => {
-      // The live shape of the defect: Zoho (or something pretending to be it)
-      // returns the accounts host as api_domain, and the bearer token follows.
+    it("refuses a send whose api_domain is an accounts origin, through the real send path", async () => {
+      // **Not a live Zoho test, and Codex was right to say so.** This drives
+      // the real `send()` against an injected transport, which proves the
+      // refusal sits on the path a message actually takes rather than only in
+      // the predicate. What it cannot prove is anything about Zoho's real
+      // behaviour; that needs credentials and is Stage 2. The shape being
+      // exercised: Zoho — or something answering as Zoho — returns the accounts
+      // host as `api_domain`, and the bearer token would follow it.
       const { calls, fetch } = recording();
       const client = new ZohoApiMailClient({
         accountId: "1",

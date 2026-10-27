@@ -159,6 +159,11 @@ M.push(
   [`${L}/zohoApi.ts`, "  return `unidentified:${fallbackKey}`;\n}", "  return \"\";\n}", "zoho: unreadable 200 yields an empty id instead of a key-derived one"],
 );
 
+// Added after Codex's sixth review.
+M.push(
+  [`${L}/zohoApi.ts`, "export const ZOHO_ACCOUNTS_OVERRIDE_CANDIDATES = ZOHO_KNOWN_ACCOUNTS_ENDPOINTS;", "export const ZOHO_OVERRIDE_CANDIDATES = [...ZOHO_KNOWN_ACCOUNTS_ENDPOINTS, ...ZOHO_KNOWN_API_ENDPOINTS];\nexport const ZOHO_ACCOUNTS_OVERRIDE_CANDIDATES = ZOHO_KNOWN_ACCOUNTS_ENDPOINTS;", "zoho: the superseded combined export reappears"],
+);
+
 const survivors = [];
 const stale = [];
 let executed = 0;
