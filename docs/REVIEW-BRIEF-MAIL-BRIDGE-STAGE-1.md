@@ -199,3 +199,80 @@ is worse than silence — say which of these you did not look at.
 
 Per `DEFINING-STATEMENTS.md` §11, whatever you find goes into the document that
 owns the subject and into `OPEN-ITEMS.md`, not only into a reply.
+
+
+---
+
+## 8. Codex independent review — 27 October 2026
+
+**Basis:** PR #242 at `c8d10ffcdf5e6ded09807825b1973927aa66a29c`.
+**Verdict:** changes required. Keep the pull request draft, unmerged and
+credential-free. GitHub would not accept `REQUEST_CHANGES` because the
+authenticated repository identity also opened the pull request, so review
+[5665402086](https://github.com/anadyongr-droid/anadyon/pull/242#pullrequestreview-5665402086)
+was submitted as a comment with the same verdict and ten inline findings.
+
+### Release-blocking findings
+
+1. **Ambiguous Zoho outcomes can be sent twice.** The relay releases an
+   idempotency claim for every retryable result. A timeout, connection reset or
+   5xx can happen after Zoho accepted the message. Since Zoho does not receive
+   the bridge key, retrying can send a duplicate. Ambiguous outcomes need a
+   durable `unknown` state and reconciliation or operator confirmation; they
+   must not release the key automatically.
+2. **The claimed fail-closed audit is not fail-closed.** The irreversible Zoho
+   send happens before the audit append. If the append fails, the message has
+   already left without durable attribution. A write-ahead actor/intent record
+   is required before sending, followed by an outcome update.
+3. **The extension cannot call the relay as configured.** The service worker
+   performs the cross-origin fetch, but the manifest grants host permission only
+   for Gmail. The compiled relay origin must be granted explicitly.
+4. **Any HTTP 2xx can be reported to the user as a successful send.** The client
+   accepts an empty, HTML or otherwise wrong 2xx response and the compose layer
+   treats it as sent. Require the endpoint's response schema and
+   `body.sent === true` before dismissing or marking a draft sent.
+5. **The threading capability flag silently loses threading.** Turning the flag
+   on removes the refusal while the outgoing Zoho request still contains no
+   threading field. Remove the flag until the correct Zoho operation is proven,
+   or implement and test the actual request.
+6. **The rate limit is not atomic with send admission.** Concurrent requests
+   with different idempotency keys can all observe the same count and send.
+   The durable store needs one atomic reservation operation, with both per-user
+   and global limits.
+7. **The declared timeout is unused, and an in-flight key can be stranded.**
+   Implement a real deadline, but treat abort as an ambiguous outcome. Durable
+   claims also need a lease/fencing design so a crashed or stale worker cannot
+   release or settle another worker's claim.
+8. **Credential destinations are configuration-controlled without an
+   allowlist.** An arbitrary accounts host receives the refresh token and
+   client secret, and an arbitrary API domain receives the bearer token. Require
+   HTTPS and an explicit, documented Zoho EU host allowlist.
+9. **The response sender is formatted as `Display Name <address>`.** Zoho's
+   send API documents `fromAddress` as an associated email address; the
+   display name is configured in Send Mail As. Use the bare approved address
+   unless a live test proves another accepted contract.
+10. **The documented environment-variable kill switch is delayed by
+    deployment.** Vercel environment changes apply to new deployments. Either
+    use runtime-read durable configuration for an immediate stop or document,
+    test and time the redeploy procedure.
+
+### Additional limits confirmed
+
+- The reconciliation module is comparison logic, not an operating detector:
+  it has no mailbox source, durable schedule, alert path or bounded grace
+  policy. An excessively large caller-supplied grace can keep new sends pending
+  indefinitely.
+- The three-state claim interface has no recovery state for a crash after claim
+  or for a transport result whose delivery is unknown.
+- Stage 1 contains no authenticator, durable store, Gmail DOM integration,
+  extension build, attachment upload, separate deployment boundary or live
+  credential proof. These omissions are disclosed in the branch and remain
+  Stage 2 work rather than hidden implementation claims.
+- No credential value was found in the reviewed source. Repository CI, CodeQL,
+  dependency review and the Vercel preview status were green at the reviewed
+  SHA. Those checks do not exercise Chrome-to-relay permission, live Zoho
+  behaviour, durable concurrency or credentials.
+
+**Documentation defect:** §5 refers to `OPEN-ITEMS.md W65`, but this branch's
+open-items file contains no W65 and no mail-bridge entry. W64 records the review
+blocker so this result remains visible outside the pull-request discussion.
