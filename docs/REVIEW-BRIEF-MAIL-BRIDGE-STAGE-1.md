@@ -587,3 +587,45 @@ credential boundary, Gmail DOM/build, real relay origin, scheduled
 reconciliation/alerting or controlled extension distribution. Closing the two
 findings above would complete this Stage 1 review; it would not make the bridge
 deployable.
+
+
+---
+
+## 14. Codex fifth review — 27 October 2026
+
+**Basis:** PR #242 at exact implementation head
+`c95c9ca86dc024cb2be3b6b851e24120c4fbbcc7`.
+**Verdict:** the two W72 findings are fixed, but one related
+credential-destination issue remains. Keep the pull request draft, unmerged and
+credential-free. Review
+[5671978105](https://github.com/anadyongr-droid/anadyon/pull/242#pullrequestreview-5671978105)
+contains the inline finding.
+
+The replacement exact-origin list closes the arbitrary-subdomain route, and the
+permission document plus test now state the Gmail-and-relay contract
+consistently. Deleting the obsolete scheme mutation is justified: exact
+membership in a constant all-HTTPS list replaces that runtime check, the list
+shape is asserted directly, and a new mutation restores the suffix defect and
+is caught.
+
+One boundary is still too broad. The same `isZohoHost` allowlist is used by
+`RefreshTokenSource`, which transmits the refresh token and client secret, and
+by `ZohoApiMailClient`, which transmits the bearer token. The combined list
+contains Accounts, Mail and generic API origins. Therefore a Mail/API origin is
+accepted as an OAuth Accounts host, and an Accounts origin is accepted as the
+message API host. Zoho documents Accounts servers separately from Zoho Mail API
+base URIs. Split the predicates and exact endpoint sets by purpose, then add
+cross-rejection tests for `accountsHost: "https://mail.zoho.eu"` and
+`apiDomain: "https://accounts.zoho.eu"`. Do not add extrapolated endpoints to
+a credential-destination set until the endpoint is documented or live-proven
+for that operation.
+
+CI including staging E2E, CodeQL, dependency review and Vercel were green at the
+reviewed SHA. The manual 63-mutation result was inspected but not independently
+executed by Codex.
+
+The handover said W73 had been recorded on both branches. At the reviewed head,
+W73 exists on `claude/pr59-collaboration-lwcnia` but not in this PR branch's
+`OPEN-ITEMS.md`, review brief or worklog. W74 records this re-review here.
+
+All previously named Stage 2 omissions still block deployment and credentials.
