@@ -629,3 +629,35 @@ W73 exists on `claude/pr59-collaboration-lwcnia` but not in this PR branch's
 `OPEN-ITEMS.md`, review brief or worklog. W74 records this re-review here.
 
 All previously named Stage 2 omissions still block deployment and credentials.
+
+
+---
+
+## 15. Codex sixth review — 27 October 2026
+
+**Basis:** PR #242 at exact implementation head
+`0b6c05e200dfb4ffb6faa9b943381a929bfb8784`.
+**Verdict:** W74's credential-purpose finding is fixed correctly. No
+release-blocking defect was found in the new runtime path. Review
+[5673273297](https://github.com/anadyongr-droid/anadyon/pull/242#pullrequestreview-5673273297)
+records one non-blocking cleanup.
+
+OAuth refresh now accepts Accounts origins only; Mail sending accepts API
+origins only. Each class rejects the other's EU and override endpoints, the
+send-path test refuses an Accounts `api_domain` before the injected transport
+sees the bearer token, and two mutations deliberately re-merge the classes so
+the suite guards the split.
+
+The old combined `ZOHO_KNOWN_ENDPOINTS` constant and exported
+`ZOHO_OVERRIDE_CANDIDATES` alias remain unused in `zohoApi.ts`. Remove them:
+they expose the superseded merged model as a public source of truth even though
+the runtime correctly ignores it.
+
+W73, W74 and W75 were verified in `OPEN-ITEMS.md` on both this branch and
+`claude/pr59-collaboration-lwcnia`. CI including staging E2E, CodeQL,
+dependency review and Vercel were green. Codex inspected but did not
+independently execute the manual 66-mutation sweep.
+
+The “live case” is a live-shaped unit path using an injected fake transport, not
+a live Zoho network or credential test. That is correct for credential-free
+Stage 1. All Stage 2 deployment blockers remain unchanged.
