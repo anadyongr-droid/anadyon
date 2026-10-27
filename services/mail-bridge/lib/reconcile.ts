@@ -91,6 +91,15 @@ export type Listing =
   | { readonly listed: true; readonly messages: readonly MailboxMessage[] }
   | { readonly listed: false; readonly reason: string };
 
+/**
+ * The grace period is bounded, because Codex's review noted that an
+ * excessively large caller-supplied value keeps every send permanently
+ * `pending` — and a permanently pending detector reports `inconclusive`
+ * forever, which is the one state that looks like nothing is wrong. A detector
+ * whose own configuration can silence it is not a detector.
+ */
+export const MAX_GRACE_MS = 6 * 60 * 60 * 1000;
+
 export type ReconciliationInput = {
   readonly audited: readonly AuditedSend[];
   readonly zohoSent: Listing;
@@ -148,6 +157,15 @@ const finding = (send: AuditedSend, now: number): Finding => ({
 export function reconcile(input: ReconciliationInput): ReconciliationReport {
   const inconclusiveBecause: string[] = [];
 
+  // Clamped rather than rejected, so a misconfiguration degrades to a shorter
+  // grace — which over-reports divergence — instead of to silence.
+  const graceMs = Math.min(Math.max(0, input.graceMs), MAX_GRACE_MS);
+  if (input.graceMs > MAX_GRACE_MS) {
+    inconclusiveBecause.push(
+      `the configured grace of ${input.graceMs}ms exceeds the ${MAX_GRACE_MS}ms maximum and was clamped`,
+    );
+  }
+
   const zohoIds = input.zohoSent.listed
     ? new Set(input.zohoSent.messages.map((m) => m.correlationId))
     : undefined;
@@ -174,7 +192,7 @@ export function reconcile(input: ReconciliationInput): ReconciliationReport {
     // The grace period is a delivery allowance, not a licence to ignore a
     // send indefinitely — and it does not cover the canary, which the run
     // itself made and therefore knows the age of.
-    if (age < input.graceMs && !isCanary) {
+    if (age < graceMs && !isCanary) {
       pending.push(finding(send, input.now));
       continue;
     }

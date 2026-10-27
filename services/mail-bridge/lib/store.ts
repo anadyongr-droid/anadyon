@@ -1,81 +1,118 @@
 /**
- * Idempotency, rate limiting and the kill switch.
+ * Idempotency, admission, the write-ahead audit and the kill switch.
  *
- * **The property that matters, and the bug it is easy to write.** §6.2 item 8
- * makes an idempotency key the defence against a double click sending twice.
- * The naive implementation reads the key, sees nothing, and sends — which
- * races with the second click doing the same. So the reservation is a single
- * operation that both tests and claims the key, and the caller is told which
- * of the three states it got: it owns the send, someone else is mid-send, or
- * the send already finished and here is what happened.
+ * **This file was rewritten on 27 October after Codex's review**, which upheld
+ * three findings against it. Each is recorded here rather than in a commit
+ * message alone, because each was a control that looked present and was not.
  *
- * **Why an interface with an in-memory implementation.** Stage 1 has no
- * database. The semantics are the hard part and they can be pinned down now;
- * the durable implementation substitutes later without the relay changing.
- * `claim` is written as the single atomic operation a real backing store must
- * provide — `INSERT ... ON CONFLICT DO NOTHING` in Postgres, a conditional put
- * elsewhere. Anything that cannot do that atomically is not a usable store
- * here, and that is a constraint on the choice rather than a detail of it.
+ * **Finding 2 — the audit was not fail-closed.** The first version appended an
+ * audit record *after* the send, and a constant called
+ * `AUDIT_FAILURE_BLOCKS_SEND` asserted it failed closed. It did not: the
+ * irreversible step had already happened, so an audit failure meant a message
+ * had left `customerservice@anadyon.gr` with no durable record of who sent it —
+ * exactly the outcome §2.2's attribution requirement exists to prevent. Writing
+ * the intent *before* the send is the only ordering that can fail closed, so
+ * the store now has two operations: `recordIntent`, which must succeed before
+ * anything leaves, and `recordOutcome`, which updates it afterwards. If
+ * `recordIntent` throws, nothing is sent. If `recordOutcome` throws, the send
+ * is still attributable — the intent row names the actor, the sender and the
+ * time — and the row is simply left pending, which the reconciliation pass can
+ * see.
+ *
+ * **Finding 6 — the rate limit was not atomic with admission.** The relay
+ * counted recent sends, compared, and then claimed the key. Two concurrent
+ * requests with different keys both read the same count and both sent. So
+ * counting is no longer a separate operation: `admit` performs the volume check
+ * and the key claim as **one** atomic step and returns `rate_limited` as a
+ * fourth state. A store that cannot do that in one operation is not usable
+ * here, and that is a constraint on choosing one rather than a detail.
+ *
+ * **Finding 7 — a claim could be stranded, and anyone could release it.** A
+ * process dying between claim and settle left the key `in_flight` forever, so
+ * every retry got 409 and that message could never be sent again. And `release`
+ * took only the key, so a stale worker could release a claim another worker
+ * then held. Both are fixed by a lease: `admit` returns a **fencing token**,
+ * `recordOutcome` and `release` require it, and a claim older than its lease is
+ * treated as expired and may be re-admitted. The token is what makes "my claim"
+ * meaningful.
+ *
+ * **What a real store must provide**, stated so the Stage 2 choice is
+ * constrained rather than guessed: one atomic conditional write that inserts a
+ * claim only if no live claim exists *and* the user is under their limit. In
+ * Postgres that is a single statement with a `where not exists` on both
+ * conditions; anything needing two round trips reintroduces finding 6.
  */
 
 import type { SendOutcome } from "./zohoClient";
+import type { RelayLimits } from "./sendRequest";
 
-export type ClaimResult =
-  /** This caller owns the send and must proceed. */
-  | { readonly state: "claimed" }
-  /** Another request holds this key and has not finished. Do not send. */
+/** Proof that the holder owns a claim. Checked on settle and release. */
+export type FencingToken = string;
+
+export type AdmitResult =
+  /** This caller owns the send and must proceed. The token proves it. */
+  | { readonly state: "claimed"; readonly token: FencingToken }
+  /** A live claim is held by this user and has not finished. Do not send. */
   | { readonly state: "in_flight" }
   /** The send already completed. Return this, do not send again. */
-  | { readonly state: "settled"; readonly outcome: SendOutcome };
+  | { readonly state: "settled"; readonly outcome: SendOutcome }
+  /** Over the volume limit. Checked in the same operation as the claim. */
+  | { readonly state: "rate_limited" };
 
-export type AuditRecord = {
+/**
+ * Written **before** the send. Carries everything attribution needs, and
+ * nothing that would make it a copy of the message: a recipient count rather
+ * than addresses, a subject length rather than a subject.
+ */
+export type IntentRecord = {
   readonly idempotencyKey: string;
   readonly userId: string;
   readonly senderAddress: string;
   readonly recipientCount: number;
   readonly subjectLength: number;
   readonly attachmentCount: number;
+  readonly at: number;
+};
+
+/** Written after, against an intent that already exists. */
+export type OutcomeRecord = {
+  readonly idempotencyKey: string;
+  readonly delivery: SendOutcome["delivery"];
   readonly providerMessageId?: string;
-  readonly outcome: "sent" | "failed";
   readonly at: number;
 };
 
 export interface BridgeStore {
   /**
-   * Atomically test-and-claim, **for one owner**. See ClaimResult.
-   *
-   * The owner is part of the operation rather than a later filter because the
-   * three states each carry information: a key claimed by a different user
-   * answers `in_flight`, which refuses without saying whether that key was
-   * ever sent or to whom. Scoping it afterwards would mean having already
-   * read someone else's outcome.
+   * Atomically: check the user's volume against `limits`, and claim the key if
+   * they are under it. One operation — see finding 6 above.
    */
-  claim(idempotencyKey: string, userId: string): Promise<ClaimResult>;
-  /** Record the result against a claimed key, so a retry is answered not resent. */
-  settle(idempotencyKey: string, outcome: SendOutcome): Promise<void>;
+  admit(idempotencyKey: string, userId: string, limits: RelayLimits, now: number): Promise<AdmitResult>;
   /**
-   * Release a claim so a retry may proceed. Only for a retryable failure: a
-   * permanent failure is settled instead, so the user is told the same thing
-   * every time rather than being invited to retry forever.
+   * The write-ahead record. **Must succeed before anything is sent**; a throw
+   * here stops the send.
    */
-  release(idempotencyKey: string): Promise<void>;
-  /** Sends by this user inside the window. */
-  countRecentSends(userId: string, windowMs: number, now: number): Promise<number>;
-  /** Append an audit record. Throwing here must block the send — see below. */
-  appendAudit(record: AuditRecord): Promise<void>;
-  /** The kill switch. False means refuse every send. */
+  recordIntent(record: IntentRecord): Promise<void>;
+  /**
+   * Updates the intent with what happened, and settles the key — **except for
+   * `not_attempted`, which settles nothing**, because no request was made and
+   * the caller is about to release the claim.
+   */
+  recordOutcome(record: OutcomeRecord, token: FencingToken): Promise<void>;
+  /**
+   * Release a claim so a retry may proceed — **only** for a request that was
+   * never made. See `mayReleaseKey`. Requires the fencing token.
+   */
+  release(idempotencyKey: string, token: FencingToken): Promise<void>;
+  /** The kill switch, read at runtime on every send. False means refuse. */
   isSendingEnabled(): Promise<boolean>;
-  /**
-   * The settled outcome for this user's key, or undefined — including when the
-   * key exists and belongs to someone else, which is indistinguishable from
-   * not existing on purpose.
-   */
+  /** This user's settled outcome for this key, or undefined. */
   lookup(idempotencyKey: string, userId: string): Promise<SendOutcome | undefined>;
 }
 
 /**
- * **Decision, recorded because §17 question 13 asks it and leaves it open:
- * audit-store unavailability BLOCKS sending.**
+ * **Decision, recorded because §17 question 13 asks it and leaves it open: a
+ * failure to write the intent BLOCKS sending.**
  *
  * The alternative is a send that went out as `customerservice@anadyon.gr` with
  * no record of who sent it. The whole justification for a relay over Gmail's
@@ -83,56 +120,106 @@ export interface BridgeStore {
  * and attribution for every bridge send"* — so a send nobody can be held to is
  * the one outcome worse than a send that did not happen. Zoho webmail is the
  * documented fallback and it is always available.
+ *
+ * Renamed from `AUDIT_FAILURE_BLOCKS_SEND`, which named a true intention about
+ * code that could not deliver it.
  */
-export const AUDIT_FAILURE_BLOCKS_SEND = true;
+export const INTENT_FAILURE_BLOCKS_SEND = true;
 
-type Entry =
-  | { state: "in_flight"; userId: string; at: number }
-  | { state: "settled"; userId: string; outcome: SendOutcome; at: number };
+/**
+ * How long a claim may be held before it is considered abandoned. Long enough
+ * that a slow Zoho call is not re-admitted underneath itself; short enough that
+ * a crashed worker does not block a message for an afternoon.
+ */
+export const DEFAULT_CLAIM_LEASE_MS = 2 * 60 * 1000;
+
+type Entry = {
+  state: "in_flight" | "settled";
+  userId: string;
+  token: FencingToken;
+  claimedAt: number;
+  outcome?: SendOutcome;
+};
 
 /** Stage 1 only. Loses everything on restart, which is why it is not Stage 2. */
 export class InMemoryBridgeStore implements BridgeStore {
   private readonly entries = new Map<string, Entry>();
-  private readonly sends: { userId: string; at: number }[] = [];
-  readonly audit: AuditRecord[] = [];
+  /** Every attempt admitted, which is what the volume limit counts. */
+  private readonly admitted: { userId: string; at: number }[] = [];
+  readonly intents: IntentRecord[] = [];
+  readonly outcomes: OutcomeRecord[] = [];
   private sendingEnabled = true;
-  /** Set to make appendAudit throw, so the fail-closed path can be tested. */
-  auditBroken = false;
+  /** Set to make recordIntent throw, so the fail-closed path can be tested. */
+  intentBroken = false;
+  /** Set to make recordOutcome throw. */
+  outcomeBroken = false;
 
-  async claim(idempotencyKey: string, userId: string): Promise<ClaimResult> {
+  constructor(private readonly leaseMs: number = DEFAULT_CLAIM_LEASE_MS) {}
+
+  private nextToken = 0;
+
+  async admit(
+    idempotencyKey: string,
+    userId: string,
+    limits: RelayLimits,
+    now: number,
+  ): Promise<AdmitResult> {
     const existing = this.entries.get(idempotencyKey);
-    // Another user's key is refused as in-flight: a refusal that says nothing.
-    if (existing && existing.userId !== userId) return { state: "in_flight" };
-    if (existing?.state === "settled") return { state: "settled", outcome: existing.outcome };
-    if (existing?.state === "in_flight") return { state: "in_flight" };
-    // Single synchronous set: nothing can interleave between the get and this
-    // in one JS event-loop turn, which is what makes the Map version honest
-    // about the atomicity a real store must provide.
-    this.entries.set(idempotencyKey, { state: "in_flight", userId, at: Date.now() });
-    return { state: "claimed" };
+
+    if (existing) {
+      // Another user's key is refused as in-flight: a refusal that says nothing
+      // about whether it was sent, or to whom.
+      if (existing.userId !== userId) return { state: "in_flight" };
+      if (existing.state === "settled") return { state: "settled", outcome: existing.outcome! };
+      // A claim past its lease is abandoned, not held. Without this a worker
+      // that died mid-send blocks that message permanently.
+      if (now - existing.claimedAt < this.leaseMs) return { state: "in_flight" };
+    }
+
+    // The volume check and the claim are one operation, so two concurrent
+    // requests cannot both read the same count and both proceed.
+    const recent = this.admitted.filter((a) => a.userId === userId && now - a.at < limits.windowMs).length;
+    if (recent >= limits.maxSendsPerWindow) return { state: "rate_limited" };
+
+    const token = `t${++this.nextToken}`;
+    this.entries.set(idempotencyKey, { state: "in_flight", userId, token, claimedAt: now });
+    this.admitted.push({ userId, at: now });
+    return { state: "claimed", token };
   }
 
-  async settle(idempotencyKey: string, outcome: SendOutcome): Promise<void> {
+  async recordIntent(record: IntentRecord): Promise<void> {
+    if (this.intentBroken) throw new Error("intent store unavailable");
+    this.intents.push(record);
+  }
+
+  async recordOutcome(record: OutcomeRecord, token: FencingToken): Promise<void> {
+    if (this.outcomeBroken) throw new Error("outcome store unavailable");
+    const existing = this.entries.get(record.idempotencyKey);
+    // A stale worker must not settle a claim somebody else now holds.
+    if (!existing || existing.token !== token) throw new Error("stale fencing token");
+    this.outcomes.push(record);
+    // A request that was never made settles nothing: the claim stays live so
+    // the caller can release it and the user can try again. Settling here
+    // instead would answer the retry "already settled" with a failure the user
+    // never caused — found by the test for exactly that retry.
+    if (record.delivery === "not_attempted") return;
+    this.entries.set(record.idempotencyKey, {
+      ...existing,
+      state: "settled",
+      outcome: outcomeFor(record),
+    });
+  }
+
+  async release(idempotencyKey: string, token: FencingToken): Promise<void> {
     const existing = this.entries.get(idempotencyKey);
-    // Settling a key nobody claimed would create an unowned record, so the
-    // owner is carried over and an unclaimed key is left alone.
-    if (!existing) return;
-    this.entries.set(idempotencyKey, { state: "settled", userId: existing.userId, outcome, at: Date.now() });
-  }
-
-  async release(idempotencyKey: string): Promise<void> {
-    const existing = this.entries.get(idempotencyKey);
-    if (existing?.state === "in_flight") this.entries.delete(idempotencyKey);
-  }
-
-  async countRecentSends(userId: string, windowMs: number, now: number): Promise<number> {
-    return this.sends.filter((s) => s.userId === userId && now - s.at < windowMs).length;
-  }
-
-  async appendAudit(record: AuditRecord): Promise<void> {
-    if (this.auditBroken) throw new Error("audit store unavailable");
-    this.audit.push(record);
-    if (record.outcome === "sent") this.sends.push({ userId: record.userId, at: record.at });
+    if (!existing || existing.token !== token) return;
+    if (existing.state === "in_flight") {
+      this.entries.delete(idempotencyKey);
+      // The attempt is withdrawn from the volume count too: a request that was
+      // never made should not spend the user's hourly allowance.
+      const i = this.admitted.findIndex((a) => a.userId === existing.userId);
+      if (i >= 0) this.admitted.splice(i, 1);
+    }
   }
 
   async isSendingEnabled(): Promise<boolean> {
@@ -149,4 +236,24 @@ export class InMemoryBridgeStore implements BridgeStore {
   setSendingEnabled(enabled: boolean): void {
     this.sendingEnabled = enabled;
   }
+}
+
+/** Reconstructs a stored outcome from the record written for it. */
+function outcomeFor(record: OutcomeRecord): SendOutcome {
+  if (record.delivery === "sent") {
+    return {
+      ok: true,
+      delivery: "sent",
+      providerMessageId: record.providerMessageId ?? "",
+      savedToSent: false,
+    };
+  }
+  return {
+    ok: false,
+    delivery: record.delivery,
+    failure:
+      record.delivery === "unknown"
+        ? "The message may have been sent. Check Zoho's Sent folder before resending."
+        : "The message was refused.",
+  };
 }

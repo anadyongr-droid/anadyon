@@ -65,12 +65,23 @@ the time. So:
 
 Revocation, when needed, is `POST {accounts_host}/oauth/v2/token/revoke`.
 
-## The kill switch is a variable, not a code change
+## The kill switch must be readable at runtime, not an environment variable
 
-`RELAY_SENDING_ENABLED=false` refuses every send before authentication, before
-validation, before anything. It is deliberately configuration rather than code
-so that stopping the bridge does not require a deploy, a review or a working
-CI. The relay tells staff to use Zoho webmail, which is always available.
+**Corrected 27 October after Codex's review finding 10.** This section used to
+say the switch was `RELAY_SENDING_ENABLED`, an environment variable, *"so that
+stopping the bridge does not require a deploy"*. Vercel's documentation says
+the opposite in one sentence: *"Any change you make to environment variables are
+not applied to previous deployments, they only apply to new deployments."* An
+environment variable is therefore the slowest switch available — it needs a
+redeploy, which needs a green build, at the moment you least want to wait.
+
+So the switch is **durable configuration read on every send**, which is what
+`BridgeStore.isSendingEnabled()` already is in the code. One row an operator can
+set, read before authentication and before anything else, effective on the next
+request. Stage 2 must not cache that read for longer than a send takes, or the
+switch acquires a delay again by a different route.
+
+The relay then tells staff to use Zoho webmail, which is always available.
 
 ## What must exist before any pilot, and does not yet
 

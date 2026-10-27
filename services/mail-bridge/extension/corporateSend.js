@@ -35,6 +35,12 @@ export function newIdempotencyKey(randomSource) {
 export const FALLBACK_MESSAGE =
   "Could not send through Anadyon. Your draft is kept — send it from Zoho webmail instead.";
 
+export const UNRECOGNISED_MESSAGE =
+  "Something answered instead of the Anadyon relay, so the message was NOT sent. Your draft is kept — send it from Zoho webmail.";
+
+export const UNKNOWN_DELIVERY_MESSAGE =
+  "The message may already have been sent. Check Zoho's Sent folder before trying again — do not resend blindly.";
+
 /**
  * @param {object} composed the compose window's contents
  * @param {{send: Function, idempotencyKey?: string}} deps
@@ -51,7 +57,9 @@ export async function submitCorporateSend(composed, { send, idempotencyKey }) {
     return { sent: false, key, retryable: true, message: FALLBACK_MESSAGE };
   }
 
-  if (result && result.ok === true) {
+  // `ok` already requires the relay's own `sent: true` — see relayClient.js and
+  // review finding 4. This layer must not relax that, so it checks both.
+  if (result && result.ok === true && result.body?.sent === true) {
     return {
       sent: true,
       key,
@@ -60,9 +68,23 @@ export async function submitCorporateSend(composed, { send, idempotencyKey }) {
     };
   }
 
-  // 409 means another attempt on this key is in flight. Retrying is correct and
-  // safe, because the key is the same one.
-  const retryable = result?.status === 409 || result?.status === 502 || result?.status === 0;
+  // The relay answered 2xx with something that is not its own response. Do not
+  // call that a send, and do not invite a retry that might duplicate: whatever
+  // is between the extension and the relay has to be fixed first.
+  if (result && result.unrecognised === true) {
+    return { sent: false, key, retryable: false, message: UNRECOGNISED_MESSAGE };
+  }
+
+  // An ambiguous delivery must never be retried automatically. The relay says
+  // so explicitly, and a person checks Sent — review finding 1.
+  if (result && result.body?.delivery === "unknown") {
+    return { sent: false, key, retryable: false, message: UNKNOWN_DELIVERY_MESSAGE };
+  }
+
+  // 409 means another attempt on this key is in flight; retrying is correct and
+  // safe, because the key is the same one. 502 is retryable only when the relay
+  // has told us the request was never made — otherwise it is handled above.
+  const retryable = result?.status === 409 || result?.body?.retryable === true || result?.status === 0;
 
   return {
     sent: false,

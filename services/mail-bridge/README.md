@@ -48,12 +48,14 @@ enforces that.
 |---|---|
 | Send-request validation, normalisation and limits | **built and tested** |
 | Server-side sender enforcement | **built and tested** |
-| Idempotency | **built and tested** |
-| Per-user volume limits | **built and tested** |
-| Kill switch | **built and tested** |
+| Idempotency, with a four-state delivery outcome so an ambiguous send is never auto-retried | **built and tested** |
+| Per-user volume limits, atomic with the idempotency claim | **built and tested** |
+| A real deadline on the Zoho call, and a lease so a crashed worker cannot strand a key | **built and tested** |
+| Host allowlist on both credential destinations | **built and tested** |
+| Kill switch, read at runtime on every send | **built and tested** |
 | Check ordering (the refusals precede the send) | **built, and proved by two deliberate breaks** |
 | Send / list-senders / status handlers | **built and tested** |
-| Audit store, failing closed | **built and tested** |
+| Write-ahead intent record, failing closed **before** the send | **built and tested** |
 | Zoho client | **built** against the published API, with the undocumented parts refused rather than guessed |
 | OAuth refresh and token caching | **built**; the client id, secret and refresh token are passed in, never held here |
 | HTTP transport (routing, CORS, body limits, bearer token) | **built and tested** |
@@ -63,7 +65,7 @@ enforces that.
 | A build step inlining the extension modules into `content.js` | **not built** |
 | Attachment upload | **cannot be built** without widening the request type — see below |
 
-**175 tests.** `npx vitest run services/mail-bridge/`.
+**203 tests.** `npx vitest run services/mail-bridge/`.
 
 ## The order of the checks is the design
 
@@ -106,6 +108,55 @@ relay endpoint is an exfiltration target. The background worker checks
 `submitCorporateSend` **never falls back to Gmail's own Send** — a failure that
 quietly sends through Google is the precise defect this service exists to
 remove, so it surfaces the failure instead.
+
+## What Codex's review changed, 27 October
+
+Codex reviewed PR #242 at `c8d10ff` and returned **changes required** with ten
+findings. **All ten were upheld**, including the two I expected to argue with,
+and the fixes are in this directory. The three that were genuine defects rather
+than gaps:
+
+1. **An ambiguous Zoho result could send the customer two copies.** The relay
+   released the idempotency key whenever a `retryable` flag was set, and the
+   comment justifying it said retrying was safe *"because the relay holds an
+   idempotency key"*. **Zoho never receives that key.** A timeout or a 5xx
+   landing after Zoho accepted the message, retried, is a second copy. The
+   outcome type now has four delivery states — `sent`, `not_attempted`,
+   `rejected`, `unknown` — and **only `not_attempted` releases the key**.
+   `unknown` settles it and tells a person to look in Sent. See
+   [`lib/zohoClient.ts`](lib/zohoClient.ts).
+2. **The "fail-closed" audit was not fail-closed.** It was written *after* the
+   send, under a constant named `AUDIT_FAILURE_BLOCKS_SEND`. The message had
+   already left, so an audit failure meant a send with no record of who made it
+   — the exact outcome §2.2's attribution requirement exists to prevent. The
+   record is now written **before** the send and a failure to write it stops the
+   send. The constant is renamed `INTENT_FAILURE_BLOCKS_SEND`, because the old
+   name described a true intention about code that could not deliver it.
+3. **The threading capability flag was a trapdoor.** Turning it on removed the
+   refusal while the request body still carried no threading field, so its only
+   effect was to produce the silent unthreaded send the refusal existed to
+   prevent. One of this directory's own tests asserts the body never carries a
+   threading value, which should have made that obvious. **The flag is gone**
+   and the refusal is unconditional.
+
+The others: the volume limit was counted separately from the claim, so
+concurrent requests with different keys all passed it — now one atomic `admit`;
+`timeoutMs` was declared and never used, and a crashed worker stranded a key
+forever — now a real deadline and a lease with fencing tokens; any HTTP 2xx read
+as a successful send, so a captive portal's page would have told staff their
+message had gone — now the relay's own `sent: true` is required; the refresh
+token and client secret went to whatever host configuration named — now an
+explicit Zoho host allowlist, checked on labels so `zoho.eu.evil.example`
+cannot pass; `fromAddress` was sent as `Display Name <address>` where Zoho
+documents a bare address, which was this file's own criticism turned on itself;
+the extension lacked `host_permissions` for the relay; and the documented
+environment-variable kill switch could not be immediate, because Vercel applies
+variable changes only to new deployments.
+
+Every fix has a test, and each was proved by re-breaking it in this working
+copy. The detector's grace period is also bounded now: an excessive
+caller-supplied value kept every send `pending` forever, and a detector whose
+own configuration can silence it is not a detector.
 
 ## What the Zoho documentation answered, and the answers are not the convenient ones
 

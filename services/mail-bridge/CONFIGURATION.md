@@ -102,11 +102,8 @@ RELAY_APPROVED_SENDERS=
 RELAY_MAX_SENDS_PER_WINDOW=
 RELAY_WINDOW_MS=
 
-# The kill switch, read on EVERY send before anything else happens. Set to
-# exactly "false" to refuse every send and tell staff to use Zoho webmail.
-# It is a variable rather than a code change so that stopping the bridge does
-# not require a deploy.
-RELAY_SENDING_ENABLED=
+# NOTE: there is deliberately NO RELAY_SENDING_ENABLED variable. See "The kill
+# switch is not an environment variable" below — review finding 10.
 
 # ---------------------------------------------------------------------------
 # Store and authentication — NOT IMPLEMENTED, named so the gap is visible
@@ -121,3 +118,37 @@ RELAY_SENDING_ENABLED=
 # BRIDGE_AUTH_ISSUER=
 # BRIDGE_AUTH_AUDIENCE=
 ```
+
+## The kill switch is not an environment variable — review finding 10
+
+An earlier version of this file listed `RELAY_SENDING_ENABLED`, describing it as
+*"a variable rather than a code change so that stopping the bridge does not
+require a deploy"*. That was wrong on its own terms, and Codex's review caught
+it. Vercel's documentation says it in one sentence:
+
+> Any change you make to environment variables are not applied to previous
+> deployments, they only apply to new deployments.
+
+So flipping an environment variable **requires a redeploy to take effect** —
+which is the opposite of an immediate stop, and a redeploy is exactly what you
+cannot rely on at the moment you need to stop sending: it needs a green build,
+and it takes minutes you may not have.
+
+**The kill switch is therefore durable configuration read at runtime**, which is
+what `BridgeStore.isSendingEnabled()` already was. The relay calls it on every
+send, before authentication and before anything else, so turning it off takes
+effect on the next request with no deploy. Stage 2 must back it with the same
+store as the idempotency claims, with one row an operator can set, and that read
+must not be cached for longer than a send takes.
+
+The code was right; this document was wrong. Worth stating that way round,
+because the fix is a documentation change and it would have been easy to
+"correct" the code towards the broken description.
+
+## The relay host also appears in the extension
+
+`host_permissions` in `extension/manifest.json` must name the same origin the
+service worker is compiled with, or the fetch is an ordinary cross-origin
+request that works only while the relay's CORS headers are right — review
+finding 3, and Chrome's own documentation. `extension.test.ts` fails if the two
+disagree, so changing the relay origin means changing both.
