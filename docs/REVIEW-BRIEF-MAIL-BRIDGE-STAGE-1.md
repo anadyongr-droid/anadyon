@@ -538,3 +538,52 @@ The acknowledged Stage 2 gaps still independently block deployment: no durable
 store, Authenticator, server adapter, isolated repository/deployment, Gmail DOM
 or build, real relay origin, scheduled reconciliation, or controlled extension
 distribution. W71 tracks this review.
+
+
+---
+
+## 13. Codex fourth review — 27 October 2026
+
+**Basis:** PR #242 at exact implementation head
+`775c9ba9d486b52f716c9c5924f123b8737f239a`.
+**Verdict:** changes still required. Keep the pull request draft, unmerged and
+credential-free. Review
+[5670453952](https://github.com/anadyongr-droid/anadyon/pull/242#pullrequestreview-5670453952)
+records two inline findings.
+
+### What the revision fixed
+
+- The mutation sweep now treats a missing target as a failure and reports the
+  number listed, run, stale and surviving.
+- Admission and status inspection share the lease-expiry transition. An
+  abandoned claim becomes delivery-unknown and is never automatically
+  re-admitted.
+- The extension permission table now includes the exact relay host and a test
+  ties it to the origin compiled into the service worker.
+
+### What remains
+
+1. **The credential escape hatch is still wider than its stated purpose.**
+   `extraAllowedOrigins` now requires HTTPS and a hostname under a Zoho
+   registrable-domain suffix, but it still accepts any exact origin under those
+   suffixes. The purpose is a finite set of official Zoho data-centre endpoints.
+   Validate overrides against enumerated published account/API origins, or use a
+   data-centre enum that expands to those exact origins. Add a regression proving
+   an arbitrary Zoho subdomain remains refused even when supplied as an override.
+2. **The permission baseline contains one stale sentence.** It says the test
+   requires Gmail to be the only host permission, while the implementation and
+   the rest of the document correctly require exactly Gmail plus the compiled
+   relay origin.
+
+Repository CI (including staging E2E), CodeQL, dependency review and the Vercel
+status were green at the reviewed SHA. Codex inspected the mutation harness and
+its new failure accounting but did **not** independently execute the manual
+63-mutation sweep; the 63/63 result is therefore author-supplied run evidence,
+not a run observed in this review.
+
+All Stage 2 omissions remain deployment blockers: no durable store,
+Authenticator, deployable server adapter, separate repository/deployment and
+credential boundary, Gmail DOM/build, real relay origin, scheduled
+reconciliation/alerting or controlled extension distribution. Closing the two
+findings above would complete this Stage 1 review; it would not make the bridge
+deployable.
