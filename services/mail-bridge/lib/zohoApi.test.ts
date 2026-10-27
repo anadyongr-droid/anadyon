@@ -7,9 +7,10 @@ import {
   buildSendBody,
   classify,
   extractMessageId,
-  ZOHO_ALLOWED_ORIGINS,
-  ZOHO_OVERRIDE_CANDIDATES,
-  isZohoHost,
+  ZOHO_ACCOUNTS_OVERRIDE_CANDIDATES,
+  ZOHO_API_OVERRIDE_CANDIDATES,
+  isZohoAccountsOrigin,
+  isZohoApiOrigin,
   type HttpFetch,
   type TokenSource,
   type ZohoCapabilities,
@@ -258,7 +259,7 @@ describe("the deadline is real, and a timeout is ambiguous — review finding 7"
   });
 });
 
-describe("credentials only go to Zoho hosts — review finding 8", () => {
+describe("credentials only go to Zoho, and each credential to its own class of host", () => {
   it("refuses to send a bearer token to an api_domain that is not Zoho", async () => {
     const { calls, fetch } = recording();
     const client = new ZohoApiMailClient({
@@ -273,29 +274,99 @@ describe("credentials only go to Zoho hosts — review finding 8", () => {
   });
 
   it("is not fooled by a Zoho-looking suffix", () => {
-    expect(isZohoHost("https://zoho.eu.evil.example")).toBe(false);
-    expect(isZohoHost("https://notzoho.eu")).toBe(false);
-    expect(isZohoHost("https://evil.example/?x=zoho.eu")).toBe(false);
+    for (const host of ["https://zoho.eu.evil.example", "https://notzoho.eu", "https://evil.example/?x=zoho.eu"]) {
+      expect(isZohoApiOrigin(host)).toBe(false);
+      expect(isZohoAccountsOrigin(host)).toBe(false);
+    }
   });
 
-  it("refuses plaintext and embedded credentials", () => {
-    expect(isZohoHost("http://mail.zoho.eu")).toBe(false);
-    expect(isZohoHost("https://user:pass@mail.zoho.eu")).toBe(false);
-    expect(isZohoHost("not a url")).toBe(false);
+  it("refuses plaintext, embedded credentials and an unparseable value", () => {
+    for (const bad of ["http://mail.zoho.eu", "https://user:pass@mail.zoho.eu", "not a url"]) {
+      expect(isZohoApiOrigin(bad)).toBe(false);
+      expect(isZohoAccountsOrigin(bad)).toBe(false);
+    }
   });
 
-  it("will not let an operator widen it to a plaintext host by configuration", () => {
-    // Found by mutation sweep: without this the https check is redundant with
-    // the built-in list, so removing it failed no test.
-    expect(isZohoHost("http://mail.zoho.com", ["http://mail.zoho.com"])).toBe(false);
-    expect(isZohoHost("https://mail.zoho.com", ["https://mail.zoho.com"])).toBe(true);
+  it("matches the origin only — a path, query or port cannot change the verdict", () => {
+    expect(isZohoApiOrigin("https://mail.zoho.eu/api/accounts")).toBe(true);
+    expect(isZohoApiOrigin("https://mail.zoho.eu:8443")).toBe(false);
+    expect(isZohoAccountsOrigin("https://evil.example/#https://accounts.zoho.eu")).toBe(false);
+  });
+
+  /**
+   * Fifth review. One combined list meant a Mail/API origin could be
+   * configured as the accounts host — and so receive the **refresh token and
+   * client secret** — while an accounts origin could be returned as
+   * `api_domain` and receive the **bearer token**. Zoho documents the accounts
+   * servers separately from the Mail API base addresses, and a credential
+   * boundary that cannot tell two credentials apart is not much of one.
+   */
+  describe("the two classes reject each other", () => {
+    it("will not send the client secret to a Mail or API origin", () => {
+      for (const api of ["https://mail.zoho.eu", "https://www.zohoapis.eu", "https://api.zoho.eu"]) {
+        expect(isZohoApiOrigin(api)).toBe(true);
+        expect(isZohoAccountsOrigin(api)).toBe(false);
+      }
+    });
+
+    it("will not send the bearer token to an accounts origin", () => {
+      expect(isZohoAccountsOrigin("https://accounts.zoho.eu")).toBe(true);
+      expect(isZohoApiOrigin("https://accounts.zoho.eu")).toBe(false);
+    });
+
+    it("keeps them apart across data centres too", () => {
+      expect(isZohoAccountsOrigin("https://mail.zoho.in", ["https://mail.zoho.in"])).toBe(false);
+      expect(isZohoApiOrigin("https://accounts.zoho.in", ["https://accounts.zoho.in"])).toBe(false);
+    });
+
+    it("the two candidate lists do not overlap", () => {
+      const overlap = ZOHO_ACCOUNTS_OVERRIDE_CANDIDATES.filter((o: string) =>
+        ZOHO_API_OVERRIDE_CANDIDATES.includes(o),
+      );
+      expect(overlap).toEqual([]);
+    });
+
+    it("refuses a real send whose api_domain is an accounts origin", async () => {
+      // The live shape of the defect: Zoho (or something pretending to be it)
+      // returns the accounts host as api_domain, and the bearer token follows.
+      const { calls, fetch } = recording();
+      const client = new ZohoApiMailClient({
+        accountId: "1",
+        tokens: tokens("secret-bearer", "https://accounts.zoho.eu"),
+        fetch,
+      });
+      const outcome = await client.send(send());
+      expect(outcome.ok).toBe(false);
+      expect(calls).toEqual([]);
+      expect(JSON.stringify(outcome)).not.toContain("secret-bearer");
+    });
+  });
+
+  it("refuses an arbitrary Zoho SUBDOMAIN — a suffix match is not an allowlist", () => {
+    for (const sub of ["https://anything.zoho.eu", "https://test.zoho.com", "https://sandbox.zohoapis.eu"]) {
+      expect(isZohoApiOrigin(sub, [sub])).toBe(false);
+      expect(isZohoAccountsOrigin(sub, [sub])).toBe(false);
+    }
+  });
+
+  it("names its permitted override endpoints explicitly, all https and all exact origins", () => {
+    for (const endpoint of [...ZOHO_ACCOUNTS_OVERRIDE_CANDIDATES, ...ZOHO_API_OVERRIDE_CANDIDATES]) {
+      expect(endpoint).toMatch(/^https:\/\/[a-z0-9.-]+$/);
+      expect(new URL(endpoint).origin).toBe(endpoint);
+    }
+  });
+
+  it("still reaches the listed data-centre endpoints, which is what the override is for", () => {
+    expect(isZohoApiOrigin("https://mail.zoho.in", ["https://mail.zoho.in"])).toBe(true);
+    expect(isZohoAccountsOrigin("https://accounts.zohocloud.ca", ["https://accounts.zohocloud.ca"])).toBe(true);
+  });
+
+  it("ignores an override entry that is not on the written list", () => {
+    expect(isZohoApiOrigin("https://collector.evil.example", ["https://collector.evil.example"])).toBe(false);
+    expect(isZohoAccountsOrigin("https://u:p@accounts.zoho.in", ["https://u:p@accounts.zoho.in"])).toBe(false);
   });
 
   it("gives a DIFFERENT reason for a missing api_domain than for a wrong one", async () => {
-    // Also from the sweep: both paths refused, so dropping the explicit
-    // missing-api_domain check changed nothing observable. The reasons differ
-    // because they need different fixes — one is Zoho answering oddly, the
-    // other is a host nobody authorised.
     const { fetch } = recording();
     const missing = await new ZohoApiMailClient({ accountId: "1", tokens: tokens("t", ""), fetch }).send(send());
     const wrong = await new ZohoApiMailClient({
@@ -303,114 +374,30 @@ describe("credentials only go to Zoho hosts — review finding 8", () => {
       tokens: tokens("t", "https://collector.evil.example"),
       fetch,
     }).send(send());
-    expect(missing.ok === false && missing.failure).toContain("no api_domain");
-    expect(wrong.ok === false && wrong.failure).toContain("not an https Zoho host");
     if (missing.ok === false && wrong.ok === false) {
+      expect(missing.failure).toContain("no api_domain");
+      expect(wrong.failure).toContain("permitted Zoho API origin");
       expect(missing.failure).not.toBe(wrong.failure);
     }
   });
 
-  it("accepts the EU origins this mailbox uses, and nothing wider", () => {
-    for (const host of ["https://accounts.zoho.eu", "https://mail.zoho.eu", "https://www.zohoapis.eu"]) {
-      expect(isZohoHost(host)).toBe(true);
-    }
-  });
-
-  it("refuses other data centres by default — least privilege, re-review", () => {
-    // The first version allowed every subdomain of every Zoho suffix. This
-    // mailbox is in the EU data centre and the MX records say so.
-    for (const host of [
-      "https://accounts.zoho.com",
-      "https://accounts.zohocloud.ca",
-      "https://mail.zoho.in",
-      "https://anything.zoho.eu",
-    ]) {
-      expect(isZohoHost(host)).toBe(false);
-    }
-  });
-
-  it("permits a data-centre move only as an explicit, reviewable configuration line", () => {
-    expect(isZohoHost("https://mail.zoho.com", ["https://mail.zoho.com"])).toBe(true);
-    // Still exact: naming one origin does not open its neighbours.
-    expect(isZohoHost("https://other.zoho.com", ["https://mail.zoho.com"])).toBe(false);
-  });
-
-  it("will not let the escape hatch reach an arbitrary Zoho SUBDOMAIN — fourth review, finding 1", () => {
-    // The previous version matched any subdomain of a Zoho registrable domain,
-    // so `anything.zoho.eu` qualified. A suffix match is not an allowlist: it
-    // delegates the decision to whoever can get a hostname under the domain.
-    for (const sub of [
-      "https://anything.zoho.eu",
-      "https://test.zoho.com",
-      "https://sandbox.zohoapis.eu",
-      "https://mail.dev.zoho.in",
-    ]) {
-      expect(isZohoHost(sub, [sub])).toBe(false);
-    }
-  });
-
-  it("names its permitted override endpoints explicitly, all https", () => {
-    expect(ZOHO_OVERRIDE_CANDIDATES.length).toBeGreaterThan(8);
-    for (const endpoint of ZOHO_OVERRIDE_CANDIDATES) {
-      expect(endpoint).toMatch(/^https:\/\/[a-z0-9.-]+$/);
-      // An exact origin: no path, no port, no wildcard.
-      expect(new URL(endpoint).origin).toBe(endpoint);
-    }
-  });
-
-  it("will not let the escape hatch reach a non-Zoho host — third review, finding 3", () => {
-    // The hatch used to require only https, so ONE configuration line could
-    // point the refresh token and client secret at any host in the world. A
-    // typo and a malicious edit look identical in a diff; the allowlist exists
-    // so that no single edit can redirect a credential.
-    for (const evil of [
-      "https://collector.evil.example",
-      "https://zoho.eu.evil.example",
-      "https://notzoho.com",
-      "https://evil.example/zoho.eu",
-    ]) {
-      expect(isZohoHost(evil, [evil])).toBe(false);
-    }
-  });
-
-  it("still reaches the listed data-centre endpoints, which is what the hatch is for", () => {
-    for (const dc of ["https://mail.zoho.in", "https://accounts.zohocloud.ca", "https://www.zohoapis.jp"]) {
-      expect(isZohoHost(dc, [dc])).toBe(true);
-      expect(ZOHO_OVERRIDE_CANDIDATES).toContain(dc);
-    }
-  });
-
-  it("ignores an unparseable or credentialed entry in the hatch rather than trusting it", () => {
-    expect(isZohoHost("not a url", ["not a url"])).toBe(false);
-    expect(isZohoHost("https://mail.zoho.in", ["https://u:p@mail.zoho.in"])).toBe(false);
-  });
-
-  it("matches the origin only — a path, query or port cannot change the verdict", () => {
-    expect(isZohoHost("https://mail.zoho.eu/api/accounts")).toBe(true);
-    expect(isZohoHost("https://mail.zoho.eu:8443")).toBe(false);
-    expect(isZohoHost("https://evil.example/#https://mail.zoho.eu")).toBe(false);
-  });
-
-  it("exports the allowlist so the configuration document cannot drift from it", () => {
-    expect(ZOHO_ALLOWED_ORIGINS).toContain("https://accounts.zoho.eu");
-    expect(ZOHO_ALLOWED_ORIGINS.every((o: string) => o.startsWith("https://"))).toBe(true);
-  });
-
-  it("will not post the refresh token and client secret to a non-Zoho accounts host", async () => {
+  it("will not post the refresh token and client secret to a non-accounts host", async () => {
     const calls: Call[] = [];
     const fetch: HttpFetch = async (url, init) => {
       calls.push({ url, init });
       return { status: 200, text: async () => "{}" };
     };
-    const src = new RefreshTokenSource({
-      accountsHost: "https://harvester.evil.example",
-      clientId: "cid",
-      clientSecret: "the-secret",
-      refreshToken: "the-refresh-token",
-      fetch,
-    });
-    expect(await src.token()).toBeUndefined();
-    // The point: nothing left the process.
+    for (const host of ["https://harvester.evil.example", "https://mail.zoho.eu"]) {
+      const src = new RefreshTokenSource({
+        accountsHost: host,
+        clientId: "cid",
+        clientSecret: "the-secret",
+        refreshToken: "the-refresh-token",
+        fetch,
+      });
+      expect(await src.token()).toBeUndefined();
+    }
+    // The point: nothing left the process, for either.
     expect(calls).toEqual([]);
   });
 });

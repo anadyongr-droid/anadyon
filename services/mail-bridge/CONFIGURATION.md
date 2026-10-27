@@ -55,14 +55,24 @@ ZOHO_REFRESH_TOKEN=
 # the EU one, since the MX records are mx*.zoho.eu:
 #   https://accounts.zoho.eu
 # Checked against an EXACT origin allowlist before the client secret and
-# refresh token reach a request body. The permitted origins are
-# ZOHO_ALLOWED_ORIGINS in lib/zohoApi.ts: accounts.zoho.eu, mail.zoho.eu,
-# www.zohoapis.eu, api.zoho.eu. Anything else is refused, including other Zoho
-# data centres — moving data centre is a deliberate code change, not something
-# the allowlist already quietly permits.
-# The API host is NOT configured here on purpose — the client reads api_domain
-# from the token response, per Zoho's multi-data-centre guidance, and refuses
-# to send if it is absent rather than guessing a data centre.
+# refresh token reach a request body. **There are two allowlists, not one**, and
+# they reject each other's members:
+#
+#   accounts  — where the OAuth exchange may go, so where the CLIENT SECRET and
+#               REFRESH TOKEN go. Default: https://accounts.zoho.eu
+#   api       — where a Mail API call may go, so where the BEARER TOKEN goes.
+#               Default: https://mail.zoho.eu, https://www.zohoapis.eu,
+#               https://api.zoho.eu
+#
+# Zoho documents these separately — the accounts servers on the multi-data-centre
+# page, the Mail API base addresses in the Mail API docs — and a single combined
+# list used to accept either for either. Setting this to https://mail.zoho.eu was
+# accepted, and the first thing that happens on that host is a POST carrying the
+# client secret.
+#
+# Moving data centre is a deliberate override naming an endpoint from the written
+# candidate lists in lib/zohoApi.ts, per class; anything not on the list is
+# ignored rather than trusted, including an origin of the other class.
 ZOHO_ACCOUNTS_HOST=
 
 # ---------------------------------------------------------------------------
