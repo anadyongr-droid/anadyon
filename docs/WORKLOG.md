@@ -22,6 +22,26 @@ wrong place.
 One subject, one incident. Detail in
 [`worklog/2026-10-27-claude.md`](worklog/2026-10-27-claude.md).
 
+**Then a self-audit before asking for a third review, and it found five more
+defects and six unasserted properties (W70).** Two rounds had found twelve
+findings in code I had read carefully, and two of my own tests had asserted the
+defect they were written to catch, so the audit has an instrument in it:
+`services/mail-bridge/audit/mutation-sweep.mjs` turns each control off in turn
+and requires the suite to fail, so **a surviving mutation is a property the code
+claims and nothing asserts**. The first run left six survivors — one of them my
+own test for a defect Codex had found, which exercised the wrong branch and
+would have passed against the bug. **61 mutations, 0 surviving now**, 236 tests
+in the service. The two serious defects: **`handleStatus` reported an unknown
+delivery as a flat `sent: false`**, about the one outcome meaning we cannot
+tell, so anyone acting on it would resend — and neither review covered the
+status path, both read the send path; and **the attachment blocklist could be
+stepped around four ways**, `evil.exe.` and `evil.exe ` among them, because
+Windows strips trailing dots and spaces. Most transferable finding: **two
+redundant guards made each other untestable** — each masked the other, so
+removing either failed no test. Detail in
+[`worklog/2026-10-27-claude-self-audit.md`](worklog/2026-10-27-claude-self-audit.md).
+**W68 is untouched: five more defects fixed is not a bridge.**
+
 **Then Codex re-reviewed and found two more defects, both fixed** — W68, W69,
 head `8ef1f21`, 213 tests in the service. **The first was mine twice over:** the
 fix for review finding 7 made an expired claim lease *re-admittable*, which

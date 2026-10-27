@@ -344,6 +344,19 @@ describe("the corporate send never falls back to Gmail's own Send", () => {
     expect(retry).toMatchObject({ sent: true, deduplicated: true, key: first.key });
   });
 
+  it("requires sent: true even if the messenger claims ok — defence in depth", async () => {
+    // Found by mutation sweep: relayClient already guarantees ok implies
+    // sent: true, so this layer's own check was unasserted. It matters because
+    // the messenger is injected: a different one, or a future change to
+    // relayClient, must not be able to turn a non-send into a send here.
+    const send = async () => ({ ok: true, status: 200, body: {} });
+    const result = await submitCorporateSend({ subject: "x" }, { send, idempotencyKey: "abcdef0123456789abcdef0123456789" });
+    expect(result.sent).toBe(false);
+
+    const lying = async () => ({ ok: true, status: 200, body: { sent: "yes" } });
+    expect((await submitCorporateSend({ subject: "x" }, { send: lying, idempotencyKey: "abcdef0123456789abcdef0123456789" })).sent).toBe(false);
+  });
+
   it("mentions neither Gmail's send nor any fallback path in its source", () => {
     const source = read("corporateSend.js");
     // A guard against the convenient edit, not a proof: the tests above are

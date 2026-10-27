@@ -65,7 +65,11 @@ enforces that.
 | A build step inlining the extension modules into `content.js` | **not built** |
 | Attachment upload | **cannot be built** without widening the request type — see below |
 
-**208 tests.** `npx vitest run services/mail-bridge/`.
+**236 tests.** `npx vitest run services/mail-bridge/`.
+
+**61 mutations, 0 surviving.** `node services/mail-bridge/audit/mutation-sweep.mjs`
+turns each control off in turn and requires the suite to fail. See
+[`audit/mutation-sweep.mjs`](audit/mutation-sweep.mjs) for why it exists.
 
 ## The order of the checks is the design
 
@@ -229,6 +233,56 @@ sets itself is the robust answer and is unavailable for the same reason
 `In-Reply-To` is. The module takes the identifier as data. And our own privacy
 decision costs the easy key: the audit row stores `subjectLength`, not the
 subject, so matching by subject is deliberately impossible.
+
+## The self-audit, 27 October — five defects, and six properties nothing asserted
+
+Run before asking for a third review, because two rounds of findings had
+established that reading my own code was not catching things.
+
+**The instrument.** [`audit/mutation-sweep.mjs`](audit/mutation-sweep.mjs)
+applies 61 plausible defects one at a time and requires the suite to fail for
+each. It exists because re-breaking a fix by hand proves a control is
+*reachable* and says nothing about whether the assertion is right — and this
+service had already shipped two tests that asserted the defect they were
+written to catch. The first run left **six survivors**: six properties the code
+claims and no test asserted. All six are closed.
+
+**Five defects found by reading, the first two serious:**
+
+1. **The status endpoint reported an unknown delivery as `200 { sent: false }`**
+   — a flat statement that the message was not sent, about the one outcome that
+   means *we cannot tell*. Anyone acting on it would resend. It also answered
+   404 both for a key nobody had claimed and for one still in flight, so a
+   person checking on a send in progress was told it did not exist. `sent` is
+   now emitted only when the answer is definite, and `state` plus `guidance`
+   carry the rest. **Neither review covered the status path**; both looked at
+   the send path.
+2. **The attachment blocklist could be stepped around four ways.**
+   `evil.exe.` read as having no extension — and Windows strips a trailing dot,
+   so the saved file is `evil.exe`. `evil.exe ` read as `"exe "`, and Windows
+   strips trailing spaces too. `evil.exe..` the same. `evil.exe\u0000.pdf` read
+   as a PDF while a C-string parser downstream sees `evil.exe`. Filenames with
+   control characters or path separators are now refused outright, trailing dots
+   and whitespace are stripped before splitting, and **every** extension segment
+   is checked rather than the last.
+3. **`a@b@c.gr` passed as one address**, in a regex whose stated job is rejecting
+   what could smuggle a second recipient. Control characters in the local part
+   passed too.
+4. **`lookup` was dead code holding a live-looking security check.** `inspect`
+   replaced every caller, so its user-scoping test was unreachable — an
+   unreachable security check is worse than none, because it reads as protection
+   while protecting nothing. Deleted.
+5. **Two redundant guards made each other untestable.** `isZohoHost` checked the
+   protocol *and* filtered the allowlist to https entries; each masked the
+   other, so removing either changed no behaviour and failed no test. One gate
+   now, and the credential check beside it — which is **not** redundant, because
+   `url.origin` omits userinfo, so `https://user:pass@mail.zoho.eu` has a
+   permitted origin.
+
+Two stale comments were corrected as well: one claimed threading headers were
+preserved, which stopped being true when the trapdoor was removed, and
+`maxRecipients: 20` needed saying out loud that the client's effective limit is
+1 until somebody proves otherwise.
 
 ## What this is not: a re-review found two more defects, and the honest status
 

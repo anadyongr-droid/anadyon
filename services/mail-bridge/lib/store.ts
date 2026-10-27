@@ -68,6 +68,13 @@ import type { RelayLimits } from "./sendRequest";
 /** Proof that the holder owns a claim. Checked on settle and release. */
 export type FencingToken = string;
 
+export type InspectResult =
+  /** No claim by this user for this key. Safe to read as "never submitted". */
+  | { readonly state: "unknown_key" }
+  /** Claimed and not finished. **Not** safe to read as "not sent". */
+  | { readonly state: "in_flight" }
+  | { readonly state: "settled"; readonly outcome: SendOutcome };
+
 export type AdmitResult =
   /** This caller owns the send and must proceed. The token proves it. */
   | { readonly state: "claimed"; readonly token: FencingToken }
@@ -132,8 +139,22 @@ export interface BridgeStore {
   release(idempotencyKey: string, token: FencingToken): Promise<void>;
   /** The kill switch, read at runtime on every send. False means refuse. */
   isSendingEnabled(): Promise<boolean>;
-  /** This user's settled outcome for this key, or undefined. */
-  lookup(idempotencyKey: string, userId: string): Promise<SendOutcome | undefined>;
+  /**
+   * The full state of this user's key.
+   *
+   * **This replaced a `lookup` that returned the settled outcome or
+   * `undefined`, and the replacement is the point.** `lookup` could not tell a
+   * key nobody had ever claimed from one mid-send, so `handleStatus` answered
+   * 404 to both and a person checking on a send in progress was told it did not
+   * exist. Distinguishing them is the difference between "wait" and "it never
+   * happened", and only one of those is safe to act on.
+   *
+   * `lookup` was then **deleted rather than left in place**: a mutation sweep
+   * showed its user-scoping check was unreachable once nothing called it, and
+   * an unreachable security check is worse than none — it reads as protection
+   * while protecting nothing.
+   */
+  inspect(idempotencyKey: string, userId: string): Promise<InspectResult>;
 }
 
 /**
@@ -290,10 +311,13 @@ export class InMemoryBridgeStore implements BridgeStore {
     return this.sendingEnabled;
   }
 
-  async lookup(idempotencyKey: string, userId: string): Promise<SendOutcome | undefined> {
+  async inspect(idempotencyKey: string, userId: string): Promise<InspectResult> {
     const existing = this.entries.get(idempotencyKey);
-    if (!existing || existing.userId !== userId) return undefined;
-    return existing.state === "settled" ? existing.outcome : undefined;
+    // Another user's key reads as unknown, exactly as it does everywhere else:
+    // a refusal that discloses nothing.
+    if (!existing || existing.userId !== userId) return { state: "unknown_key" };
+    if (existing.state === "in_flight") return { state: "in_flight" };
+    return { state: "settled", outcome: existing.outcome! };
   }
 
   /** The kill switch, as an operator would use it. */
