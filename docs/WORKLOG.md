@@ -22,6 +22,26 @@ wrong place.
 One subject, one incident. Detail in
 [`worklog/2026-10-27-claude.md`](worklog/2026-10-27-claude.md).
 
+**Codex's third review: four findings, all upheld and fixed (W71, W72) — and
+the first was about my own audit instrument.** Head `775c9ba`, 243 tests in the
+service, sweep now **63 run, 0 stale, 0 surviving** and exiting non-zero if
+either count rises. The mutation sweep exists to find controls that look
+protected and are not; four of its own mutations had gone stale when the code
+moved, so it printed `SKIP`, carried on, and reported *"61 mutations, 0
+survived"* — **and I repeated that figure to Tasos having read only the tail of
+the output, so the number was wrong when it was given.** Also: **a crashed send
+read as "in progress" for ever**, because lease expiry was evaluated only on the
+send path, so the status endpoint told the office to keep waiting for a message
+nobody would ever send; **`extraAllowedOrigins` required only `https://`**, so
+one configuration line could point the Zoho refresh token and client secret at
+any host — a typo and a malicious edit look identical in a diff; and
+**`PERMISSIONS.md` still named Gmail as the only permitted host** a review round
+after the relay origin was added, so the written baseline described a manifest
+that no longer existed. **The pattern across the three rounds is the finding:
+the failure moved one level up each time — the code, then the test, then the
+thing that checks the tests.** W71's list of unbuilt Stage 2 components is
+untouched and accurate.
+
 **Then a self-audit before asking for a third review, and it found five more
 defects and six unasserted properties (W70).** Two rounds had found twelve
 findings in code I had read carefully, and two of my own tests had asserted the

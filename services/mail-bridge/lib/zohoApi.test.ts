@@ -334,6 +334,32 @@ describe("credentials only go to Zoho hosts — review finding 8", () => {
     expect(isZohoHost("https://other.zoho.com", ["https://mail.zoho.com"])).toBe(false);
   });
 
+  it("will not let the escape hatch reach a non-Zoho host — third review, finding 3", () => {
+    // The hatch used to require only https, so ONE configuration line could
+    // point the refresh token and client secret at any host in the world. A
+    // typo and a malicious edit look identical in a diff; the allowlist exists
+    // so that no single edit can redirect a credential.
+    for (const evil of [
+      "https://collector.evil.example",
+      "https://zoho.eu.evil.example",
+      "https://notzoho.com",
+      "https://evil.example/zoho.eu",
+    ]) {
+      expect(isZohoHost(evil, [evil])).toBe(false);
+    }
+  });
+
+  it("still reaches other Zoho data centres, which is what the hatch is for", () => {
+    for (const dc of ["https://mail.zoho.in", "https://accounts.zohocloud.ca", "https://www.zohoapis.jp"]) {
+      expect(isZohoHost(dc, [dc])).toBe(true);
+    }
+  });
+
+  it("ignores an unparseable or credentialed entry in the hatch rather than trusting it", () => {
+    expect(isZohoHost("not a url", ["not a url"])).toBe(false);
+    expect(isZohoHost("https://mail.zoho.in", ["https://u:p@mail.zoho.in"])).toBe(false);
+  });
+
   it("matches the origin only — a path, query or port cannot change the verdict", () => {
     expect(isZohoHost("https://mail.zoho.eu/api/accounts")).toBe(true);
     expect(isZohoHost("https://mail.zoho.eu:8443")).toBe(false);

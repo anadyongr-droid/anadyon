@@ -65,11 +65,12 @@ enforces that.
 | A build step inlining the extension modules into `content.js` | **not built** |
 | Attachment upload | **cannot be built** without widening the request type — see below |
 
-**236 tests.** `npx vitest run services/mail-bridge/`.
+**243 tests.** `npx vitest run services/mail-bridge/`.
 
-**61 mutations, 0 surviving.** `node services/mail-bridge/audit/mutation-sweep.mjs`
-turns each control off in turn and requires the suite to fail. See
-[`audit/mutation-sweep.mjs`](audit/mutation-sweep.mjs) for why it exists.
+**63 mutations: 63 run, 0 stale, 0 surviving**, and the sweep **exits non-zero**
+if any mutation goes stale or survives. `node services/mail-bridge/audit/mutation-sweep.mjs`.
+See [`audit/mutation-sweep.mjs`](audit/mutation-sweep.mjs) for why it exists —
+including why a stale mutation is a failure rather than a note.
 
 ## The order of the checks is the design
 
@@ -233,6 +234,41 @@ sets itself is the robust answer and is unavailable for the same reason
 `In-Reply-To` is. The module takes the identifier as data. And our own privacy
 decision costs the easy key: the audit row stores `subjectLength`, not the
 subject, so matching by subject is deliberately impossible.
+
+## Codex's third review — four findings, and the first was about my own audit
+
+Reviewed at `ed710a4`. The two earlier runtime defects were confirmed fixed; all
+four new findings were upheld.
+
+**1. The mutation sweep was doing the thing it exists to catch.** Four mutations
+had gone stale when the code they targeted was rewritten. The sweep printed
+`SKIP` for each, carried on, and reported *"61 mutations, 0 survived"* — so four
+controls were unmutated while the summary implied otherwise. **I then repeated
+that number** without reading the whole output. A stale pattern now **exits
+non-zero**, the summary counts run / stale / survived separately, and a
+self-test confirms the exit code. There is no version of this finding that
+flatters me: an instrument built to find "looks protected, isn't" had exactly
+that defect, and I published its output as a result.
+
+**2. A crashed send read as "in progress" for ever.** Lease expiry was evaluated
+only inside `admit`, so a status read of a key whose worker had died answered
+`in_flight` indefinitely — and `handleStatus` turns that into *"still being
+sent, wait rather than resending"*. A message nobody will ever send, telling the
+office to keep waiting. `admit` and `inspect` now share one `resolveExpired`,
+because the two disagreeing *is* the defect.
+
+**3. The `extraAllowedOrigins` escape hatch reached any HTTPS host.** It
+required only `https://`, so one configuration line could point Anadyon's
+refresh token and client secret anywhere. My defence — that it is a deliberate,
+reviewable line — does not hold: a typo and a malicious edit look identical in a
+diff, and the point of an allowlist is that no single edit can redirect a
+credential. The hatch now reaches **other Zoho data centres only**, which is the
+case it exists for.
+
+**4. `PERMISSIONS.md` still said Gmail was the only permitted host**, a whole
+review round after the relay origin was added. The written baseline was
+describing a manifest that no longer existed. A test now fails if the document
+and the manifest disagree, because a baseline nobody checks is not a baseline.
 
 ## The self-audit, 27 October — five defects, and six properties nothing asserted
 

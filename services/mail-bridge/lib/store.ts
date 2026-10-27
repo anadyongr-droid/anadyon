@@ -153,8 +153,16 @@ export interface BridgeStore {
    * showed its user-scoping check was unreachable once nothing called it, and
    * an unreachable security check is worse than none — it reads as protection
    * while protecting nothing.
+   *
+   * **It takes `now` because it must evaluate the lease, and the first version
+   * did not.** Codex's third review: expiry was checked only inside `admit`, so
+   * a worker that crashed mid-send left `inspect` answering `in_flight`
+   * forever — and `handleStatus` turns that into *"still being sent, wait
+   * rather than resending"*. A message nobody will ever send, telling the
+   * office to keep waiting, indefinitely. Both operations now resolve an
+   * expired claim the same way, through `resolveExpired`.
    */
-  inspect(idempotencyKey: string, userId: string): Promise<InspectResult>;
+  inspect(idempotencyKey: string, userId: string, now: number): Promise<InspectResult>;
 }
 
 /**
@@ -224,6 +232,25 @@ export class InMemoryBridgeStore implements BridgeStore {
 
   private nextToken = 0;
 
+  /**
+   * Settles a claim that outlived its lease, and reports whether it did.
+   *
+   * **One place, used by both `admit` and `inspect`**, because the two
+   * disagreeing is precisely the defect Codex's third review found: expiry
+   * evaluated on the send path only, so a status read of a crashed send said
+   * `in_flight` for ever.
+   *
+   * An expired claim is **resolved as unknown, never re-admitted**: the
+   * previous worker may already have reached Zoho, and Zoho cannot deduplicate
+   * what it never received a key for.
+   */
+  private resolveExpired(idempotencyKey: string, entry: Entry, now: number): boolean {
+    if (entry.state !== "in_flight") return false;
+    if (now - entry.claimedAt < this.leaseMs) return false;
+    this.entries.set(idempotencyKey, { ...entry, state: "settled", outcome: EXPIRED_CLAIM_OUTCOME });
+    return true;
+  }
+
   async admit(
     idempotencyKey: string,
     userId: string,
@@ -237,17 +264,7 @@ export class InMemoryBridgeStore implements BridgeStore {
       // about whether it was sent, or to whom.
       if (existing.userId !== userId) return { state: "in_flight" };
       if (existing.state === "settled") return { state: "settled", outcome: existing.outcome! };
-      if (now - existing.claimedAt < this.leaseMs) return { state: "in_flight" };
-
-      // Past its lease. **Resolved as unknown, never re-admitted** — see
-      // re-review finding 1 in the header. The previous worker may already have
-      // reached Zoho, and Zoho cannot deduplicate what it never received a key
-      // for.
-      this.entries.set(idempotencyKey, {
-        ...existing,
-        state: "settled",
-        outcome: EXPIRED_CLAIM_OUTCOME,
-      });
+      if (!this.resolveExpired(idempotencyKey, existing, now)) return { state: "in_flight" };
       return { state: "settled", outcome: EXPIRED_CLAIM_OUTCOME };
     }
 
@@ -311,11 +328,14 @@ export class InMemoryBridgeStore implements BridgeStore {
     return this.sendingEnabled;
   }
 
-  async inspect(idempotencyKey: string, userId: string): Promise<InspectResult> {
+  async inspect(idempotencyKey: string, userId: string, now: number): Promise<InspectResult> {
     const existing = this.entries.get(idempotencyKey);
     // Another user's key reads as unknown, exactly as it does everywhere else:
     // a refusal that discloses nothing.
     if (!existing || existing.userId !== userId) return { state: "unknown_key" };
+    if (this.resolveExpired(idempotencyKey, existing, now)) {
+      return { state: "settled", outcome: EXPIRED_CLAIM_OUTCOME };
+    }
     if (existing.state === "in_flight") return { state: "in_flight" };
     return { state: "settled", outcome: existing.outcome! };
   }
