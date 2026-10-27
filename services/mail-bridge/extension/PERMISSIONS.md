@@ -31,9 +31,16 @@ promise, including 'never silently fall back to Gmail's native sender'"*. That
 is still true of the DOM work, and it is no longer true of the rest.
 `extension.test.ts` fails if:
 
-- `permissions` is anything but `["storage"]`, or `host_permissions` anything
-  but Gmail, or either optional-permission key appears — an optional permission
-  is a prompt at runtime that nobody reviews in a diff;
+- `permissions` is anything but `["storage"]`;
+- `host_permissions` is anything but **exactly two entries — Gmail first, then
+  the compiled relay origin** — or the second stops matching the `RELAY_ORIGIN`
+  constant in `background.js`, or either grant is not `https://`, or either
+  carries a wildcard subdomain. **This bullet said "anything but Gmail" for a
+  review round after the relay host was added**, which is the fourth review's
+  finding 2: a document whose job is to be the baseline a later change argues
+  against had itself drifted from the manifest;
+- either optional-permission key appears — an optional permission is a prompt at
+  runtime that nobody reviews in a diff;
 - the CSP stops naming `script-src 'self'`, or the manifest stops being MV3;
 - a declared script file is missing or renamed;
 - the relay origin stops being an `https://` constant in `background.js`, or

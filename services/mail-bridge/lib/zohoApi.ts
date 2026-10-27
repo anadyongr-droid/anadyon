@@ -76,30 +76,65 @@ export const ZOHO_EU_ACCOUNTS_HOST = "https://accounts.zoho.eu";
  * required: `http` is not merely downgraded, it is refused.
  */
 /**
- * The registrable domains Zoho operates. An `extraAllowedOrigins` entry must
- * be under one of these — **Codex's third review, finding 3**: the escape hatch
- * required only `https://`, so one configuration line could point Anadyon's
- * refresh token and client secret at any HTTPS host in the world. "A deliberate,
- * reviewable line" is not a control; a typo and a malicious edit look identical
- * in a diff, and the whole point of the allowlist is that no single edit should
- * be able to redirect a credential.
+ * **The explicit list of Zoho endpoints the override may name.** Fourth review,
+ * finding 1: the previous version matched any subdomain of a Zoho registrable
+ * domain, so `anything.zoho.eu` qualified. A suffix match is not an allowlist —
+ * it delegates the decision to whoever can get a hostname under the domain,
+ * and for a credential destination that is the wrong party.
  *
- * So the hatch now only reaches **other Zoho data centres**, which is the case
- * it exists for. Anything else needs a code change to this list, which is a
- * different kind of act.
+ * **What is verified and what is extrapolated**, per §8. Verbatim from Zoho's
+ * own pages, read 27 October: every `accounts.*` host below is from the
+ * multi-data-centre table; `mail.zoho.com` is the host in the send-message
+ * endpoint; `api.zoho.com`, `api.zoho.eu` and `www.zohoapis.in` are the
+ * `api_domain` examples. The remaining combinations are **extrapolated** from
+ * that pattern and are not individually documented.
+ *
+ * Extrapolation is safe in this direction because the failure is loud: an
+ * `api_domain` Zoho returns that is not on this list makes the send refuse with
+ * a named reason, rather than silently widening where a credential may go. If
+ * that ever happens the fix is one reviewed line here, which is the point —
+ * the list is the decision, not a shape that approximates it.
  */
-const ZOHO_REGISTRABLE_DOMAINS = Object.freeze([
-  "zoho.com", "zoho.eu", "zoho.in", "zoho.com.au", "zoho.jp",
-  "zohocloud.ca", "zoho.sa", "zoho.uk", "zoho.com.cn",
-  "zohoapis.com", "zohoapis.eu", "zohoapis.in", "zohoapis.com.au",
-  "zohoapis.jp", "zohoapis.ca", "zohoapis.sa", "zohoapis.uk",
+const ZOHO_KNOWN_ENDPOINTS = Object.freeze([
+  // Accounts — verbatim.
+  "https://accounts.zoho.com",
+  "https://accounts.zoho.eu",
+  "https://accounts.zoho.in",
+  "https://accounts.zoho.com.au",
+  "https://accounts.zoho.jp",
+  "https://accounts.zohocloud.ca",
+  "https://accounts.zoho.sa",
+  "https://accounts.zoho.uk",
+  // Mail and API — `mail.zoho.com`, `api.zoho.com`, `api.zoho.eu` and
+  // `www.zohoapis.in` verbatim; the rest of the matrix extrapolated.
+  "https://mail.zoho.com",
+  "https://mail.zoho.eu",
+  "https://mail.zoho.in",
+  "https://mail.zoho.com.au",
+  "https://mail.zoho.jp",
+  "https://mail.zohocloud.ca",
+  "https://mail.zoho.sa",
+  "https://mail.zoho.uk",
+  "https://api.zoho.com",
+  "https://api.zoho.eu",
+  "https://api.zoho.in",
+  "https://api.zoho.com.au",
+  "https://api.zoho.jp",
+  "https://api.zohocloud.ca",
+  "https://api.zoho.sa",
+  "https://api.zoho.uk",
+  "https://www.zohoapis.com",
+  "https://www.zohoapis.eu",
+  "https://www.zohoapis.in",
+  "https://www.zohoapis.com.au",
+  "https://www.zohoapis.jp",
+  "https://www.zohoapis.ca",
+  "https://www.zohoapis.sa",
+  "https://www.zohoapis.uk",
 ]);
 
-/** True when a host is, or is under, a domain Zoho operates. */
-function isZohoOwnedHost(hostname: string): boolean {
-  const host = hostname.toLowerCase();
-  return ZOHO_REGISTRABLE_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
-}
+/** Exposed so the configuration document and its tests cannot drift from it. */
+export const ZOHO_OVERRIDE_CANDIDATES = ZOHO_KNOWN_ENDPOINTS;
 
 const ZOHO_EU_ORIGINS = Object.freeze([
   "https://accounts.zoho.eu",
@@ -153,16 +188,12 @@ export function isZohoHost(candidate: string, extraAllowedOrigins: readonly stri
   // check above is merely redundant with the built-in list, which a mutation
   // sweep on 27 October showed: removing it changed no behaviour and failed no
   // test. A rule that cannot be violated is not a rule worth having.
-  // An extra origin must be https AND a Zoho host: the default list is exact
-  // EU origins, and the hatch widens it only to other Zoho data centres.
-  const vetted = extraAllowedOrigins.filter((o) => {
-    try {
-      const extra = new URL(o);
-      return extra.protocol === "https:" && !extra.username && !extra.password && isZohoOwnedHost(extra.hostname);
-    } catch {
-      return false;
-    }
-  });
+  // An extra origin must be one of the known Zoho endpoints, exactly. The
+  // default list is the four EU origins; the override lets an operator pick a
+  // different data centre from a written list and nothing else.
+  const vetted = extraAllowedOrigins
+    .map((o) => o.toLowerCase())
+    .filter((o) => ZOHO_KNOWN_ENDPOINTS.some((known) => known.toLowerCase() === o));
   const allowed = [...ZOHO_EU_ORIGINS, ...vetted].map((o) => o.toLowerCase());
   return allowed.includes(origin);
 }
