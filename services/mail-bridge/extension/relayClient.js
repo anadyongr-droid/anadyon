@@ -14,7 +14,20 @@
  * **The origin is passed in once, by the caller that knows it, and never read
  * from storage.** A configurable relay endpoint is an exfiltration target: a
  * compromised content script that could choose the destination could post the
- * composed message anywhere. `background.js` holds the one constant.
+ * composed message anywhere. `background.js` holds the one constant, and the
+ * manifest grants `host_permissions` for exactly that host — review finding 3,
+ * and Chrome's own documentation: a service worker "can talk to remote servers
+ * outside of its origin, as long as the extension requests host permissions".
+ * Without the grant the call is an ordinary cross-origin request that depends
+ * entirely on the relay's CORS headers being right, which is a dependency
+ * nobody should take on a send path.
+ *
+ * **What counts as a send, after review finding 4.** The first version returned
+ * `ok: response.ok`, so any 2xx — an empty body, a captive portal's HTML, a
+ * proxy's courtesy page — read as a successful send, and the compose layer
+ * told the user their message had gone. A send is now only a response that
+ * carries the relay's own `sent: true`. Anything else is a failure whatever
+ * its status code.
  */
 
 /** Only these three calls exist. A message naming anything else is not a request. */
@@ -79,12 +92,32 @@ export function createRelayClient({ origin, fetchImpl, getSession }) {
     }
 
     let body = {};
+    let parsed = false;
     try {
       body = await response.json();
+      parsed = body !== null && typeof body === "object" && !Array.isArray(body);
     } catch {
+      parsed = false;
       body = {};
     }
-    return { ok: response.ok === true, status: response.status, body };
+
+    // A 2xx is necessary and not sufficient. For a submit, the relay must have
+    // said `sent: true`; for the reads, the response must at least be the JSON
+    // object shape this client expects.
+    const httpOk = response.ok === true;
+    const ok =
+      message.kind === "submit"
+        ? httpOk && parsed && body.sent === true
+        : httpOk && parsed;
+
+    return {
+      ok,
+      status: response.status,
+      body: parsed ? body : {},
+      // Distinguishes "the relay refused" from "something answered and it was
+      // not the relay", which the user needs to be told differently.
+      unrecognised: httpOk && !ok,
+    };
   }
 
   return { call };

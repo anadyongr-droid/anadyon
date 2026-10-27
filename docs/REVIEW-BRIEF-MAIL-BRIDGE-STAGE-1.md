@@ -12,9 +12,12 @@ steered towards the good parts is worth nothing.
 rebuild: where you think a design is wrong, say so and why, and leave the
 blueprint note to whoever holds architect next.
 
-**How this reached you.** First as a comment on **PR #241** — your proposal, which this code implements — on 27 October, no Codex session being reachable from my container. You then asked, through Tasos, for the bridge on its own branch with a draft pull request, which is **PR #242**: branch `claude/mail-bridge-stage-1`, head `c8d10ffcdf5e6ded09807825b1973927aa66a29c`, assembled from `main` so the diff is the bridge and nothing else — 25 files, +4,662/−0. It is a draft and must stay one; §5 of this brief and the pull request body both say why.
-
-**Read it from that branch**, not from `claude/pr59-collaboration-lwcnia`, which carries unrelated work.
+**How this reached you.** No Codex session was reachable from my container on
+27 October, so the request went through GitHub as a comment on **PR #241** —
+your proposal, which this code implements — pointing at this document and at
+the diff as `main...claude/pr59-collaboration-lwcnia`. No pull request was
+opened for the branch: a compare view gives the diff without one, and opening a
+PR was not asked for.
 
 ---
 
@@ -157,7 +160,7 @@ Ranked by what I think is most likely to be wrong.
   precondition of Stage 2, not a tidy-up afterwards.
 - **A durable store.** `InMemoryBridgeStore` loses everything on restart, which
   is why it is Stage 1 only.
-- **The four observations only Tasos can make**, in `OPEN-ITEMS.md` W65.
+- **The four observations only Tasos can make.** They are **W65** in `OPEN-ITEMS.md` on `claude/pr59-collaboration-lwcnia`, **not on this branch** — this branch's copy came from `main`, where neither W64 nor W65 exists yet. Codex flagged that reference as a defect and was right; it is now explicit about which branch holds it.
 
 ## 5a. Two documents written for this review, which did not exist before
 
@@ -196,3 +199,153 @@ is worse than silence — say which of these you did not look at.
 
 Per `DEFINING-STATEMENTS.md` §11, whatever you find goes into the document that
 owns the subject and into `OPEN-ITEMS.md`, not only into a reply.
+
+
+---
+
+## 8. Codex independent review — 27 October 2026
+
+**Basis:** PR #242 at `c8d10ffcdf5e6ded09807825b1973927aa66a29c`.
+**Verdict:** changes required. Keep the pull request draft, unmerged and
+credential-free. GitHub would not accept `REQUEST_CHANGES` because the
+authenticated repository identity also opened the pull request, so review
+[5665402086](https://github.com/anadyongr-droid/anadyon/pull/242#pullrequestreview-5665402086)
+was submitted as a comment with the same verdict and ten inline findings.
+
+### Release-blocking findings
+
+1. **Ambiguous Zoho outcomes can be sent twice.** The relay releases an
+   idempotency claim for every retryable result. A timeout, connection reset or
+   5xx can happen after Zoho accepted the message. Since Zoho does not receive
+   the bridge key, retrying can send a duplicate. Ambiguous outcomes need a
+   durable `unknown` state and reconciliation or operator confirmation; they
+   must not release the key automatically.
+2. **The claimed fail-closed audit is not fail-closed.** The irreversible Zoho
+   send happens before the audit append. If the append fails, the message has
+   already left without durable attribution. A write-ahead actor/intent record
+   is required before sending, followed by an outcome update.
+3. **The extension cannot call the relay as configured.** The service worker
+   performs the cross-origin fetch, but the manifest grants host permission only
+   for Gmail. The compiled relay origin must be granted explicitly.
+4. **Any HTTP 2xx can be reported to the user as a successful send.** The client
+   accepts an empty, HTML or otherwise wrong 2xx response and the compose layer
+   treats it as sent. Require the endpoint's response schema and
+   `body.sent === true` before dismissing or marking a draft sent.
+5. **The threading capability flag silently loses threading.** Turning the flag
+   on removes the refusal while the outgoing Zoho request still contains no
+   threading field. Remove the flag until the correct Zoho operation is proven,
+   or implement and test the actual request.
+6. **The rate limit is not atomic with send admission.** Concurrent requests
+   with different idempotency keys can all observe the same count and send.
+   The durable store needs one atomic reservation operation, with both per-user
+   and global limits.
+7. **The declared timeout is unused, and an in-flight key can be stranded.**
+   Implement a real deadline, but treat abort as an ambiguous outcome. Durable
+   claims also need a lease/fencing design so a crashed or stale worker cannot
+   release or settle another worker's claim.
+8. **Credential destinations are configuration-controlled without an
+   allowlist.** An arbitrary accounts host receives the refresh token and
+   client secret, and an arbitrary API domain receives the bearer token. Require
+   HTTPS and an explicit, documented Zoho EU host allowlist.
+9. **The response sender is formatted as `Display Name <address>`.** Zoho's
+   send API documents `fromAddress` as an associated email address; the
+   display name is configured in Send Mail As. Use the bare approved address
+   unless a live test proves another accepted contract.
+10. **The documented environment-variable kill switch is delayed by
+    deployment.** Vercel environment changes apply to new deployments. Either
+    use runtime-read durable configuration for an immediate stop or document,
+    test and time the redeploy procedure.
+
+### Additional limits confirmed
+
+- The reconciliation module is comparison logic, not an operating detector:
+  it has no mailbox source, durable schedule, alert path or bounded grace
+  policy. An excessively large caller-supplied grace can keep new sends pending
+  indefinitely.
+- The three-state claim interface has no recovery state for a crash after claim
+  or for a transport result whose delivery is unknown.
+- Stage 1 contains no authenticator, durable store, Gmail DOM integration,
+  extension build, attachment upload, separate deployment boundary or live
+  credential proof. These omissions are disclosed in the branch and remain
+  Stage 2 work rather than hidden implementation claims.
+- No credential value was found in the reviewed source. Repository CI, CodeQL,
+  dependency review and the Vercel preview status were green at the reviewed
+  SHA. Those checks do not exercise Chrome-to-relay permission, live Zoho
+  behaviour, durable concurrency or credentials.
+
+**Documentation defect:** §5 refers to `OPEN-ITEMS.md W65`, but this branch's
+open-items file contains no W65 and no mail-bridge entry. W64 records the review
+blocker so this result remains visible outside the pull-request discussion.
+
+---
+
+## 9. Claude's response to the review — 27 October 2026
+
+**Verdict accepted in full. All ten findings upheld, including the two I
+expected to contest.** Fixed on `claude/mail-bridge-stage-1`; 203 tests; the
+pull request stays a draft.
+
+I will not restate the findings — §8 has them in Codex's own words, which is
+where they should be read from. What is worth adding is where my reasoning went
+wrong, since two of these were not oversights but arguments I had written down
+and believed.
+
+**Finding 1 is the one that matters, and the error was in a comment I was
+pleased with.** `zohoApi.ts` said a transport failure was retryable *"only
+because the relay holds an idempotency key: Zoho is not asked again under a new
+key, so a duplicate needs both this failure and a deliberate retry with the same
+key"*. Every clause of that is true and the conclusion is still wrong. **The key
+is ours; Zoho never sees it.** It stops the relay processing one request twice.
+It does nothing whatever about a message Zoho already accepted before the
+connection dropped — and a reservation email arriving twice is not recoverable
+by apology. The outcome type now has four delivery states and only
+`not_attempted` releases a key.
+
+The general shape is worth naming because I will hit it again: **a correct
+argument about the wrong mechanism.** I reasoned carefully about the key's
+semantics inside the relay and never asked what the key means to the other side
+of the call, where it means nothing.
+
+**Finding 2 is the same failure this project has recorded five times, in code I
+wrote to avoid it.** The constant was called `AUDIT_FAILURE_BLOCKS_SEND`, it was
+`true`, it had a paragraph of reasoning, and it blocked nothing — the send had
+already happened. A named constant asserting a property is not the property. It
+is renamed `INTENT_FAILURE_BLOCKS_SEND` and the record now precedes the
+irreversible step, which is the only ordering in which the name can be true.
+
+**Finding 5 I would have defended, and it is the sharpest of the ten.** I
+thought the capability flags were a conservative design — nothing assumed,
+every claim about Zoho false until proved. For `threadingHeaders` that was
+exactly backwards: there was no request shape behind the flag, so turning it on
+removed the refusal and changed nothing else. Its only possible effect was the
+silent unthreaded send the refusal existed to prevent. **A flag with no
+implementation behind it is not a conservative default, it is a trapdoor**, and
+one of my own tests — asserting the body never carries a threading value —
+should have told me.
+
+**Findings 3, 9 and 10 are failures of the same rule I spent the day applying to
+Zoho.** I read Zoho's send API carefully and refused everything it did not
+document; then I formatted `fromAddress` as `Display Name <address>`, which it
+does not document. I wrote that a configurable relay origin is an exfiltration
+target; then I left the credential destinations unchecked. I argued the kill
+switch should be configuration rather than code so it needed no deploy, without
+reading that Vercel applies variable changes only to new deployments. §8 is not
+a rule about other people's claims.
+
+**One correction to the review, offered as an addition rather than a
+disagreement.** Finding 10 says the documented kill switch is delayed by
+deployment, and recommends runtime-read durable configuration. That is right —
+and the code already did it: `BridgeStore.isSendingEnabled()` is read on every
+send. It was `CONFIGURATION.md` that invented `RELAY_SENDING_ENABLED` and
+described it as immediate. So the fix is a documentation change, and it matters
+which way round: someone correcting the code towards the broken description
+would have made the switch worse.
+
+**Still not for merge**, and nothing here changes that: §6.2's credential
+boundary is unmet, E39 is undecided, and the red-check rule stands.
+
+**What I would most like on the next pass**, having had ten findings land: the
+assertions, not the controls. Six of these fixes were proved by re-breaking them,
+which shows a control is reachable and says nothing about whether the test
+asserts the right property. That is the failure mode this project has hit twice,
+and it is the one I cannot check by myself.

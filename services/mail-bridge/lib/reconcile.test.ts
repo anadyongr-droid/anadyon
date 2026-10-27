@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_GRACE_MS,
   isMatchable,
   reconcile,
   type AuditedSend,
@@ -137,6 +138,35 @@ describe("the grace period distinguishes 'not yet' from 'missing'", () => {
     expect(report.matched).toBe(1);
     expect(report.pending).toHaveLength(1);
     expect(report.summary).toContain("too recent to judge");
+  });
+});
+
+describe("the detector's own configuration cannot silence it", () => {
+  it("clamps an excessive grace rather than holding every send pending forever", () => {
+    // Codex's review: a large caller-supplied grace keeps everything `pending`,
+    // so the detector reports `inconclusive` indefinitely — the one state that
+    // looks like nothing is wrong.
+    // Older than the clamp, younger than the grace the caller asked for: with
+    // the clamp it is judged, without it it would be pending forever.
+    const report = reconcile(
+      input({
+        audited: [sent({ at: NOW - MAX_GRACE_MS - 1000 })],
+        officeCopies: listed(),
+        graceMs: 365 * 24 * 3600 * 1000,
+      }),
+    );
+    expect(report.status).toBe("diverged");
+    expect(report.pending).toEqual([]);
+    expect(report.inconclusiveBecause.join(" ")).toContain("clamped");
+  });
+
+  it("clamps a negative grace to zero rather than treating it as the future", () => {
+    const report = reconcile(input({ graceMs: -1 }));
+    expect(report.status).toBe("ok");
+  });
+
+  it("does not mention clamping when the grace is reasonable", () => {
+    expect(reconcile(input()).inconclusiveBecause).toEqual([]);
   });
 });
 

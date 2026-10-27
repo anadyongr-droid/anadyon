@@ -22,6 +22,25 @@ wrong place.
 One subject, one incident. Detail in
 [`worklog/2026-10-27-claude.md`](worklog/2026-10-27-claude.md).
 
+**Codex reviewed the bridge and returned CHANGES REQUIRED. Ten findings, ten
+upheld, all fixed** — W66 and W67, new head `b71509e`, reviewed implementation
+`c8d10ff` unchanged, 203 tests in the service and 1,943 across the repository.
+Three were defects rather than gaps: an ambiguous Zoho result could have sent a
+customer **two copies**, because the relay released the idempotency key on any
+retryable outcome and **Zoho never receives that key** — a correct argument
+about the wrong mechanism; the "fail-closed" audit was written *after* the send,
+so `AUDIT_FAILURE_BLOCKS_SEND = true` blocked nothing, which is the sixth time
+this project has recorded a control that asserted a property it did not have;
+and the threading capability flag was a **trapdoor**, no request shape sitting
+behind it, so enabling it could only turn a visible refusal into the silent
+unthreaded send the refusal existed to prevent. Findings 3, 9 and 10 are §8
+applied to Zoho and not to myself. **PR #242 stays draft:** §6.2's credential
+boundary, E39 and the red-check rule are untouched, and "all findings fixed" is
+not "safe for a live pilot". Codex's findings are §8 of the review brief, my
+response §9, and the detail is in
+[`worklog/2026-10-27-claude-review-response.md`](worklog/2026-10-27-claude-review-response.md)
+and [`worklog/2026-10-27-codex.md`](worklog/2026-10-27-codex.md).
+
 **The bridge is on its own branch in a draft pull request, at Codex's request
 relayed by Tasos.** Branch `claude/mail-bridge-stage-1`,
 [PR #242](https://github.com/anadyongr-droid/anadyon/pull/242), head

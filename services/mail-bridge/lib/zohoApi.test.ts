@@ -7,6 +7,7 @@ import {
   buildSendBody,
   classify,
   extractMessageId,
+  isZohoHost,
   type HttpFetch,
   type TokenSource,
   type ZohoCapabilities,
@@ -42,7 +43,7 @@ const recording = (status = 200, body = '{"data":{"messageId":"zm-1"}}') => {
   return { calls, fetch };
 };
 
-const proven: ZohoCapabilities = { multipleRecipientsPerField: true, threadingHeaders: true, attachments: true };
+const proven: ZohoCapabilities = { multipleRecipientsPerField: true, attachments: true };
 
 describe("the request body matches what Zoho documents", () => {
   it("uses the documented field names and nothing else", () => {
@@ -63,8 +64,11 @@ describe("the request body matches what Zoho documents", () => {
     expect(buildSendBody(send({ html: "<p>x</p>", text: undefined })).mailFormat).toBe("html");
   });
 
-  it("carries the display name from the allowlist, never a bare address when one is configured", () => {
-    expect(buildSendBody(send()).fromAddress).toBe("Anadyon <customerservice@anadyon.gr>");
+  it("sends the bare associated address, which is what Zoho documents — review finding 9", () => {
+    // The first version sent `Display Name <address>`. Zoho documents
+    // `fromAddress` as the sender address belonging to the authenticated
+    // account; the display name is configured in Send Mail As, not per message.
+    expect(buildSendBody(send()).fromAddress).toBe("customerservice@anadyon.gr");
   });
 
   it("never carries a threading field, because Zoho documents none", () => {
@@ -101,6 +105,19 @@ describe("what is undocumented is refused, not guessed", () => {
     expect(calls).toEqual([]);
   });
 
+  it("refuses threading even with every capability enabled — review finding 5", async () => {
+    // The first version had a `threadingHeaders` flag. Turning it on removed
+    // this refusal while `buildSendBody` still emitted no threading field, so
+    // its only effect was to produce the silent unthreaded send the refusal
+    // existed to prevent. There is no longer a flag to turn on.
+    const { calls, fetch } = recording();
+    const client = new ZohoApiMailClient({ accountId: "1", tokens: tokens(), fetch, capabilities: proven });
+    expect((await client.send(send({ inReplyTo: "<a@b>" }))).ok).toBe(false);
+    expect((await client.send(send({ references: "<a@b>" }))).ok).toBe(false);
+    expect(calls).toEqual([]);
+    expect(Object.keys(proven)).not.toContain("threadingHeaders");
+  });
+
   it("refuses References for the same reason", async () => {
     const { fetch } = recording();
     const client = new ZohoApiMailClient({ accountId: "1", tokens: tokens(), fetch });
@@ -131,8 +148,8 @@ describe("what is undocumented is refused, not guessed", () => {
     expect(JSON.parse(calls[0].init.body).toAddress).toBe("a@example.com,b@example.com");
   });
 
-  it("starts with nothing proved", () => {
-    expect(NOTHING_PROVEN).toEqual({ multipleRecipientsPerField: false, threadingHeaders: false, attachments: false });
+  it("starts with nothing proved, and has no threading flag at all", () => {
+    expect(NOTHING_PROVEN).toEqual({ multipleRecipientsPerField: false, attachments: false });
   });
 });
 
@@ -149,7 +166,7 @@ describe("the request itself", () => {
     const client = new ZohoApiMailClient({ accountId: "1", tokens: tokens("t", ""), fetch });
     const outcome = await client.send(send());
     expect(outcome.ok).toBe(false);
-    expect(outcome.ok === false && outcome.retryable).toBe(false);
+    expect(outcome.ok === false && outcome.delivery).toBe("not_attempted");
     expect(calls).toEqual([]);
   });
 
@@ -159,19 +176,22 @@ describe("the request itself", () => {
     expect(calls[0].init.headers.Authorization).toBe("Zoho-oauthtoken secret-tok");
   });
 
-  it("treats a missing token as retryable, because the next refresh may succeed", async () => {
+  it("reports a missing token as not_attempted, because no request was made", async () => {
     const { fetch } = recording();
     const none: TokenSource = { async token() { return undefined; } };
     const outcome = await new ZohoApiMailClient({ accountId: "1", tokens: none, fetch }).send(send());
-    expect(outcome.ok === false && outcome.retryable).toBe(true);
+    expect(outcome.ok === false && outcome.delivery).toBe("not_attempted");
   });
 
-  it("treats a thrown transport as retryable and says nothing about the cause", async () => {
+  it("reports a thrown transport as UNKNOWN, not as a failure — review finding 1", async () => {
+    // The reset can land after Zoho accepted the message, and Zoho never sees
+    // the relay's idempotency key, so calling this retryable invites a second
+    // copy to the customer.
     const fetch: HttpFetch = async () => {
       throw new Error("ECONNRESET to mail.zoho.eu with token abc123");
     };
     const outcome = await new ZohoApiMailClient({ accountId: "1", tokens: tokens(), fetch }).send(send());
-    expect(outcome.ok === false && outcome.retryable).toBe(true);
+    expect(outcome.ok === false && outcome.delivery).toBe("unknown");
     expect(JSON.stringify(outcome)).not.toContain("abc123");
     expect(JSON.stringify(outcome)).not.toContain("ECONNRESET");
   });
@@ -189,16 +209,107 @@ describe("the request itself", () => {
   });
 });
 
-describe("status classification decides whether a key may be spent again", () => {
-  it("only a server error and a transport failure are retryable", () => {
-    expect(classify(200)).toMatchObject({ ok: true });
-    expect(classify(201)).toMatchObject({ ok: true });
-    for (const status of [400, 401, 403, 404, 418]) {
-      expect(classify(status)).toMatchObject({ ok: false, retryable: false });
+describe("status classification decides whether a duplicate is possible", () => {
+  it("only the four definite refusals are rejections", () => {
+    expect(classify(200).delivery).toBe("sent");
+    expect(classify(201).delivery).toBe("sent");
+    for (const status of [400, 401, 403, 404]) {
+      expect(classify(status).delivery).toBe("rejected");
     }
-    for (const status of [500, 502, 503]) {
-      expect(classify(status)).toMatchObject({ ok: false, retryable: true });
+  });
+
+  it("a 5xx is UNKNOWN, not a retry — review finding 1", () => {
+    // Zoho cannot deduplicate, having never received the key. A 500 returned
+    // after acceptance, retried, sends the customer a second copy.
+    for (const status of [500, 502, 503, 504]) {
+      expect(classify(status).delivery).toBe("unknown");
     }
+  });
+
+  it("an unexpected status is unknown too, because guessing favours the duplicate", () => {
+    expect(classify(418).delivery).toBe("unknown");
+    expect(classify(302).delivery).toBe("unknown");
+  });
+});
+
+describe("the deadline is real, and a timeout is ambiguous — review finding 7", () => {
+  it("abandons a hung request rather than holding the send open indefinitely", async () => {
+    const fetch: HttpFetch = (_url, init) =>
+      new Promise((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+      });
+    const outcome = await new ZohoApiMailClient({
+      accountId: "1",
+      tokens: tokens(),
+      fetch,
+      timeoutMs: 10,
+    }).send(send());
+    expect(outcome.ok).toBe(false);
+    expect(outcome.ok === false && outcome.delivery).toBe("unknown");
+    expect(outcome.ok === false && outcome.failure).toContain("deadline");
+  });
+
+  it("passes a signal to the transport, so the deadline reaches the socket", async () => {
+    const { calls, fetch } = recording();
+    await new ZohoApiMailClient({ accountId: "1", tokens: tokens(), fetch }).send(send());
+    expect(calls[0].init.signal).toBeDefined();
+  });
+});
+
+describe("credentials only go to Zoho hosts — review finding 8", () => {
+  it("refuses to send a bearer token to an api_domain that is not Zoho", async () => {
+    const { calls, fetch } = recording();
+    const client = new ZohoApiMailClient({
+      accountId: "1",
+      tokens: tokens("t", "https://collector.evil.example"),
+      fetch,
+    });
+    const outcome = await client.send(send());
+    expect(outcome.ok).toBe(false);
+    expect(outcome.ok === false && outcome.delivery).toBe("not_attempted");
+    expect(calls).toEqual([]);
+  });
+
+  it("is not fooled by a Zoho-looking suffix", () => {
+    expect(isZohoHost("https://zoho.eu.evil.example")).toBe(false);
+    expect(isZohoHost("https://notzoho.eu")).toBe(false);
+    expect(isZohoHost("https://evil.example/?x=zoho.eu")).toBe(false);
+  });
+
+  it("refuses plaintext and embedded credentials", () => {
+    expect(isZohoHost("http://mail.zoho.eu")).toBe(false);
+    expect(isZohoHost("https://user:pass@mail.zoho.eu")).toBe(false);
+    expect(isZohoHost("not a url")).toBe(false);
+  });
+
+  it("accepts the real data-centre hosts", () => {
+    for (const host of [
+      "https://mail.zoho.eu",
+      "https://accounts.zoho.eu",
+      "https://accounts.zoho.com",
+      "https://www.zohoapis.eu",
+      "https://accounts.zohocloud.ca",
+    ]) {
+      expect(isZohoHost(host)).toBe(true);
+    }
+  });
+
+  it("will not post the refresh token and client secret to a non-Zoho accounts host", async () => {
+    const calls: Call[] = [];
+    const fetch: HttpFetch = async (url, init) => {
+      calls.push({ url, init });
+      return { status: 200, text: async () => "{}" };
+    };
+    const src = new RefreshTokenSource({
+      accountsHost: "https://harvester.evil.example",
+      clientId: "cid",
+      clientSecret: "the-secret",
+      refreshToken: "the-refresh-token",
+      fetch,
+    });
+    expect(await src.token()).toBeUndefined();
+    // The point: nothing left the process.
+    expect(calls).toEqual([]);
   });
 });
 
