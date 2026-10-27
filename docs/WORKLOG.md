@@ -22,6 +22,23 @@ wrong place.
 One subject, one incident. Detail in
 [`worklog/2026-10-27-claude.md`](worklog/2026-10-27-claude.md).
 
+**And a fifth: one credential-boundary finding, fixed (W74, W75), plus a second
+wrong report of mine.** Head `0b6c05e`, 249 tests, sweep 66 run / 0 stale / 0
+surviving. One combined Zoho allowlist governed both destinations, so a Mail/API
+origin could be configured as the accounts host — and receive the **client
+secret and refresh token** — while an accounts origin returned as `api_domain`
+would receive the **bearer token**. `ZOHO_ACCOUNTS_HOST=https://mail.zoho.eu`
+was accepted, and the first thing that happens on that host is a POST carrying
+the secret. Two exact lists now, rejecting each other, with cross-rejection
+tests including the live shape. **The second half is mine:** I reported the
+previous round as "recorded as W73 on both branches" and it was on one — the
+mutation count was the first such error, and **both were claims about the record
+rather than defects in the code. The bridge has had five reviews; my reporting
+of it has had none.** A new test asserts that a service document may not cite an
+open item absent from the same branch, proved by watching it name W73. Also
+recorded: **twice a block replacement of mine has silently deleted tests**, and
+both times the linter noticed rather than me.
+
 **Then a fourth review, two findings, both upheld and fixed (W73) — and both
 the same mistake: a rule shaped like the right rule instead of the rule
 itself.** Head `c95c9ca`, 245 tests, sweep 63 run / 0 stale / 0 surviving. The

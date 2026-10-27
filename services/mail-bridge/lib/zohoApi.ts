@@ -136,76 +136,123 @@ const ZOHO_KNOWN_ENDPOINTS = Object.freeze([
 /** Exposed so the configuration document and its tests cannot drift from it. */
 export const ZOHO_OVERRIDE_CANDIDATES = ZOHO_KNOWN_ENDPOINTS;
 
-const ZOHO_EU_ORIGINS = Object.freeze([
+/**
+ * **Two destinations, two credentials, two allowlists.** Fifth review: a single
+ * combined list meant a Mail/API origin could be configured as the accounts
+ * host — and so receive the **refresh token and client secret** — while an
+ * accounts origin could be returned as `api_domain` and receive the **bearer
+ * token**. Zoho documents these as separate things: the accounts servers on the
+ * multi-data-centre page, the Mail API base addresses in the Mail API docs. One
+ * list collapsed that distinction, and a credential boundary that cannot tell
+ * two credentials apart is not much of one.
+ *
+ * So the two are separate and each rejects the other's members, which is what
+ * the cross-rejection tests assert. The practical failure this prevents: a
+ * misconfigured `ZOHO_ACCOUNTS_HOST=https://mail.zoho.eu` used to be accepted,
+ * and the first thing that happens on that host is a POST carrying
+ * `client_secret` and `refresh_token`.
+ */
+
+/** Where the OAuth token exchange may go. Receives the client secret. */
+const ZOHO_ACCOUNTS_ORIGINS = Object.freeze([
   "https://accounts.zoho.eu",
+]);
+
+/** Where an API call may go. Receives the bearer token. */
+const ZOHO_API_ORIGINS = Object.freeze([
   "https://mail.zoho.eu",
   "https://www.zohoapis.eu",
   "https://api.zoho.eu",
 ]);
 
-/** The origins this build permits, so the configuration document cannot drift. */
-export const ZOHO_ALLOWED_ORIGINS = ZOHO_EU_ORIGINS;
+/** The exact accounts origins an override may name, across data centres. */
+const ZOHO_KNOWN_ACCOUNTS_ENDPOINTS = Object.freeze([
+  "https://accounts.zoho.com",
+  "https://accounts.zoho.eu",
+  "https://accounts.zoho.in",
+  "https://accounts.zoho.com.au",
+  "https://accounts.zoho.jp",
+  "https://accounts.zohocloud.ca",
+  "https://accounts.zoho.sa",
+  "https://accounts.zoho.uk",
+]);
+
+/** The exact API origins an override may name, across data centres. */
+const ZOHO_KNOWN_API_ENDPOINTS = Object.freeze([
+  "https://mail.zoho.com",
+  "https://mail.zoho.eu",
+  "https://mail.zoho.in",
+  "https://mail.zoho.com.au",
+  "https://mail.zoho.jp",
+  "https://mail.zohocloud.ca",
+  "https://mail.zoho.sa",
+  "https://mail.zoho.uk",
+  "https://api.zoho.com",
+  "https://api.zoho.eu",
+  "https://api.zoho.in",
+  "https://api.zoho.com.au",
+  "https://api.zoho.jp",
+  "https://api.zohocloud.ca",
+  "https://api.zoho.sa",
+  "https://api.zoho.uk",
+  "https://www.zohoapis.com",
+  "https://www.zohoapis.eu",
+  "https://www.zohoapis.in",
+  "https://www.zohoapis.com.au",
+  "https://www.zohoapis.jp",
+  "https://www.zohoapis.ca",
+  "https://www.zohoapis.sa",
+  "https://www.zohoapis.uk",
+]);
+
+/** Exposed so the configuration document and its tests cannot drift. */
+export const ZOHO_ACCOUNTS_ALLOWED = ZOHO_ACCOUNTS_ORIGINS;
+export const ZOHO_API_ALLOWED = ZOHO_API_ORIGINS;
+export const ZOHO_ACCOUNTS_OVERRIDE_CANDIDATES = ZOHO_KNOWN_ACCOUNTS_ENDPOINTS;
+export const ZOHO_API_OVERRIDE_CANDIDATES = ZOHO_KNOWN_API_ENDPOINTS;
 
 /**
- * **Narrowed on re-review.** The first version allowed every subdomain of every
- * Zoho data-centre suffix, on the reasoning that narrowing it would break the
- * day the mailbox moved and the failure would look like an authentication
- * problem. Codex was right that this is not least privilege: this mailbox is in
- * the EU data centre, the MX records are `mx*.zoho.eu`, and a credential
- * destination list should hold the origins actually in use rather than every
- * origin that might one day be.
+ * Exact-origin membership, with an override that may only name an endpoint from
+ * the written candidate list.
  *
- * The original worry is answered better by `extraAllowedOrigins` than by a wide
- * default: moving data centre becomes one explicit, reviewable configuration
- * line instead of something the allowlist silently already permitted. A move
- * nobody had to authorise is exactly what an allowlist exists to stop.
- *
- * Matched as **exact origins** — scheme, host and port — so there is no
- * subdomain, path, query or port to smuggle anything through.
+ * **Matched as exact origins** — scheme, host and port — because a suffix match
+ * is not an allowlist: it hands the decision to whoever can obtain a hostname
+ * under the domain, which for a credential destination is the wrong party. That
+ * was the fourth review's finding, and `anything.zoho.eu` used to qualify.
  */
-export function isZohoHost(candidate: string, extraAllowedOrigins: readonly string[] = []): boolean {
+function permits(
+  candidate: string,
+  defaults: readonly string[],
+  candidates: readonly string[],
+  overrides: readonly string[],
+): boolean {
   let url: URL;
   try {
     url = new URL(candidate);
   } catch {
     return false;
   }
-  // No separate protocol check. The allowlist below is https-only and filters
-  // its entries, so a plaintext origin cannot match — and a mutation sweep on
-  // 27 October showed that having both guards made **neither** of them
-  // individually assertable: each masked the other, so removing either changed
-  // no behaviour and failed no test. Two redundant checks are not twice as safe;
-  // they are one check and one untested line.
-  //
-  // The credential check is NOT redundant and stays: `url.origin` omits
-  // userinfo, so `https://user:pass@mail.zoho.eu` has the origin of a permitted
-  // host and would otherwise be accepted, sending the token through whatever
-  // proxy those credentials authenticate to.
+  // `url.origin` omits userinfo, so `https://user:pass@mail.zoho.eu` has a
+  // permitted origin and would otherwise be accepted — sending the credential
+  // through whatever those details authenticate to.
   if (url.username || url.password) return false;
   const origin = url.origin.toLowerCase();
-  // The https rule applies to the EXTRA origins too, so an operator cannot
-  // widen this to a plaintext host by configuration. Without this the https
-  // check above is merely redundant with the built-in list, which a mutation
-  // sweep on 27 October showed: removing it changed no behaviour and failed no
-  // test. A rule that cannot be violated is not a rule worth having.
-  // An extra origin must be one of the known Zoho endpoints, exactly. The
-  // default list is the four EU origins; the override lets an operator pick a
-  // different data centre from a written list and nothing else.
-  const vetted = extraAllowedOrigins
+  const vetted = overrides
     .map((o) => o.toLowerCase())
-    .filter((o) => ZOHO_KNOWN_ENDPOINTS.some((known) => known.toLowerCase() === o));
-  const allowed = [...ZOHO_EU_ORIGINS, ...vetted].map((o) => o.toLowerCase());
-  return allowed.includes(origin);
+    .filter((o) => candidates.some((known) => known.toLowerCase() === o));
+  return [...defaults, ...vetted].map((o) => o.toLowerCase()).includes(origin);
 }
 
-/** The scope the send call needs, per Zoho's page for that endpoint. */
-export const ZOHO_SEND_SCOPE = "ZohoMail.messages.CREATE";
+/** May the OAuth token exchange — and therefore the client secret — go here? */
+export function isZohoAccountsOrigin(candidate: string, overrides: readonly string[] = []): boolean {
+  return permits(candidate, ZOHO_ACCOUNTS_ORIGINS, ZOHO_KNOWN_ACCOUNTS_ENDPOINTS, overrides);
+}
 
-/**
- * What this deployment has *proved* Zoho does, not what it hopes. Every flag
- * starts false and may only be set by someone who has watched the behaviour,
- * because each one of them fails silently in the customer's direction.
- */
+/** May an API call — and therefore the bearer token — go here? */
+export function isZohoApiOrigin(candidate: string, overrides: readonly string[] = []): boolean {
+  return permits(candidate, ZOHO_API_ORIGINS, ZOHO_KNOWN_API_ENDPOINTS, overrides);
+}
+
 export type ZohoCapabilities = {
   readonly multipleRecipientsPerField: boolean;
   readonly attachments: boolean;
@@ -295,10 +342,11 @@ async function withDeadline<T>(
 export type ZohoApiClientOptions = {
   readonly accountId: string;
   /**
-   * Extra exact origins to permit, for a deliberate data-centre move. Empty by
-   * default: the EU origins are the ones this mailbox uses.
+   * Extra exact **API** origins to permit, for a deliberate data-centre move.
+   * Empty by default, and an entry that is not in
+   * `ZOHO_API_OVERRIDE_CANDIDATES` is ignored — including an accounts origin.
    */
-  readonly extraAllowedOrigins?: readonly string[];
+  readonly extraAllowedApiOrigins?: readonly string[];
   readonly tokens: TokenSource;
   readonly fetch: HttpFetch;
   readonly capabilities?: ZohoCapabilities;
@@ -318,7 +366,7 @@ const REFUSALS = {
   noToken: "No Zoho access token is available.",
   noApiDomain: "The token response carried no api_domain, and this client will not guess a host.",
   apiDomainNotZoho:
-    "The api_domain in the token response is not an https Zoho host, so the access token will not be sent to it.",
+    "The api_domain in the token response is not a permitted Zoho API origin, so the access token will not be sent to it.",
   multipleRecipients:
     "Zoho does not document more than one address per recipient field, and this deployment has not proved it. Send to one recipient, or prove it and enable multipleRecipientsPerField.",
   threading:
@@ -430,7 +478,7 @@ export class ZohoApiMailClient implements ZohoMailClient {
     if (!token.apiDomain) return notAttempted(REFUSALS.noApiDomain);
     // The api_domain arrives over the wire, so it is validated like any other
     // untrusted input before a bearer token is sent to it.
-    if (!isZohoHost(token.apiDomain, this.options.extraAllowedOrigins)) return notAttempted(REFUSALS.apiDomainNotZoho);
+    if (!isZohoApiOrigin(token.apiDomain, this.options.extraAllowedApiOrigins)) return notAttempted(REFUSALS.apiDomainNotZoho);
 
     const url = `${token.apiDomain.replace(/\/+$/, "")}/api/accounts/${encodeURIComponent(this.options.accountId)}/messages`;
 
@@ -494,7 +542,8 @@ export class RefreshTokenSource implements TokenSource {
       readonly fetch: HttpFetch;
       readonly now?: () => number;
       readonly timeoutMs?: number;
-      readonly extraAllowedOrigins?: readonly string[];
+      /** Extra exact **accounts** origins. An API origin here is ignored. */
+      readonly extraAllowedAccountsOrigins?: readonly string[];
       /** Refresh this long before expiry, so a send never races the clock. */
       readonly marginMs?: number;
     },
@@ -504,7 +553,7 @@ export class RefreshTokenSource implements TokenSource {
     // Refused before the secret is in a request body. A misconfigured host is
     // a configuration error, and a configuration error must not be a
     // credential disclosure.
-    if (!isZohoHost(this.options.accountsHost, this.options.extraAllowedOrigins)) return undefined;
+    if (!isZohoAccountsOrigin(this.options.accountsHost, this.options.extraAllowedAccountsOrigins)) return undefined;
 
     const now = (this.options.now ?? Date.now)();
     if (this.cached && this.cached.expiresAt > now) return this.cached.token;

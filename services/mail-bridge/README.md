@@ -65,9 +65,9 @@ enforces that.
 | A build step inlining the extension modules into `content.js` | **not built** |
 | Attachment upload | **cannot be built** without widening the request type — see below |
 
-**245 tests.** `npx vitest run services/mail-bridge/`.
+**249 tests.** `npx vitest run services/mail-bridge/`.
 
-**63 mutations: 63 run, 0 stale, 0 surviving**, and the sweep **exits non-zero**
+**66 mutations: 66 run, 0 stale, 0 surviving**, and the sweep **exits non-zero**
 if any mutation goes stale or survives. `node services/mail-bridge/audit/mutation-sweep.mjs`.
 See [`audit/mutation-sweep.mjs`](audit/mutation-sweep.mjs) for why it exists —
 including why a stale mutation is a failure rather than a note.
@@ -235,6 +235,46 @@ sets itself is the robust answer and is unavailable for the same reason
 decision costs the easy key: the audit row stores `subjectLength`, not the
 subject, so matching by subject is deliberately impossible.
 
+## Codex's fifth review — one credential-boundary finding, and a reporting error of mine
+
+Reviewed at `c95c9ca`. Both fourth-review fixes confirmed sound.
+
+**The allowlist conflated two credential classes.** One combined list of Zoho
+endpoints governed both destinations, so a Mail/API origin could be configured
+as the accounts host — and receive the **refresh token and client secret** —
+while an accounts origin returned as `api_domain` would receive the **bearer
+token**. Zoho documents these separately: the accounts servers on the
+multi-data-centre page, the Mail API base addresses in the Mail API docs. One
+list collapsed that, and a credential boundary that cannot tell two credentials
+apart is not much of one.
+
+The concrete failure it allowed: `ZOHO_ACCOUNTS_HOST=https://mail.zoho.eu` was
+accepted, and the first thing that happens on that host is a POST carrying
+`client_secret` and `refresh_token`.
+
+Now **two exact lists that reject each other's members**, with cross-rejection
+tests including the live shape — a send whose `api_domain` is an accounts
+origin is refused before the bearer token leaves the process — and a test that
+the two candidate lists do not overlap.
+
+**And the second half was mine.** I reported the previous round as "recorded as
+W73 on both branches". It was on one. That is the **second inaccurate report in
+this sequence** — the mutation count was the first — and both were claims about
+the record rather than defects in the code, which is its own pattern.
+
+A cross-branch assertion is impossible from inside one checkout, so
+[`lib/openItemsReferences.test.ts`](lib/openItemsReferences.test.ts) asserts the
+half that is: **a document in this service may not cite an open item that does
+not exist on the same branch.** It was proved by making this README cite the
+full review chain and watching the test name `W73` as missing — exactly the gap
+Codex found by hand.
+
+**Twice now a block replacement of mine has silently deleted tests**, and both
+times the linter noticed rather than me: the `handleListSenders`/`handleStatus`
+tests in one round, the `extractMessageId` tests in this one. Restored, and
+`extractMessageId` now has a mutation behind it so the sweep catches its
+deletion rather than an unused import doing it by luck.
+
 ## Codex's fourth review — two findings, both upheld
 
 Reviewed at `775c9ba`. The mutation-audit, abandoned-send status and
@@ -387,7 +427,8 @@ finished than it is:
   path;
 - controlled extension packaging and distribution do not exist.
 
-Those are **W68**. The next safe milestone is a credential-free, separately
+Those are **W68**, re-confirmed unchanged at each later review (**W71**, **W72**,
+**W73**, **W74**). The next safe milestone is a credential-free, separately
 deployed test shell — not a credentialed pilot.
 
 ## What cannot be built without Tasos

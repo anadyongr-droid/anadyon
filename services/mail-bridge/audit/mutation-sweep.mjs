@@ -79,7 +79,7 @@ const M = [
   [`${L}/zohoApi.ts`, "if (send.inReplyTo || send.references) {", "if (false) {", "zoho: threading refusal removed"],
   [`${L}/zohoApi.ts`, "if (send.attachments.length > 0) {", "if (false) {", "zoho: attachment refusal removed"],
   [`${L}/zohoApi.ts`, "if (!token.apiDomain) return notAttempted(REFUSALS.noApiDomain);", "", "zoho: missing api_domain unchecked"],
-  [`${L}/zohoApi.ts`, "return allowed.includes(origin);", "return true;", "zoho: host allowlist inert"],
+  [`${L}/zohoApi.ts`, "return [...defaults, ...vetted].map((o) => o.toLowerCase()).includes(origin);", "return true;", "zoho: host allowlist inert"],
   [`${L}/zohoApi.ts`, "fromAddress: send.sender.address,", "fromAddress: `${send.sender.displayName} <${send.sender.address}>`,", "zoho: fromAddress format regressed"],
 
   // --- http transport ---
@@ -122,7 +122,6 @@ M.push(
   // check to mutate. `zohoApi.test.ts` asserts every endpoint is https, which
   // is the replacement for this line.
   [`${X}/corporateSend.js`, "if (result && result.ok === true && result.body?.sent === true) {", "if (result && result.ok === true) {", "ext: top-layer sent flag removed"],
-  [`${L}/zohoApi.ts`, "if (url.username || url.password) return false;", "", "zoho: userinfo credentials in a host accepted"],
   [`${L}/store.ts`, "if (!existing || existing.userId !== userId) return { state: \"unknown_key\" };", "if (!existing) return { state: \"unknown_key\" };", "store: cross-user inspect allowed"],
   [`${L}/relay.ts`, "const admission = await deps.store.admit(send.idempotencyKey, user.userId, deps.limits, now());", "const admission = await deps.store.admit(send.idempotencyKey, \"shared\", deps.limits, now());", "relay: admission not scoped to the user"],
 );
@@ -140,13 +139,24 @@ const run = () => {
 M.push(
   [`${L}/store.ts`, "if (this.resolveExpired(idempotencyKey, existing, now)) {", "if (false) {", "status: inspect stops resolving an expired claim"],
   [`${L}/store.ts`, "if (now - entry.claimedAt < this.leaseMs) return false;", "if (true) return false;", "store: lease never expires"],
-  [`${L}/zohoApi.ts`, ".filter((o) => ZOHO_KNOWN_ENDPOINTS.some((known) => known.toLowerCase() === o));", ";", "zoho: escape hatch unvetted"],
+  [`${L}/zohoApi.ts`, ".filter((o) => candidates.some((known) => known.toLowerCase() === o));", ";", "zoho: escape hatch unvetted"],
   [`${L}/relay.ts`, "const found = await deps.store.inspect(idempotencyKey, user.userId, (deps.now ?? Date.now)());", "const found = await deps.store.inspect(idempotencyKey, user.userId, 0);", "status: clock frozen so a lease never expires"],
 );
 
 // Added after Codex's fourth review.
 M.push(
-  [`${L}/zohoApi.ts`, "ZOHO_KNOWN_ENDPOINTS.some((known) => known.toLowerCase() === o)", "o.endsWith(\"zoho.eu\")", "zoho: override back to a suffix match"],
+  [`${L}/zohoApi.ts`, "candidates.some((known) => known.toLowerCase() === o)", "o.endsWith(\"zoho.eu\")", "zoho: override back to a suffix match"],
+);
+
+// Added after Codex's fifth review.
+M.push(
+  [`${L}/zohoApi.ts`, "return permits(candidate, ZOHO_ACCOUNTS_ORIGINS, ZOHO_KNOWN_ACCOUNTS_ENDPOINTS, overrides);", "return permits(candidate, [...ZOHO_ACCOUNTS_ORIGINS, ...ZOHO_API_ORIGINS], [...ZOHO_KNOWN_ACCOUNTS_ENDPOINTS, ...ZOHO_KNOWN_API_ENDPOINTS], overrides);", "zoho: accounts list merged with api (client secret to a Mail host)"],
+  [`${L}/zohoApi.ts`, "return permits(candidate, ZOHO_API_ORIGINS, ZOHO_KNOWN_API_ENDPOINTS, overrides);", "return permits(candidate, [...ZOHO_API_ORIGINS, ...ZOHO_ACCOUNTS_ORIGINS], [...ZOHO_KNOWN_API_ENDPOINTS, ...ZOHO_KNOWN_ACCOUNTS_ENDPOINTS], overrides);", "zoho: api list merged with accounts (bearer token to accounts)"],
+  [`${L}/zohoApi.ts`, "if (url.username || url.password) return false;", "", "zoho: userinfo credentials accepted"],
+);
+
+M.push(
+  [`${L}/zohoApi.ts`, "  return `unidentified:${fallbackKey}`;\n}", "  return \"\";\n}", "zoho: unreadable 200 yields an empty id instead of a key-derived one"],
 );
 
 const survivors = [];
