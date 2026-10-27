@@ -15,6 +15,16 @@ this code is built against, so it is the one to read from this branch. Corrected
 27 October 2026, the link having been written on 26 October as though the
 proposal had merged.
 
+## Start here
+
+- [`CONFIGURATION.md`](CONFIGURATION.md) — every variable the relay needs, names
+  only, and why the template is a document rather than a `.env.example`.
+- [`DEPLOYMENT.md`](DEPLOYMENT.md) — what isolation means concretely, the
+  twenty-refresh-token trap, and the five things that must exist before any
+  pilot and do not.
+- [`extension/PERMISSIONS.md`](extension/PERMISSIONS.md) — why each permission is
+  there, and what now fails a test rather than depending on a reviewer noticing.
+
 ## It lives here temporarily, and that is a known deviation
 
 §6.2 requires the relay to be *"a separate project and credential boundary from

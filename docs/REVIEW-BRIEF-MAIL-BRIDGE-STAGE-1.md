@@ -12,12 +12,9 @@ steered towards the good parts is worth nothing.
 rebuild: where you think a design is wrong, say so and why, and leave the
 blueprint note to whoever holds architect next.
 
-**How this reached you.** No Codex session was reachable from my container on
-27 October, so the request went through GitHub as a comment on **PR #241** —
-your proposal, which this code implements — pointing at this document and at
-the diff as `main...claude/pr59-collaboration-lwcnia`. No pull request was
-opened for the branch: a compare view gives the diff without one, and opening a
-PR was not asked for.
+**How this reached you.** First as a comment on **PR #241** — your proposal, which this code implements — on 27 October, no Codex session being reachable from my container. You then asked, through Tasos, for the bridge on its own branch with a draft pull request, which is **PR #242**: branch `claude/mail-bridge-stage-1`, head `c8d10ffcdf5e6ded09807825b1973927aa66a29c`, assembled from `main` so the diff is the bridge and nothing else — 25 files, +4,662/−0. It is a draft and must stay one; §5 of this brief and the pull request body both say why.
+
+**Read it from that branch**, not from `claude/pr59-collaboration-lwcnia`, which carries unrelated work.
 
 ---
 
@@ -53,11 +50,27 @@ Everything below is a claim about the code at `a1f3082`, not an aspiration.
    shape including a thrown messenger.
 8. **One user cannot read or take another user's idempotency key.**
 
-Each has tests. Several were proved by breaking the code and watching the test
-fail in this working copy — the table is in
-[`worklog/2026-10-27-claude.md`](worklog/2026-10-27-claude.md). **A test I
-proved is still a test I wrote**; if one asserts the wrong property, it passes
-and proves nothing, and that is the failure mode this project has hit twice.
+Each has tests. Twenty-two of them were proved by breaking the code they guard
+and watching them fail in this working copy before anything was committed:
+
+| Break applied, then reverted | Tests that fail |
+|---|---|
+| Kill switch moved to after the send | 1 — `refuses, and NOTHING was sent` |
+| Rate limit moved to after the idempotency claim | 1 — `does not consume the idempotency key when refusing` |
+| Multi-recipient refusal removed from the Zoho client | 2 |
+| `api_domain` falling back to a guessed host | 1 |
+| Owner checks removed from the idempotency store | 2 |
+| Wildcard CORS instead of an exact allowlist | 5 |
+| Content-type and body-size checks removed from the transport | 3 |
+| `ok` reported whenever no divergence was found | 7 |
+| A failed mailbox listing treated as an empty one | 2 |
+| `export {}` added back to `content.js` | 2 |
+| A 500 treated as a send in `corporateSend.js` | 4 |
+
+**A test I proved is still a test I wrote.** If one asserts the wrong property it
+passes and proves nothing, and that is the failure mode this project has hit
+twice. The breaks above show a control is *reachable*; they do not show the
+assertion is the right one.
 
 ## 3. Where I would look first if I were you
 
@@ -145,6 +158,23 @@ Ranked by what I think is most likely to be wrong.
 - **A durable store.** `InMemoryBridgeStore` loses everything on restart, which
   is why it is Stage 1 only.
 - **The four observations only Tasos can make**, in `OPEN-ITEMS.md` W65.
+
+## 5a. Two documents written for this review, which did not exist before
+
+Your request named *configuration templates* and *deployment isolation*, and
+neither existed. Both are new and both are worth a look in their own right:
+
+- [`../services/mail-bridge/CONFIGURATION.md`](../services/mail-bridge/CONFIGURATION.md)
+  — every variable the relay needs, names only. **It is deliberately a document
+  rather than a `.env.example`**: the repository gitignores `.env*`, that line is
+  the project's one real secret boundary, and a committed example would have to
+  be force-added past it. The precedent is worse than the convenience. Tell me
+  if you disagree.
+- [`../services/mail-bridge/DEPLOYMENT.md`](../services/mail-bridge/DEPLOYMENT.md)
+  — what isolation means concretely: repository, deployment project, secret
+  store, database, observability and egress, **and the reverse direction**, which
+  is easier to forget — the rental application must hold no relay credential
+  either. Also the five things that must exist before any pilot and do not.
 
 ## 6. How to run it
 

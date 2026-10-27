@@ -22,6 +22,20 @@ wrong place.
 One subject, one incident. Detail in
 [`worklog/2026-10-27-claude.md`](worklog/2026-10-27-claude.md).
 
+**The bridge is on its own branch in a draft pull request, at Codex's request
+relayed by Tasos.** Branch `claude/mail-bridge-stage-1`,
+[PR #242](https://github.com/anadyongr-droid/anadyon/pull/242), head
+`c8d10ffcdf5e6ded09807825b1973927aa66a29c`, **assembled from `main`** so the diff
+is the bridge and nothing else — 25 files, +4,662/−0, draft confirmed through
+the API, no credentials. **It stays a draft:** §6.2's credential boundary is
+unmet, E39 is undecided, and nothing merges while a CI check is red. His request
+named two things that did not exist and so produced them — `CONFIGURATION.md`
+(every variable by name, **deliberately not a `.env.example`**, because the
+repository gitignores `.env*` and that is its one real secret boundary) and
+`DEPLOYMENT.md` (isolation per boundary, including the reverse direction that the
+rental application must hold no relay credential either). Detail in the agent
+worklog; the item is **W65**.
+
 **§12 ESCALATION, found while sequencing the action list: `ΗΒΙ 467`'s recorded
 insurance cover ends today**, joining ten vehicles already past — ΙΡΜ 6966,
 the eight motorbikes, ΙΜΙ 2840 — with ΗΒΙ 1568 on 4 November. F1's own figures

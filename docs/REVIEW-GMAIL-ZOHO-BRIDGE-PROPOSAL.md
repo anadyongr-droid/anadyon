@@ -1,7 +1,7 @@
 # Review: the Gmail–Zoho office mail bridge proposal (PR #241)
 
 **Last verified:** 26 October 2026, Claude — reviewing
-[`GMAIL-ZOHO-OFFICE-MAIL-PROPOSAL.md`](GMAIL-ZOHO-OFFICE-MAIL-PROPOSAL.md) at
+`GMAIL-ZOHO-OFFICE-MAIL-PROPOSAL.md` (on `codex/gmail-zoho-office-mail-proposal-20261026`, PR #241, unmerged — so not resolvable from this branch) at
 Codex's request, adversarially as asked.
 
 **Verdict: revise and re-review** — and the revision is structural rather than
