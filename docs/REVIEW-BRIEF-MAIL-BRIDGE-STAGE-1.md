@@ -489,3 +489,175 @@ deleted the tests for `handleListSenders` and `handleStatus` entirely. Restored.
 credentials — not even test ones — until that exists and has been reviewed.**
 That is the right order and it is now the recorded position. §6.2's boundary,
 E39 and the red-check rule are unchanged by any of this.
+
+
+---
+
+## 12. Codex third review — 27 October 2026
+
+**Basis:** PR #242 at `ed710a440e8d93254c471c2e6e22f4cd2b1c665a`.
+**Verdict:** the two W68 runtime defects are fixed correctly, but the branch
+remains non-deployable and four findings remain. Review
+[5669326598](https://github.com/anadyongr-droid/anadyon/pull/242#pullrequestreview-5669326598)
+contains the inline evidence.
+
+Confirmed improvements:
+
+- an expired claim settles as delivery-unknown and cannot be re-admitted;
+- a never-attempted request releases its exact key/token admission;
+- the built-in credential origins are narrowed to exact EU origins;
+- the status result no longer describes an unknown delivery as not sent;
+- the latest CI, CodeQL, dependency review and Vercel status were green.
+
+Remaining findings:
+
+1. **The mutation sweep can report success without running every declared
+   mutation.** A missing target prints `SKIP`, is not counted as a survivor and
+   does not make the process fail. At least four declared targets are already
+   absent from the current tree: the old `extensionOf(filename)` check, the
+   removed `lookup` return, the old one-line Zoho allowlist and the removed
+   explicit protocol guard. The claim “61 mutations, 0 surviving” therefore
+   does not establish that 61 mutations ran. A skipped mutation must fail the
+   sweep, and executed/skipped/caught counts must be reported separately.
+2. **Status polling never expires an abandoned claim.** Lease expiry runs only
+   inside `admit`; `inspect` returns `in_flight` indefinitely. A caller that
+   obeys the guidance to wait and poll never reaches the new delivery-unknown
+   result unless it submits the message again. Inspection or a durable
+   background transition must resolve expired claims safely.
+3. **`extraAllowedOrigins` reopens arbitrary credential destinations.** A
+   caller can add any HTTPS origin and cause refresh credentials or the bearer
+   token to be sent there. This contradicts the configuration document's
+   statement that a data-centre move requires a reviewed code change. Remove
+   the escape hatch or constrain it to a compiled list of exact Zoho Mail
+   origins.
+4. **The extension permission document is stale.** It says Gmail is the only
+   host permission and that any other host fails tests, while the manifest and
+   tests correctly require Gmail plus the compiled relay origin.
+
+The acknowledged Stage 2 gaps still independently block deployment: no durable
+store, Authenticator, server adapter, isolated repository/deployment, Gmail DOM
+or build, real relay origin, scheduled reconciliation, or controlled extension
+distribution. W71 tracks this review.
+
+
+---
+
+## 13. Codex fourth review — 27 October 2026
+
+**Basis:** PR #242 at exact implementation head
+`775c9ba9d486b52f716c9c5924f123b8737f239a`.
+**Verdict:** changes still required. Keep the pull request draft, unmerged and
+credential-free. Review
+[5670453952](https://github.com/anadyongr-droid/anadyon/pull/242#pullrequestreview-5670453952)
+records two inline findings.
+
+### What the revision fixed
+
+- The mutation sweep now treats a missing target as a failure and reports the
+  number listed, run, stale and surviving.
+- Admission and status inspection share the lease-expiry transition. An
+  abandoned claim becomes delivery-unknown and is never automatically
+  re-admitted.
+- The extension permission table now includes the exact relay host and a test
+  ties it to the origin compiled into the service worker.
+
+### What remains
+
+1. **The credential escape hatch is still wider than its stated purpose.**
+   `extraAllowedOrigins` now requires HTTPS and a hostname under a Zoho
+   registrable-domain suffix, but it still accepts any exact origin under those
+   suffixes. The purpose is a finite set of official Zoho data-centre endpoints.
+   Validate overrides against enumerated published account/API origins, or use a
+   data-centre enum that expands to those exact origins. Add a regression proving
+   an arbitrary Zoho subdomain remains refused even when supplied as an override.
+2. **The permission baseline contains one stale sentence.** It says the test
+   requires Gmail to be the only host permission, while the implementation and
+   the rest of the document correctly require exactly Gmail plus the compiled
+   relay origin.
+
+Repository CI (including staging E2E), CodeQL, dependency review and the Vercel
+status were green at the reviewed SHA. Codex inspected the mutation harness and
+its new failure accounting but did **not** independently execute the manual
+63-mutation sweep; the 63/63 result is therefore author-supplied run evidence,
+not a run observed in this review.
+
+All Stage 2 omissions remain deployment blockers: no durable store,
+Authenticator, deployable server adapter, separate repository/deployment and
+credential boundary, Gmail DOM/build, real relay origin, scheduled
+reconciliation/alerting or controlled extension distribution. Closing the two
+findings above would complete this Stage 1 review; it would not make the bridge
+deployable.
+
+
+---
+
+## 14. Codex fifth review — 27 October 2026
+
+**Basis:** PR #242 at exact implementation head
+`c95c9ca86dc024cb2be3b6b851e24120c4fbbcc7`.
+**Verdict:** the two W72 findings are fixed, but one related
+credential-destination issue remains. Keep the pull request draft, unmerged and
+credential-free. Review
+[5671978105](https://github.com/anadyongr-droid/anadyon/pull/242#pullrequestreview-5671978105)
+contains the inline finding.
+
+The replacement exact-origin list closes the arbitrary-subdomain route, and the
+permission document plus test now state the Gmail-and-relay contract
+consistently. Deleting the obsolete scheme mutation is justified: exact
+membership in a constant all-HTTPS list replaces that runtime check, the list
+shape is asserted directly, and a new mutation restores the suffix defect and
+is caught.
+
+One boundary is still too broad. The same `isZohoHost` allowlist is used by
+`RefreshTokenSource`, which transmits the refresh token and client secret, and
+by `ZohoApiMailClient`, which transmits the bearer token. The combined list
+contains Accounts, Mail and generic API origins. Therefore a Mail/API origin is
+accepted as an OAuth Accounts host, and an Accounts origin is accepted as the
+message API host. Zoho documents Accounts servers separately from Zoho Mail API
+base URIs. Split the predicates and exact endpoint sets by purpose, then add
+cross-rejection tests for `accountsHost: "https://mail.zoho.eu"` and
+`apiDomain: "https://accounts.zoho.eu"`. Do not add extrapolated endpoints to
+a credential-destination set until the endpoint is documented or live-proven
+for that operation.
+
+CI including staging E2E, CodeQL, dependency review and Vercel were green at the
+reviewed SHA. The manual 63-mutation result was inspected but not independently
+executed by Codex.
+
+The handover said W73 had been recorded on both branches. At the reviewed head,
+W73 exists on `claude/pr59-collaboration-lwcnia` but not in this PR branch's
+`OPEN-ITEMS.md`, review brief or worklog. W74 records this re-review here.
+
+All previously named Stage 2 omissions still block deployment and credentials.
+
+
+---
+
+## 15. Codex sixth review — 27 October 2026
+
+**Basis:** PR #242 at exact implementation head
+`0b6c05e200dfb4ffb6faa9b943381a929bfb8784`.
+**Verdict:** W74's credential-purpose finding is fixed correctly. No
+release-blocking defect was found in the new runtime path. Review
+[5673273297](https://github.com/anadyongr-droid/anadyon/pull/242#pullrequestreview-5673273297)
+records one non-blocking cleanup.
+
+OAuth refresh now accepts Accounts origins only; Mail sending accepts API
+origins only. Each class rejects the other's EU and override endpoints, the
+send-path test refuses an Accounts `api_domain` before the injected transport
+sees the bearer token, and two mutations deliberately re-merge the classes so
+the suite guards the split.
+
+The old combined `ZOHO_KNOWN_ENDPOINTS` constant and exported
+`ZOHO_OVERRIDE_CANDIDATES` alias remain unused in `zohoApi.ts`. Remove them:
+they expose the superseded merged model as a public source of truth even though
+the runtime correctly ignores it.
+
+W73, W74 and W75 were verified in `OPEN-ITEMS.md` on both this branch and
+`claude/pr59-collaboration-lwcnia`. CI including staging E2E, CodeQL,
+dependency review and Vercel were green. Codex inspected but did not
+independently execute the manual 66-mutation sweep.
+
+The “live case” is a live-shaped unit path using an injected fake transport, not
+a live Zoho network or credential test. That is correct for credential-free
+Stage 1. All Stage 2 deployment blockers remain unchanged.

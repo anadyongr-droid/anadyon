@@ -76,67 +76,6 @@ export const ZOHO_EU_ACCOUNTS_HOST = "https://accounts.zoho.eu";
  * required: `http` is not merely downgraded, it is refused.
  */
 /**
- * **The explicit list of Zoho endpoints the override may name.** Fourth review,
- * finding 1: the previous version matched any subdomain of a Zoho registrable
- * domain, so `anything.zoho.eu` qualified. A suffix match is not an allowlist —
- * it delegates the decision to whoever can get a hostname under the domain,
- * and for a credential destination that is the wrong party.
- *
- * **What is verified and what is extrapolated**, per §8. Verbatim from Zoho's
- * own pages, read 27 October: every `accounts.*` host below is from the
- * multi-data-centre table; `mail.zoho.com` is the host in the send-message
- * endpoint; `api.zoho.com`, `api.zoho.eu` and `www.zohoapis.in` are the
- * `api_domain` examples. The remaining combinations are **extrapolated** from
- * that pattern and are not individually documented.
- *
- * Extrapolation is safe in this direction because the failure is loud: an
- * `api_domain` Zoho returns that is not on this list makes the send refuse with
- * a named reason, rather than silently widening where a credential may go. If
- * that ever happens the fix is one reviewed line here, which is the point —
- * the list is the decision, not a shape that approximates it.
- */
-const ZOHO_KNOWN_ENDPOINTS = Object.freeze([
-  // Accounts — verbatim.
-  "https://accounts.zoho.com",
-  "https://accounts.zoho.eu",
-  "https://accounts.zoho.in",
-  "https://accounts.zoho.com.au",
-  "https://accounts.zoho.jp",
-  "https://accounts.zohocloud.ca",
-  "https://accounts.zoho.sa",
-  "https://accounts.zoho.uk",
-  // Mail and API — `mail.zoho.com`, `api.zoho.com`, `api.zoho.eu` and
-  // `www.zohoapis.in` verbatim; the rest of the matrix extrapolated.
-  "https://mail.zoho.com",
-  "https://mail.zoho.eu",
-  "https://mail.zoho.in",
-  "https://mail.zoho.com.au",
-  "https://mail.zoho.jp",
-  "https://mail.zohocloud.ca",
-  "https://mail.zoho.sa",
-  "https://mail.zoho.uk",
-  "https://api.zoho.com",
-  "https://api.zoho.eu",
-  "https://api.zoho.in",
-  "https://api.zoho.com.au",
-  "https://api.zoho.jp",
-  "https://api.zohocloud.ca",
-  "https://api.zoho.sa",
-  "https://api.zoho.uk",
-  "https://www.zohoapis.com",
-  "https://www.zohoapis.eu",
-  "https://www.zohoapis.in",
-  "https://www.zohoapis.com.au",
-  "https://www.zohoapis.jp",
-  "https://www.zohoapis.ca",
-  "https://www.zohoapis.sa",
-  "https://www.zohoapis.uk",
-]);
-
-/** Exposed so the configuration document and its tests cannot drift from it. */
-export const ZOHO_OVERRIDE_CANDIDATES = ZOHO_KNOWN_ENDPOINTS;
-
-/**
  * **Two destinations, two credentials, two allowlists.** Fifth review: a single
  * combined list meant a Mail/API origin could be configured as the accounts
  * host — and so receive the **refresh token and client secret** — while an
@@ -165,7 +104,18 @@ const ZOHO_API_ORIGINS = Object.freeze([
   "https://api.zoho.eu",
 ]);
 
-/** The exact accounts origins an override may name, across data centres. */
+/**
+ * The exact accounts origins an override may name, across data centres.
+ *
+ * **What is verified and what is extrapolated**, per §8 — carried over from the
+ * combined list this replaced, because the provenance is the part worth
+ * keeping. Verbatim from Zoho's own pages, read 27 October: **every host in
+ * this list** is from the multi-data-centre table.
+ *
+ * **A suffix match would not do**, which was the fourth review's finding: it
+ * delegates the decision to whoever can obtain a hostname under the domain, and
+ * for a destination that receives a client secret that is the wrong party.
+ */
 const ZOHO_KNOWN_ACCOUNTS_ENDPOINTS = Object.freeze([
   "https://accounts.zoho.com",
   "https://accounts.zoho.eu",
@@ -177,7 +127,21 @@ const ZOHO_KNOWN_ACCOUNTS_ENDPOINTS = Object.freeze([
   "https://accounts.zoho.uk",
 ]);
 
-/** The exact API origins an override may name, across data centres. */
+/**
+ * The exact API origins an override may name, across data centres.
+ *
+ * **Verified vs extrapolated**, per §8. Verbatim from Zoho's pages:
+ * `mail.zoho.com` is the host in the send-message endpoint, and
+ * `api.zoho.com`, `api.zoho.eu` and `www.zohoapis.in` are the `api_domain`
+ * examples on the multi-data-centre page. **The remaining combinations are
+ * extrapolated** from that pattern and are not individually documented.
+ *
+ * Extrapolating is safe in this direction only because the failure is loud: an
+ * `api_domain` outside this list makes the send refuse with a named reason
+ * rather than silently widening where a bearer token may go. If Zoho ever
+ * returns one, the fix is a single reviewed line here — the list is the
+ * decision, not a shape that approximates it.
+ */
 const ZOHO_KNOWN_API_ENDPOINTS = Object.freeze([
   "https://mail.zoho.com",
   "https://mail.zoho.eu",

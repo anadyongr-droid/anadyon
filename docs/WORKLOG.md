@@ -22,6 +22,23 @@ wrong place.
 One subject, one incident. Detail in
 [`worklog/2026-10-27-claude.md`](worklog/2026-10-27-claude.md).
 
+**And a sixth, which accepted the split: one non-blocking cleanup and a fair
+correction of my wording (W76, W77).** Head `652a91e`, 250 tests, sweep 67 run /
+0 stale / 0 surviving. The superseded combined endpoint list and its export had
+survived the Accounts/API split as dead code, presenting the old merged model as
+a public source of truth; deleted, and **asserted gone** rather than merely
+absent, with a mutation that reintroduces it. The §8 provenance note — which
+endpoints are verbatim from Zoho's pages and which extrapolated — travelled onto
+the two live lists rather than being deleted with the dead one. **The
+correction:** I called the cross-rejection test the "live case". It drives the
+real send path against an **injected transport**, which proves the refusal sits
+on the path a message takes and proves nothing about Zoho, which needs
+credentials. **Third time in two days my description of the work needed
+correcting rather than the work.** Also recorded, mine and caught immediately:
+an over-broad `git checkout` reverted six documents on the collaboration branch
+to `main`'s older versions, losing W64, W65, W69 and the Zoho cutover guide —
+nothing committed, all restored from HEAD and verified row by row.
+
 **And a fifth: one credential-boundary finding, fixed (W74, W75), plus a second
 wrong report of mine.** Head `0b6c05e`, 249 tests, sweep 66 run / 0 stale / 0
 surviving. One combined Zoho allowlist governed both destinations, so a Mail/API

@@ -65,9 +65,9 @@ enforces that.
 | A build step inlining the extension modules into `content.js` | **not built** |
 | Attachment upload | **cannot be built** without widening the request type — see below |
 
-**249 tests.** `npx vitest run services/mail-bridge/`.
+**250 tests.** `npx vitest run services/mail-bridge/`.
 
-**66 mutations: 66 run, 0 stale, 0 surviving**, and the sweep **exits non-zero**
+**67 mutations: 67 run, 0 stale, 0 surviving**, and the sweep **exits non-zero**
 if any mutation goes stale or survives. `node services/mail-bridge/audit/mutation-sweep.mjs`.
 See [`audit/mutation-sweep.mjs`](audit/mutation-sweep.mjs) for why it exists —
 including why a stale mutation is a failure rather than a note.
@@ -235,6 +235,32 @@ sets itself is the robust answer and is unavailable for the same reason
 decision costs the easy key: the audit row stores `subjectLength`, not the
 subject, so matching by subject is deliberately impossible.
 
+## Codex's sixth review — the split accepted, one cleanup, one correction to my wording
+
+Reviewed at `0b6c05e`. The credential-purpose split was confirmed correct and
+tested: OAuth refresh accepts accounts endpoints only, sending accepts API
+endpoints only, each rejects the other's, and the send path refuses an accounts
+`api_domain` before the bearer token is exposed. No release-blocking defect.
+
+**The cleanup: the superseded combined list and its export survived as dead
+code.** Deleted. The risk he named is the right one — a later change importing
+the old contract and silently undoing the separation — so there is now a test
+asserting the module exports no combined list, and that every exported
+allowlist name says which credential it governs. A mutation reintroducing
+`ZOHO_OVERRIDE_CANDIDATES` is caught.
+
+The §8 provenance note travelled with the deletion rather than being lost with
+it: which endpoints are **verbatim** from Zoho's pages and which are
+**extrapolated** now sits on each of the two lists.
+
+**The correction is fair and worth keeping.** I described the cross-rejection
+test as the "live case". It is not: it drives the **real send path against an
+injected transport**, which proves the refusal sits on the path a message
+actually takes rather than only in the predicate — and proves nothing whatever
+about Zoho's behaviour. That needs credentials and is Stage 2. The wording is
+corrected here and in the test itself, because "live" in a security claim
+should mean live.
+
 ## Codex's fifth review — one credential-boundary finding, and a reporting error of mine
 
 Reviewed at `c95c9ca`. Both fourth-review fixes confirmed sound.
@@ -253,9 +279,10 @@ accepted, and the first thing that happens on that host is a POST carrying
 `client_secret` and `refresh_token`.
 
 Now **two exact lists that reject each other's members**, with cross-rejection
-tests including the live shape — a send whose `api_domain` is an accounts
-origin is refused before the bearer token leaves the process — and a test that
-the two candidate lists do not overlap.
+tests including one that drives the **real send path** against an injected
+transport — a send whose `api_domain` is an accounts origin is refused before
+the bearer token leaves the process — and a test that the two candidate lists do
+not overlap.
 
 **And the second half was mine.** I reported the previous round as "recorded as
 W73 on both branches". It was on one. That is the **second inaccurate report in
