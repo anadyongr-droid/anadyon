@@ -22,6 +22,26 @@ wrong place.
 One subject, one incident. Detail in
 [`worklog/2026-10-27-claude.md`](worklog/2026-10-27-claude.md).
 
+**Then Codex re-reviewed and found two more defects, both fixed** — W68, W69,
+head `8ef1f21`, 213 tests in the service. **The first was mine twice over:** the
+fix for review finding 7 made an expired claim lease *re-admittable*, which
+reintroduced the duplicate-send defect through the mechanism built to close it —
+and **the test I wrote for it asserted the bug**, one round after I had asked
+Codex in writing to look for exactly that. An expired claim is now settled
+`unknown` and never re-admitted. **The second taught the sharper lesson:** my
+first test for the rate-limit undercount **passed against the broken store**,
+found only by re-breaking the fix and watching nothing fail, because removing
+the wrong admission and the right one leave the same *number* of admissions. So
+**re-breaking a fix proves a control is reachable and does not prove the
+assertion is right** — here it proved the opposite. Also: the credential
+allowlist narrowed to four exact EU origins, a stale template variable removed,
+five stale README passages corrected, and the `handleListSenders`/`handleStatus`
+tests restored after a block replacement of mine had deleted them — caught by
+the linter, by neither review. **W68's list of what does not exist is unchanged
+and accurate: this is not an executable bridge.** Agreed sequencing: W68 first,
+then a credential-free separately deployed test shell, and no Zoho credentials
+until that exists and has been reviewed.
+
 **Codex reviewed the bridge and returned CHANGES REQUIRED. Ten findings, ten
 upheld, all fixed** — W66 and W67, new head `b71509e`, reviewed implementation
 `c8d10ff` unchanged, 203 tests in the service and 1,943 across the repository.

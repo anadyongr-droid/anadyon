@@ -268,35 +268,170 @@ describe("admission is one atomic step — review finding 6", () => {
   });
 });
 
-describe("a stranded claim does not block a message forever — review finding 7", () => {
-  it("re-admits a claim past its lease", async () => {
-    // A worker that died between claim and send used to leave the key
-    // in_flight permanently, so that message could never be sent again.
+describe("an expired claim is resolved, NEVER re-admitted — re-review finding 1", () => {
+  it("answers a lease-expired key as unknown, and does not send again", async () => {
+    // The first fix for finding 7 made an expired claim re-admittable, so a
+    // lease timeout automatically permitted a second send — the same defect as
+    // finding 1, reintroduced by the mechanism meant to close finding 7. The
+    // previous worker may already have reached Zoho, and a fencing token is
+    // local: Zoho has no idea the second send is a duplicate.
+    //
+    // The test this replaces started a stalled provider call and then asserted
+    // that a second send WAS admitted. It asserted the bug.
     const leased = new InMemoryBridgeStore(1000);
-    const d = { ...deps, store: leased };
-    const stall: ZohoMailClient = { send: () => new Promise(() => {}) };
-    void handleSend("good-token", body("lease-0123456789ab"), { ...d, zoho: stall });
+    const stalled: ZohoMailClient = { send: () => new Promise(() => {}) };
+    const sentCount = { n: 0 };
+    const counting: ZohoMailClient = {
+      send: async () => {
+        sentCount.n += 1;
+        return { ok: true, delivery: "sent", providerMessageId: "zm-1", savedToSent: true };
+      },
+    };
+
+    void handleSend("good-token", body("lease-0123456789ab"), { ...deps, store: leased, zoho: stalled });
     await new Promise((r) => setTimeout(r, 5));
 
-    expect((await handleSend("good-token", body("lease-0123456789ab"), d)).status).toBe(409);
+    // Inside the lease: refused as in-flight.
+    expect((await handleSend("good-token", body("lease-0123456789ab"), { ...deps, store: leased, zoho: counting })).status).toBe(409);
+
     await new Promise((r) => setTimeout(r, 1100));
-    expect((await handleSend("good-token", body("lease-0123456789ab"), d)).status).toBe(200);
+
+    // Past the lease: a definite answer, not permission to send.
+    const after = await handleSend("good-token", body("lease-0123456789ab"), { ...deps, store: leased, zoho: counting });
+    expect(after.status).toBe(502);
+    expect(after.body.sent).toBeUndefined();
+    expect(after.body.delivery).toBe("unknown");
+    expect(String(after.body.error)).toContain("Sent folder");
+    // The whole point: the second worker did not call Zoho.
+    expect(sentCount.n).toBe(0);
   });
 
-  it("will not let a stale holder settle a claim somebody else now holds", async () => {
+  it("keeps answering unknown rather than drifting back to sendable", async () => {
+    const leased = new InMemoryBridgeStore(50);
+    const stalled: ZohoMailClient = { send: () => new Promise(() => {}) };
+    void handleSend("good-token", body("lease2-0123456789ab"), { ...deps, store: leased, zoho: stalled });
+    await new Promise((r) => setTimeout(r, 120));
+
+    for (let i = 0; i < 3; i += 1) {
+      const res = await handleSend("good-token", body("lease2-0123456789ab"), { ...deps, store: leased });
+      expect(res.status).toBe(502);
+      expect(res.body.delivery).toBe("unknown");
+    }
+    expect(zoho.sent).toEqual([]);
+  });
+
+  it("still stops a message being stranded in silence — the answer is definite", async () => {
+    // Finding 7's complaint was that a dead worker left every retry on 409
+    // forever, with no information. That is fixed: the key now reaches a
+    // settled, explicit `unknown` with instructions.
+    const leased = new InMemoryBridgeStore(10);
+    const stalled: ZohoMailClient = { send: () => new Promise(() => {}) };
+    void handleSend("good-token", body("lease3-0123456789ab"), { ...deps, store: leased, zoho: stalled });
+    await new Promise((r) => setTimeout(r, 30));
+    const res = await handleSend("good-token", body("lease3-0123456789ab"), { ...deps, store: leased });
+    expect(res.status).not.toBe(409);
+    expect(res.body.delivery).toBe("unknown");
+  });
+
+  it("will not let a stale holder settle or release a claim somebody else holds", async () => {
     const leased = new InMemoryBridgeStore(50);
     const first = await leased.admit("fence-key", "office-1", DEFAULT_LIMITS, 0);
     expect(first.state).toBe("claimed");
     const staleToken = first.state === "claimed" ? first.token : "";
-    const second = await leased.admit("fence-key", "office-1", DEFAULT_LIMITS, 1000);
-    expect(second.state).toBe("claimed");
+
+    // The lease expiry now settles the key rather than handing it over, so the
+    // stale holder's token is stale against a SETTLED entry.
+    const after = await leased.admit("fence-key", "office-1", DEFAULT_LIMITS, 1000);
+    expect(after.state).toBe("settled");
 
     await expect(
       leased.recordOutcome({ idempotencyKey: "fence-key", delivery: "sent", at: 1001 }, staleToken),
     ).rejects.toThrow(/fencing/);
-    // And the stale holder cannot release the live claim either.
     await leased.release("fence-key", staleToken);
-    expect((await leased.admit("fence-key", "office-1", DEFAULT_LIMITS, 1002)).state).toBe("in_flight");
+    // Still settled: a stale release cannot resurrect it into sendability.
+    expect((await leased.admit("fence-key", "office-1", DEFAULT_LIMITS, 1002)).state).toBe("settled");
+  });
+});
+
+describe("releasing an attempt withdraws its OWN admission — re-review finding 2", () => {
+  /**
+   * **This describe block is itself a lesson.** The first version of these
+   * tests drove the relay and asserted how many sends got through. They passed
+   * against the broken store, because removing the wrong admission and removing
+   * the right one leave the same *number* of admissions — so the count-based
+   * assertion could not tell them apart. It was a test that looked like it
+   * covered the defect and did not, which is the exact failure mode asked of
+   * Codex on the previous round and the third time this project has recorded
+   * it. It was found by re-breaking the fix and watching nothing fail.
+   *
+   * What distinguishes the two is **which** admission survives, and that only
+   * becomes visible as the rolling window decays: the wrong one removed leaves
+   * a *newer* admission in the window, so the user's allowance frees up later
+   * than it should. Hence these go at the store, with the clock supplied.
+   */
+  const limits = { ...DEFAULT_LIMITS, maxSendsPerWindow: 2, windowMs: 1000 };
+
+  it("leaves the real send's admission in the window, not the released one's", async () => {
+    const s = new InMemoryBridgeStore();
+
+    // A genuine send at t=0, which must keep counting until t=1000.
+    const real = await s.admit("real", "u", limits, 0);
+    expect(real.state).toBe("claimed");
+
+    // An attempt at t=100 that never reaches the provider, and is withdrawn.
+    const never = await s.admit("never", "u", limits, 100);
+    expect(never.state).toBe("claimed");
+    await s.release("never", never.state === "claimed" ? never.token : "");
+
+    // A second genuine send at t=150.
+    expect((await s.admit("real2", "u", limits, 150)).state).toBe("claimed");
+
+    // At t=1050 the t=0 send has aged out of the window and the t=150 one has
+    // not, so exactly one admission should remain and a third send is allowed.
+    //
+    // Against the broken store the surviving pair is the WITHDRAWN attempt
+    // (t=100) plus real2 (t=150) — neither aged out — so this is refused.
+    expect((await s.admit("real3", "u", limits, 1050)).state).toBe("claimed");
+  });
+
+  it("frees the allowance at the right time after several withdrawals", async () => {
+    const s = new InMemoryBridgeStore();
+    await s.admit("r1", "u", limits, 0);
+
+    // Two withdrawn attempts, both later than the real send.
+    for (const [key, at] of [["n1", 200], ["n2", 400]] as const) {
+      const a = await s.admit(key, "u", limits, at);
+      await s.release(key, a.state === "claimed" ? a.token : "");
+    }
+
+    // One real send inside the window, putting the user at the limit of 2.
+    await s.admit("r2", "u", limits, 500);
+    expect((await s.admit("r3", "u", limits, 600)).state).toBe("rate_limited");
+
+    // Once r1 ages out, exactly one slot should reopen.
+    expect((await s.admit("r3", "u", limits, 1001)).state).toBe("claimed");
+  });
+
+  it("withdraws nothing when the token is stale", async () => {
+    const s = new InMemoryBridgeStore();
+    expect((await s.admit("k", "u", limits, 0)).state).toBe("claimed");
+    await s.release("k", "not-the-token");
+    // Still claimed, so still counted.
+    expect((await s.admit("k", "u", limits, 10)).state).toBe("in_flight");
+  });
+
+  it("does not spend the allowance on attempts that never happened", async () => {
+    // The user-visible half of the same property, kept because it is the
+    // behaviour that matters even though it does not distinguish the defect.
+    const l = { ...DEFAULT_LIMITS, maxSendsPerWindow: 3 };
+    const never = new FakeZohoMailClient({ ok: false, delivery: "not_attempted", failure: "no token" });
+    for (const key of ["n1-0123456789abcdef", "n2-0123456789abcdef", "n3-0123456789abcdef"]) {
+      await handleSend("good-token", body(key), { ...deps, limits: l, zoho: never });
+    }
+    for (const key of ["s1-0123456789abcdef", "s2-0123456789abcdef", "s3-0123456789abcdef"]) {
+      expect((await handleSend("good-token", body(key), { ...deps, limits: l })).status).toBe(200);
+    }
+    expect(zoho.sent).toHaveLength(3);
   });
 });
 
@@ -321,15 +456,6 @@ describe("the other two endpoints", () => {
   });
 });
 
-/**
- * Found by reading the store rather than by a failing test, 27 October, after
- * the rest of Stage 1 was already pushed: `lookup` took a key and nothing
- * else, so any authenticated user could read the outcome of any key — whether
- * it was sent, and Zoho's identifier for it. The office is one team and the
- * keys are long random strings, so this is small; it is also the kind of thing
- * that is free to close now and awkward later, once a second deployment shares
- * a store.
- */
 describe("one user cannot read or take another user's key", () => {
   const second = { userId: "office-2", approvedSenders: senders };
   const twoUserAuth: Authenticator = {
