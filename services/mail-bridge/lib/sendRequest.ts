@@ -96,8 +96,16 @@ const BLOCKED_ATTACHMENT_EXTENSIONS = new Set([
  * what could smuggle a second recipient or a header, is. A comma, semicolon,
  * newline or angle bracket inside what claims to be one address is the shape of
  * an injection attempt, not a typo.
+ *
+ * **Tightened 27 October during a self-audit.** The first version excluded
+ * `@` from neither side, so `a@b@c.gr` passed as "one address" — in a function
+ * whose stated job is rejecting what could smuggle a second recipient. It also
+ * permitted control characters in the local part, so `a\u0000@b.gr` passed; a
+ * NUL is the classic way to make one string read as two different values to two
+ * different parsers. The local part is now explicitly `@`-free and the whole
+ * address is control-character-free.
  */
-const PLAUSIBLE_ADDRESS = /^[^\s<>,;:"\\]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+const PLAUSIBLE_ADDRESS = /^[^\s<>,;:"\\@\u0000-\u001f\u007f]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
 const asString = (v: unknown): string | undefined =>
   typeof v === "string" ? v : undefined;
@@ -123,9 +131,38 @@ function toAddressList(value: unknown): { list: string[]; malformed: boolean } {
   return { list, malformed };
 }
 
-const extensionOf = (filename: string): string => {
-  const dot = filename.lastIndexOf(".");
-  return dot === -1 ? "" : filename.slice(dot + 1).toLowerCase();
+/** Control characters, and anything that could make a filename a path. */
+const UNSAFE_FILENAME = /[\u0000-\u001f\u007f/\\]/;
+
+/**
+ * Every extension segment of a filename, normalised.
+ *
+ * **Found by self-audit, 27 October, and this was a real bypass.** The first
+ * version took only the text after the last dot, which let four shapes through
+ * the blocklist:
+ *
+ * - `evil.exe.` — extension read as empty. **Windows strips a trailing dot**,
+ *   so the saved file is `evil.exe`.
+ * - `evil.exe ` — extension read as `"exe "`, which is not `"exe"`. Windows
+ *   strips trailing spaces too.
+ * - `evil.exe..` — same as the first, twice over.
+ * - `evil.exe\u0000.pdf` — extension read as `pdf`, while a C-string parser
+ *   downstream sees `evil.exe`.
+ *
+ * So the filename is rejected outright if it carries a control character or a
+ * path separator, trailing dots and whitespace are stripped before splitting,
+ * and **every** segment is checked rather than the last. That last choice does
+ * over-block: `quote.exe.pdf` is refused even though it is a PDF. That is the
+ * right direction — a legitimate reservation attachment is not named that, and
+ * the cost of a false positive is a staff member renaming a file, against a
+ * false negative being an executable sent under the company's own
+ * authenticated identity.
+ */
+const extensionSegmentsOf = (filename: string): string[] => {
+  const normalised = filename.replace(/[.\s]+$/u, "").toLowerCase();
+  const parts = normalised.split(".");
+  // The first segment is the name, not an extension.
+  return parts.slice(1);
 };
 
 /**
@@ -191,7 +228,13 @@ export function validateSendRequest(
           reasons.push("each attachment needs filename, contentType and a non-negative byte count");
           continue;
         }
-        if (BLOCKED_ATTACHMENT_EXTENSIONS.has(extensionOf(filename))) {
+        if (UNSAFE_FILENAME.test(filename)) {
+          // The filename is not echoed back: it holds the control character,
+          // and the response reaches a browser extension and a log.
+          reasons.push("attachment filename contains a control character or a path separator");
+          continue;
+        }
+        if (extensionSegmentsOf(filename).some((ext) => BLOCKED_ATTACHMENT_EXTENSIONS.has(ext))) {
           reasons.push(`attachment type not permitted: ${filename}`);
           continue;
         }
@@ -224,8 +267,13 @@ export function validateSendRequest(
     reasons.push("idempotencyKey must be url-safe");
   }
 
-  // 7. Threading headers pass through, validated only for shape. Preserving
-  //    them is what keeps a reply in its conversation (review HIGH 3).
+  // 7. Threading headers are validated for shape and passed through — and the
+  //    Zoho client then REFUSES any send carrying one, because Zoho documents
+  //    no field for them. That is deliberate layering, not a contradiction:
+  //    this function's job is to say whether a request is well formed, and the
+  //    client's is to say whether it can be delivered. The note matters because
+  //    this comment used to claim the headers were preserved, which has not
+  //    been true since the threading trapdoor was removed.
   const inReplyTo = asString(input.inReplyTo)?.trim();
   const references = asString(input.references)?.trim();
   for (const [name, value] of [["inReplyTo", inReplyTo], ["references", references]] as const) {
@@ -256,6 +304,13 @@ export function validateSendRequest(
   };
 }
 
+/**
+ * **`maxRecipients` is the validator's limit, not the system's.** The Zoho
+ * client refuses more than one recipient until somebody has proved that Zoho
+ * accepts two, so the effective limit today is 1 and this 20 is the ceiling
+ * that would apply once it is. Stated because the two numbers look like a
+ * contradiction and are not.
+ */
 export const DEFAULT_LIMITS: RelayLimits = {
   maxRecipients: 20,
   maxTotalAttachmentBytes: 20 * 1024 * 1024,

@@ -109,10 +109,27 @@ export function isZohoHost(candidate: string, extraAllowedOrigins: readonly stri
   } catch {
     return false;
   }
-  if (url.protocol !== "https:") return false;
+  // No separate protocol check. The allowlist below is https-only and filters
+  // its entries, so a plaintext origin cannot match — and a mutation sweep on
+  // 27 October showed that having both guards made **neither** of them
+  // individually assertable: each masked the other, so removing either changed
+  // no behaviour and failed no test. Two redundant checks are not twice as safe;
+  // they are one check and one untested line.
+  //
+  // The credential check is NOT redundant and stays: `url.origin` omits
+  // userinfo, so `https://user:pass@mail.zoho.eu` has the origin of a permitted
+  // host and would otherwise be accepted, sending the token through whatever
+  // proxy those credentials authenticate to.
   if (url.username || url.password) return false;
   const origin = url.origin.toLowerCase();
-  const allowed = [...ZOHO_EU_ORIGINS, ...extraAllowedOrigins].map((o) => o.toLowerCase());
+  // The https rule applies to the EXTRA origins too, so an operator cannot
+  // widen this to a plaintext host by configuration. Without this the https
+  // check above is merely redundant with the built-in list, which a mutation
+  // sweep on 27 October showed: removing it changed no behaviour and failed no
+  // test. A rule that cannot be violated is not a rule worth having.
+  const allowed = [...ZOHO_EU_ORIGINS, ...extraAllowedOrigins]
+    .map((o) => o.toLowerCase())
+    .filter((o) => o.startsWith("https://"));
   return allowed.includes(origin);
 }
 

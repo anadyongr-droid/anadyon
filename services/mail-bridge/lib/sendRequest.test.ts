@@ -248,3 +248,131 @@ describe("a rejection reports every problem at once", () => {
     expect(result.reasons.length).toBeGreaterThanOrEqual(4);
   });
 });
+
+/**
+ * Added 27 October by a self-audit, after a mutation sweep showed three
+ * properties this file claims and did not assert, and a reading of
+ * `extensionOf` showed a live bypass.
+ */
+const v = (over: Record<string, unknown>) =>
+  validateSendRequest({ ...good, ...over } as Parameters<typeof validateSendRequest>[0], senders, limits);
+
+describe("the attachment blocklist cannot be stepped around", () => {
+  const withFile = (filename: string) =>
+    v({ attachments: [{ filename, contentType: "application/octet-stream", bytes: 10 }] });
+
+  it("blocks a trailing dot, which Windows strips — so evil.exe. saves as evil.exe", () => {
+    for (const filename of ["evil.exe.", "evil.exe..", "evil.EXE."]) {
+      expect(withFile(filename).ok).toBe(false);
+    }
+  });
+
+  it("blocks trailing whitespace, which Windows also strips", () => {
+    for (const filename of ["evil.exe ", "evil.exe\t", "evil.exe \u00a0"]) {
+      expect(withFile(filename).ok).toBe(false);
+    }
+  });
+
+  it("blocks a blocked extension anywhere in the name, not only last", () => {
+    // Deliberate over-blocking: quote.exe.pdf really is a PDF, and a
+    // legitimate reservation attachment is not named that.
+    for (const filename of ["evil.exe.pdf", "a.bat.txt", "x.dll.jpg"]) {
+      expect(withFile(filename).ok).toBe(false);
+    }
+  });
+
+  it("rejects a filename carrying a control character rather than parsing round it", () => {
+    // evil.exe\u0000.pdf reads as a PDF to a dot-splitter and as evil.exe to a
+    // C-string parser downstream.
+    const rejected = withFile("evil.exe\u0000.pdf");
+    expect(rejected.ok).toBe(false);
+    // And the filename is not echoed back into the response.
+    expect(JSON.stringify(rejected)).not.toContain("\u0000");
+  });
+
+  it("rejects a path separator in a filename", () => {
+    expect(withFile("../../etc/passwd").ok).toBe(false);
+    expect(withFile("a\\b.pdf").ok).toBe(false);
+  });
+
+  it("still accepts an ordinary attachment", () => {
+    expect(withFile("reservation.pdf").ok).toBe(true);
+    expect(withFile("photo.of.car.jpg").ok).toBe(true);
+  });
+});
+
+describe("one address means one address", () => {
+  it("rejects two at-signs, which the regex used to accept", () => {
+    expect(v({ to: ["a@b@c.gr"] }).ok).toBe(false);
+    expect(v({ to: ["a@b.gr@d.gr"] }).ok).toBe(false);
+  });
+
+  it("rejects a control character in the local part", () => {
+    expect(v({ to: ["a\u0000@b.gr"] }).ok).toBe(false);
+    expect(v({ to: ["a\u007f@b.gr"] }).ok).toBe(false);
+  });
+
+  it("does NOT split a comma-separated STRING into several recipients", () => {
+    // The mutation sweep caught my first attempt at this test: it passed an
+    // array, so the non-array branch the mutation changes was never reached.
+    // A bare string is how a client would send one field with two addresses in
+    // it, and it must read as one malformed address, not as two valid ones.
+    const asString = validateSendRequest(
+      { ...good, to: "a@b.gr, c@d.gr" } as Parameters<typeof validateSendRequest>[0],
+      senders,
+      { ...limits, maxRecipients: 1 },
+    );
+    expect(asString.ok).toBe(false);
+    expect(asString.ok === false && asString.reasons.join(" ")).toContain("not a single valid address");
+  });
+
+  it("does not split a comma-separated entry inside an array either", () => {
+    // The mutation sweep found nothing asserted this, and the comment in the
+    // source calls it out as how a recipient limit gets bypassed: a client told
+    // the limit was one sends "a@b.gr, c@d.gr" as a single entry.
+    const rejected = v({ to: ["guest@example.com, other@example.com"] });
+    expect(rejected.ok).toBe(false);
+
+    const limited = validateSendRequest(
+      { ...good, to: ["a@b.gr, c@d.gr, e@f.gr"] },
+      senders,
+      { ...DEFAULT_LIMITS, maxRecipients: 1 },
+    );
+    expect(limited.ok).toBe(false);
+  });
+
+  it("accepts a list of separate strings up to the limit", () => {
+    const ok = v({ to: ["a@b.gr", "c@d.gr"] });
+    expect(ok.ok).toBe(true);
+    expect(ok.ok === true && ok.send.to).toEqual(["a@b.gr", "c@d.gr"]);
+  });
+});
+
+describe("the whole-message size limit", () => {
+  it("refuses a body over maxMessageBytes", () => {
+    const tight = { ...DEFAULT_LIMITS, maxMessageBytes: 100 };
+    const rejected = validateSendRequest({ ...good, text: "x".repeat(101) }, senders, tight);
+    expect(rejected.ok).toBe(false);
+    expect(rejected.ok === false && rejected.reasons.join(" ")).toContain("too large");
+  });
+
+  it("counts the body in UTF-8 bytes, so Greek is measured honestly", () => {
+    const tight = { ...DEFAULT_LIMITS, maxMessageBytes: 100 };
+    // 60 Greek characters is 120 bytes, and would pass a character count.
+    expect(validateSendRequest({ ...good, text: "α".repeat(60) }, senders, tight).ok).toBe(false);
+  });
+
+  it("counts attachment bytes towards the same limit", () => {
+    const tight = { ...DEFAULT_LIMITS, maxMessageBytes: 100 };
+    const rejected = validateSendRequest(
+      { ...good, text: "short", attachments: [{ filename: "a.pdf", contentType: "application/pdf", bytes: 200 }] },
+      senders,
+      tight,
+    );
+    expect(rejected.ok).toBe(false);
+  });
+
+  it("accepts a message inside it", () => {
+    expect(validateSendRequest({ ...good, text: "x".repeat(50) }, senders, { ...DEFAULT_LIMITS, maxMessageBytes: 100 }).ok).toBe(true);
+  });
+});

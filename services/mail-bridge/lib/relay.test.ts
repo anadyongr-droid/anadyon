@@ -443,16 +443,105 @@ describe("the other two endpoints", () => {
     expect((await handleListSenders(undefined, deps)).status).toBe(401);
   });
 
-  it("reports a settled send by key, and 404 for an unknown one", async () => {
+  it("reports a settled send by key, and 404 for a key nobody submitted", async () => {
     await handleSend("good-token", body("status-0123456789ab"), deps);
     const found = await handleStatus("good-token", "status-0123456789ab", deps);
     expect(found.status).toBe(200);
+    expect(found.body.state).toBe("sent");
     expect(found.body.sent).toBe(true);
-    expect((await handleStatus("good-token", "never-seen-0123456789", deps)).status).toBe(404);
+
+    const missing = await handleStatus("good-token", "never-seen-0123456789", deps);
+    expect(missing.status).toBe(404);
+    expect(missing.body.state).toBe("unknown_key");
   });
 
   it("requires authentication to read a status", async () => {
     expect((await handleStatus(undefined, "x", deps)).status).toBe(401);
+  });
+});
+
+/**
+ * Found by self-audit, 27 October. The status endpoint had the defect the whole
+ * send path was rebuilt to avoid: it answered an `unknown` delivery with
+ * `200 { sent: false }` — a flat statement that the message was not sent, about
+ * the one outcome meaning *we cannot tell*. Anyone acting on it would resend.
+ * And it answered 404 both for a key nobody had claimed and for one still in
+ * flight, so a person checking on a send in progress was told it did not exist.
+ */
+describe("the status endpoint never says not-sent about an unknown", () => {
+  it("omits `sent` entirely for an unknown delivery, and says what to do", async () => {
+    const throwing: ZohoMailClient = { send: async () => { throw new Error("ECONNRESET"); } };
+    await handleSend("good-token", body("unk-0123456789abcd"), { ...deps, zoho: throwing });
+
+    const res = await handleStatus("good-token", "unk-0123456789abcd", deps);
+    expect(res.status).toBe(200);
+    expect(res.body.state).toBe("unknown");
+    // The important assertion: not `false`, ABSENT. There is no honest value.
+    expect("sent" in res.body).toBe(false);
+    expect(String(res.body.guidance)).toContain("Sent folder");
+  });
+
+  it("distinguishes a send still in flight from a key nobody submitted", async () => {
+    const stalled: ZohoMailClient = { send: () => new Promise(() => {}) };
+    void handleSend("good-token", body("flight-0123456789ab"), { ...deps, zoho: stalled });
+    await new Promise((r) => setTimeout(r, 5));
+
+    const inFlight = await handleStatus("good-token", "flight-0123456789ab", deps);
+    expect(inFlight.status).toBe(200);
+    expect(inFlight.body.state).toBe("in_flight");
+    expect("sent" in inFlight.body).toBe(false);
+    expect(String(inFlight.body.guidance)).toContain("Wait rather than resending");
+
+    const unknownKey = await handleStatus("good-token", "nothing-0123456789ab", deps);
+    expect(unknownKey.status).toBe(404);
+    expect(unknownKey.body.state).toBe("unknown_key");
+  });
+
+  it("does say not-sent when the answer is definite", async () => {
+    const rejecting = new FakeZohoMailClient({ ok: false, delivery: "rejected", failure: "no" });
+    await handleSend("good-token", body("rej-0123456789abcd"), { ...deps, zoho: rejecting });
+    const res = await handleStatus("good-token", "rej-0123456789abcd", deps);
+    expect(res.body.state).toBe("not_sent");
+    expect(res.body.sent).toBe(false);
+  });
+
+  it("shows another user's key as unknown rather than as in flight or settled", async () => {
+    const second = { userId: "office-2", approvedSenders: senders };
+    const twoUser: Authenticator = {
+      async authenticate(t) {
+        if (t === "good-token") return user;
+        if (t === "other-token") return second;
+        return undefined;
+      },
+    };
+    const d = { ...deps, auth: twoUser };
+    await handleSend("good-token", body("mine-0123456789abcd"), d);
+    const theirs = await handleStatus("other-token", "mine-0123456789abcd", d);
+    expect(theirs.status).toBe(404);
+    expect(theirs.body.state).toBe("unknown_key");
+    expect(JSON.stringify(theirs.body)).not.toContain("fake-1");
+  });
+});
+
+describe("the fencing token is checked on a LIVE claim, not only a settled one", () => {
+  it("refuses a wrong token against an in-flight claim", async () => {
+    // The mutation sweep found this unasserted: the earlier test exercised the
+    // settle-once path, so removing the token comparison changed nothing.
+    const s = new InMemoryBridgeStore();
+    const admitted = await s.admit("k", "u", DEFAULT_LIMITS, 0);
+    expect(admitted.state).toBe("claimed");
+
+    await expect(
+      s.recordOutcome({ idempotencyKey: "k", delivery: "sent", at: 1 }, "wrong-token"),
+    ).rejects.toThrow(/fencing/);
+
+    // Still in flight: the wrong token changed nothing.
+    expect((await s.inspect("k", "u")).state).toBe("in_flight");
+
+    // And the right one works.
+    const token = admitted.state === "claimed" ? admitted.token : "";
+    await s.recordOutcome({ idempotencyKey: "k", delivery: "sent", providerMessageId: "zm", at: 2 }, token);
+    expect((await s.inspect("k", "u")).state).toBe("settled");
   });
 });
 

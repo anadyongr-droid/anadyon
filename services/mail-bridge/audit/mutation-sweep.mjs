@@ -1,0 +1,139 @@
+// Mutation sweep over services/mail-bridge.
+//
+// **Why this exists.** On 27 October 2026 this service shipped two tests that
+// asserted the defect they were written to catch — a lease test that proved a
+// second send WAS admitted, and a rate-limit test that passed against the
+// broken store. Both were written after re-breaking the code and watching a
+// test fail, which proves a control is *reachable* and says nothing about
+// whether the assertion is the right one.
+//
+// This closes that gap mechanically. Each entry below is a plausible defect:
+// a control turned off, a check inverted, a guard deleted. The suite must fail
+// for every one of them. **A mutation that SURVIVES is a property the code
+// claims and no test asserts** — which is the thing a human reviewer cannot
+// reliably spot and a machine can.
+//
+// Run it from the repository root:
+//
+//     node services/mail-bridge/audit/mutation-sweep.mjs
+//
+// It edits files in place and restores them after each run, so the working tree
+// must be clean, and a crash mid-run leaves one file mutated — `git diff` says
+// which. It is not part of `npm test`: it runs the whole service suite once per
+// mutation, which takes minutes, and per AGENTS.md coverage-shaped numbers are
+// diagnostics rather than merge gates. Run it when the service changes.
+//
+// Adding a mutation is how you record "this property matters". Deleting one
+// because it is awkward is how this file stops being worth running.
+
+import { readFileSync, writeFileSync } from "node:fs";
+import { execSync } from "node:child_process";
+
+const L = "services/mail-bridge/lib";
+const X = "services/mail-bridge/extension";
+
+const M = [
+  // --- sendRequest: the whole boundary ---
+  [`${L}/sendRequest.ts`, "if (!claimedSender) {", "if (false) {", "sender: missing sender accepted"],
+  [`${L}/sendRequest.ts`, "} else if (!sender) {", "} else if (false) {", "sender: unapproved sender accepted"],
+  [`${L}/sendRequest.ts`, "const raw = Array.isArray(value) ? value : [value];", "const raw = Array.isArray(value) ? value : String(value).split(\",\");", "recipients: comma-split restored"],
+  [`${L}/sendRequest.ts`, "if (!PLAUSIBLE_ADDRESS.test(address)) {", "if (false) {", "recipients: address shape unchecked"],
+  [`${L}/sendRequest.ts`, "if (all.length > limits.maxRecipients) {", "if (false) {", "recipients: count limit removed"],
+  [`${L}/sendRequest.ts`, 'if (/[\\r\\n]/.test(subject)) reasons.push("subject must not contain line breaks");', "", "subject: line breaks allowed"],
+  [`${L}/sendRequest.ts`, 'if (!text && !html) reasons.push("a text or html body is required");', "", "body: empty body allowed"],
+  [`${L}/sendRequest.ts`, "if (BLOCKED_ATTACHMENT_EXTENSIONS.has(extensionOf(filename))) {", "if (false) {", "attachments: blocklist removed"],
+  [`${L}/sendRequest.ts`, "if (total > limits.maxTotalAttachmentBytes) {", "if (false) {", "attachments: size limit removed"],
+  [`${L}/sendRequest.ts`, "if (bodyBytes + attachmentBytes > limits.maxMessageBytes) {", "if (false) {", "message: size limit removed"],
+  [`${L}/sendRequest.ts`, "} else if (idempotencyKey.length < 16 || idempotencyKey.length > 200) {", "} else if (false) {", "key: length unchecked"],
+  [`${L}/sendRequest.ts`, "} else if (!/^[A-Za-z0-9._:-]+$/.test(idempotencyKey)) {", "} else if (false) {", "key: url-safety unchecked"],
+  [`${L}/sendRequest.ts`, "if (value !== undefined && /[\\r\\n]/.test(value)) {", "if (false) {", "threading headers: line breaks allowed"],
+
+  // --- store ---
+  [`${L}/store.ts`, "if (existing.userId !== userId) return { state: \"in_flight\" };", "", "store: cross-user claim allowed"],
+  [`${L}/store.ts`, "if (!existing || existing.userId !== userId) return undefined;", "if (!existing) return undefined;", "store: cross-user lookup allowed"],
+  [`${L}/store.ts`, "if (recent >= limits.maxSendsPerWindow) return { state: \"rate_limited\" };", "", "store: rate limit removed"],
+  [`${L}/store.ts`, 'if (this.intentBroken) throw new Error("intent store unavailable");', "", "store: intent failure no longer surfaces"],
+  [`${L}/store.ts`, 'if (!existing || existing.token !== token) throw new Error("stale fencing token");', "if (!existing) throw new Error(\"no entry\");", "store: fencing token unchecked"],
+  [`${L}/store.ts`, 'if (existing.state === "settled") throw new Error("already settled, fencing refused");', "", "store: settle-once removed"],
+  [`${L}/store.ts`, "const i = this.admitted.findIndex((a) => a.idempotencyKey === idempotencyKey && a.token === token);", "const i = this.admitted.findIndex((a) => a.userId === existing.userId);", "store: release removes wrong admission"],
+  [`${L}/store.ts`, 'if (record.delivery === "not_attempted") return;', "", "store: not_attempted settles the key"],
+
+  // --- relay ordering ---
+  [`${L}/relay.ts`, "if (!(await deps.store.isSendingEnabled())) {", "if (false) {", "relay: kill switch inert"],
+  [`${L}/relay.ts`, "if (!user) return json(401, { error: \"Not authenticated.\" });", "", "relay: authentication inert"],
+  [`${L}/relay.ts`, "if (!validation.ok) return json(400, { error: \"Rejected.\", reasons: validation.reasons });", "", "relay: validation inert"],
+  [`${L}/relay.ts`, "if (!outcome.ok && mayReleaseKey(outcome)) {", "if (!outcome.ok) {", "relay: any failure releases the key"],
+
+  // --- zohoApi ---
+  [`${L}/zohoApi.ts`, "if (!this.capabilities.multipleRecipientsPerField && recipientCount > 1) {", "if (false) {", "zoho: multi-recipient refusal removed"],
+  [`${L}/zohoApi.ts`, "if (send.inReplyTo || send.references) {", "if (false) {", "zoho: threading refusal removed"],
+  [`${L}/zohoApi.ts`, "if (send.attachments.length > 0) {", "if (false) {", "zoho: attachment refusal removed"],
+  [`${L}/zohoApi.ts`, "if (!token.apiDomain) return notAttempted(REFUSALS.noApiDomain);", "", "zoho: missing api_domain unchecked"],
+  [`${L}/zohoApi.ts`, "const allowed = [...ZOHO_EU_ORIGINS, ...extraAllowedOrigins].map((o) => o.toLowerCase());", "const allowed = [url.origin.toLowerCase()];", "zoho: host allowlist inert"],
+  [`${L}/zohoApi.ts`, 'if (url.protocol !== "https:") return false;', "", "zoho: plaintext host allowed"],
+  [`${L}/zohoApi.ts`, "fromAddress: send.sender.address,", "fromAddress: `${send.sender.displayName} <${send.sender.address}>`,", "zoho: fromAddress format regressed"],
+
+  // --- http transport ---
+  [`${L}/http.ts`, "if (origin && Object.keys(cors).length === 0) {", "if (false) {", "http: origin check inert"],
+  [`${L}/http.ts`, "if (!origin || !options.allowedOrigins.includes(origin)) return {};", "if (!origin) return {};", "http: origin allowlist inert"],
+  [`${L}/http.ts`, '"Access-Control-Allow-Origin": origin,', '"Access-Control-Allow-Origin": "*",', "http: wildcard CORS"],
+  [`${L}/http.ts`, "if (!/^application\\/json\\b/i.test(contentType.trim())) {", "if (false) {", "http: content-type unchecked"],
+  [`${L}/http.ts`, "if (size > MAX_BODY_BYTES) {", "if (false) {", "http: body cap removed"],
+  [`${L}/http.ts`, "if (parsed === null || typeof parsed !== \"object\" || Array.isArray(parsed)) {", "if (false) {", "http: non-object body accepted"],
+  [`${L}/http.ts`, "const match = /^Bearer ([^\\s]+)$/.exec(raw.trim());", "const match = [raw, raw.replace(/^Bearer /, \"\")];", "http: bearer scheme unchecked"],
+
+  // --- reconcile ---
+  [`${L}/reconcile.ts`, "    : inconclusiveBecause.length > 0\n      ? \"inconclusive\"\n      : \"ok\";", "    : \"ok\";", "reconcile: absence of evidence = ok"],
+  [`${L}/reconcile.ts`, "const graceMs = Math.min(Math.max(0, input.graceMs), MAX_GRACE_MS);", "const graceMs = input.graceMs;", "reconcile: grace unbounded"],
+  [`${L}/reconcile.ts`, "    ? new Set(input.officeCopies.messages.map((m) => m.correlationId))\n    : undefined;", "    ? new Set(input.officeCopies.messages.map((m) => m.correlationId))\n    : new Set();", "reconcile: failed listing = empty mailbox"],
+  [`${L}/reconcile.ts`, "if (!isMatchable(send.correlationId)) {", "if (false) {", "reconcile: unmatchable counted as matched"],
+
+  // --- extension ---
+  [`${X}/relayClient.js`, "        ? httpOk && parsed && body.sent === true", "        ? httpOk", "ext: any 2xx is a send"],
+  [`${X}/relayClient.js`, 'credentials: "omit",', "", "ext: cookies may be attached"],
+  [`${X}/relayClient.js`, 'redirect: "error",', "", "ext: redirects followed"],
+  [`${X}/relayClient.js`, 'if (typeof origin !== "string" || !origin.startsWith("https://")) {', "if (false) {", "ext: plaintext relay origin allowed"],
+  [`${X}/corporateSend.js`, "if (result && result.ok === true && result.body?.sent === true) {", "if (result && result.ok === true) {", "ext: send flag not required at the top layer"],
+  [`${X}/corporateSend.js`, 'if (result && result.body?.delivery === "unknown") {', "if (false) {", "ext: unknown delivery offered as retryable"],
+  [`${X}/corporateSend.js`, "throw new Error(\"No cryptographic random source is available.\");", "return \"0123456789abcdef0123456789abcdef\";", "ext: predictable idempotency key"],
+];
+
+// Added by the 27 October self-audit.
+M.push(
+  [`${L}/sendRequest.ts`, "const normalised = filename.replace(/[.\\s]+$/u, \"\").toLowerCase();", "const normalised = filename.toLowerCase();", "attachments: trailing dot/space bypass restored"],
+  [`${L}/sendRequest.ts`, "return parts.slice(1);", "return parts.slice(-1);", "attachments: only the last segment checked"],
+  [`${L}/sendRequest.ts`, "if (UNSAFE_FILENAME.test(filename)) {", "if (false) {", "attachments: control characters allowed in a filename"],
+  [`${L}/sendRequest.ts`, "\\u0000-\\u001f\\u007f]+@", "]+@", "recipients: two at-signs and control chars accepted again"],
+  [`${L}/relay.ts`, "if (found.state === \"in_flight\") {", "if (false) {", "status: in-flight indistinguishable from unknown key"],
+  [`${L}/relay.ts`, "if (outcome.delivery === \"unknown\") {", "if (false) {", "status: unknown delivery reported as not sent"],
+  [`${L}/zohoApi.ts`, "    .filter((o) => o.startsWith(\"https://\"));", "", "zoho: plaintext extra origin permitted"],
+  [`${X}/corporateSend.js`, "if (result && result.ok === true && result.body?.sent === true) {", "if (result && result.ok === true) {", "ext: top-layer sent flag removed"],
+  [`${L}/zohoApi.ts`, "if (url.username || url.password) return false;", "", "zoho: userinfo credentials in a host accepted"],
+  [`${L}/store.ts`, "if (!existing || existing.userId !== userId) return { state: \"unknown_key\" };", "if (!existing) return { state: \"unknown_key\" };", "store: cross-user inspect allowed"],
+  [`${L}/relay.ts`, "const admission = await deps.store.admit(send.idempotencyKey, user.userId, deps.limits, now());", "const admission = await deps.store.admit(send.idempotencyKey, \"shared\", deps.limits, now());", "relay: admission not scoped to the user"],
+);
+
+const run = () => {
+  try {
+    execSync("npx vitest run services/mail-bridge/ --reporter=dot", { stdio: "pipe" });
+    return true; // passed = mutation survived
+  } catch {
+    return false; // failed = caught
+  }
+};
+
+const survivors = [];
+for (const [file, find, replace, label] of M) {
+  const original = readFileSync(file, "utf8");
+  if (!original.includes(find)) {
+    console.log(`SKIP  ${label}  (pattern not found)`);
+    continue;
+  }
+  writeFileSync(file, original.replace(find, replace));
+  const survived = run();
+  writeFileSync(file, original);
+  console.log(`${survived ? "SURVIVED" : "caught  "}  ${label}`);
+  if (survived) survivors.push(label);
+}
+console.log(`\n${M.length} mutations, ${survivors.length} survived`);
+for (const s of survivors) console.log(`  SURVIVED: ${s}`);

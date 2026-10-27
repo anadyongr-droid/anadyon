@@ -283,6 +283,32 @@ describe("credentials only go to Zoho hosts — review finding 8", () => {
     expect(isZohoHost("not a url")).toBe(false);
   });
 
+  it("will not let an operator widen it to a plaintext host by configuration", () => {
+    // Found by mutation sweep: without this the https check is redundant with
+    // the built-in list, so removing it failed no test.
+    expect(isZohoHost("http://mail.zoho.com", ["http://mail.zoho.com"])).toBe(false);
+    expect(isZohoHost("https://mail.zoho.com", ["https://mail.zoho.com"])).toBe(true);
+  });
+
+  it("gives a DIFFERENT reason for a missing api_domain than for a wrong one", async () => {
+    // Also from the sweep: both paths refused, so dropping the explicit
+    // missing-api_domain check changed nothing observable. The reasons differ
+    // because they need different fixes — one is Zoho answering oddly, the
+    // other is a host nobody authorised.
+    const { fetch } = recording();
+    const missing = await new ZohoApiMailClient({ accountId: "1", tokens: tokens("t", ""), fetch }).send(send());
+    const wrong = await new ZohoApiMailClient({
+      accountId: "1",
+      tokens: tokens("t", "https://collector.evil.example"),
+      fetch,
+    }).send(send());
+    expect(missing.ok === false && missing.failure).toContain("no api_domain");
+    expect(wrong.ok === false && wrong.failure).toContain("not an https Zoho host");
+    if (missing.ok === false && wrong.ok === false) {
+      expect(missing.failure).not.toBe(wrong.failure);
+    }
+  });
+
   it("accepts the EU origins this mailbox uses, and nothing wider", () => {
     for (const host of ["https://accounts.zoho.eu", "https://mail.zoho.eu", "https://www.zohoapis.eu"]) {
       expect(isZohoHost(host)).toBe(true);

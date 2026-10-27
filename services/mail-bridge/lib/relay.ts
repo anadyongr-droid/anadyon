@@ -219,7 +219,23 @@ export async function handleListSenders(
   return json(200, { senders: user.approvedSenders });
 }
 
-/** §6.2: query a submitted message by idempotency key. */
+/**
+ * §6.2: query a submitted message by idempotency key.
+ *
+ * **Rewritten after a self-audit, 27 October, and it had the defect the whole
+ * send path was rebuilt to avoid.** The first version answered an `unknown`
+ * delivery with `200 { sent: false }` — a flat statement that the message was
+ * not sent, about the one outcome that means *we cannot tell*. Anyone acting on
+ * that answer would resend, which is the duplicate the send path refuses to
+ * cause. It also answered 404 both for a key nobody had claimed and for one
+ * still in flight, so a person checking on a send in progress was told it did
+ * not exist.
+ *
+ * So `sent` is now emitted **only when the answer is definite**, and `state`
+ * carries the rest. A caller that cannot find `sent` must not resend; the
+ * `guidance` field says so in words, because the field's absence is easy to
+ * miss and the consequence is a customer receiving two of something.
+ */
 export async function handleStatus(
   token: string | undefined,
   idempotencyKey: string,
@@ -227,9 +243,35 @@ export async function handleStatus(
 ): Promise<RelayResponse> {
   const user = await deps.auth.authenticate(token);
   if (!user) return json(401, { error: "Not authenticated." });
-  const outcome = await deps.store.lookup(idempotencyKey, user.userId);
-  if (!outcome) return json(404, { error: "No settled result for that key." });
-  return outcome.ok
-    ? json(200, { sent: true, providerMessageId: outcome.providerMessageId })
-    : json(200, { sent: false });
+
+  const found = await deps.store.inspect(idempotencyKey, user.userId);
+
+  if (found.state === "unknown_key") {
+    return json(404, { state: "unknown_key", error: "No submission under that key." });
+  }
+  if (found.state === "in_flight") {
+    return json(200, {
+      state: "in_flight",
+      guidance: "This message is still being sent. Wait rather than resending.",
+    });
+  }
+
+  const outcome = found.outcome;
+  if (outcome.ok) {
+    return json(200, {
+      state: "sent",
+      sent: true,
+      providerMessageId: outcome.providerMessageId,
+      savedToSent: outcome.savedToSent,
+    });
+  }
+  if (outcome.delivery === "unknown") {
+    // No `sent` field at all. There is no honest value for it here.
+    return json(200, {
+      state: "unknown",
+      guidance:
+        "It is not known whether this message was sent. Check Zoho's Sent folder before composing it again.",
+    });
+  }
+  return json(200, { state: "not_sent", sent: false, delivery: outcome.delivery });
 }
