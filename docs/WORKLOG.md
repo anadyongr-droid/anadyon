@@ -15,9 +15,59 @@ wrong place.
 
 ---
 
-## 27 October 2026 — Claude (implementer)
+## 27 October 2026 — Claude (implementer) and Codex (reviewer)
 
-**Last verified:** 27 October 2026, Claude.
+**Last verified:** 27 October 2026, Claude — close of day.
+
+**Where the day ended, before the detail below.** Three threads, and only one of
+them finished.
+
+**1. The mail bridge: Stage 1 is complete and its review cycle is closed.**
+Seven review rounds with Codex, **24 findings upheld and none disputed**, ending
+at `652a91e` with no new Stage 1 runtime defect and W76/W77 closed. **It is not
+deployable and that has not changed all day** — Stage 2 is durable storage,
+staff authentication and MFA, a deployable endpoint, the separate
+repository/deployment/credential boundary, the Gmail interface and extension
+build, controlled distribution, scheduled reconciliation and alerts, and a real
+relay address. PR #242 stays draft, unmerged and credential-free. **And none of
+it settles E39**, which still turns on one number: how many office mailboxes.
+
+**What the review cycle is actually worth recording.** The failures moved one
+level up each round: controls that ran *after* the irreversible step; a fix that
+reintroduced the defect it closed; the mutation instrument built to catch both;
+the *shape* of a rule rather than the rule; and finally my own reports of the
+work. **Three of the findings were my descriptions, not my code** — the mutation
+count, the W73 branch claim, the "live case" — all three caught by Codex. The
+code was reviewed seven times; my reporting of it was reviewed only by him, and
+that is the standing lesson rather than any single defect.
+
+**2. A §12 escalation that is still open and is the only item with an
+irreversible cost.** `ΗΒΙ 467`'s recorded insurance cover **ended today**,
+joining ten vehicles already past — ΙΡΜ 6966, the eight motorbikes, ΙΜΙ 2840 —
+with ΗΒΙ 1568 on 4 November. F1's own figures had been written on 3 October and
+were counting down to dates that had passed. Not a claim that eleven vehicles
+are uninsured: the broker sends certificates on the day. But **nobody here can
+tell**, no expiry is recorded against any of the 29 vehicles, and `rentalBar`
+bars only on `expired`. One call to Κ.ΕΞΠΡΕΣΣ, **2695025030**, answers it, and
+it did not happen today.
+
+**3. A sequenced action list for Tasos**, because fifty-two open items carrying
+his name is not a list anybody works through:
+[`ACTIONS-FOR-TASOS-2026-10-27.md`](ACTIONS-FOR-TASOS-2026-10-27.md). Its one
+re-prioritised item is the substantive change: **the Papaki server is now a
+decision rather than a support problem**, because office mail has left it for
+Zoho and cancelling the hosting would close E33, E36 and E6 and remove E37's
+dependency on an unresponsive operator.
+
+**Two near-misses of mine, both recorded rather than tidied away.** Four
+finished files were lost to a reclaimed container and recovered from the session
+transcript by luck — the increment-commit rule that follows is in
+[`ENGINEERING-SAFETY-NET.md`](ENGINEERING-SAFETY-NET.md). And an over-broad
+`git checkout ... -- docs/` reverted six documents on the collaboration branch
+to `main`'s older versions, losing W64, W65, W69 and the 536-line Zoho cutover
+guide; nothing was committed and all of it was restored and verified row by row.
+
+**The day in order, as it happened.**
 
 One subject, one incident. Detail in
 [`worklog/2026-10-27-claude.md`](worklog/2026-10-27-claude.md).
