@@ -41,8 +41,16 @@ export type AuditRecord = {
 };
 
 export interface BridgeStore {
-  /** Atomically test-and-claim. See ClaimResult. */
-  claim(idempotencyKey: string): Promise<ClaimResult>;
+  /**
+   * Atomically test-and-claim, **for one owner**. See ClaimResult.
+   *
+   * The owner is part of the operation rather than a later filter because the
+   * three states each carry information: a key claimed by a different user
+   * answers `in_flight`, which refuses without saying whether that key was
+   * ever sent or to whom. Scoping it afterwards would mean having already
+   * read someone else's outcome.
+   */
+  claim(idempotencyKey: string, userId: string): Promise<ClaimResult>;
   /** Record the result against a claimed key, so a retry is answered not resent. */
   settle(idempotencyKey: string, outcome: SendOutcome): Promise<void>;
   /**
@@ -57,7 +65,12 @@ export interface BridgeStore {
   appendAudit(record: AuditRecord): Promise<void>;
   /** The kill switch. False means refuse every send. */
   isSendingEnabled(): Promise<boolean>;
-  lookup(idempotencyKey: string): Promise<SendOutcome | undefined>;
+  /**
+   * The settled outcome for this user's key, or undefined — including when the
+   * key exists and belongs to someone else, which is indistinguishable from
+   * not existing on purpose.
+   */
+  lookup(idempotencyKey: string, userId: string): Promise<SendOutcome | undefined>;
 }
 
 /**
@@ -74,8 +87,8 @@ export interface BridgeStore {
 export const AUDIT_FAILURE_BLOCKS_SEND = true;
 
 type Entry =
-  | { state: "in_flight"; at: number }
-  | { state: "settled"; outcome: SendOutcome; at: number };
+  | { state: "in_flight"; userId: string; at: number }
+  | { state: "settled"; userId: string; outcome: SendOutcome; at: number };
 
 /** Stage 1 only. Loses everything on restart, which is why it is not Stage 2. */
 export class InMemoryBridgeStore implements BridgeStore {
@@ -86,19 +99,25 @@ export class InMemoryBridgeStore implements BridgeStore {
   /** Set to make appendAudit throw, so the fail-closed path can be tested. */
   auditBroken = false;
 
-  async claim(idempotencyKey: string): Promise<ClaimResult> {
+  async claim(idempotencyKey: string, userId: string): Promise<ClaimResult> {
     const existing = this.entries.get(idempotencyKey);
+    // Another user's key is refused as in-flight: a refusal that says nothing.
+    if (existing && existing.userId !== userId) return { state: "in_flight" };
     if (existing?.state === "settled") return { state: "settled", outcome: existing.outcome };
     if (existing?.state === "in_flight") return { state: "in_flight" };
     // Single synchronous set: nothing can interleave between the get and this
     // in one JS event-loop turn, which is what makes the Map version honest
     // about the atomicity a real store must provide.
-    this.entries.set(idempotencyKey, { state: "in_flight", at: Date.now() });
+    this.entries.set(idempotencyKey, { state: "in_flight", userId, at: Date.now() });
     return { state: "claimed" };
   }
 
   async settle(idempotencyKey: string, outcome: SendOutcome): Promise<void> {
-    this.entries.set(idempotencyKey, { state: "settled", outcome, at: Date.now() });
+    const existing = this.entries.get(idempotencyKey);
+    // Settling a key nobody claimed would create an unowned record, so the
+    // owner is carried over and an unclaimed key is left alone.
+    if (!existing) return;
+    this.entries.set(idempotencyKey, { state: "settled", userId: existing.userId, outcome, at: Date.now() });
   }
 
   async release(idempotencyKey: string): Promise<void> {
@@ -120,9 +139,10 @@ export class InMemoryBridgeStore implements BridgeStore {
     return this.sendingEnabled;
   }
 
-  async lookup(idempotencyKey: string): Promise<SendOutcome | undefined> {
+  async lookup(idempotencyKey: string, userId: string): Promise<SendOutcome | undefined> {
     const existing = this.entries.get(idempotencyKey);
-    return existing?.state === "settled" ? existing.outcome : undefined;
+    if (!existing || existing.userId !== userId) return undefined;
+    return existing.state === "settled" ? existing.outcome : undefined;
   }
 
   /** The kill switch, as an operator would use it. */

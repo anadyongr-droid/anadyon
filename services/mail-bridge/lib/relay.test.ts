@@ -228,3 +228,65 @@ describe("the other two endpoints", () => {
     expect((await handleStatus(undefined, "x", deps)).status).toBe(401);
   });
 });
+
+/**
+ * Found by reading the store rather than by a failing test, 27 October, after
+ * the rest of Stage 1 was already pushed: `lookup` took a key and nothing
+ * else, so any authenticated user could read the outcome of any key — whether
+ * it was sent, and Zoho's identifier for it. The office is one team and the
+ * keys are long random strings, so this is small; it is also the kind of thing
+ * that is free to close now and awkward later, once a second deployment shares
+ * a store.
+ */
+describe("one user cannot read or take another user's key", () => {
+  const second = { userId: "office-2", approvedSenders: senders };
+  const twoUserAuth: Authenticator = {
+    async authenticate(token) {
+      if (token === "good-token") return user;
+      if (token === "other-token") return second;
+      return undefined;
+    },
+  };
+
+  beforeEach(() => {
+    deps = { auth: twoUserAuth, store, zoho, limits: DEFAULT_LIMITS };
+  });
+
+  it("does not show the second user the first user's settled send", async () => {
+    const key = "shared-0123456789abcdef";
+    await handleSend("good-token", body(key), deps);
+
+    const mine = await handleStatus("good-token", key, deps);
+    expect(mine.status).toBe(200);
+    expect(mine.body.sent).toBe(true);
+
+    const theirs = await handleStatus("other-token", key, deps);
+    expect(theirs.status).toBe(404);
+    expect(JSON.stringify(theirs.body)).not.toContain("fake-1");
+  });
+
+  it("refuses the second user's send on a key the first user owns, and sends nothing", async () => {
+    const key = "shared-0123456789abcdef";
+    await handleSend("good-token", body(key), deps);
+    zoho.sent.length = 0;
+
+    const res = await handleSend("other-token", body(key), deps);
+    expect(res.status).toBe(409);
+    // Not "already sent" and no provider id: the refusal says nothing about
+    // the other user's message.
+    expect(JSON.stringify(res.body)).not.toContain("fake-1");
+    expect(JSON.stringify(res.body)).not.toContain("deduplicated");
+    expect(zoho.sent).toEqual([]);
+  });
+
+  it("still deduplicates the owner's own retry", async () => {
+    const key = "shared-0123456789abcdef";
+    await handleSend("good-token", body(key), deps);
+    zoho.sent.length = 0;
+
+    const again = await handleSend("good-token", body(key), deps);
+    expect(again.status).toBe(200);
+    expect(again.body.deduplicated).toBe(true);
+    expect(zoho.sent).toEqual([]);
+  });
+});

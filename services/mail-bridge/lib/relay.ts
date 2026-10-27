@@ -90,7 +90,7 @@ export async function handleSend(
   }
 
   // 5. Idempotency.
-  const claim = await deps.store.claim(send.idempotencyKey);
+  const claim = await deps.store.claim(send.idempotencyKey, user.userId);
   if (claim.state === "in_flight") {
     return json(409, { error: "This message is already being sent.", idempotencyKey: send.idempotencyKey });
   }
@@ -173,7 +173,7 @@ export async function handleStatus(
 ): Promise<RelayResponse> {
   const user = await deps.auth.authenticate(token);
   if (!user) return json(401, { error: "Not authenticated." });
-  const outcome = await deps.store.lookup(idempotencyKey);
+  const outcome = await deps.store.lookup(idempotencyKey, user.userId);
   if (!outcome) return json(404, { error: "No settled result for that key." });
   return outcome.ok
     ? json(200, { sent: true, providerMessageId: outcome.providerMessageId })
