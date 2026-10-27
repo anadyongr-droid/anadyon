@@ -8,6 +8,7 @@ import {
   classify,
   extractMessageId,
   ZOHO_ALLOWED_ORIGINS,
+  ZOHO_OVERRIDE_CANDIDATES,
   isZohoHost,
   type HttpFetch,
   type TokenSource,
@@ -334,6 +335,29 @@ describe("credentials only go to Zoho hosts — review finding 8", () => {
     expect(isZohoHost("https://other.zoho.com", ["https://mail.zoho.com"])).toBe(false);
   });
 
+  it("will not let the escape hatch reach an arbitrary Zoho SUBDOMAIN — fourth review, finding 1", () => {
+    // The previous version matched any subdomain of a Zoho registrable domain,
+    // so `anything.zoho.eu` qualified. A suffix match is not an allowlist: it
+    // delegates the decision to whoever can get a hostname under the domain.
+    for (const sub of [
+      "https://anything.zoho.eu",
+      "https://test.zoho.com",
+      "https://sandbox.zohoapis.eu",
+      "https://mail.dev.zoho.in",
+    ]) {
+      expect(isZohoHost(sub, [sub])).toBe(false);
+    }
+  });
+
+  it("names its permitted override endpoints explicitly, all https", () => {
+    expect(ZOHO_OVERRIDE_CANDIDATES.length).toBeGreaterThan(8);
+    for (const endpoint of ZOHO_OVERRIDE_CANDIDATES) {
+      expect(endpoint).toMatch(/^https:\/\/[a-z0-9.-]+$/);
+      // An exact origin: no path, no port, no wildcard.
+      expect(new URL(endpoint).origin).toBe(endpoint);
+    }
+  });
+
   it("will not let the escape hatch reach a non-Zoho host — third review, finding 3", () => {
     // The hatch used to require only https, so ONE configuration line could
     // point the refresh token and client secret at any host in the world. A
@@ -349,9 +373,10 @@ describe("credentials only go to Zoho hosts — review finding 8", () => {
     }
   });
 
-  it("still reaches other Zoho data centres, which is what the hatch is for", () => {
+  it("still reaches the listed data-centre endpoints, which is what the hatch is for", () => {
     for (const dc of ["https://mail.zoho.in", "https://accounts.zohocloud.ca", "https://www.zohoapis.jp"]) {
       expect(isZohoHost(dc, [dc])).toBe(true);
+      expect(ZOHO_OVERRIDE_CANDIDATES).toContain(dc);
     }
   });
 

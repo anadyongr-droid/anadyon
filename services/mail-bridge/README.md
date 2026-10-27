@@ -65,7 +65,7 @@ enforces that.
 | A build step inlining the extension modules into `content.js` | **not built** |
 | Attachment upload | **cannot be built** without widening the request type — see below |
 
-**243 tests.** `npx vitest run services/mail-bridge/`.
+**245 tests.** `npx vitest run services/mail-bridge/`.
 
 **63 mutations: 63 run, 0 stale, 0 surviving**, and the sweep **exits non-zero**
 if any mutation goes stale or survives. `node services/mail-bridge/audit/mutation-sweep.mjs`.
@@ -234,6 +234,39 @@ sets itself is the robust answer and is unavailable for the same reason
 `In-Reply-To` is. The module takes the identifier as data. And our own privacy
 decision costs the easy key: the audit row stores `subjectLength`, not the
 subject, so matching by subject is deliberately impossible.
+
+## Codex's fourth review — two findings, both upheld
+
+Reviewed at `775c9ba`. The mutation-audit, abandoned-send status and
+relay-permission defects were confirmed fixed. Two remained, and both are the
+same mistake in two places: **a rule shaped like the right rule instead of the
+rule itself.**
+
+**1. The Zoho destination override matched any subdomain of a Zoho registrable
+domain**, so `anything.zoho.eu` qualified. A suffix match is not an allowlist —
+it delegates the decision to whoever can obtain a hostname under the domain,
+which for a credential destination is the wrong party. It now matches an
+**explicit list of Zoho account and API endpoints**, exact origins only. The
+list says which entries are verbatim from Zoho's pages and which are
+extrapolated from the documented pattern (§8), and extrapolation is safe in
+this direction because an `api_domain` outside the list makes the send refuse
+with a named reason rather than silently widening where a credential may go.
+
+**2. One sentence in `PERMISSIONS.md` still said `host_permissions` was
+"anything but Gmail"** — a review round after the relay host was added, and in
+the list of what the tests enforce, so it misdescribed the test as well as the
+manifest. The document's whole job is to be the baseline a later change argues
+against, so a stale one is worse than none. **The test now asserts the shape of
+the claim rather than one phrasing**, because the previous test checked a single
+sentence and this one slipped past it: no statement anywhere in the document may
+present a single permitted host.
+
+One mutation was also **deleted deliberately** rather than repointed: the
+override no longer parses a URL and checks its scheme, it string-matches a list
+whose every entry is `https://`, so the property is guaranteed by the shape of
+the data and there is no check left to mutate. The reason is recorded at the
+deletion, because deleting a mutation because it is awkward is how the sweep
+stops being worth running.
 
 ## Codex's third review — four findings, and the first was about my own audit
 

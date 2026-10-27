@@ -56,9 +56,17 @@ describe("the manifest stays as narrow as it was argued to be", () => {
     // had already been added, so the baseline was describing a manifest that no
     // longer existed.
     const doc = read("PERMISSIONS.md");
-    const relay = (JSON.parse(read("manifest.json")).host_permissions as string[])[1];
-    expect(doc).toContain(relay);
-    expect(doc).not.toContain("§6.1 forbids it. Gmail only.");
+    const hosts = JSON.parse(read("manifest.json")).host_permissions as string[];
+    for (const host of hosts) expect(doc).toContain(host);
+
+    // The first version of this test only checked one phrasing, and a second
+    // sentence elsewhere in the document still said `host_permissions` was
+    // "anything but Gmail" — the fourth review's finding 2. So the assertion is
+    // now on the SHAPE of the claim rather than on one sentence: no statement
+    // anywhere may present a single permitted host.
+    const singleHostClaim =
+      /host_permissions[^.;]{0,60}(anything but|only)\s+gmail|gmail\s+(only|alone)|only\s+permitted\s+host/i;
+    expect(singleHostClaim.test(doc)).toBe(false);
   });
 
   it("grants host permission for the same origin the worker is compiled with", () => {

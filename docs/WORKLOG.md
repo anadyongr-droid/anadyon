@@ -22,6 +22,23 @@ wrong place.
 One subject, one incident. Detail in
 [`worklog/2026-10-27-claude.md`](worklog/2026-10-27-claude.md).
 
+**Then a fourth review, two findings, both upheld and fixed (W73) — and both
+the same mistake: a rule shaped like the right rule instead of the rule
+itself.** Head `c95c9ca`, 245 tests, sweep 63 run / 0 stale / 0 surviving. The
+Zoho destination override matched any **subdomain** of a Zoho-owned domain, so
+`anything.zoho.eu` qualified — and I had narrowed it from "any https host" one
+round earlier and treated that as the fix. **A suffix match is not an
+allowlist:** it hands the decision to whoever can obtain a hostname under the
+domain, and this destination receives a refresh token and a client secret. Now
+an explicit list of exact Zoho endpoints, marking which are verbatim and which
+extrapolated. The second finding was one sentence in `PERMISSIONS.md` still
+calling `host_permissions` "anything but Gmail", inside the list of what the
+tests enforce — **and my test for it had the same defect one level up**, checking
+for the absence of a single sentence rather than of the claim. It now asserts
+the shape. One mutation was deleted deliberately rather than repointed, with the
+reason recorded, because the property it tested is now guaranteed by the shape
+of the data. W72's deployment blockers are untouched and accurate.
+
 **Codex's third review: four findings, all upheld and fixed (W71, W72) — and
 the first was about my own audit instrument.** Head `775c9ba`, 243 tests in the
 service, sweep now **63 run, 0 stale, 0 surviving** and exiting non-zero if

@@ -115,7 +115,12 @@ M.push(
   [`${L}/sendRequest.ts`, "\\u0000-\\u001f\\u007f]+@", "]+@", "recipients: two at-signs and control chars accepted again"],
   [`${L}/relay.ts`, "if (found.state === \"in_flight\") {", "if (false) {", "status: in-flight indistinguishable from unknown key"],
   [`${L}/relay.ts`, "if (outcome.delivery === \"unknown\") {", "if (false) {", "status: unknown delivery reported as not sent"],
-  [`${L}/zohoApi.ts`, "extra.protocol === \"https:\" &&", "", "zoho: plaintext extra origin permitted"],
+  // DELETED deliberately after the fourth review, not left to rot: the override
+  // no longer parses a URL and check its scheme, it string-matches against
+  // ZOHO_KNOWN_ENDPOINTS, every entry of which is https. The property is now
+  // guaranteed by the shape of the data rather than by a check, so there is no
+  // check to mutate. `zohoApi.test.ts` asserts every endpoint is https, which
+  // is the replacement for this line.
   [`${X}/corporateSend.js`, "if (result && result.ok === true && result.body?.sent === true) {", "if (result && result.ok === true) {", "ext: top-layer sent flag removed"],
   [`${L}/zohoApi.ts`, "if (url.username || url.password) return false;", "", "zoho: userinfo credentials in a host accepted"],
   [`${L}/store.ts`, "if (!existing || existing.userId !== userId) return { state: \"unknown_key\" };", "if (!existing) return { state: \"unknown_key\" };", "store: cross-user inspect allowed"],
@@ -135,8 +140,13 @@ const run = () => {
 M.push(
   [`${L}/store.ts`, "if (this.resolveExpired(idempotencyKey, existing, now)) {", "if (false) {", "status: inspect stops resolving an expired claim"],
   [`${L}/store.ts`, "if (now - entry.claimedAt < this.leaseMs) return false;", "if (true) return false;", "store: lease never expires"],
-  [`${L}/zohoApi.ts`, "&& isZohoOwnedHost(extra.hostname)", "", "zoho: escape hatch reaches any https host"],
+  [`${L}/zohoApi.ts`, ".filter((o) => ZOHO_KNOWN_ENDPOINTS.some((known) => known.toLowerCase() === o));", ";", "zoho: escape hatch unvetted"],
   [`${L}/relay.ts`, "const found = await deps.store.inspect(idempotencyKey, user.userId, (deps.now ?? Date.now)());", "const found = await deps.store.inspect(idempotencyKey, user.userId, 0);", "status: clock frozen so a lease never expires"],
+);
+
+// Added after Codex's fourth review.
+M.push(
+  [`${L}/zohoApi.ts`, "ZOHO_KNOWN_ENDPOINTS.some((known) => known.toLowerCase() === o)", "o.endsWith(\"zoho.eu\")", "zoho: override back to a suffix match"],
 );
 
 const survivors = [];
