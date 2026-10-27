@@ -523,6 +523,63 @@ describe("the status endpoint never says not-sent about an unknown", () => {
   });
 });
 
+/**
+ * Codex's third review, finding 2. Lease expiry was evaluated only inside
+ * `admit`, so a worker that crashed mid-send left the status endpoint saying
+ * `in_flight` for ever — and `handleStatus` turns that into "still being sent,
+ * wait rather than resending". A message nobody will ever send, telling the
+ * office to keep waiting, indefinitely.
+ */
+describe("a crashed send does not read as in progress for ever", () => {
+  it("resolves an expired claim on a STATUS read, with no send attempt in between", async () => {
+    const leased = new InMemoryBridgeStore(1000);
+    const stalled: ZohoMailClient = { send: () => new Promise(() => {}) };
+    let clock = 0;
+    const d = { ...deps, store: leased, now: () => clock };
+
+    void handleSend("good-token", body("crash-0123456789ab"), { ...d, zoho: stalled });
+    await new Promise((r) => setTimeout(r, 5));
+
+    // Inside the lease the honest answer is "wait".
+    const during = await handleStatus("good-token", "crash-0123456789ab", d);
+    expect(during.body.state).toBe("in_flight");
+
+    // Past it, WITHOUT anybody attempting another send, the answer changes.
+    clock = 5000;
+    const after = await handleStatus("good-token", "crash-0123456789ab", d);
+    expect(after.body.state).toBe("unknown");
+    expect("sent" in after.body).toBe(false);
+    expect(String(after.body.guidance)).toContain("Sent folder");
+  });
+
+  it("agrees with the send path about the same expired claim", async () => {
+    // The two disagreeing is the defect. One resolver, one answer.
+    const leased = new InMemoryBridgeStore(1000);
+    const stalled: ZohoMailClient = { send: () => new Promise(() => {}) };
+    let clock = 0;
+    const d = { ...deps, store: leased, now: () => clock };
+
+    void handleSend("good-token", body("agree-0123456789ab"), { ...d, zoho: stalled });
+    await new Promise((r) => setTimeout(r, 5));
+    clock = 5000;
+
+    const viaStatus = await handleStatus("good-token", "agree-0123456789ab", d);
+    const viaSend = await handleSend("good-token", body("agree-0123456789ab"), d);
+    expect(viaStatus.body.state).toBe("unknown");
+    expect(viaSend.body.delivery).toBe("unknown");
+    expect(zoho.sent).toEqual([]);
+  });
+
+  it("does not resolve a claim that is still inside its lease", async () => {
+    const leased = new InMemoryBridgeStore(10_000);
+    const stalled: ZohoMailClient = { send: () => new Promise(() => {}) };
+    const d = { ...deps, store: leased, now: () => 0 };
+    void handleSend("good-token", body("live-0123456789abc"), { ...d, zoho: stalled });
+    await new Promise((r) => setTimeout(r, 5));
+    expect((await handleStatus("good-token", "live-0123456789abc", d)).body.state).toBe("in_flight");
+  });
+});
+
 describe("the fencing token is checked on a LIVE claim, not only a settled one", () => {
   it("refuses a wrong token against an in-flight claim", async () => {
     // The mutation sweep found this unasserted: the earlier test exercised the
@@ -536,12 +593,12 @@ describe("the fencing token is checked on a LIVE claim, not only a settled one",
     ).rejects.toThrow(/fencing/);
 
     // Still in flight: the wrong token changed nothing.
-    expect((await s.inspect("k", "u")).state).toBe("in_flight");
+    expect((await s.inspect("k", "u", 1)).state).toBe("in_flight");
 
     // And the right one works.
     const token = admitted.state === "claimed" ? admitted.token : "";
     await s.recordOutcome({ idempotencyKey: "k", delivery: "sent", providerMessageId: "zm", at: 2 }, token);
-    expect((await s.inspect("k", "u")).state).toBe("settled");
+    expect((await s.inspect("k", "u", 2)).state).toBe("settled");
   });
 });
 

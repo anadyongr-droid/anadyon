@@ -50,6 +50,17 @@ describe("the manifest stays as narrow as it was argued to be", () => {
     }
   });
 
+  it("documents the relay host, not just Gmail — third review, finding 4", () => {
+    // PERMISSIONS.md is the written baseline a later addition has to argue
+    // against. It said Gmail was the only permitted host after the relay origin
+    // had already been added, so the baseline was describing a manifest that no
+    // longer existed.
+    const doc = read("PERMISSIONS.md");
+    const relay = (JSON.parse(read("manifest.json")).host_permissions as string[])[1];
+    expect(doc).toContain(relay);
+    expect(doc).not.toContain("§6.1 forbids it. Gmail only.");
+  });
+
   it("grants host permission for the same origin the worker is compiled with", () => {
     const worker = read("background.js");
     const match = /const RELAY_ORIGIN = "(https:\/\/[^"]+)"/.exec(worker);

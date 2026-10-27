@@ -75,6 +75,32 @@ export const ZOHO_EU_ACCOUNTS_HOST = "https://accounts.zoho.eu";
  * moves and the failure would look like an authentication problem. HTTPS is
  * required: `http` is not merely downgraded, it is refused.
  */
+/**
+ * The registrable domains Zoho operates. An `extraAllowedOrigins` entry must
+ * be under one of these — **Codex's third review, finding 3**: the escape hatch
+ * required only `https://`, so one configuration line could point Anadyon's
+ * refresh token and client secret at any HTTPS host in the world. "A deliberate,
+ * reviewable line" is not a control; a typo and a malicious edit look identical
+ * in a diff, and the whole point of the allowlist is that no single edit should
+ * be able to redirect a credential.
+ *
+ * So the hatch now only reaches **other Zoho data centres**, which is the case
+ * it exists for. Anything else needs a code change to this list, which is a
+ * different kind of act.
+ */
+const ZOHO_REGISTRABLE_DOMAINS = Object.freeze([
+  "zoho.com", "zoho.eu", "zoho.in", "zoho.com.au", "zoho.jp",
+  "zohocloud.ca", "zoho.sa", "zoho.uk", "zoho.com.cn",
+  "zohoapis.com", "zohoapis.eu", "zohoapis.in", "zohoapis.com.au",
+  "zohoapis.jp", "zohoapis.ca", "zohoapis.sa", "zohoapis.uk",
+]);
+
+/** True when a host is, or is under, a domain Zoho operates. */
+function isZohoOwnedHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return ZOHO_REGISTRABLE_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
+}
+
 const ZOHO_EU_ORIGINS = Object.freeze([
   "https://accounts.zoho.eu",
   "https://mail.zoho.eu",
@@ -127,9 +153,17 @@ export function isZohoHost(candidate: string, extraAllowedOrigins: readonly stri
   // check above is merely redundant with the built-in list, which a mutation
   // sweep on 27 October showed: removing it changed no behaviour and failed no
   // test. A rule that cannot be violated is not a rule worth having.
-  const allowed = [...ZOHO_EU_ORIGINS, ...extraAllowedOrigins]
-    .map((o) => o.toLowerCase())
-    .filter((o) => o.startsWith("https://"));
+  // An extra origin must be https AND a Zoho host: the default list is exact
+  // EU origins, and the hatch widens it only to other Zoho data centres.
+  const vetted = extraAllowedOrigins.filter((o) => {
+    try {
+      const extra = new URL(o);
+      return extra.protocol === "https:" && !extra.username && !extra.password && isZohoOwnedHost(extra.hostname);
+    } catch {
+      return false;
+    }
+  });
+  const allowed = [...ZOHO_EU_ORIGINS, ...vetted].map((o) => o.toLowerCase());
   return allowed.includes(origin);
 }
 

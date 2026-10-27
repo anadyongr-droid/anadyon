@@ -239,12 +239,15 @@ export async function handleListSenders(
 export async function handleStatus(
   token: string | undefined,
   idempotencyKey: string,
-  deps: Pick<RelayDeps, "auth" | "store">,
+  deps: Pick<RelayDeps, "auth" | "store" | "now">,
 ): Promise<RelayResponse> {
   const user = await deps.auth.authenticate(token);
   if (!user) return json(401, { error: "Not authenticated." });
 
-  const found = await deps.store.inspect(idempotencyKey, user.userId);
+  // The clock is passed so the store can resolve an expired claim here too.
+  // Without it a crashed send reads `in_flight` for ever and this endpoint
+  // tells the office to keep waiting — Codex's third review, finding 2.
+  const found = await deps.store.inspect(idempotencyKey, user.userId, (deps.now ?? Date.now)());
 
   if (found.state === "unknown_key") {
     return json(404, { state: "unknown_key", error: "No submission under that key." });

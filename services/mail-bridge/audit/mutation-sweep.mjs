@@ -23,6 +23,17 @@
 // mutation, which takes minutes, and per AGENTS.md coverage-shaped numbers are
 // diagnostics rather than merge gates. Run it when the service changes.
 //
+// **A mutation whose pattern no longer matches is a FAILURE, not a note.**
+// Corrected 27 October after Codex's third review, which caught this tool doing
+// the exact thing it exists to catch. Four mutations had gone stale when the
+// code they targeted was rewritten; the sweep printed `SKIP` for each, carried
+// on, and reported "61 mutations, 0 survived". Four controls were therefore
+// unmutated while the summary said otherwise — a check that looks like
+// protection and is not, which is the defect class this whole file is for. So a
+// stale pattern now exits non-zero and the summary counts run, skipped and
+// survived separately. If a mutation goes stale because the code moved on,
+// repoint it or delete it deliberately; do not let it rot quietly.
+//
 // Adding a mutation is how you record "this property matters". Deleting one
 // because it is awkward is how this file stops being worth running.
 
@@ -41,7 +52,7 @@ const M = [
   [`${L}/sendRequest.ts`, "if (all.length > limits.maxRecipients) {", "if (false) {", "recipients: count limit removed"],
   [`${L}/sendRequest.ts`, 'if (/[\\r\\n]/.test(subject)) reasons.push("subject must not contain line breaks");', "", "subject: line breaks allowed"],
   [`${L}/sendRequest.ts`, 'if (!text && !html) reasons.push("a text or html body is required");', "", "body: empty body allowed"],
-  [`${L}/sendRequest.ts`, "if (BLOCKED_ATTACHMENT_EXTENSIONS.has(extensionOf(filename))) {", "if (false) {", "attachments: blocklist removed"],
+  [`${L}/sendRequest.ts`, "if (extensionSegmentsOf(filename).some((ext) => BLOCKED_ATTACHMENT_EXTENSIONS.has(ext))) {", "if (false) {", "attachments: blocklist removed"],
   [`${L}/sendRequest.ts`, "if (total > limits.maxTotalAttachmentBytes) {", "if (false) {", "attachments: size limit removed"],
   [`${L}/sendRequest.ts`, "if (bodyBytes + attachmentBytes > limits.maxMessageBytes) {", "if (false) {", "message: size limit removed"],
   [`${L}/sendRequest.ts`, "} else if (idempotencyKey.length < 16 || idempotencyKey.length > 200) {", "} else if (false) {", "key: length unchecked"],
@@ -50,7 +61,6 @@ const M = [
 
   // --- store ---
   [`${L}/store.ts`, "if (existing.userId !== userId) return { state: \"in_flight\" };", "", "store: cross-user claim allowed"],
-  [`${L}/store.ts`, "if (!existing || existing.userId !== userId) return undefined;", "if (!existing) return undefined;", "store: cross-user lookup allowed"],
   [`${L}/store.ts`, "if (recent >= limits.maxSendsPerWindow) return { state: \"rate_limited\" };", "", "store: rate limit removed"],
   [`${L}/store.ts`, 'if (this.intentBroken) throw new Error("intent store unavailable");', "", "store: intent failure no longer surfaces"],
   [`${L}/store.ts`, 'if (!existing || existing.token !== token) throw new Error("stale fencing token");', "if (!existing) throw new Error(\"no entry\");", "store: fencing token unchecked"],
@@ -69,8 +79,7 @@ const M = [
   [`${L}/zohoApi.ts`, "if (send.inReplyTo || send.references) {", "if (false) {", "zoho: threading refusal removed"],
   [`${L}/zohoApi.ts`, "if (send.attachments.length > 0) {", "if (false) {", "zoho: attachment refusal removed"],
   [`${L}/zohoApi.ts`, "if (!token.apiDomain) return notAttempted(REFUSALS.noApiDomain);", "", "zoho: missing api_domain unchecked"],
-  [`${L}/zohoApi.ts`, "const allowed = [...ZOHO_EU_ORIGINS, ...extraAllowedOrigins].map((o) => o.toLowerCase());", "const allowed = [url.origin.toLowerCase()];", "zoho: host allowlist inert"],
-  [`${L}/zohoApi.ts`, 'if (url.protocol !== "https:") return false;', "", "zoho: plaintext host allowed"],
+  [`${L}/zohoApi.ts`, "return allowed.includes(origin);", "return true;", "zoho: host allowlist inert"],
   [`${L}/zohoApi.ts`, "fromAddress: send.sender.address,", "fromAddress: `${send.sender.displayName} <${send.sender.address}>`,", "zoho: fromAddress format regressed"],
 
   // --- http transport ---
@@ -106,7 +115,7 @@ M.push(
   [`${L}/sendRequest.ts`, "\\u0000-\\u001f\\u007f]+@", "]+@", "recipients: two at-signs and control chars accepted again"],
   [`${L}/relay.ts`, "if (found.state === \"in_flight\") {", "if (false) {", "status: in-flight indistinguishable from unknown key"],
   [`${L}/relay.ts`, "if (outcome.delivery === \"unknown\") {", "if (false) {", "status: unknown delivery reported as not sent"],
-  [`${L}/zohoApi.ts`, "    .filter((o) => o.startsWith(\"https://\"));", "", "zoho: plaintext extra origin permitted"],
+  [`${L}/zohoApi.ts`, "extra.protocol === \"https:\" &&", "", "zoho: plaintext extra origin permitted"],
   [`${X}/corporateSend.js`, "if (result && result.ok === true && result.body?.sent === true) {", "if (result && result.ok === true) {", "ext: top-layer sent flag removed"],
   [`${L}/zohoApi.ts`, "if (url.username || url.password) return false;", "", "zoho: userinfo credentials in a host accepted"],
   [`${L}/store.ts`, "if (!existing || existing.userId !== userId) return { state: \"unknown_key\" };", "if (!existing) return { state: \"unknown_key\" };", "store: cross-user inspect allowed"],
@@ -122,18 +131,43 @@ const run = () => {
   }
 };
 
+// Added after Codex's third review.
+M.push(
+  [`${L}/store.ts`, "if (this.resolveExpired(idempotencyKey, existing, now)) {", "if (false) {", "status: inspect stops resolving an expired claim"],
+  [`${L}/store.ts`, "if (now - entry.claimedAt < this.leaseMs) return false;", "if (true) return false;", "store: lease never expires"],
+  [`${L}/zohoApi.ts`, "&& isZohoOwnedHost(extra.hostname)", "", "zoho: escape hatch reaches any https host"],
+  [`${L}/relay.ts`, "const found = await deps.store.inspect(idempotencyKey, user.userId, (deps.now ?? Date.now)());", "const found = await deps.store.inspect(idempotencyKey, user.userId, 0);", "status: clock frozen so a lease never expires"],
+);
+
 const survivors = [];
+const stale = [];
+let executed = 0;
+
 for (const [file, find, replace, label] of M) {
   const original = readFileSync(file, "utf8");
   if (!original.includes(find)) {
-    console.log(`SKIP  ${label}  (pattern not found)`);
+    // Not a note. See the header: an unmutated control reads as a tested one.
+    console.log(`STALE     ${label}  (pattern no longer in ${file})`);
+    stale.push(label);
     continue;
   }
   writeFileSync(file, original.replace(find, replace));
   const survived = run();
   writeFileSync(file, original);
+  executed += 1;
   console.log(`${survived ? "SURVIVED" : "caught  "}  ${label}`);
   if (survived) survivors.push(label);
 }
-console.log(`\n${M.length} mutations, ${survivors.length} survived`);
+
+console.log(
+  `\n${M.length} mutations listed: ${executed} run, ${stale.length} stale, ${survivors.length} survived`,
+);
+for (const s of stale) console.log(`  STALE:    ${s}`);
 for (const s of survivors) console.log(`  SURVIVED: ${s}`);
+
+if (stale.length > 0 || survivors.length > 0) {
+  console.log("\nFAILED. A stale mutation leaves a control unmutated while the summary implies otherwise.");
+  process.exitCode = 1;
+} else {
+  console.log("\nPASSED. Every listed mutation ran and every one was caught.");
+}
