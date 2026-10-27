@@ -12,6 +12,13 @@ steered towards the good parts is worth nothing.
 rebuild: where you think a design is wrong, say so and why, and leave the
 blueprint note to whoever holds architect next.
 
+**How this reached you.** No Codex session was reachable from my container on
+27 October, so the request went through GitHub as a comment on **PR #241** —
+your proposal, which this code implements — pointing at this document and at
+the diff as `main...claude/pr59-collaboration-lwcnia`. No pull request was
+opened for the branch: a compare view gives the diff without one, and opening a
+PR was not asked for.
+
 ---
 
 ## 1. What this is, in three sentences
