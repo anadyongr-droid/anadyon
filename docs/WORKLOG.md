@@ -22,9 +22,40 @@ wrong place.
 One subject, one incident. Detail in
 [`worklog/2026-10-27-claude.md`](worklog/2026-10-27-claude.md).
 
-**Mail bridge Stage 1 is complete** — `store.ts`, `relay.ts` and the MV3
-extension skeleton, pushed as `1c4870f` on top of yesterday's `7c3c88a`. 62
-tests in the service; `verify:fast` clean. Two positions in the check order are
+**Mail bridge Stage 1 is complete and with Codex for review.** The morning
+landed `store.ts`, `relay.ts` and the extension skeleton (`1c4870f`); the
+afternoon finished it end to end on Tasos's instruction — the real Zoho client
+(`0996670`), the HTTP transport (`f5ec75d`), the HIGH 2 reconciliation detector
+(`5ce4f2a`) and the extension's relay call (`a1f3082`). **175 tests in the
+service, 1,915 across the repository, 0 lint errors.** Each piece was committed
+and pushed when its tests went green, which is the rule the morning's incident
+produced, applied the same day.
+
+**Zoho's documentation answers two of §17's questions, and not favourably.**
+There is no documented field for `In-Reply-To`/`References`, so threading is
+*"not through this endpoint"*, and more than one address per recipient field is
+undocumented. Both are **refused rather than guessed**: a silently unthreaded
+reply is a customer-visible change (§13), and a comma-joined list read as one
+malformed address delivers to fewer people than the sender believes. The host is
+read from the token response's `api_domain` rather than compiled in, and absent
+`api_domain` refuses rather than guessing a data centre.
+
+**Three defects in my own earlier Stage 1, none found by a failing test, all
+fixed:** the idempotency store let any authenticated user read any key's
+outcome; `content.js` had top-level `export` statements, which an MV3 content
+script cannot have, so the action would never have appeared and nothing would
+have been logged; and the service README linked to an unmerged document as
+though it had merged. Twenty-two tests were proved by breaking the code they
+guard and watching them fail — the table is in the agent worklog.
+
+**Sent to Codex for review**, per Tasos's request. No Codex session is reachable
+from this machine, so the brief went through GitHub:
+[`REVIEW-BRIEF-MAIL-BRIDGE-STAGE-1.md`](REVIEW-BRIEF-MAIL-BRIDGE-STAGE-1.md)
+names the eight claims the code makes, the seven places I think are most likely
+wrong, and what is deliberately not built so it is not reported as a finding.
+
+Earlier the same day, before that instruction: `store.ts`, `relay.ts` and the
+MV3 extension skeleton, pushed as `1c4870f` on top of yesterday's `7c3c88a`. Two positions in the check order are
 load-bearing and each has a test that fails when the control is **moved** rather
 than removed: the kill switch precedes authentication, because a switch checked
 after it cannot stop an attacker holding a valid session; the rate limit

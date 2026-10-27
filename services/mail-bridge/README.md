@@ -44,13 +44,16 @@ enforces that.
 | Check ordering (the refusals precede the send) | **built, and proved by two deliberate breaks** |
 | Send / list-senders / status handlers | **built and tested** |
 | Audit store, failing closed | **built and tested** |
-| Zoho client | **interface only**, with a fake for tests |
-| OAuth flow | **not built** — needs credentials, Stage 1 with Tasos |
-| HTTP transport (the framework binding around the handlers) | **not built** |
-| Browser extension | **skeleton only** — manifest, permissions, worker, content script; no relay call |
-| Reconciliation detector (review HIGH 2) | **not built** |
+| Zoho client | **built** against the published API, with the undocumented parts refused rather than guessed |
+| OAuth refresh and token caching | **built**; the client id, secret and refresh token are passed in, never held here |
+| HTTP transport (routing, CORS, body limits, bearer token) | **built and tested** |
+| Reconciliation detector (review HIGH 2) | **built and tested** |
+| Browser extension — the relay call, the no-fallback rule, the manifest | **built and asserted** |
+| Browser extension — the Gmail DOM | **not built**, and the only remaining promise |
+| A build step inlining the extension modules into `content.js` | **not built** |
+| Attachment upload | **cannot be built** without widening the request type — see below |
 
-**62 tests.** `npx vitest run services/mail-bridge/`.
+**175 tests.** `npx vitest run services/mail-bridge/`.
 
 ## The order of the checks is the design
 
@@ -94,13 +97,93 @@ relay endpoint is an exfiltration target. The background worker checks
 quietly sends through Google is the precise defect this service exists to
 remove, so it surfaces the failure instead.
 
+## What the Zoho documentation answered, and the answers are not the convenient ones
+
+Read 27 October from Zoho's own pages, not from memory (§8). The verified
+mechanics are in the header comment of [`lib/zohoApi.ts`](lib/zohoApi.ts). Three
+things it does **not** say decide the shape of the client, and each is refused
+rather than guessed, because each fails in the direction the office cannot see:
+
+- **more than one recipient per field is undocumented.** Every published sample
+  passes one address and the field is described in the singular. A comma-joined
+  list read as one malformed address, or as the first address only, delivers to
+  fewer people than the sender believes and says nothing. Refused until somebody
+  has watched a two-recipient message arrive at both.
+- **there is no documented field for `In-Reply-To` or `References`.** This is a
+  real answer to §17's threading question and it is *"not through this
+  endpoint"*. Dropping them would send a reply that starts a new thread in the
+  customer's mailbox — a customer-visible change, so not an agent's to make
+  quietly under §13. Refused.
+- **nothing documents whether a copy reaches Sent**, so `savedToSent` is
+  reported `false` meaning *not established*, never *known absent*.
+
+`NOTHING_PROVEN` is the default capability set and every flag in it is false, so
+turning one on is a deliberate act with a name, reviewable in a diff, rather
+than a comma quietly appearing in a join.
+
+**One gap is ours rather than Zoho's.** `Attachment` carries a filename, a
+content type and a byte *count* — not the bytes, because the validator never
+needed them. So the upload step cannot run and a send with attachments is
+refused naming that reason. Closing it widens the request type, which is a
+Stage 2 change rather than a configuration.
+
+**The host is not compiled in.** Zoho's multi-data-centre page says the token
+response's `api_domain` is where API requests go, so the client reads it from
+there and refuses to send if it is absent. A guessed host is a different data
+centre: a 404 at best, somebody else's tenancy at worst.
+
+## The reconciliation detector, and the rule it is built around
+
+[`lib/reconcile.ts`](lib/reconcile.ts) answers the review's HIGH 2. Its
+objection was not that Auto BCC might fail but that **verifying it once at pilot
+time is the mistake this project has made five times** — an instrument that
+reports success because it asked the easy question.
+
+So: **a comparison with nothing in it is never `ok`.** It is `inconclusive`, and
+`ok` requires at least one send matched on *both* sides. A failed listing is not
+an empty mailbox — `Listing` is a union, so a caller cannot pass `[]` to mean
+"we could not ask". Divergence outranks inconclusiveness, so a real finding is
+not softened by an incomplete picture.
+
+**The canary is what makes a quiet period checkable.** Because `ok` needs a
+matched send, a week of no outbound office mail could never confirm the path.
+The intended operation is one deliberate probe per run; a canary missing from
+either listing is diverged outright, and the grace period does not apply to it.
+
+**The correlation identifier is unresolved and named as such.** Zoho's
+`messageId` is in the audit row but its appearance in a Sent listing is
+unverified; the RFC `Message-ID` is neither accepted nor returned by the
+documented API, so the relay cannot know it at send time; a header the relay
+sets itself is the robust answer and is unavailable for the same reason
+`In-Reply-To` is. The module takes the identifier as data. And our own privacy
+decision costs the easy key: the audit row stores `subjectLength`, not the
+subject, so matching by subject is deliberately impossible.
+
 ## What cannot be built without Tasos
 
 Stage 1 in the proposal also requires: a Zoho OAuth client, a non-production
 test address, proof that `ZohoMail.messages.CREATE` alone can send as an alias
 and save to Sent, and proof of token revocation. All four need credentials and a
-Zoho plan, so they are his. The interface here is written so that whatever those
-answers turn out to be, only the client implementation changes.
+Zoho plan, so they are his. The code is written so that whatever those answers
+turn out to be, only a capability flag and the client's refusals change.
+
+Sharpened by today's reading, so the asks are specific rather than
+"verify sending". With a non-production address and an OAuth client, four
+observations settle the design:
+
+1. send to **two** recipients in `toAddress` and confirm both received it;
+2. send a reply and see whether the thread holds in the recipient's client —
+   and if it does not, whether Zoho accepts any header field for it;
+3. look in **Sent** afterwards, and record whether the copy is complete;
+4. note the **`messageId`** the response returns and whether that same value
+   appears in a Sent listing. That is the reconciliation key, and nothing else
+   available settles it.
+
+**One operational trap, written here because the failure appears months later
+and looks like something else:** Zoho allows a user twenty refresh tokens and
+silently deletes the oldest when a twenty-first is issued, *including one still
+in use*. Re-authorising repeatedly while setting this up can therefore revoke
+the deployment's own token with no error at the time.
 
 ## The review findings this code is built around
 
@@ -114,3 +197,9 @@ answers turn out to be, only the client implementation changes.
   leaves as the wrong identity.
 - **BLOCKER 2 — the extension reads administrative mail.** Nothing in the relay
   can mitigate that. It remains true of the design.
+
+---
+
+**Last verified:** 27 October 2026, Claude — table and findings level with the
+code at commit `a1f3082`; the Gmail DOM work and the build step are the only
+parts not written.
