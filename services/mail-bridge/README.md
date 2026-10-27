@@ -59,18 +59,19 @@ enforces that.
 | Zoho client | **built** against the published API, with the undocumented parts refused rather than guessed |
 | OAuth refresh and token caching | **built**; the client id, secret and refresh token are passed in, never held here |
 | HTTP transport (routing, CORS, body limits, bearer token) | **built and tested** |
-| Reconciliation detector (review HIGH 2) | **built and tested** |
+| Reconciliation detector (review HIGH 2) — **comparison logic only** | **built and tested**; it has **no mailbox source, no schedule, no alert path**, so nothing runs it |
 | Browser extension — the relay call, the no-fallback rule, the manifest | **built and asserted** |
 | Browser extension — the Gmail DOM | **not built**, and the only remaining promise |
 | A build step inlining the extension modules into `content.js` | **not built** |
 | Attachment upload | **cannot be built** without widening the request type — see below |
 
-**203 tests.** `npx vitest run services/mail-bridge/`.
+**208 tests.** `npx vitest run services/mail-bridge/`.
 
 ## The order of the checks is the design
 
-`relay.ts` runs: kill switch → authentication → validation → rate limit →
-idempotency claim → send → audit → settle. Two of those positions are
+`relay.ts` runs: kill switch → authentication → validation → **admission
+(volume limit and idempotency claim in one atomic step)** → **write-ahead
+intent** → send → outcome. Two of those positions are
 load-bearing rather than tidy, and each has a test that fails when the control
 is moved rather than removed:
 
@@ -86,18 +87,27 @@ is moved rather than removed:
 Both breaks were applied and reverted in the working copy that ships this code,
 not only in the one that first wrote the tests.
 
-`AUDIT_FAILURE_BLOCKS_SEND` in `store.ts` is a named constant with its reasoning
-beside it: a send nobody can afterwards account for is worse than a send that
-did not happen. A thrown Zoho client **releases** the key rather than settling
-it, because a transport failure is not a verdict on the message. The error
-string the caller receives is fixed, so no upstream text — and therefore no
-token or internal hostname — can reach it, and the audit row stores
-`subjectLength`, never the subject.
+`INTENT_FAILURE_BLOCKS_SEND` in `store.ts` is a named constant with its
+reasoning beside it: a send nobody can afterwards account for is worse than a
+send that did not happen. **It is named for the write-ahead intent because that
+is the only record that can block anything** — its predecessor,
+`AUDIT_FAILURE_BLOCKS_SEND`, ran after the send and blocked nothing.
+
+A thrown Zoho client yields `delivery: "unknown"` and the key is **settled, not
+released**: a transport failure is not a verdict on the message, and Zoho never
+received the relay's key, so an automatic retry could send the customer a second
+copy. Only a request that was never attempted frees its key. An expired claim
+lease is resolved the same way — `unknown`, never re-admitted.
+
+The error string the caller receives is fixed, so no upstream text — and
+therefore no token or internal hostname — can reach it, and the intent record
+stores `subjectLength`, never the subject.
 
 ## The extension skeleton, and what it deliberately refuses to do
 
-MV3. `permissions` is `["storage"]` alone; `host_permissions` is
-`https://mail.google.com/*` alone; the CSP is `script-src 'self'`.
+MV3. `permissions` is `["storage"]` alone; `host_permissions` is Gmail **plus
+the one relay origin**, which Chrome requires for the service worker's fetch and
+which a test holds to exactly two entries; the CSP is `script-src 'self'`.
 [`extension/PERMISSIONS.md`](extension/PERMISSIONS.md) states why each one is
 there, so a later addition has to argue against a written baseline rather than
 appear in a diff.
@@ -219,6 +229,43 @@ sets itself is the robust answer and is unavailable for the same reason
 `In-Reply-To` is. The module takes the identifier as data. And our own privacy
 decision costs the easy key: the audit row stores `subjectLength`, not the
 subject, so matching by subject is deliberately impossible.
+
+## What this is not: a re-review found two more defects, and the honest status
+
+Codex re-reviewed at `b71509e` and returned **changes still required**. Both
+code defects are fixed here, and both were mine:
+
+1. **An expired claim lease automatically permitted a second send.** The fix for
+   review finding 7 reintroduced finding 1 through the mechanism meant to close
+   it: the earlier worker may already have reached Zoho, and a fencing token is
+   local, so Zoho cannot tell the second send is a duplicate. **Worse, the test
+   written for it started a stalled provider call and asserted that a second
+   send was admitted — a test asserting the bug**, which is the third time this
+   project has recorded that. An expired claim is now settled `unknown` and
+   never re-admitted.
+2. **Releasing a never-attempted request removed the wrong admission from the
+   volume count** — the first one belonging to that user, usually a completed
+   send — so the rolling limit was undercounted in both directions at once.
+   Admissions are now matched on the key and the fencing token.
+
+**And this is not an executable bridge.** Stated as a list rather than left to
+be discovered, because the previous version of this document read as more
+finished than it is:
+
+- no durable store — `InMemoryBridgeStore` loses everything on restart;
+- no `Authenticator` implementation at all;
+- no deployable server or framework adapter;
+- the separate repository, deployment and credential boundary §6.2 requires
+  does not exist;
+- `content.js` has no Gmail DOM integration and no module-inlining build;
+- the manifest and the worker still target **`relay.invalid`**, a deliberately
+  unresolvable placeholder;
+- the reconciliation detector has no schedule, no canary delivery and no alert
+  path;
+- controlled extension packaging and distribution do not exist.
+
+Those are **W68**. The next safe milestone is a credential-free, separately
+deployed test shell — not a credentialed pilot.
 
 ## What cannot be built without Tasos
 

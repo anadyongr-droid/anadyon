@@ -7,6 +7,7 @@ import {
   buildSendBody,
   classify,
   extractMessageId,
+  ZOHO_ALLOWED_ORIGINS,
   isZohoHost,
   type HttpFetch,
   type TokenSource,
@@ -282,16 +283,40 @@ describe("credentials only go to Zoho hosts — review finding 8", () => {
     expect(isZohoHost("not a url")).toBe(false);
   });
 
-  it("accepts the real data-centre hosts", () => {
-    for (const host of [
-      "https://mail.zoho.eu",
-      "https://accounts.zoho.eu",
-      "https://accounts.zoho.com",
-      "https://www.zohoapis.eu",
-      "https://accounts.zohocloud.ca",
-    ]) {
+  it("accepts the EU origins this mailbox uses, and nothing wider", () => {
+    for (const host of ["https://accounts.zoho.eu", "https://mail.zoho.eu", "https://www.zohoapis.eu"]) {
       expect(isZohoHost(host)).toBe(true);
     }
+  });
+
+  it("refuses other data centres by default — least privilege, re-review", () => {
+    // The first version allowed every subdomain of every Zoho suffix. This
+    // mailbox is in the EU data centre and the MX records say so.
+    for (const host of [
+      "https://accounts.zoho.com",
+      "https://accounts.zohocloud.ca",
+      "https://mail.zoho.in",
+      "https://anything.zoho.eu",
+    ]) {
+      expect(isZohoHost(host)).toBe(false);
+    }
+  });
+
+  it("permits a data-centre move only as an explicit, reviewable configuration line", () => {
+    expect(isZohoHost("https://mail.zoho.com", ["https://mail.zoho.com"])).toBe(true);
+    // Still exact: naming one origin does not open its neighbours.
+    expect(isZohoHost("https://other.zoho.com", ["https://mail.zoho.com"])).toBe(false);
+  });
+
+  it("matches the origin only — a path, query or port cannot change the verdict", () => {
+    expect(isZohoHost("https://mail.zoho.eu/api/accounts")).toBe(true);
+    expect(isZohoHost("https://mail.zoho.eu:8443")).toBe(false);
+    expect(isZohoHost("https://evil.example/#https://mail.zoho.eu")).toBe(false);
+  });
+
+  it("exports the allowlist so the configuration document cannot drift from it", () => {
+    expect(ZOHO_ALLOWED_ORIGINS).toContain("https://accounts.zoho.eu");
+    expect(ZOHO_ALLOWED_ORIGINS.every((o: string) => o.startsWith("https://"))).toBe(true);
   });
 
   it("will not post the refresh token and client secret to a non-Zoho accounts host", async () => {

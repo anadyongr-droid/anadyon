@@ -406,3 +406,86 @@ W68 tracks the remaining work. A safe next milestone is a credential-free,
 separately deployed test shell after the lease/rate defects and documentation
 are fixed. A credentialed pilot still requires the missing Stage 2 components
 and observed Chrome/Zoho evidence.
+
+---
+
+## 11. Claude's response to the re-review — 27 October 2026
+
+**Both code defects accepted and fixed. Every documentation contradiction
+accepted and fixed. The allowlist narrowed. 213 tests. Still a draft, and the
+W68 list is accurate — this is not an executable bridge.**
+
+### Re-review finding 1 is the worst thing I have done on this project
+
+Not the defect — the test. The fix for review finding 7 made an expired lease
+re-admittable, which reintroduced finding 1 through the mechanism built to close
+it: the earlier worker may still be running or may already have reached Zoho,
+and a fencing token is local, so Zoho cannot know the second send is a
+duplicate.
+
+**And the test I wrote for it started a stalled provider call and then asserted
+that a second send was admitted.** It asserted the bug. One round earlier I had
+asked, in §7 of this brief, for exactly this — *"a test that asserts the wrong
+property"* — and then wrote one. That is the third time this project has
+recorded a test that passes by agreeing with the defect.
+
+An expired claim is now settled `delivery: "unknown"` and **never re-admitted**.
+Finding 7's complaint is still answered: the key reaches a definite, explicit
+answer with instructions instead of sitting on 409 in silence. What is no longer
+true is that the answer is "send it again". If the message is not in Sent a
+person composes it afresh under a new key, which is a decision rather than an
+automatic duplicate. Settling is also now once-only: a worker whose lease
+expired cannot come back and overwrite the `unknown` with "sent", because by then
+the user may already have acted on it, and that would hide a duplicate rather
+than resolve one.
+
+### Re-review finding 2, and the second lesson is sharper than the first
+
+The release matched the admission on `userId` alone, so withdrawing a
+never-attempted request removed the *first* admission for that user — usually a
+completed send — leaving the failed reservation counted. Fixed by matching on the
+key and the fencing token.
+
+**But my first attempt at a test for it passed against the broken store**, and I
+only discovered that by re-breaking the fix and watching nothing fail. Removing
+the wrong admission and removing the right one leave the same *number* of
+admissions, so a count-based assertion cannot tell them apart. What distinguishes
+them is **which** admission survives, and that is only visible as the rolling
+window decays: the wrong one removed leaves a newer admission in the window, so
+the allowance frees later than it should. The tests now drive the store with an
+explicit clock and assert that, and they fail against the broken version.
+
+This is the concrete answer to the question I asked on the last round. Re-breaking
+a fix tells you whether the control is reachable. It does **not** tell you the
+assertion is right — here it told me the opposite, and only because I ran it.
+
+### The rest, accepted without argument
+
+- **The credential allowlist is narrowed** from "every subdomain of every Zoho
+  data-centre suffix" to the four exact EU origins this mailbox uses, matched on
+  origin rather than suffix. My defence of the wide version — that narrowing
+  would break a data-centre move and look like an auth failure — is answered
+  better by an explicit `extraAllowedOrigins` line: a move nobody had to
+  authorise is what an allowlist exists to stop.
+- **`ZOHO_CAP_THREADING_HEADERS` is gone from the configuration template**, with
+  a note saying why, because a stale variable in a template is a setting
+  somebody will try to use.
+- **The README's stale sections are corrected**: the check order now reads
+  admission → intent → send → outcome, the constant is
+  `INTENT_FAILURE_BLOCKS_SEND` with its predecessor named as history rather
+  than as current behaviour, thrown clients are documented as settling
+  `unknown` rather than releasing, host permissions are Gmail plus the one
+  relay origin, and the reconciliation row says plainly that it is comparison
+  logic with no mailbox source, no schedule and no alert path.
+- **The W68 list is now in the README** as a list, because the previous version
+  of that document read as more finished than the code is.
+
+One thing the linter caught that neither of us did: my block replacement had
+deleted the tests for `handleListSenders` and `handleStatus` entirely. Restored.
+
+### Agreed on sequencing
+
+**W68 first, then a credential-free separately deployed test shell, and no Zoho
+credentials — not even test ones — until that exists and has been reviewed.**
+That is the right order and it is now the recorded position. §6.2's boundary,
+E39 and the red-check rule are unchanged by any of this.

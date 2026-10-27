@@ -75,19 +75,34 @@ export const ZOHO_EU_ACCOUNTS_HOST = "https://accounts.zoho.eu";
  * moves and the failure would look like an authentication problem. HTTPS is
  * required: `http` is not merely downgraded, it is refused.
  */
-const ZOHO_HOST_SUFFIXES = Object.freeze([
-  "zoho.com", "zoho.eu", "zoho.in", "zoho.com.au", "zoho.jp",
-  "zohocloud.ca", "zoho.sa", "zoho.uk", "zohoapis.com", "zohoapis.eu",
-  "zohoapis.in", "zohoapis.com.au", "zohoapis.jp", "zohoapis.ca",
-  "zohoapis.sa", "zohoapis.uk",
+const ZOHO_EU_ORIGINS = Object.freeze([
+  "https://accounts.zoho.eu",
+  "https://mail.zoho.eu",
+  "https://www.zohoapis.eu",
+  "https://api.zoho.eu",
 ]);
 
+/** The origins this build permits, so the configuration document cannot drift. */
+export const ZOHO_ALLOWED_ORIGINS = ZOHO_EU_ORIGINS;
+
 /**
- * True only for an `https://` origin whose host is, or is a subdomain of, one
- * of Zoho's. Compared on labels so `zoho.eu.evil.example` cannot pass, which a
- * `endsWith` check would have let through.
+ * **Narrowed on re-review.** The first version allowed every subdomain of every
+ * Zoho data-centre suffix, on the reasoning that narrowing it would break the
+ * day the mailbox moved and the failure would look like an authentication
+ * problem. Codex was right that this is not least privilege: this mailbox is in
+ * the EU data centre, the MX records are `mx*.zoho.eu`, and a credential
+ * destination list should hold the origins actually in use rather than every
+ * origin that might one day be.
+ *
+ * The original worry is answered better by `extraAllowedOrigins` than by a wide
+ * default: moving data centre becomes one explicit, reviewable configuration
+ * line instead of something the allowlist silently already permitted. A move
+ * nobody had to authorise is exactly what an allowlist exists to stop.
+ *
+ * Matched as **exact origins** — scheme, host and port — so there is no
+ * subdomain, path, query or port to smuggle anything through.
  */
-export function isZohoHost(candidate: string): boolean {
+export function isZohoHost(candidate: string, extraAllowedOrigins: readonly string[] = []): boolean {
   let url: URL;
   try {
     url = new URL(candidate);
@@ -96,8 +111,9 @@ export function isZohoHost(candidate: string): boolean {
   }
   if (url.protocol !== "https:") return false;
   if (url.username || url.password) return false;
-  const host = url.hostname.toLowerCase();
-  return ZOHO_HOST_SUFFIXES.some((suffix) => host === suffix || host.endsWith(`.${suffix}`));
+  const origin = url.origin.toLowerCase();
+  const allowed = [...ZOHO_EU_ORIGINS, ...extraAllowedOrigins].map((o) => o.toLowerCase());
+  return allowed.includes(origin);
 }
 
 /** The scope the send call needs, per Zoho's page for that endpoint. */
@@ -196,6 +212,11 @@ async function withDeadline<T>(
 
 export type ZohoApiClientOptions = {
   readonly accountId: string;
+  /**
+   * Extra exact origins to permit, for a deliberate data-centre move. Empty by
+   * default: the EU origins are the ones this mailbox uses.
+   */
+  readonly extraAllowedOrigins?: readonly string[];
   readonly tokens: TokenSource;
   readonly fetch: HttpFetch;
   readonly capabilities?: ZohoCapabilities;
@@ -327,7 +348,7 @@ export class ZohoApiMailClient implements ZohoMailClient {
     if (!token.apiDomain) return notAttempted(REFUSALS.noApiDomain);
     // The api_domain arrives over the wire, so it is validated like any other
     // untrusted input before a bearer token is sent to it.
-    if (!isZohoHost(token.apiDomain)) return notAttempted(REFUSALS.apiDomainNotZoho);
+    if (!isZohoHost(token.apiDomain, this.options.extraAllowedOrigins)) return notAttempted(REFUSALS.apiDomainNotZoho);
 
     const url = `${token.apiDomain.replace(/\/+$/, "")}/api/accounts/${encodeURIComponent(this.options.accountId)}/messages`;
 
@@ -391,6 +412,7 @@ export class RefreshTokenSource implements TokenSource {
       readonly fetch: HttpFetch;
       readonly now?: () => number;
       readonly timeoutMs?: number;
+      readonly extraAllowedOrigins?: readonly string[];
       /** Refresh this long before expiry, so a send never races the clock. */
       readonly marginMs?: number;
     },
@@ -400,7 +422,7 @@ export class RefreshTokenSource implements TokenSource {
     // Refused before the secret is in a request body. A misconfigured host is
     // a configuration error, and a configuration error must not be a
     // credential disclosure.
-    if (!isZohoHost(this.options.accountsHost)) return undefined;
+    if (!isZohoHost(this.options.accountsHost, this.options.extraAllowedOrigins)) return undefined;
 
     const now = (this.options.now ?? Date.now)();
     if (this.cached && this.cached.expiresAt > now) return this.cached.token;

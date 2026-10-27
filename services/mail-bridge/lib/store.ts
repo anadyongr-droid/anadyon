@@ -31,10 +31,29 @@
  * process dying between claim and settle left the key `in_flight` forever, so
  * every retry got 409 and that message could never be sent again. And `release`
  * took only the key, so a stale worker could release a claim another worker
- * then held. Both are fixed by a lease: `admit` returns a **fencing token**,
- * `recordOutcome` and `release` require it, and a claim older than its lease is
- * treated as expired and may be re-admitted. The token is what makes "my claim"
+ * then held. `admit` therefore returns a **fencing token** that
+ * `recordOutcome` and `release` require, which is what makes "my claim"
  * meaningful.
+ *
+ * **Re-review finding 1 — and the first fix for finding 7 was worse than the
+ * bug.** That fix also made an expired claim *re-admittable*, so a lease
+ * timeout automatically permitted a second send. The earlier worker may still
+ * be running, may already have reached Zoho, or may have sent successfully and
+ * failed only to record it — and a fencing token is local, so **Zoho has no
+ * idea the second send is a duplicate**. That is the same defect as finding 1,
+ * reintroduced through the mechanism meant to close finding 7. Worse, the test
+ * written for it started a stalled provider call and then asserted that a
+ * second send was admitted: a test asserting the bug, which is the failure
+ * mode this project has now hit three times.
+ *
+ * So **an expired claim is never re-admitted**. It is settled as
+ * `delivery: "unknown"` — the state that already exists for exactly this
+ * situation — and the caller is told a previous attempt's fate is unknown and
+ * to check Zoho's Sent folder. Finding 7's "stranded forever" is still fixed,
+ * because the key now reaches a definite answer rather than silence; what is
+ * no longer true is that the answer is "go ahead and send again". If the
+ * message is not in Sent, a person composes it again under a new key, which is
+ * a decision rather than an automatic duplicate.
  *
  * **What a real store must provide**, stated so the Stage 2 choice is
  * constrained rather than guessed: one atomic conditional write that inserts a
@@ -97,11 +116,18 @@ export interface BridgeStore {
    * Updates the intent with what happened, and settles the key — **except for
    * `not_attempted`, which settles nothing**, because no request was made and
    * the caller is about to release the claim.
+   *
+   * **Settles once.** Throws for a stale token and for a key already settled,
+   * including one settled by its own lease expiring: a late "it did send"
+   * would overwrite an `unknown` the user has already been told to resolve by
+   * hand, hiding a possible duplicate instead of clearing it.
    */
   recordOutcome(record: OutcomeRecord, token: FencingToken): Promise<void>;
   /**
    * Release a claim so a retry may proceed — **only** for a request that was
-   * never made. See `mayReleaseKey`. Requires the fencing token.
+   * never made. See `mayReleaseKey`. Requires the fencing token, and withdraws
+   * **that admission** from the volume count rather than an arbitrary one
+   * belonging to the same user.
    */
   release(idempotencyKey: string, token: FencingToken): Promise<void>;
   /** The kill switch, read at runtime on every send. False means refuse. */
@@ -127,11 +153,20 @@ export interface BridgeStore {
 export const INTENT_FAILURE_BLOCKS_SEND = true;
 
 /**
- * How long a claim may be held before it is considered abandoned. Long enough
- * that a slow Zoho call is not re-admitted underneath itself; short enough that
- * a crashed worker does not block a message for an afternoon.
+ * How long a claim may be held before it is considered abandoned — at which
+ * point it is **resolved as unknown, not re-admitted**. Long enough that a slow
+ * Zoho call is not declared unknown underneath itself; short enough that a
+ * crashed worker gets a definite answer rather than silence.
  */
 export const DEFAULT_CLAIM_LEASE_MS = 2 * 60 * 1000;
+
+/** What a claim that outlived its lease settles to. */
+export const EXPIRED_CLAIM_OUTCOME: SendOutcome = Object.freeze({
+  ok: false,
+  delivery: "unknown",
+  failure:
+    "A previous attempt to send this message did not finish, and it is not known whether it was sent. Check Zoho's Sent folder before composing it again.",
+});
 
 type Entry = {
   state: "in_flight" | "settled";
@@ -141,11 +176,21 @@ type Entry = {
   outcome?: SendOutcome;
 };
 
+/**
+ * One admission, tied to the key that caused it. **Re-review finding 2:** the
+ * first version stored only `{userId, at}` and `release` removed the *first*
+ * admission for that user — which is usually a completed send, not the attempt
+ * being withdrawn. So releasing a never-attempted request discounted somebody's
+ * successful send from the rolling window and left the failed reservation
+ * counted, undercounting the limit in both directions at once.
+ */
+type Admission = { userId: string; idempotencyKey: string; token: FencingToken; at: number };
+
 /** Stage 1 only. Loses everything on restart, which is why it is not Stage 2. */
 export class InMemoryBridgeStore implements BridgeStore {
   private readonly entries = new Map<string, Entry>();
   /** Every attempt admitted, which is what the volume limit counts. */
-  private readonly admitted: { userId: string; at: number }[] = [];
+  private readonly admitted: Admission[] = [];
   readonly intents: IntentRecord[] = [];
   readonly outcomes: OutcomeRecord[] = [];
   private sendingEnabled = true;
@@ -171,9 +216,18 @@ export class InMemoryBridgeStore implements BridgeStore {
       // about whether it was sent, or to whom.
       if (existing.userId !== userId) return { state: "in_flight" };
       if (existing.state === "settled") return { state: "settled", outcome: existing.outcome! };
-      // A claim past its lease is abandoned, not held. Without this a worker
-      // that died mid-send blocks that message permanently.
       if (now - existing.claimedAt < this.leaseMs) return { state: "in_flight" };
+
+      // Past its lease. **Resolved as unknown, never re-admitted** — see
+      // re-review finding 1 in the header. The previous worker may already have
+      // reached Zoho, and Zoho cannot deduplicate what it never received a key
+      // for.
+      this.entries.set(idempotencyKey, {
+        ...existing,
+        state: "settled",
+        outcome: EXPIRED_CLAIM_OUTCOME,
+      });
+      return { state: "settled", outcome: EXPIRED_CLAIM_OUTCOME };
     }
 
     // The volume check and the claim are one operation, so two concurrent
@@ -183,7 +237,7 @@ export class InMemoryBridgeStore implements BridgeStore {
 
     const token = `t${++this.nextToken}`;
     this.entries.set(idempotencyKey, { state: "in_flight", userId, token, claimedAt: now });
-    this.admitted.push({ userId, at: now });
+    this.admitted.push({ userId, idempotencyKey, token, at: now });
     return { state: "claimed", token };
   }
 
@@ -197,6 +251,13 @@ export class InMemoryBridgeStore implements BridgeStore {
     const existing = this.entries.get(record.idempotencyKey);
     // A stale worker must not settle a claim somebody else now holds.
     if (!existing || existing.token !== token) throw new Error("stale fencing token");
+    // **Settle once.** A worker whose lease expired may come back with a
+    // definite answer, and recording it would be better information than
+    // `unknown` — but by then the user has been told to check Sent and may
+    // already have composed a replacement, so overwriting the unknown with
+    // "sent" would hide a possible duplicate rather than resolve it. The
+    // reconciliation pass is where a late answer belongs; see reconcile.ts.
+    if (existing.state === "settled") throw new Error("already settled, fencing refused");
     this.outcomes.push(record);
     // A request that was never made settles nothing: the claim stays live so
     // the caller can release it and the user can try again. Settling here
@@ -216,8 +277,11 @@ export class InMemoryBridgeStore implements BridgeStore {
     if (existing.state === "in_flight") {
       this.entries.delete(idempotencyKey);
       // The attempt is withdrawn from the volume count too: a request that was
-      // never made should not spend the user's hourly allowance.
-      const i = this.admitted.findIndex((a) => a.userId === existing.userId);
+      // never made should not spend the user's hourly allowance. Matched on the
+      // key AND the token, so it removes its own admission — re-review finding
+      // 2 was that matching on the user alone removed somebody's completed
+      // send instead.
+      const i = this.admitted.findIndex((a) => a.idempotencyKey === idempotencyKey && a.token === token);
       if (i >= 0) this.admitted.splice(i, 1);
     }
   }

@@ -54,6 +54,12 @@ ZOHO_REFRESH_TOKEN=
 # Accounts host for the data centre the mailbox lives in. For Anadyon this is
 # the EU one, since the MX records are mx*.zoho.eu:
 #   https://accounts.zoho.eu
+# Checked against an EXACT origin allowlist before the client secret and
+# refresh token reach a request body. The permitted origins are
+# ZOHO_ALLOWED_ORIGINS in lib/zohoApi.ts: accounts.zoho.eu, mail.zoho.eu,
+# www.zohoapis.eu, api.zoho.eu. Anything else is refused, including other Zoho
+# data centres — moving data centre is a deliberate code change, not something
+# the allowlist already quietly permits.
 # The API host is NOT configured here on purpose — the client reads api_domain
 # from the token response, per Zoho's multi-data-centre guidance, and refuses
 # to send if it is absent rather than guessing a data centre.
@@ -71,10 +77,12 @@ ZOHO_ACCOUNTS_HOST=
 # addresses. Zoho documents one address per recipient field.
 ZOHO_CAP_MULTIPLE_RECIPIENTS=
 
-# Only after a reply has been confirmed to thread in the recipient's client.
-# Zoho's published API documents no In-Reply-To or References field at all, so
-# the likely correct value for this is permanently false.
-ZOHO_CAP_THREADING_HEADERS=
+# NOTE: there is deliberately NO ZOHO_CAP_THREADING_HEADERS variable. The flag
+# it configured was removed as a trapdoor (review finding 5): no request shape
+# sat behind it, so enabling it could only turn a visible refusal into a silent
+# unthreaded send. A reply carrying In-Reply-To or References is refused
+# unconditionally. This note is here because the variable WAS listed, and a
+# stale variable in a template is a setting somebody will try to use.
 
 # Has no effect yet: attachment CONTENT is not carried in a send request, so
 # the upload step cannot run whatever this says. Present so the variable set
