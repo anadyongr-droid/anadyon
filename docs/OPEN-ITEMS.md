@@ -88,11 +88,23 @@ the office is shut and about six weeks before anyone returns. An item dated
 The system should need nothing from an agent by then. Anything still open at
 that point competes with reopening, which is the worst time for it.
 
-**The question still open, and it moves two of the items above.** *Does the
-website take bookings over the winter for next season?* If it does, the untrue
-cover claims (W11–W13) are being read by customers **now**, and E35's blind
-watchdog is missing **this winter's** early enquiries — both move to November.
-If it does not, both can wait for February.
+**ANSWERED 2 November by Tasos: the website still takes bookings, and work on
+it continues.** So both items move to **now**, and one of them is no longer a
+schedule entry at all:
+
+- **The cover claims are being read by customers this week.** The site says
+  theft insurance and CDW are *included in standard fees*; no certificate
+  provides either, and the contract the customer signs **charges for both**. The
+  contradiction is internal to our own documents and does not wait on the open
+  insurance question. The claim is in **four strings, two files, two languages**
+  — W11 only ever covered the Terms, and the **FAQ says it too**. Drafted for
+  §13 approval in
+  [`PROPOSED-WORDING-THEFT-AND-CDW.md`](PROPOSED-WORDING-THEFT-AND-CDW.md),
+  nothing merged. **Tasos: name Option A or B.**
+- **E35's watchdog is blind to this winter's enquiries.** Early bookings for
+  next season are exactly the mail nobody is watching for, and the
+  unanswered-mail alert has not fired since 22 August. One Vercel
+  `morning-briefing` log names which of three causes it is. **Tasos supplies.**
 
 
 ### What this closes
