@@ -1,5 +1,12 @@
 # What needs you, in order — 27 October 2026
 
+> **SUPERSEDED 2 November 2026 by
+> [`ACTIONS-FOR-TASOS-2026-11-02.md`](ACTIONS-FOR-TASOS-2026-11-02.md).**
+> Its first and largest item — the insurance escalation — was closed by Tasos on
+> 2 November, and the whole list was written for an operating office. The office
+> is now closed until end February / early March 2027, while the website keeps
+> taking bookings. Kept for the reasoning, not as a to-do list.
+
 **Last verified:** 27 October 2026, Claude.
 
 Fifty-two open items carry your name. That is not a list anybody works through,
