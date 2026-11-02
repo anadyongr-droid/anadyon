@@ -122,19 +122,77 @@ added as a full IMAP account** — which is not *Send as* and keeps working.
 
 ---
 
-## 4. FIVE MINUTES — Cloudflare 2FA and the login email
+## 4. CLOUDFLARE — not five minutes any more, and the important half is Google
 
-1. **Turn on two-factor authentication** — app or hardware — on the Cloudflare
-   account.
-2. **Check the account's login email is not `customerservice@anadyon.gr`.**
+**Revised 2 November**, after you tried it. This section said "five minutes,
+no decision, it should simply be true". Your answer — *we access Cloudflare via
+the `anadyon.gr@gmail.com` email* — changes both halves of it.
 
-**Why.** The DNS zone is moving into the account that already holds your only
-off-site backup (R2). One account lost or compromised takes out both the DNS —
-so mail *and* the website — and the backups you would reach for while fixing it.
-A recovery path through `customerservice@anadyon.gr` does not exist in the
-scenario where DNS is gone.
+### 4a. The password it is asking for does not exist
 
-No decision. It should simply be true.
+Cloudflare's own documentation says why. An account created through a social
+login *"does not have a Cloudflare password"*, and to enable 2FA you must first
+*"set a password by going through the password reset process"*. So the prompt is
+not a bug and you have not forgotten anything — there is nothing to remember.
+
+**Do it in this order, and the order matters.** Cloudflare states that 2FA
+*"can only be enabled successfully on an account with a verified email
+address"*, and that *"if you do not verify your email address first, you may
+lock yourself out of your account."*
+
+1. **Confirm the email on the account is verified.** My Profile, under your
+   name. If it shows unverified, resend and click the link **before** anything
+   below.
+2. **Log out of Cloudflare.**
+3. On the login page choose **Forgot your password?** and enter
+   `anadyon.gr@gmail.com`. The reset mail arrives in that Gmail.
+4. **Set a password** — a long one from a password manager, not something you
+   will need to type.
+5. **Now enable 2FA**: My Profile → Authentication → Two-Factor Authentication.
+   Use an authenticator app. **Save the recovery codes somewhere that is not
+   this Gmail account** — paper, or another password manager. Recovery codes
+   stored in the inbox that is also the recovery path protect nothing.
+6. Google sign-in keeps working afterwards. You now have both doors.
+
+**One caveat, so a failure does not look like your mistake.** Users have
+reported the 2FA screen rejecting a freshly-set password as invalid, on
+accounts created exactly this way. If that happens, stop — do not keep
+retrying — and tell me; it is a known defect, not something you did, and
+Cloudflare support is the route. Do not leave the account half-enrolled.
+
+### 4b. The requirement about the recovery address is already satisfied
+
+This section used to ask you to check the login email is not
+`customerservice@anadyon.gr`, because that mailbox is unreachable in the one
+scenario the check exists for — DNS lost. It is `anadyon.gr@gmail.com`, which
+is Google-hosted and does not depend on `anadyon.gr` DNS at all. **Nothing to
+do. That half is closed.**
+
+### 4c. What I had not been looking at, and it matters more
+
+If you get into the dashboard with **Sign in with Google**, then the front door
+to the DNS zone and to the only off-site backup is **the Google account**, not
+Cloudflare. Cloudflare's documentation does not say whether its own 2FA is even
+challenged on a Google sign-in, so I am recording that as **unverified** rather
+than guessing — but their own framing is that most Google accounts carry
+mandatory multi-factor authentication and that this is *"a seamless and robust
+layer of security"*, which points at Google's factor being the operative one.
+
+**So the control that matters most is 2FA on `anadyon.gr@gmail.com` itself**,
+and it is not the control this section originally asked for. This is not
+theoretical: Cloudflare's own 2012 breach ran through Google account recovery.
+
+Worth saying plainly, because nobody had written it down: that one Gmail
+account now holds **the DNS zone, the only off-site backup, and — until the
+alias work in §3 is done — the ability to send as
+`customerservice@anadyon.gr`**. It is also the account Yahoo was rejecting.
+Three unrelated systems behind one login.
+
+**What to check there**, if it is not already true: 2FA on, a passkey or
+authenticator rather than SMS, and the Google recovery phone and address up to
+date and not pointing at anything `@anadyon.gr`.
+
+Doing 4c is worth more than doing 4a. Do both; do 4c first if you only do one.
 
 ---
 
