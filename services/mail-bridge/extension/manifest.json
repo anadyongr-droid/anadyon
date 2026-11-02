@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Anadyon corporate send",
+  "version": "0.1.0",
+  "description": "Adds a corporate sender action to Gmail compose, routed through the Anadyon relay. Internal use only.",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://mail.google.com/*",
+    "https://relay.invalid/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://mail.google.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}
