@@ -92,15 +92,20 @@ that point competes with reopening, which is the worst time for it.
 it continues.** So both items move to **now**, and one of them is no longer a
 schedule entry at all:
 
-- **The cover claims are being read by customers this week.** The site says
-  theft insurance and CDW are *included in standard fees*; no certificate
-  provides either, and the contract the customer signs **charges for both**. The
-  contradiction is internal to our own documents and does not wait on the open
-  insurance question. The claim is in **four strings, two files, two languages**
-  — W11 only ever covered the Terms, and the **FAQ says it too**. Drafted for
-  §13 approval in
+- **The cover claim is VALID — corrected by Tasos, 2 November: the cover is
+  Anadyon's own, not an insurer's.** My framing was wrong and the earlier
+  proposal argued for deleting a true claim about a real product. **This also
+  answers B5**, which was framed as *obtain the own-damage policy*: there is no
+  policy and never was, so what remains of B5 is the excess, not a document
+  hunt. **Two narrower things survive and neither depends on who bears the
+  risk.** *(a)* **"Theft insurance" is the wrong noun** — §10 forbids describing
+  a self-funded product as insurance, and *"Collision Damage Waiver" is already
+  correct*, so this is one word in four strings. *(b)* **The website says
+  *included*; the paper contract sells both as paid options** (art. 8c, 8d, 8a),
+  which §2 forbids — one of the two documents is wrong. Both drafted in
   [`PROPOSED-WORDING-THEFT-AND-CDW.md`](PROPOSED-WORDING-THEFT-AND-CDW.md),
-  nothing merged. **Tasos: name Option A or B.**
+  nothing merged. **Tasos: say "theft waiver" for (a); for (b), three lines —
+  included or paid, what excess, and what the €5.00/day FDW then buys.**
 - **E35's watchdog is blind to this winter's enquiries.** Early bookings for
   next season are exactly the mail nobody is watching for, and the
   unanswered-mail alert has not fired since 22 August. One Vercel

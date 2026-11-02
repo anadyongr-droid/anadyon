@@ -44,6 +44,67 @@ neither unless a policy nobody here has seen says otherwise.
 the own-damage policy — is what closes the gap on CDW. Theft has no candidate at
 all.
 
+---
+
+## CORRECTED 2 November 2026 — the cover is Anadyon's own, and that was the missing column
+
+**Stated by Tasos:** *"this cover is provided by us the company Anadyon, so the
+claim is valid indeed."*
+
+**That answers the third column of the table above, and my framing was wrong.**
+This document read the absence of theft and own-damage cover from the
+certificates as a gap — *"covered by neither unless a policy nobody here has
+seen says otherwise."* There is no such policy and there was never going to be
+one. **Anadyon bears those risks itself.** The cover is real; its backing is the
+company rather than an insurer.
+
+`DEFINING-STATEMENTS.md` §10 anticipated exactly this and said so about the Full
+Damage Waiver: it *"may be a perfectly good commercial decision"*. It is not a
+defect, and the row **"absent from the policies"** should be read from now on as
+**"not insured — provided by Anadyon"**, which is a different statement.
+
+**What this closes.** Open item **B5** was framed as *obtain the own-damage
+policy*. There is no policy to obtain. The question it was really asking —
+what stands behind CDW — now has an answer, and what remains of B5 is the
+commercial terms rather than a document hunt: **what excess the waiver leaves,
+and whether that excess changes for a young driver.**
+
+**Two things survive the correction, and neither depends on who bears the risk.**
+
+**1. "Theft insurance" is the wrong word.** §10 is explicit that a product with
+no policy behind it *"must be labelled as what it is"*, and that the live
+example *"is not one that may be… described to a customer as insurance."* A
+self-provided undertaking is a **waiver**, not insurance. Note the asymmetry:
+**"Collision Damage Waiver" is already correct** — a waiver is precisely what it
+is, and the term implies no insurer. It is only the word *insurance*, attached
+to theft, that misdescribes what the customer has.
+
+**2. The website says included; the contract charges.** Website §6 lists both
+with no qualification. The paper contract sells Theft Waiver and F.T.P. as paid
+options (art. 8c, 8d) and CDW as a paid option leaving a **non-waivable excess**
+(art. 8a). `DEFINING-STATEMENTS.md` §2: *"No fee appears at the desk that was
+absent from the quote."* **One of the two is wrong, and that is true whoever
+provides the cover.**
+
+**Which one is wrong is Tasos's to say, because it is the operating model.** The
+two readings produce different work:
+
+- **If included is right**, the printed contract is out of date and the stock
+  needs replacing — which is already open as **W14** for a different error in
+  the same document.
+- **If the contract is right**, the website overstates what the base price buys,
+  and the honest form is *included, subject to an excess of €X*, with the
+  **€5.00/day Full Damage Waiver** removing that excess. That reading makes the
+  whole set coherent, and it is the standard industry shape — but it is a guess
+  until confirmed, so it is labelled as one per §8.
+
+**The question that settles it, and it is three lines:** is CDW/theft included
+at no charge or a paid option? Is there an excess, and what is it? What does the
+€5.00/day Full Damage Waiver then buy — the cover itself, or the removal of the
+excess?
+
+
+
 ## 2. The website says 21 for everything; the contract says 18 for motorbikes
 
 | | Cars | Motorbikes |

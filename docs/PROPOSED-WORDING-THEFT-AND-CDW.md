@@ -1,96 +1,102 @@
-# Proposed wording: theft and CDW are not included
+# Proposed wording: what the base price includes, and the word "insurance"
 
 **Last verified:** 2 November 2026, Claude. **Draft for Tasos's approval under
 `DEFINING-STATEMENTS.md` §13. Nothing here is merged or published.**
 
-Raised to the top on 2 November, when Tasos confirmed the website **still takes
-bookings** through the closed season. Until then this sat behind W11–W13 as
-"before reopening". It is not: a customer booking this week reads it.
+**REWRITTEN 2 November after Tasos corrected the premise.** The first version of
+this document said theft and CDW were *"not true"* and should be removed from
+the included list. **That was wrong.** Tasos: *"this cover is provided by us the
+company Anadyon, so the claim is valid indeed."*
 
-## What the site says now — four strings, two files, two languages
+So the cover is real — its backing is the company rather than an insurer, which
+is a different fact from its absence. §10 anticipated precisely this and called
+it *"a perfectly good commercial decision"*. The earlier draft is left in the
+git history rather than quietly replaced, because it argued for deleting a true
+claim about a real product.
 
-W11 only ever covered the Terms. The same claim is also in the **FAQ**, which is
-read more than the Terms are.
+**What survives the correction is narrower and does not depend on who bears the
+risk.** Two things, and only one of them needs a decision.
 
-| Where | Current text |
-|---|---|
-| `lib/i18n/content/legal.ts:56` | `["Third party insurance", "Theft insurance", "Collision Damage Waiver (CDW)"]` |
-| `lib/i18n/content/legal.ts:78` | `["Ασφάλιση αστικής ευθύνης προς τρίτους", "Ασφάλιση κλοπής", "Μεικτή Ασφάλεια (CDW)"]` |
-| `lib/i18n/content/faq.ts:29` | *"Our standard fees include Collision Damage Waiver (CDW), Theft insurance, and Third Party insurance."* |
-| `lib/i18n/content/faq.ts:57` | *"Οι βασικές τιμές μας περιλαμβάνουν Μεικτή Ασφάλεια (CDW), ασφάλεια κλοπής και ασφάλιση αστικής ευθύνης προς τρίτους."* |
+---
 
-## Why it is wrong, and the part that does not depend on an open question
+## 1. "Theft insurance" is the wrong word — and CDW is already right
 
-**Two independent reasons, and the second needs nothing resolved first.**
+§10 is explicit: a product with no policy behind it *"must be labelled as what
+it is"*, and the live example *"is not one that may be… described to a customer
+as insurance."*
 
-1. **No certificate provides either.** `INSURANCE-COVER-AND-RESTRICTIONS.md`
-   records it from the contracts rather than by inference: both ΙΜΙ 2840
-   policies cover **only** forest fire, flood and earthquake. No general own
-   damage. **Theft has no candidate policy at all.**
-2. **The paper contract sells both as paid options** — Theft Waiver and F.T.P.
-   (art. 8c, 8d), and CDW with a **non-waivable excess** (art. 8a).
+An undertaking Anadyon funds itself is a **waiver**. It is not insurance, and no
+insurer stands behind it. A customer reading *"Theft insurance"* reasonably
+believes an insurer does — which matters at exactly the moment it goes wrong,
+when they discover the promise was the company's and not a policy's.
 
-So the website says *included in standard fees* and the contract the customer
-signs at the desk **charges for them**. That contradiction is internal to our
-own documents and is true whatever the insurance position turns out to be.
+**Note the asymmetry, because it halves the work.** *"Collision Damage Waiver
+(CDW)"* is **already correct** — a waiver is precisely what it is, the term
+implies no insurer, and it is the standard industry word. **Only the theft line
+needs changing**, and only its noun.
 
-**The one genuinely open thread, and it does not block this.** B5 records that
-Tasos confirmed on 2 September that own-damage cover **exists**, though the
-policy has never been seen here. If it surfaces it could change what may be said
-about **CDW**. It cannot rescue **theft**, which has no candidate, and it cannot
-make either "included" while the contract charges for them. Flagged per §8 so
-the draft is not read as settling B5.
+| Where | Now | Proposed |
+|---|---|---|
+| `legal.ts:56` | `"Theft insurance"` | `"Theft Waiver"` |
+| `legal.ts:78` | `"Ασφάλιση κλοπής"` | `"Απαλλαγή κλοπής"` |
+| `faq.ts:29` | `"…CDW, Theft insurance, and Third Party insurance."` | `"…CDW, a Theft Waiver, and Third Party insurance."` |
+| `faq.ts:57` | `"…Μεικτή Ασφάλεια (CDW), ασφάλεια κλοπής και…"` | `"…Μεικτή Ασφάλεια (CDW), απαλλαγή κλοπής και…"` |
 
-## Option A — minimal: stop claiming it
+Third-party insurance keeps the word: it **is** insurance, statutory, €1,300,000
+on all three certificates.
 
-Remove theft and CDW from both lists. Say nothing further.
+**This one I would merge on a single word from you.** It makes four strings
+accurate, removes nothing a customer has, and changes no price or product.
 
-- EN list → `["Third party insurance"]`
-- EL list → `["Ασφάλιση αστικής ευθύνης προς τρίτους"]`
-- EN FAQ → *"Our standard fees include Third Party insurance, as required by Greek law."*
-- EL FAQ → *"Οι βασικές τιμές μας περιλαμβάνουν ασφάλιση αστικής ευθύνης προς τρίτους, όπως απαιτεί ο νόμος."*
+---
 
-**For:** the smallest possible change, nothing new to approve, removes the false
-claim today. **Against:** §10 says where cover is absent the wording *"says so
-plainly rather than going quiet"*. This goes quiet.
+## 2. The website says *included*; the contract *charges*. One of them is wrong
 
-## Option B — §10-compliant: say what is and is not covered
+This is the part that is genuinely yours, because it is the operating model.
 
-Option A's four edits, plus one short paragraph in each language.
+- **Website §6** lists both with no qualification — *all our rentals include*.
+- **The paper contract** sells Theft Waiver and F.T.P. as **paid options**
+  (art. 8c, 8d), and CDW as a **paid option leaving a non-waivable excess**
+  (art. 8a).
 
-> **EN.** Third party insurance is included, as Greek law requires. **Damage to
-> the rented vehicle and theft of it are not insured.** You remain responsible
-> for them under the rental agreement. A **Full Damage Waiver** is available at
-> **€5.00 per day**: it is Anadyon's own undertaking to waive that
-> responsibility, not an insurance policy.
+`DEFINING-STATEMENTS.md` §2: *"No fee appears at the desk that was absent from
+the quote."* A customer who books believing both are included and is then asked
+to pay for them at the counter has met exactly the thing §2 forbids — and it is
+the website and the contract disagreeing, not the cover being absent.
 
-> **EL.** Η ασφάλιση αστικής ευθύνης προς τρίτους περιλαμβάνεται, όπως απαιτεί ο
-> ελληνικός νόμος. **Οι ζημιές στο ενοικιαζόμενο όχημα και η κλοπή του δεν
-> καλύπτονται από ασφάλιση.** Την ευθύνη φέρετε εσείς, βάσει του μισθωτηρίου.
-> Διατίθεται **Full Damage Waiver** με **5,00 € την ημέρα**: πρόκειται για δική
-> μας δέσμευση παραίτησης από την απαίτηση, όχι για ασφαλιστήριο συμβόλαιο.
+**Three lines settle it, and they decide which document changes:**
 
-**For:** a customer learns the real position before paying, which is what §10
-asks. **Against:** it is more to approve, and the last sentence touches **N1** —
-whether the FDW is a priced self-insurance product or is withdrawn/repriced,
-which is Tasos's open decision. Approving B does not settle N1; it only
-describes the product as it is sold today at the verified €5.00.
+1. Is CDW/theft **included at no charge**, or a **paid option**?
+2. Is there an **excess**, and what is it?
+3. What does the **€5.00/day Full Damage Waiver** then buy — the cover itself,
+   or the removal of the excess?
 
-## Recommendation
+**The reading that makes everything coherent** — and it is a guess until you
+confirm it, labelled as one per §8 — is: CDW and theft are included with an
+excess, and the FDW at €5.00/day removes the excess. That is the standard
+industry shape, it fits art. 8a's *non-waivable excess* and it explains what the
+FDW is for. If that is right, the honest website wording is *included, subject
+to an excess of €X*, and the only error is the missing excess.
 
-**Option B**, and the last sentence is the reason. The waiver is already sold at
-€5.00/day against no own-damage cover on any vehicle inspected — §10 says that
-may be a perfectly good commercial decision, but *"not one that may be made
-silently, priced by accident, or described to a customer as insurance."*
-Option A leaves a customer able to believe the waiver is insurance; B does not.
+**If instead the contract is right and they are paid options**, the website
+overstates what the base price buys and the included list is the thing to change.
 
-**If B is too much to decide now, A is strictly better than today** and can be
-merged while B is considered. The false claim going is the urgent half.
+**If the website is right and the contract is stale**, the printed stock needs
+replacing — already open as **W14** for a different error in the same form.
+
+---
+
+## What I am not asking for
+
+Nothing here asks you to change a price, withdraw a product or alter what a
+customer is covered for. Item 1 is a noun. Item 2 is a question about which of
+two existing documents states the current reality.
 
 ## What happens on approval
 
-The four strings and the paragraph are a content change in
-`lib/i18n/content/`, covered by `content.test.ts`. No schema, no migration, no
-customer data. **Approve by naming A or B; I will not merge either without
-that**, per §13: a general instruction to carry on is not approval of a
-particular wording.
+Both are content changes in `lib/i18n/content/`, covered by `content.test.ts`.
+No schema, no migration, no customer data.
+
+**Item 1: say "theft waiver" and I merge it.** **Item 2: answer the three lines
+and I will bring you the exact wording before changing anything**, per §13 — a
+general instruction to carry on is not approval of a particular wording.
