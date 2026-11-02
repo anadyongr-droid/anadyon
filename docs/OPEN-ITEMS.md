@@ -35,6 +35,66 @@ because they change what "urgent" means across the whole list** — and because 
 agent reading this file in January needs to know the business is shut before it
 reads anything below as a live operational gap.
 
+### The winter schedule — preparations begin end of February / early March 2027
+
+*Stated by Tasos, 2 November 2026. Roughly seventeen weeks from the closure.*
+
+**The trap in sequencing everything to that date: January comes first.** Google
+withdraws Gmail's *Send as* for third-party addresses in **January 2027**, while
+the office is shut and about six weeks before anyone returns. An item dated
+"before reopening" is dated wrong if its real deadline is January.
+
+**November — do now, because season has nothing to do with it**
+
+- **Cancel the Papaki hosting** (E33, E36, E6, E37). Exposure does not pause for
+  winter, and the box is now *less watched, not less exposed*. Closure also
+  removed the last reason to keep it: no staff need its webmail. **Tasos.**
+- **Cloudflare 2FA and a login email that is not `customerservice@anadyon.gr`**
+  (W64). Five minutes, no decision. **Tasos.**
+
+**November–December — the January deadline, not the March one**
+
+- **Decide E39** — the mailbox count — and provision whatever it chooses.
+  Recommendation unchanged: one or two → Workspace; four or more → Zoho for
+  everyone; **either way not the bridge**, and a quiet winter is not an argument
+  for building the most expensive option. **Tasos.**
+- **Remove the Gmail *Send as* alias** (E38) once the replacement is in place.
+  After January it stops bouncing and silently sends as `anadyon.gr@gmail.com`,
+  which is the §13 failure. **Tasos.**
+
+**December–January — unblock the agent work**
+
+- **E35: one Vercel `morning-briefing` log** and whether the Gmail connection is
+  still authorised. Three candidate causes, and that log names which. Blind
+  since August; it will be blind for next season's early enquiries too.
+  **Tasos supplies, Agent fixes.**
+- **#245 stripe 23**: the API-version pin is mechanical; `payment_method_types`
+  is a §13 question about what a customer is offered on a deposit link. Nothing
+  is charging now, so this is the right time. **Agent drafts, Tasos approves.**
+
+**January–February — must be true before the first rental, not after**
+
+- **F1: insurance, KTEO and odometer into the vehicle records.** Cover is fine;
+  the *system* still holds no expiry for any of the 29 vehicles, so `rentalBar`
+  cannot fire. Harmless while nothing rents, and the whole point is that it is
+  armed before anything does. **Tasos supplies the dates, Agent records them.**
+- **W11, W12, W13 — the website's cover claims.** `legal.ts` §6 still tells
+  customers theft insurance and CDW are included in all rentals, which no
+  inspected certificate provides. Drafted 19 September, rolled back pending
+  §13 approval. **Timing depends on the open question below.**
+
+**End February / early March — preparations begin**
+
+The system should need nothing from an agent by then. Anything still open at
+that point competes with reopening, which is the worst time for it.
+
+**The question still open, and it moves two of the items above.** *Does the
+website take bookings over the winter for next season?* If it does, the untrue
+cover claims (W11–W13) are being read by customers **now**, and E35's blind
+watchdog is missing **this winter's** early enquiries — both move to November.
+If it does not, both can wait for February.
+
+
 ### What this closes
 
 - **The insurance escalation.** Eleven vehicles stood past their *recorded*
