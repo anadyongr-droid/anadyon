@@ -539,7 +539,7 @@ can only be checked afterwards if the estimate exists.
 
 ### 1.9 Benchmark stop rule
 
-The benchmark stops at sixteen systems. No product is added merely because it
+The benchmark stops at **seventeen** systems — sixteen until 2 November 2026, when **Rental Car Manager** (§1.12) was admitted as the first entry to qualify on *two* of the triggers below, mixed-fleet support and the local partner channel. The cap is amended in the open rather than exceeded quietly, which is what §9 requires of a recorded decision. No product is added merely because it
 exists or repeats a capability already represented here. Add one only when
 primary vendor evidence would change one of these decisions: build versus buy
 the counter; Greek fiscalisation; mixed-fleet support; the local partner
@@ -688,6 +688,101 @@ somebody suggests a €129 plugin.
 
 ---
 
+### 1.12 The agent-channel reference — **Rental Car Manager (RCM)**
+
+*Added 2 November 2026, at Tasos's request, from `rentalcarmanager.com`.*
+
+**Why this is inside the stop rule, and it moves the cap.** §1.9 capped the
+benchmark at sixteen and admits an entry only on primary vendor evidence
+bearing on a named decision. We were at sixteen, so this is the seventeenth and
+the cap is amended rather than ignored — §9 does not permit quietly stepping
+over a recorded decision. It qualifies on **two** of the five triggers, which no
+previous addition has:
+
+- **mixed-fleet support**, and
+- **the local partner channel** — the capability §7 deferred calls *"the one
+  capability the local competition has and this system does not."*
+
+It bears on neither Greek fiscalisation nor build-versus-buy, and says nothing
+about a §8 exclusion. Those are stated so the next reader knows what this entry
+is not evidence about.
+
+**Epistemic status, per §8: everything below is the vendor's own marketing copy,
+fetched 2 November 2026, and none of it is independently verified.** No trial,
+no demo, no customer contacted. Treat each claim as "RCM says", exactly as §1.10
+requires for GoCars.online.
+
+#### What makes it worth an entry
+
+**1. It advertises cars and two-wheelers as one fleet.** Verbatim: *"we have
+clients that use Rental Car Manager to manage the hire of cars, campers, uber
+vehicle fleets, **bikes/scooters**, boats, Truck and Bus, refrigerated vans and
+the list goes on."*
+
+That matters because of §1.6a. The motorbike-rate survey found the local field
+largely ignores two-wheelers, and the §2 comparison recorded multi-asset support
+as **"only Rent Centric"** across sixteen systems. **That row is now wrong and
+is corrected to two.** Anadyon's fleet is precisely this mix — two cars and
+eleven motorbikes among the twenty-nine — so a vendor treating it as a
+first-class case rather than a compromise is a data point about the market, not
+only about the product.
+
+**2. It shows the shape a mature partner channel takes, and the shape matches
+what §7 already decided.** The feature is named **"Agent Integration"**, and it
+*"allows customers to make bookings directly to your system from online agent
+booking sites worldwide"* — naming **Rentalcars.com** and **Motorhome
+Republic**. The operationally important sentence is about money: RCM offers
+*"management of agent rates, extras and commissions from within Rental Car
+Manager."*
+
+So in a product that has solved this, **agent rates and commissions are
+first-class fields the operator controls inside their own system**, separate
+from the retail price, and agents reach availability through an API rather than
+a portal we would have to build.
+
+**That is independent, if weak, support for all four of §7's crossroads
+rules** — sellable category over physical unit, availability behind a boundary,
+money as revenue and cost rather than "what we charged", and neutral names. §7
+reasoned those out from first principles with no implementation to check them
+against. One now exists, and it does not contradict them. That is the most
+useful thing in this entry.
+
+#### What it does not establish, and must not be read as establishing
+
+- **No fiscal or tax compliance is mentioned anywhere** — not for Greece, not
+  for anywhere. It contributes nothing to the AADE question.
+- **No pricing was published on the pages read**, so it does not move §1.8's
+  build-versus-buy arithmetic. It is another cloud SaaS with no self-hosted
+  option mentioned.
+- **The agent connection's mechanics are not described.** A general API suite
+  with sandbox access and documentation is mentioned, but the page does not tie
+  it to the agent channel. **Live availability is described only for the
+  *Website Integration* module, not for agents** — so whether agents see live
+  availability or a pushed feed is unverified, and that distinction is exactly
+  §7's "availability behind a boundary" question.
+- **No agent portal is mentioned**, and no detail at all on how commission is
+  calculated or paid out.
+- Damage capture appears only as *"electronic vehicle inspections"* under
+  "Hands Free Pickup", with nothing on evidence retention — so it is no help to
+  §4.2a.
+- Fleet compliance is *"efficient tracking of registrations and maintenance"*
+  with *"alerts and warnings… so you'll never miss a service"*. **Registrations
+  and service, not insurance expiry** — the gap F1 is about is not shown to be
+  solved here either.
+
+#### One open item this creates
+
+**§2 has no row for an agent or partner booking channel at all** — the
+capability §7 names as the single thing the local competition has and we do
+not. Adding one would mean asserting which of the other sixteen systems have it,
+and I have surveyed exactly one. Re-surveying sixteen vendors for one row is a
+real piece of work and is recorded as an open item rather than guessed at here,
+because a half-filled comparison row is worse than an absent one.
+
+
+Last verified: 2 November 2026, Claude — vendor marketing copy from
+`rentalcarmanager.com`, fetched that day and independently unverified.
+
 ## 2. Feature comparison
 
 ✅ reachable in the current production staff workflow · ⚠️ present but not yet
@@ -704,7 +799,7 @@ fully reachable in production · ❌ absent · — not applicable at this scale
 | **Server-side price verification** | ✅ | not advertised by any |
 | Greek fiscalisation (AADE myDATA) | ✅ | Wheelsys, IOS Rentals |
 | AADE Digital Client List | ⚠️ columns present, unproven | IOS Rentals |
-| **Multi-asset (car + motorbike + bicycle)** | ✅ | only Rent Centric |
+| **Multi-asset (car + motorbike + bicycle)** | ✅ | Rent Centric; **RCM**, which advertises *"cars… bikes/scooters…"* as one fleet (§1.12) |
 | SMS notification | ✅ `/api/admin/sms` | Rent Centric |
 | Fleet register with statutory dates | ✅ | Coastr, Wheelsys |
 | Cost tracking per vehicle | ✅ | Coastr, RENTALL |
