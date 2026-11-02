@@ -24,6 +24,54 @@ it needs a person, and the item says exactly what is needed.
 
 ---
 
+## 🌙 Off-season — stated by Tasos, 2 November 2026
+
+**The office is closed and reopens next year.** Tasos also confirmed on the same
+day that **the insurance contracts are fine**, which closes the escalation that
+had stood at the top of this file since 27 October.
+
+**Both facts are recorded here rather than only inside the items they affect,
+because they change what "urgent" means across the whole list** — and because an
+agent reading this file in January needs to know the business is shut before it
+reads anything below as a live operational gap.
+
+### What this closes
+
+- **The insurance escalation.** Eleven vehicles stood past their *recorded*
+  expiry and ΗΒΙ 1568 lapsed on 4 November. Tasos has confirmed cover is in
+  order. Per `AGENTS.md`, that is his to answer and the agent does not re-ask.
+  **F1's separate half survives**: no expiry date is recorded against any of the
+  29 vehicles, so `rentalBar` still cannot fire. Harmless while nothing rents —
+  and it must be true before the first rental of next season, not after.
+
+### What it does NOT close, and one item it makes worse
+
+- **E33 / E36 / E37 — the Papaki server is now less watched, not less
+  exposed.** Unpatched PHP against a CVSS 9.2 unauthenticated RCE with a public
+  proof-of-concept, and a WordPress rated 10.0, on a box nobody will look at
+  until spring. Closure removes the only argument for keeping it: no staff need
+  its webmail now, so **cancelling the hosting is cleaner today than it was in
+  season**.
+- **E38 — Gmail withdraws *Send as* in January 2027, which lands mid-closure.**
+  Office mail already runs on Zoho and is verified, so no capability is lost;
+  what remains is removing the alias before staff return to it.
+- **E39 — the mailbox decision now has a natural deadline: before reopening.**
+  Nobody wants to be provisioning mailboxes in week one of a season. The closure
+  also supplies the one thing the bridge never had — time — which is precisely
+  the reason to be careful: *having a quiet winter is not an argument for
+  building the most expensive option.* The recommendation in E39 is unchanged.
+
+### Two questions this raises, and they decide what is worth doing now
+
+1. **What is the reopening date?** Every item above becomes dated against it,
+   which is what §12 needs to check them. "Before next season" is not a date.
+2. **Does the website still take bookings over the winter for next season?** If
+   it does, the quote path, the booking emails and **E35's blind
+   unanswered-mail watchdog** are live concerns now, not in spring. If it does
+   not, several items can rest until shortly before reopening.
+
+---
+
 ## 📋 Fleet records — the system is built and waiting for this data
 
 | # | Item | Owner |
