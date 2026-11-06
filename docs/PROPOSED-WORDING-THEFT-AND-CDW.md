@@ -1,7 +1,22 @@
 # Proposed wording: what the base price includes, and the word "insurance"
 
-**Last verified:** 2 November 2026, Claude. **Draft for Tasos's approval under
+**Last verified:** 6 November 2026, Claude. **Draft for Tasos's approval under
 `DEFINING-STATEMENTS.md` §13. Nothing here is merged or published.**
+
+**HELD BY INSTRUCTION, 6 November 2026.** Tasos, on being asked to approve the
+documentation PR that carries this file: *"please leave the do not take any
+action on the theft/cdw until you have an explicit green light from me."*
+
+So this is now a **standing hold**, not merely an unanswered question. No agent
+touches the four strings, the contract wording, or anything downstream of either
+until Tasos names the change he approves. That is the §13 standard anyway — a
+general instruction to carry on is not approval — but the hold is recorded here
+because it was given in a conversation, and a conversation is not a handover.
+
+**What is still permitted, so the hold is not read more widely than it is:**
+reading the contract, recording findings, and refining the questions below.
+**What is not:** editing any customer-facing string, publishing any of this
+wording, or proposing it again as though the silence were agreement.
 
 **REWRITTEN 2 November after Tasos corrected the premise.** The first version of
 this document said theft and CDW were *"not true"* and should be removed from
