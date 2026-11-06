@@ -106,6 +106,11 @@ schedule entry at all:
   [`PROPOSED-WORDING-THEFT-AND-CDW.md`](PROPOSED-WORDING-THEFT-AND-CDW.md),
   nothing merged. **Tasos: say "theft waiver" for (a); for (b), three lines —
   included or paid, what excess, and what the €5.00/day FDW then buys.**
+  **HELD BY TASOS'S INSTRUCTION, 6 November 2026** — *"do not take any action on
+  the theft/cdw until you have an explicit green light from me."* The two
+  questions below stand unanswered **and no agent acts on either** until he
+  names the change. Investigation and documentation remain open; the strings do
+  not.
 - **E35's watchdog is blind to this winter's enquiries.** Early bookings for
   next season are exactly the mail nobody is watching for, and the
   unanswered-mail alert has not fired since 22 August. One Vercel
