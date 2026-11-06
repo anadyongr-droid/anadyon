@@ -232,6 +232,55 @@ reported 36.52% statements, 36.71% branches, 37.54% functions and 38.35% lines.
 Those figures are a map of currently unexercised code, not a target or a quality
 grade; they must not be turned into a ratchet without a separate decision.
 
+### A cloud session's working copy is not storage, and an increment is cheap to commit
+
+*Added 27 October 2026, after four finished files were lost and recovered by
+luck.*
+
+On 26 October the mail bridge's Stage 1 was built in four increments. The first
+— the validation boundary, its 36 adversarial tests, the Zoho interface and the
+import-boundary test — was committed and pushed as `7c3c88a`. The next three —
+`store.ts`, `relay.ts`, `relay.test.ts` and the four extension files, about 716
+lines with 62 passing tests behind them — were written, tested, and left in the
+working copy to be committed together at the end of the batch.
+
+The session's container was then reclaimed. A cloud session's container is
+ephemeral by design and the repository is cloned fresh when a new one starts, so
+the next session opened on `main` with a clean tree and none of that work in it.
+`git stash list`, the reflog and every remote branch were empty of it: it had
+never been written anywhere that survives.
+
+**It was recovered from the session transcript**, which stores each tool call
+including the heredocs that wrote the files, and which happened still to be on
+disk at `/root/.claude/projects/<project>/<session>.jsonl`. Extracting the four
+`Bash` commands whose input mentioned the service and replaying them restored
+the files byte-for-byte. That is a usable recovery route and worth knowing, but
+it is luck, not a safeguard: nothing promises the transcript outlives the
+container, and a session that had been compacted differently might not hold the
+writes at all.
+
+**The rule this produces.** `DEFINING-STATEMENTS.md` §11 already says it —
+*"unpushed branches are not a handover"* — and the loss here was not a handover
+failure but the same sentence applied to the session's own next hour. So:
+
+- **commit each increment when its tests go green**, not when the batch is
+  finished. The branch is a draft; a draft commit costs nothing and can be
+  amended, squashed or reworded later.
+- **push after each commit**, for the same reason. A commit in a container that
+  is about to be reclaimed is worth exactly as much as an uncommitted file.
+- **a batch of work that takes more than one increment has more than one
+  commit.** Where a single logical change really does span the batch, push the
+  branch anyway and let the final commit tidy the history.
+
+**And one thing that did work.** Because the recovered tests had been proved
+against deliberate breaks in a *different* working copy, the two ordering tests
+were re-broken and re-watched to fail in the restored one before the work was
+committed. A regression test recovered from a transcript has the same standing
+as a regression test somebody else wrote: it has not been proved here until it
+has failed here. Both breaks reproduced the original failures exactly — the
+recovery was faithful, and that is now a checked fact rather than an assumption
+about a replayed heredoc.
+
 ## What remains outside this change
 
 - The isolated staging/Sentry/e2e-CI implementation is kept in draft PR #66 so
@@ -247,3 +296,9 @@ grade; they must not be turned into a ratchet without a separate decision.
 - Legal and accounting decisions proceed in parallel with the approved build
   roadmap. They gate only the specific legally dependent behaviours identified
   in the blueprint; they do not pause independent engineering work.
+
+---
+
+**Last verified:** 27 October 2026, Claude — the increment-commit section added
+after the mail-bridge loss; the Dependabot and concurrency sections unchanged
+since 24 October.

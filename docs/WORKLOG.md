@@ -15,6 +15,336 @@ wrong place.
 
 ---
 
+## 27 October 2026 — Claude (implementer) and Codex (reviewer)
+
+**Last verified:** 27 October 2026, Claude — close of day.
+
+**Where the day ended, before the detail below.** Three threads, and only one of
+them finished.
+
+**1. The mail bridge: Stage 1 is complete and its review cycle is closed.**
+Seven review rounds with Codex, **24 findings upheld and none disputed**, ending
+at `652a91e` with no new Stage 1 runtime defect and W76/W77 closed. **It is not
+deployable and that has not changed all day** — Stage 2 is durable storage,
+staff authentication and MFA, a deployable endpoint, the separate
+repository/deployment/credential boundary, the Gmail interface and extension
+build, controlled distribution, scheduled reconciliation and alerts, and a real
+relay address. PR #242 stays draft, unmerged and credential-free. **And none of
+it settles E39**, which still turns on one number: how many office mailboxes.
+
+**What the review cycle is actually worth recording.** The failures moved one
+level up each round: controls that ran *after* the irreversible step; a fix that
+reintroduced the defect it closed; the mutation instrument built to catch both;
+the *shape* of a rule rather than the rule; and finally my own reports of the
+work. **Three of the findings were my descriptions, not my code** — the mutation
+count, the W73 branch claim, the "live case" — all three caught by Codex. The
+code was reviewed seven times; my reporting of it was reviewed only by him, and
+that is the standing lesson rather than any single defect.
+
+**2. A §12 escalation that is still open and is the only item with an
+irreversible cost.** `ΗΒΙ 467`'s recorded insurance cover **ended today**,
+joining ten vehicles already past — ΙΡΜ 6966, the eight motorbikes, ΙΜΙ 2840 —
+with ΗΒΙ 1568 on 4 November. F1's own figures had been written on 3 October and
+were counting down to dates that had passed. Not a claim that eleven vehicles
+are uninsured: the broker sends certificates on the day. But **nobody here can
+tell**, no expiry is recorded against any of the 29 vehicles, and `rentalBar`
+bars only on `expired`. One call to Κ.ΕΞΠΡΕΣΣ, **2695025030**, answers it, and
+it did not happen today.
+
+**3. A sequenced action list for Tasos**, because fifty-two open items carrying
+his name is not a list anybody works through:
+[`ACTIONS-FOR-TASOS-2026-10-27.md`](ACTIONS-FOR-TASOS-2026-10-27.md). Its one
+re-prioritised item is the substantive change: **the Papaki server is now a
+decision rather than a support problem**, because office mail has left it for
+Zoho and cancelling the hosting would close E33, E36 and E6 and remove E37's
+dependency on an unresponsive operator.
+
+**Two near-misses of mine, both recorded rather than tidied away.** Four
+finished files were lost to a reclaimed container and recovered from the session
+transcript by luck — the increment-commit rule that follows is in
+[`ENGINEERING-SAFETY-NET.md`](ENGINEERING-SAFETY-NET.md). And an over-broad
+`git checkout ... -- docs/` reverted six documents on the collaboration branch
+to `main`'s older versions, losing W64, W65, W69 and the 536-line Zoho cutover
+guide; nothing was committed and all of it was restored and verified row by row.
+
+**The day in order, as it happened.**
+
+One subject, one incident. Detail in
+[`worklog/2026-10-27-claude.md`](worklog/2026-10-27-claude.md).
+
+**And a sixth, which accepted the split: one non-blocking cleanup and a fair
+correction of my wording (W76, W77).** Head `652a91e`, 250 tests, sweep 67 run /
+0 stale / 0 surviving. The superseded combined endpoint list and its export had
+survived the Accounts/API split as dead code, presenting the old merged model as
+a public source of truth; deleted, and **asserted gone** rather than merely
+absent, with a mutation that reintroduces it. The §8 provenance note — which
+endpoints are verbatim from Zoho's pages and which extrapolated — travelled onto
+the two live lists rather than being deleted with the dead one. **The
+correction:** I called the cross-rejection test the "live case". It drives the
+real send path against an **injected transport**, which proves the refusal sits
+on the path a message takes and proves nothing about Zoho, which needs
+credentials. **Third time in two days my description of the work needed
+correcting rather than the work.** Also recorded, mine and caught immediately:
+an over-broad `git checkout` reverted six documents on the collaboration branch
+to `main`'s older versions, losing W64, W65, W69 and the Zoho cutover guide —
+nothing committed, all restored from HEAD and verified row by row.
+
+**And a fifth: one credential-boundary finding, fixed (W74, W75), plus a second
+wrong report of mine.** Head `0b6c05e`, 249 tests, sweep 66 run / 0 stale / 0
+surviving. One combined Zoho allowlist governed both destinations, so a Mail/API
+origin could be configured as the accounts host — and receive the **client
+secret and refresh token** — while an accounts origin returned as `api_domain`
+would receive the **bearer token**. `ZOHO_ACCOUNTS_HOST=https://mail.zoho.eu`
+was accepted, and the first thing that happens on that host is a POST carrying
+the secret. Two exact lists now, rejecting each other, with cross-rejection
+tests including the live shape. **The second half is mine:** I reported the
+previous round as "recorded as W73 on both branches" and it was on one — the
+mutation count was the first such error, and **both were claims about the record
+rather than defects in the code. The bridge has had five reviews; my reporting
+of it has had none.** A new test asserts that a service document may not cite an
+open item absent from the same branch, proved by watching it name W73. Also
+recorded: **twice a block replacement of mine has silently deleted tests**, and
+both times the linter noticed rather than me.
+
+**Then a fourth review, two findings, both upheld and fixed (W73) — and both
+the same mistake: a rule shaped like the right rule instead of the rule
+itself.** Head `c95c9ca`, 245 tests, sweep 63 run / 0 stale / 0 surviving. The
+Zoho destination override matched any **subdomain** of a Zoho-owned domain, so
+`anything.zoho.eu` qualified — and I had narrowed it from "any https host" one
+round earlier and treated that as the fix. **A suffix match is not an
+allowlist:** it hands the decision to whoever can obtain a hostname under the
+domain, and this destination receives a refresh token and a client secret. Now
+an explicit list of exact Zoho endpoints, marking which are verbatim and which
+extrapolated. The second finding was one sentence in `PERMISSIONS.md` still
+calling `host_permissions` "anything but Gmail", inside the list of what the
+tests enforce — **and my test for it had the same defect one level up**, checking
+for the absence of a single sentence rather than of the claim. It now asserts
+the shape. One mutation was deleted deliberately rather than repointed, with the
+reason recorded, because the property it tested is now guaranteed by the shape
+of the data. W72's deployment blockers are untouched and accurate.
+
+**Codex's third review: four findings, all upheld and fixed (W71, W72) — and
+the first was about my own audit instrument.** Head `775c9ba`, 243 tests in the
+service, sweep now **63 run, 0 stale, 0 surviving** and exiting non-zero if
+either count rises. The mutation sweep exists to find controls that look
+protected and are not; four of its own mutations had gone stale when the code
+moved, so it printed `SKIP`, carried on, and reported *"61 mutations, 0
+survived"* — **and I repeated that figure to Tasos having read only the tail of
+the output, so the number was wrong when it was given.** Also: **a crashed send
+read as "in progress" for ever**, because lease expiry was evaluated only on the
+send path, so the status endpoint told the office to keep waiting for a message
+nobody would ever send; **`extraAllowedOrigins` required only `https://`**, so
+one configuration line could point the Zoho refresh token and client secret at
+any host — a typo and a malicious edit look identical in a diff; and
+**`PERMISSIONS.md` still named Gmail as the only permitted host** a review round
+after the relay origin was added, so the written baseline described a manifest
+that no longer existed. **The pattern across the three rounds is the finding:
+the failure moved one level up each time — the code, then the test, then the
+thing that checks the tests.** W71's list of unbuilt Stage 2 components is
+untouched and accurate.
+
+**Then a self-audit before asking for a third review, and it found five more
+defects and six unasserted properties (W70).** Two rounds had found twelve
+findings in code I had read carefully, and two of my own tests had asserted the
+defect they were written to catch, so the audit has an instrument in it:
+`services/mail-bridge/audit/mutation-sweep.mjs` turns each control off in turn
+and requires the suite to fail, so **a surviving mutation is a property the code
+claims and nothing asserts**. The first run left six survivors — one of them my
+own test for a defect Codex had found, which exercised the wrong branch and
+would have passed against the bug. **61 mutations, 0 surviving now**, 236 tests
+in the service. The two serious defects: **`handleStatus` reported an unknown
+delivery as a flat `sent: false`**, about the one outcome meaning we cannot
+tell, so anyone acting on it would resend — and neither review covered the
+status path, both read the send path; and **the attachment blocklist could be
+stepped around four ways**, `evil.exe.` and `evil.exe ` among them, because
+Windows strips trailing dots and spaces. Most transferable finding: **two
+redundant guards made each other untestable** — each masked the other, so
+removing either failed no test. Detail in
+[`worklog/2026-10-27-claude-self-audit.md`](worklog/2026-10-27-claude-self-audit.md).
+**W68 is untouched: five more defects fixed is not a bridge.**
+
+**Then Codex re-reviewed and found two more defects, both fixed** — W68, W69,
+head `8ef1f21`, 213 tests in the service. **The first was mine twice over:** the
+fix for review finding 7 made an expired claim lease *re-admittable*, which
+reintroduced the duplicate-send defect through the mechanism built to close it —
+and **the test I wrote for it asserted the bug**, one round after I had asked
+Codex in writing to look for exactly that. An expired claim is now settled
+`unknown` and never re-admitted. **The second taught the sharper lesson:** my
+first test for the rate-limit undercount **passed against the broken store**,
+found only by re-breaking the fix and watching nothing fail, because removing
+the wrong admission and the right one leave the same *number* of admissions. So
+**re-breaking a fix proves a control is reachable and does not prove the
+assertion is right** — here it proved the opposite. Also: the credential
+allowlist narrowed to four exact EU origins, a stale template variable removed,
+five stale README passages corrected, and the `handleListSenders`/`handleStatus`
+tests restored after a block replacement of mine had deleted them — caught by
+the linter, by neither review. **W68's list of what does not exist is unchanged
+and accurate: this is not an executable bridge.** Agreed sequencing: W68 first,
+then a credential-free separately deployed test shell, and no Zoho credentials
+until that exists and has been reviewed.
+
+**Codex reviewed the bridge and returned CHANGES REQUIRED. Ten findings, ten
+upheld, all fixed** — W66 and W67, new head `b71509e`, reviewed implementation
+`c8d10ff` unchanged, 203 tests in the service and 1,943 across the repository.
+Three were defects rather than gaps: an ambiguous Zoho result could have sent a
+customer **two copies**, because the relay released the idempotency key on any
+retryable outcome and **Zoho never receives that key** — a correct argument
+about the wrong mechanism; the "fail-closed" audit was written *after* the send,
+so `AUDIT_FAILURE_BLOCKS_SEND = true` blocked nothing, which is the sixth time
+this project has recorded a control that asserted a property it did not have;
+and the threading capability flag was a **trapdoor**, no request shape sitting
+behind it, so enabling it could only turn a visible refusal into the silent
+unthreaded send the refusal existed to prevent. Findings 3, 9 and 10 are §8
+applied to Zoho and not to myself. **PR #242 stays draft:** §6.2's credential
+boundary, E39 and the red-check rule are untouched, and "all findings fixed" is
+not "safe for a live pilot". Codex's findings are §8 of the review brief, my
+response §9, and the detail is in
+[`worklog/2026-10-27-claude-review-response.md`](worklog/2026-10-27-claude-review-response.md)
+and [`worklog/2026-10-27-codex.md`](worklog/2026-10-27-codex.md).
+
+**The bridge is on its own branch in a draft pull request, at Codex's request
+relayed by Tasos.** Branch `claude/mail-bridge-stage-1`,
+[PR #242](https://github.com/anadyongr-droid/anadyon/pull/242), head
+`c8d10ffcdf5e6ded09807825b1973927aa66a29c`, **assembled from `main`** so the diff
+is the bridge and nothing else — 25 files, +4,662/−0, draft confirmed through
+the API, no credentials. **It stays a draft:** §6.2's credential boundary is
+unmet, E39 is undecided, and nothing merges while a CI check is red. His request
+named two things that did not exist and so produced them — `CONFIGURATION.md`
+(every variable by name, **deliberately not a `.env.example`**, because the
+repository gitignores `.env*` and that is its one real secret boundary) and
+`DEPLOYMENT.md` (isolation per boundary, including the reverse direction that the
+rental application must hold no relay credential either). Detail in the agent
+worklog; the item is **W65**.
+
+**§12 ESCALATION, found while sequencing the action list: `ΗΒΙ 467`'s recorded
+insurance cover ends today**, joining ten vehicles already past — ΙΡΜ 6966,
+the eight motorbikes, ΙΜΙ 2840 — with ΗΒΙ 1568 on 4 November. F1's own figures
+had been written on 3 October and were counting down to dates that had since
+passed; both the row and the file header are re-dated. Not a claim that eleven
+vehicles are uninsured — the broker sends certificates on the day — but nobody
+here can tell, no expiry is recorded against any of the 29 vehicles, and
+`rentalBar` bars only on `expired`. One call answers it.
+
+**New: [`ACTIONS-FOR-TASOS-2026-10-27.md`](ACTIONS-FOR-TASOS-2026-10-27.md)**,
+sequencing the fifty-two items that need Tasos by what goes wrong if they wait,
+with the steps written out. It re-prioritises one item rather than finding it:
+**the Papaki server is now a decision, not a support problem.** Office mail has
+left it for Zoho and nothing else appears to need it, so cancelling the hosting
+would close E33, E36 and E6 and remove E37's dependency on an operator who has
+left two tickets at Νέο since 21 October and 19 September. Second on that list
+is the only item where a customer is currently told something untrue: the site
+lists theft and CDW as included in all rentals, which no inspected certificate
+provides.
+
+**Mail bridge Stage 1 is complete and with Codex for review.** The morning
+landed `store.ts`, `relay.ts` and the extension skeleton (`1c4870f`); the
+afternoon finished it end to end on Tasos's instruction — the real Zoho client
+(`0996670`), the HTTP transport (`f5ec75d`), the HIGH 2 reconciliation detector
+(`5ce4f2a`) and the extension's relay call (`a1f3082`). **175 tests in the
+service, 1,915 across the repository, 0 lint errors.** Each piece was committed
+and pushed when its tests went green, which is the rule the morning's incident
+produced, applied the same day.
+
+**Zoho's documentation answers two of §17's questions, and not favourably.**
+There is no documented field for `In-Reply-To`/`References`, so threading is
+*"not through this endpoint"*, and more than one address per recipient field is
+undocumented. Both are **refused rather than guessed**: a silently unthreaded
+reply is a customer-visible change (§13), and a comma-joined list read as one
+malformed address delivers to fewer people than the sender believes. The host is
+read from the token response's `api_domain` rather than compiled in, and absent
+`api_domain` refuses rather than guessing a data centre.
+
+**Three defects in my own earlier Stage 1, none found by a failing test, all
+fixed:** the idempotency store let any authenticated user read any key's
+outcome; `content.js` had top-level `export` statements, which an MV3 content
+script cannot have, so the action would never have appeared and nothing would
+have been logged; and the service README linked to an unmerged document as
+though it had merged. Twenty-two tests were proved by breaking the code they
+guard and watching them fail — the table is in the agent worklog.
+
+**Sent to Codex for review**, per Tasos's request. No Codex session is reachable
+from this machine, so the brief went through GitHub:
+[`REVIEW-BRIEF-MAIL-BRIDGE-STAGE-1.md`](REVIEW-BRIEF-MAIL-BRIDGE-STAGE-1.md)
+names the eight claims the code makes, the seven places I think are most likely
+wrong, and what is deliberately not built so it is not reported as a finding.
+
+Earlier the same day, before that instruction: `store.ts`, `relay.ts` and the
+MV3 extension skeleton, pushed as `1c4870f` on top of yesterday's `7c3c88a`. Two positions in the check order are
+load-bearing and each has a test that fails when the control is **moved** rather
+than removed: the kill switch precedes authentication, because a switch checked
+after it cannot stop an attacker holding a valid session; the rate limit
+precedes the idempotency claim, so a refused request does not spend a key and
+leave the retry answered "already settled". Both were proved by breaking them.
+**New: W65** carries what is built, what is named as absent — a real Zoho
+client, the HTTP transport, the extension's relay call, and the **HIGH 2
+reconciliation detector** — and the two preconditions of Stage 2: extraction to
+its own repository and credential boundary, and four inputs that are Tasos's.
+**E39 is unchanged**: building Stage 1 removes the engineering unknowns from one
+side of that decision, it does not settle it, and the recommendation stands.
+Subject documents: [`services/mail-bridge/README.md`](../services/mail-bridge/README.md),
+[`REVIEW-GMAIL-ZOHO-BRIDGE-PROPOSAL.md`](REVIEW-GMAIL-ZOHO-BRIDGE-PROPOSAL.md).
+
+**The incident: four finished files were lost and recovered by luck.** Three of
+yesterday's four increments were written, tested and left uncommitted to be
+batched at the end; the container was reclaimed and the next session opened on a
+fresh clone with none of it. They were recovered from the session transcript,
+which stores the heredocs that wrote them and happened still to be on disk —
+a usable recovery route, not a safeguard. The rule that follows is in
+[`ENGINEERING-SAFETY-NET.md`](ENGINEERING-SAFETY-NET.md): commit and push each
+increment when its tests go green. §11's *"unpushed branches are not a
+handover"* applies to the session's own next hour, not only to the next agent.
+Before committing, both ordering breaks were re-applied and re-watched to fail
+in the restored copy — a test recovered from a transcript is not proved until it
+has failed here.
+
+**Already recorded, nearly re-filed: R10.** The `Last verified:` gap has been
+open since the 2 October audit; searching the list first caught it. The
+re-measurement is kept because the raw count misleads — 34 of 76 against 32 of
+55 reads as a regression, but `docs/worklog/` has grown by nineteen dated
+records that should never carry a freshness marker. **18 of 37 living documents**
+is the real figure, and R10 now says the check needs the living/historical split
+first.
+
+---
+
+## 26 October 2026 — Claude (implementer)
+
+**Last verified:** 26 October 2026, Claude.
+
+**The Yahoo failure is fixed and E34 is closed — on the headers of a delivered
+message, not on the absence of a bounce.** Office mail now leaves Zoho signed
+by Zoho. Detail in
+[`docs/worklog/2026-10-26-claude.md`](worklog/2026-10-26-claude.md); the
+knowledge is in [`ZOHO-MAIL-CUTOVER-STEPS.md`](ZOHO-MAIL-CUTOVER-STEPS.md),
+[`DNS-MOVE-TO-CLOUDFLARE.md`](DNS-MOVE-TO-CLOUDFLARE.md),
+[`EMAIL-DELIVERABILITY.md`](EMAIL-DELIVERABILITY.md) and
+[`PAPAKI-DEPENDENCY-AND-EXIT-OPTIONS.md`](PAPAKI-DEPENDENCY-AND-EXIT-OPTIONS.md)
+section 10.
+
+**The root cause was the sending path, not the certificate**, and my 24 October
+mechanism is withdrawn — it predicted that fixing E6 would stop the bounce and
+it did not. Mail had been leaving Google all along, which has no DKIM key for
+this domain and cannot have one from a consumer account. Third superseded
+reading of this one incident; all three kept.
+
+**Migration executed with Tasos**: DKIM (`zmail`), SPF (`include:zohomail.eu`,
+merged to keep `-all`), MX 10/20/50 on `mx*.zoho.eu`, Papaki MX removed.
+Verified both directions — `dkim=pass spf=pass dmarc=pass` from headers, and an
+inbound test arriving in Zoho. **E38 downgraded** from a January 2027 deadline
+to one housekeeping action, because office mail no longer uses Gmail's *Send
+as*. **New: W64** — moving DNS to Cloudflare puts the zone in the same account
+as the only off-site backup. Also: four dependency PRs merged, PR #240 landed,
+the staging seed verification taught to notice a staging environment that cannot
+price, M6/M7/M8 added for three untracked migrations, and **W62 withdrawn as a
+duplicate of E11**.
+
+**The day's one sentence:** *an absence is only evidence once you have shown it
+could have been a presence* — Tasos asked "unless we are not receiving emails",
+which was the same hole as the Certificate Transparency reading two days
+earlier, and it was the right question both times.
+
+---
+
 ## 24 October 2026 — Claude (implementer)
 
 **Last verified:** 24 October 2026, Claude.
