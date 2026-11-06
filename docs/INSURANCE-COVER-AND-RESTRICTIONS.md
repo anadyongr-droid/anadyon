@@ -292,6 +292,38 @@ three at €2,900 each. Neither carries general own damage. **The €5.00/day Fu
 Damage Waiver therefore stands against no insurance on this vehicle either** —
 which strengthens §4.1 and open item N1 rather than changing them.
 
+### Theft and own-damage cover is Anadyon's own, not an insurer's
+
+*Stated by Tasos, 2 November 2026:* **"this cover is provided by us the company
+Anadyon, so the claim is valid indeed."**
+
+**This is the answer to a question this document has been asking the wrong way.**
+§4.1 and the finding above established there is no collision own-damage and no
+theft cover on any certificate, and open item **B5** was framed as *obtain the
+own-damage policy* — on the assumption that a policy existed and had not been
+found. **There is no such policy and there was never going to be one.** Anadyon
+bears those two risks itself.
+
+**So the row "absent from the policies" must now be read as "not insured —
+provided by Anadyon", which is a different statement**, and the website's claim
+that rentals include theft and collision cover is **valid in substance**. §10
+anticipated this exactly, about the Full Damage Waiver: it *"may be a perfectly
+good commercial decision"*.
+
+**What changes for B5.** It stops being a document hunt and becomes a commercial
+question: **what excess the waiver leaves, and whether that excess changes for a
+young driver.** Those were always the two answers B5 actually needed.
+
+**What does not change, and is recorded here so it is not lost.** §10's other
+half still binds: *a product with no policy behind it must be labelled as what
+it is*, and *"not… described to a customer as insurance."* The site currently
+says **"Theft insurance"**, which names an insurer that does not exist;
+**"Collision Damage Waiver" is already correct** and needs nothing. And §2 is
+untouched by any of this — the website says both are *included* while the paper
+contract sells them as **paid options** (art. 8c, 8d, 8a), so one of the two
+documents is wrong whoever bears the risk. Both are drafted for approval in
+[`PROPOSED-WORDING-THEFT-AND-CDW.md`](PROPOSED-WORDING-THEFT-AND-CDW.md).
+
 ### Bicycles carry no insurance at all
 
 *Stated by Tasos, 28 September 2026.* The bicycle fleet is uninsured — there is
