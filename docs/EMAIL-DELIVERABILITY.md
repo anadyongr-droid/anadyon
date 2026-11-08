@@ -1,6 +1,6 @@
 # How Anadyon's email actually leaves the building
 
-**Last verified:** 26 October 2026, Claude — **THE CERTIFICATE IS VALID AND WAS NOT THE CAUSE. The mail still leaves Google, and the 24 October root-cause claim is WITHDRAWN.** The certificate re-reads clean today — SAN `mail.anadyon.gr, webmail.anadyon.gr`, valid to 22 January 2027, grade A, 89 days left, zero issues. But a bounce dated **25/26 October**, two days *after* it was issued, names sending IP **`209.85.208.51` = `mail-ed1-f51.google.com`** — Google, exactly as before. SPF is `v=spf1 +mx include:_spf.fastmail.gr -all`, authorising only **213.158.90.117** (`linux207.papaki.gr`) and fastmail; `google._domainkey` does not exist. So from Google SPF hard-fails and there is no DKIM key at all, and Yahoo requires DKIM. **My 24 October mechanism — expired certificate → Gmail relay fails → falls back to Google — made a testable prediction and the prediction failed.** The simpler reading, consistent with every bounce held, is that the alias has been sending through Google all along and the certificate expiry was a real but separate fault adjacent in the calendar. The 11 September `relay12.grserver.gr` bounce is withdrawn as evidence of the outbound path. **Two fixes, alternatives not steps:** (A) point the Gmail *Send mail as* alias at `mail.anadyon.gr:587` with TLS — minutes, and only possible now the certificate is valid, which is where that work actually pays off; (B) finish the Zoho migration, already begun per the live `zoho-verification` TXT. **Reading that one Gmail screen settles which route the alias uses**, and nothing outside the account can. Also recorded: a hostname in the *web* certificate's SAN list is **not** proof the SMTP service presents it — Plesk assigns mail separately — and 24 October treated it as proof. Earlier: 21 October 2026, Claude — **PHP exposure section added, on the day PHP shipped emergency fixes for two CVSS 9.2 unauthenticated-RCE flaws (CVE-2026-109618, CVE-2026-109619).** This project has no PHP in the application, the public website or Supabase, and the three `php` strings in the repository are competitors' endpoints we fetch **from**. The exposure is the Papaki/Plesk server `213.158.90.117`, which serves `mail.anadyon.gr` and `webmail.anadyon.gr` and is itself a PHP application with Roundcube webmail — **its PHP version is unverified from here** and the three things needed are Tasos's (E33). Earlier: 19 September 2026, Claude — from live DNS *and* from the full
+**Last verified:** 8 November 2026, Claude — **A REAL CUSTOMER EMAIL WAS BLOCKED BY YAHOO ON 8 NOVEMBER, FROM A GOOGLE IP: the Gmail *Send as* alias is still in use and still unauthenticable, so E38 is re-escalated and W79 opened. The Zoho path is sound and E34's evidence stands — its title was wider than what it proved.** Also read live today: the SPF record carries a **dead tail**, `+include:one.zoho.eu` sitting after `-all` where RFC 7208 §5.1 says it will never be tested (**W80**, with a proposed correction). Detail in the 8 November section at the foot of this document. Earlier: 26 October 2026, Claude — **THE CERTIFICATE IS VALID AND WAS NOT THE CAUSE. The mail still leaves Google, and the 24 October root-cause claim is WITHDRAWN.** The certificate re-reads clean today — SAN `mail.anadyon.gr, webmail.anadyon.gr`, valid to 22 January 2027, grade A, 89 days left, zero issues. But a bounce dated **25/26 October**, two days *after* it was issued, names sending IP **`209.85.208.51` = `mail-ed1-f51.google.com`** — Google, exactly as before. SPF is `v=spf1 +mx include:_spf.fastmail.gr -all`, authorising only **213.158.90.117** (`linux207.papaki.gr`) and fastmail; `google._domainkey` does not exist. So from Google SPF hard-fails and there is no DKIM key at all, and Yahoo requires DKIM. **My 24 October mechanism — expired certificate → Gmail relay fails → falls back to Google — made a testable prediction and the prediction failed.** The simpler reading, consistent with every bounce held, is that the alias has been sending through Google all along and the certificate expiry was a real but separate fault adjacent in the calendar. The 11 September `relay12.grserver.gr` bounce is withdrawn as evidence of the outbound path. **Two fixes, alternatives not steps:** (A) point the Gmail *Send mail as* alias at `mail.anadyon.gr:587` with TLS — minutes, and only possible now the certificate is valid, which is where that work actually pays off; (B) finish the Zoho migration, already begun per the live `zoho-verification` TXT. **Reading that one Gmail screen settles which route the alias uses**, and nothing outside the account can. Also recorded: a hostname in the *web* certificate's SAN list is **not** proof the SMTP service presents it — Plesk assigns mail separately — and 24 October treated it as proof. Earlier: 21 October 2026, Claude — **PHP exposure section added, on the day PHP shipped emergency fixes for two CVSS 9.2 unauthenticated-RCE flaws (CVE-2026-109618, CVE-2026-109619).** This project has no PHP in the application, the public website or Supabase, and the three `php` strings in the repository are competitors' endpoints we fetch **from**. The exposure is the Papaki/Plesk server `213.158.90.117`, which serves `mail.anadyon.gr` and `webmail.anadyon.gr` and is itself a PHP application with Roundcube webmail — **its PHP version is unverified from here** and the three things needed are Tasos's (E33). Earlier: 19 September 2026, Claude — from live DNS *and* from the full
 headers of a delivered message. Two conclusions from the 11 September pass were
 withdrawn; both had reasoned from DNS alone where only a header could answer.
 
@@ -1558,3 +1558,120 @@ right response is not to force it through:
    of failing mail and the reports show the effect before it is universal.
 
 E9 stays open, better informed rather than answered.
+
+---
+
+## A real customer email blocked, 8 November 2026 — and the SPF record read again
+
+**Reported by Tasos with the full bounce.** This is the first Yahoo refusal seen
+since the Zoho cutover, and it is **not** a regression of the Zoho path. It is
+the Gmail path, still in use, failing exactly as this document said it would.
+
+### The bounce, verbatim in the part that matters
+
+```
+550 5.7.9 This email has been blocked because the sender has not been
+authenticated. Yahoo requires this sender to be authenticated with DKIM.
+SPF alone is not sufficient.
+Authentication results: DKIM = FAILURE - SPF anadyon.gr with ip 209.85.208.43 = FAILURE
+Remote-MTA: dns; mta7.am0.yahoodns.net (98.136.96.74)
+Last attempt: Sun, 08 Nov 2026 06:11:43 -0800 (PST)
+```
+
+The recipient address is deliberately not recorded here; it was a customer.
+
+### The sending IP is the entire diagnosis
+
+**`209.85.208.43` → `mail-ed1-f43.google.com`**, resolved live on 8 November.
+Google. Compare the 26 October bounce in this document, which named
+`209.85.208.51` = `mail-ed1-f51.google.com` — the **same Google block, two weeks
+apart**. So the message left through **Gmail's *Send as*** alias and not through
+the Zoho mailbox, and every part of the refusal is correct behaviour:
+
+- **SPF fails because Google is deliberately not authorised.** No Google range
+  appears in the record or in anything it includes. That is the intended state
+  after the cutover, not a defect.
+- **DKIM fails because there is no key to sign with.** A consumer Gmail account
+  cannot hold a DKIM key for `anadyon.gr`; that was established on 24 October
+  when the SPF-only fix was ruled out, and nothing has changed it.
+- **Yahoo requires DKIM** and says so in the refusal text.
+
+**So there is no DNS change that fixes this bounce.** The fix is to stop using
+the alias — E38's single action, filed as housekeeping on 26 October and
+re-escalated today because it has now reached a customer. **W79** carries it.
+
+**Operational rule until the alias is removed:** office mail goes out from Zoho
+— webmail, a desktop client, or the Zoho mailbox added to the Gmail phone app as
+a **full IMAP account**, which is not *Send as* and keeps working after January.
+Never from Gmail's `customerservice@anadyon.gr` entry.
+
+**And the direction this fails in gets worse, not better.** Today the alias
+**bounces**: loud, and the message is recoverable. From **January 2027** Gmail
+stops honouring *Send as* for third-party addresses, and the same send
+**succeeds** — silently from `anadyon.gr@gmail.com`. A customer then receives a
+different address from the one Anadyon publishes, with no error anywhere. A
+noisy failure becomes a quiet one, which is the §13-relevant outcome.
+
+### What E34's closure actually covered
+
+E34 was titled *"Yahoo refuses mail from Anadyon"* and closed on 26 October on
+the strength of a Zoho send with `dkim=pass header.s=zmail`, `spf=pass` from
+`136.143.169.15` and `dmarc=pass`. **That evidence stands and the Zoho path is
+still sound.** The title was wider than the evidence: the Gmail path was never
+repaired, only superseded, and it stayed live. **A closure states which path it
+covers** — the lesson is the wording, not the diagnosis.
+
+**Not knowable from here:** how many customer messages this has blocked since
+26 October. The email intelligence pipeline has ingested nothing since August
+(see the section above), so there is no bounce history to count. These two items
+compound: this bounce was seen only because Tasos happened to read it.
+
+### The SPF record, re-read live on 8 November
+
+```
+v=spf1 include:zohomail.eu +mx include:_spf.fastmail.gr -all +include:one.zoho.eu ~all
+```
+
+**`-all` is the fourth mechanism, and `all` always matches.** RFC 7208 §5.1:
+*"Mechanisms after 'all' will never be tested."* So `+include:one.zoho.eu` and
+the trailing `~all` are **inert text** — present in the record, never evaluated.
+Two `all` mechanisms in one record is the signature of an edit made twice
+without re-reading the result.
+
+**How it got this way is visible in this document's own history.** On 26 October
+the record was `v=spf1 +mx include:_spf.fastmail.gr -all`. The Zoho terms were
+then added at **both ends** — `include:zohomail.eu` in front, where it works,
+and `+include:one.zoho.eu` after the existing `-all`, where it cannot.
+
+**What is unaffected, so this is a latent fault and not an outage:**
+
+| | |
+|---|---|
+| Ordinary Zoho mailbox sending | **Fine.** `include:zohomail.eu` → `include:spf.zohomail.eu`, which publishes `136.143.169.0/24` — the range the verified send came from. It matches on the *first* mechanism and never reaches the dead tail. |
+| The ten-lookup limit | **Not at risk.** The live chain costs seven DNS-querying terms. |
+| MX | `mx.zoho.eu` (10), `mx2.zoho.eu` (20), `mx3.zoho.eu` (50) — Zoho only, read live. |
+| DMARC | `v=DMARC1; p=none; rua=mailto:customerservice@anadyon.gr; fo=1` — still monitoring only. |
+
+**What is affected:** anything sent through the services `one.zoho.eu`
+authorises — `spf.zoho.eu`, `eu.zeptomail.net`, `eu.zcsend.net`, which are
+Zoho's transactional and campaign senders — would **fail SPF**, because that
+include is unreachable. Nothing uses them today; transactional mail goes through
+Resend. It is a trap set for whoever first tries ZeptoMail or Zoho Campaigns and
+finds mail failing for a reason the published record appears to contradict.
+
+**Also open while the record is being edited:** `include:_spf.fastmail.gr` is
+the **Papaki-era** provider, left from before the cutover, and it still
+authorises a third party to send as `anadyon.gr`.
+
+**Proposed correction**, for Tasos to paste because no agent has the Papaki
+panel:
+
+```
+v=spf1 include:zohomail.eu +include:one.zoho.eu +mx -all
+```
+
+One `all`, at the end; the Zoho transactional include where it can be reached;
+the Papaki include dropped. **Make this change on its own**, not alongside
+anything else, and **leave DMARC at `p=none`** for a few days afterwards — at
+`p=none` a mistake here degrades deliverability rather than hard-failing mail,
+which is the right order to make an SPF change in. **W80** carries it.
