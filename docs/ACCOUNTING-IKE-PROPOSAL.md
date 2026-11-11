@@ -1386,3 +1386,74 @@ now:**
 has Epsilon Net holding only the start-of-rental receipt. Under this rule,
 later charges need receipts too. Whether past seasons' later charges were
 receipted is not known to this document.
+
+### 9.13 Receipts for fuel and for damage — 11 November 2026
+
+**Fuel — Tasos:** receipted as **παροχή υπηρεσιών**. Recorded as the rule.
+
+**Damage — researched by Fable at Tasos's request.** Secondary sources only;
+no ΑΑΔΕ ruling specific to a rental company charging its own customer was
+found. **Not legal advice; the accountant confirms before practice changes.**
+
+**Finding: a charge that compensates Anadyon for damage to its vehicle is, on
+every source found, outside the scope of VAT — not παροχή υπηρεσιών at 24%.**
+
+- **The myDATA practice guide** (*Αιτίες Εξαίρεσης ΦΠΑ myDATA — Πρακτικό
+  Βοήθημα*, Λ. Κορρές, 4 September 2025, read from the PDF): exemption cause
+  **«Χωρίς ΦΠΑ — άρθρα 2 & 3 του Κώδικα ΦΠΑ»** is the one proposed for
+  transactions outside the scope of VAT, *"π.χ. αποζημιώσεις για υλικές
+  ζημιές"*. In the myDATA technical description this is **exemption category
+  1**.
+- **The reasoning**: compensation is not consideration for a supply of goods
+  or services — the customer receives nothing in return. Greek practitioner
+  answers on a *τιμολόγιο αποζημίωσης* say the same.
+- **The same rule elsewhere in the EU VAT system, as a cross-check** (UK
+  guidance, built on the same directive and CJEU case law, cited for the
+  reasoning only): a fee charged when a customer damages or writes off a hired
+  car *"will not be further consideration for the hire of the car"*. The same
+  guidance says a **late-return charge is additional hire and is taxable** —
+  consistent with treating late return, like fuel, as παροχή υπηρεσιών.
+
+**Where this differs from current practice (§9.9), and the catch.** Tasos's
+practice is that a damage deposit *"normally includes VAT"* because it mirrors
+a mechanic's VAT-inclusive quote. Two separate things are mixed there:
+
+1. **Whether Anadyon charges VAT on the damage receipt.** On the sources
+   above: **no** — the receipt is issued without VAT, under articles 2 & 3.
+2. **Whether the *amount* claimed may include the VAT the mechanic charges
+   Anadyon.** A different question, and the sources conflict. Insurance
+   commentary holds that where the injured business can **deduct** the repair
+   VAT, that VAT is not part of its loss — so the claim is the **net** repair
+   cost. The Supreme Court decisions found (ΑΠ 1519/2023, ΑΠ 263/2026) award
+   repair VAT as part of the loss in road-accident cases. Which applies to a
+   VAT-registered rental company recharging its own customer is **unverified**.
+
+So the likely correct shape is: **a receipt for the repair cost, without VAT,
+exemption cause "άρθρα 2 & 3"** — with the amount being either the net or the
+gross repair cost, which is the accountant's to settle.
+
+**The substance test, not the label.** CJEU case law (as summarised in the UK
+guidance) is that calling a charge "compensation" does not decide it. A fixed
+fee charged regardless of actual damage, or a charge that is really a price
+for something the customer gets — a damage *waiver*, a cleaning fee, an
+administration fee — is a service and carries VAT. Only a charge that
+reimburses actual damage is outside scope.
+
+**For the accountant, paste-ready:**
+> Όταν χρεώνουμε τον πελάτη για ζημιά στο όχημα (με βάση προσφορά ή τιμολόγιο
+> συνεργείου): (α) εκδίδουμε παραστατικό χωρίς ΦΠΑ ως αποζημίωση εκτός πεδίου
+> (άρθρα 2 & 3 Κώδικα ΦΠΑ), και ποιον τύπο παραστατικού στο Epsilon Net;
+> (β) το ποσό είναι το καθαρό κόστος επισκευής ή μαζί με τον ΦΠΑ του
+> συνεργείου, δεδομένου ότι εκπίπτουμε τον ΦΠΑ εισροών;
+
+**This touches what a customer is charged — `DEFINING-STATEMENTS.md` §13.**
+Nothing in the application changes on the strength of this section. It is a
+finding for Tasos and the accountant.
+
+*Sources:*
+[Αιτίες Εξαίρεσης ΦΠΑ myDATA, Πρακτικό Βοήθημα (taxheaven)](https://www.taxheaven.gr/attachment/27217) ·
+[Άρθρο απαλλαγής ΦΠΑ ασφαλιστικής αποζημίωσης (forin.gr)](https://www.forin.gr/questions/question/7041/arthro-apallaghs-fpa-asfalistikhs-apozhmiwshs) ·
+[Ο ΦΠΑ στις Ασφαλιστικές Αποζημιώσεις (aagora.gr)](https://www.aagora.gr/o-fpa-stis-asfalistikes-apozimiosis/) ·
+[ΑΠ 263/2026 (taxheaven)](https://www.taxheaven.gr/circulars/54513/areios-pagos-263-2026) ·
+[ΑΠ 1519/2023 (allgood.gr)](https://allgood.gr/kalypsi-fpa-se-apozimioseis-epangelmation-me-apof-ap-1519-2023-nea-dedomena/) ·
+[HMRC VATSC05910](https://www.gov.uk/hmrc-internal-manuals/vat-supply-and-consideration/vatsc05910)
