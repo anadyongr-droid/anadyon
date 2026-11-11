@@ -1228,3 +1228,74 @@ sound and worth having on `main`.
 3. **B1**, with the two columns from §9.7 point 9 — after the `RequestDocs`
    check. Internal, depends on nothing, no §13 effect.
 4. Everything else waits for 1 and 2.
+
+### 9.9 Tasos's answers to §9.1 and §9.6 — 11 November 2026
+
+Recorded as given, the same day. These are the owner's account of current
+practice, **not yet confirmed by the accountant**.
+
+| Question | Answer |
+|---|---|
+| What issues receipts today? | **Epsilon Net.** |
+| What files the vehicle client list? | *"Are we supposed to file the customers list? I didn't know about it. We currently use the Epsilon net module for it."* **Ambiguous** — see below. |
+| Document for an online deposit? | A receipt is normally issued **when the money is received in the bank account**. |
+| Deposit retained against damage? | **Normally includes VAT** — it reflects a mechanic's quote, which is VAT-inclusive. |
+| Does B2B reach foreign customers? | *"It could be."* Still open; the accountant's. |
+
+**What follows from "Epsilon Net issues".**
+
+- **This application is not the system of record for invoices, and must not
+  become a second one.** Stage 1's `invoices` and `invoice_sequences` are
+  withdrawn from my recommendation. What remains of Stage 1 is **`payments`**,
+  carrying a reference to the Epsilon Net document number.
+- **F1, F2, F3, F4, F7, F8, F9, F10 and F12 are defects in a module that should
+  not be switched on.** They need no repair. The open choice is to remove
+  `app/api/admin/invoices/submit` and `buildInvoiceXml`, or leave them dormant
+  behind the missing credentials. **Not done here** — it was not asked, and
+  whether Anadyon ever moves issuing in-house is Tasos's call.
+- **Stage 2 and Stage 4 fall away with it.** Credit notes are issued where the
+  invoices are.
+- **Stage 5 inverts.** The useful hand-over is no longer an export *to* the
+  accountant; it is this system telling staff what to issue in Epsilon Net
+  (customer, amount, VAT, date), and recording the number that comes back.
+- **Track B is unaffected**, and B3 gains a reason: if a deposit receipt is due
+  when money reaches the **bank**, that date is the Stripe **payout** date, not
+  the charge date — and F11 shows this system records neither payout nor fee.
+
+**The client list is the unresolved one, and it is the urgent one.** The
+answer can be read two ways: *Epsilon Net is what we use for receipts*, or
+*Epsilon Net has a client-list module and we use it*. Tasos not having known of
+the obligation points to the first. What can be said from this repository:
+
+- ΑΑΔΕ's published `SendClient` schema has a dedicated `rental` use case
+  carrying the vehicle registration (verified by Codex, 2 October, blueprint
+  entry of that date). **Vehicle rental is a designed-for case of the
+  obligation**, whatever the start date.
+- The start date of **1 July 2025** is from secondary sources only
+  (§1.4) — **unverified**.
+- This application has **never had a client-list filing accepted** (E3), so
+  it has not been covering the obligation.
+
+So: if Epsilon Net's client-list module is not switched on and in use, **no
+entry has been filed for any rental**, and the question for the accountant is
+no longer the narrow `UpdateClient` one in §9.2 but the whole of it.
+
+**Needed from Tasos — two checks, in this order:**
+
+1. **In Epsilon Net, look for a "Ψηφιακό Πελατολόγιο" module and whether it
+   holds entries for this season's rentals.** That is a fact, not an opinion,
+   and takes a minute.
+2. **Ask the accountant**, paste-ready: *"Είμαστε υπόχρεοι στο Ψηφιακό
+   Πελατολόγιο Οχημάτων (Α.1057/2025) για τις ενοικιάσεις μας; Από ποια
+   ημερομηνία; Καταχωρούνται οι ενοικιάσεις μας σήμερα, και από ποιο σύστημα;
+   Αν όχι, τι πρέπει να γίνει για τις ενοικιάσεις από 1/7/2025 και μετά;"*
+
+**On the two tax answers.** Both are plausible and both stay with the
+accountant, because each has a catch worth naming when asking:
+
+- *Receipt on arrival in the bank*: the customer is charged days before the
+  payout lands, and one payout batches several customers. Which date governs?
+- *Damage deposit includes VAT*: a mechanic's VAT-inclusive quote is Anadyon's
+  **cost**. Whether the amount recharged to the customer is itself a taxable
+  supply, or compensation outside VAT, is a separate question from what the
+  quote contained.
