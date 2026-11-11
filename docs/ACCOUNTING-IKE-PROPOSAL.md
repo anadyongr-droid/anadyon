@@ -1,9 +1,14 @@
 # Accounting for a Greek Ι.Κ.Ε. — what the system must do, and what it must not try to do
 
-**Status: PROPOSAL. Nothing here is built, merged or deployed.** Written for
-independent evaluation by Fable and Codex before any code is written.
+**Status: FINAL PROPOSAL, 11 November 2026. Nothing here is built, merged as
+code, or deployed.** The original text was reviewed by Fable (§9) and then
+settled against Tasos's answers the same day. **§0A is the proposal as it now
+stands; read it first.** §1–§8 are the original reasoning, kept, with each
+superseded passage marked where it sits. Building any of it still needs
+Tasos's go-ahead for that piece.
 
-**Last verified:** 11 November 2026, Claude.
+**Last verified:** 11 November 2026, Fable — code claims against `main` at
+`5ebffe1`; current practice as stated by Tasos; law from secondary sources.
 
 **AMENDED 11 November 2026, the same day**, after Tasos read the first version: *"adapt it to include a proposal for a basic build on monitoring the basics like expenses, salaries paid, rental income, cash received, cash flow projection, bank accounts and credit card payment systems reconciliation"*. That is **§5B** — written as a second *track*, not an addition to the first, and §5B.0 says why that distinction carries weight. The original request:
 
@@ -11,6 +16,76 @@ independent evaluation by Fable and Codex before any code is written.
 current Anadyon application so that it is able to handle the accounting
 requirements of a Greek I.K.E. Limited company"*, as a proposal to share with
 Fable and Codex for evaluation.
+
+---
+
+## 0A. The proposal as it stands — final, 11 November 2026
+
+### What was established
+
+| Fact | Source |
+|---|---|
+| **Epsilon Net issues Anadyon's receipts.** | Tasos, §9.9 |
+| **Epsilon Net files the vehicle Ψηφιακό Πελατολόγιο**, per rental, in real time. | Tasos, §9.10 |
+| It records **one receipt at the start of the rental**; a second only on an extension. | Tasos, §9.11 |
+| **Rule: a receipt is issued for any money received.** | Tasos, §9.12 |
+| A deposit taken online is receipted **when it reaches the bank account**. | Tasos, §9.9 |
+| Fuel is receipted as **παροχή υπηρεσιών**. | Tasos, §9.13 |
+| The two in-app ΑΑΔΕ modules **stay in the code, switched off**. | Tasos, §9.11 |
+
+### What that makes of the original proposal
+
+**Design B (§2) holds, and more narrowly than written.** This application is
+not the general ledger — and it is not the invoicing system or the filing
+system either. Epsilon Net is. This application owns the **operational
+record**: who rented what, when, for how much, and what money arrived.
+
+| Original | Now |
+|---|---|
+| Stage 1 — `invoices`, `invoice_sequences` | **Withdrawn.** A second numbering authority beside Epsilon Net is worse than none. |
+| Stage 1 — `payments` | **Kept, and it is the core of what remains.** |
+| Stage 2 — repair the filing modules | **Withdrawn.** They stay off. F1–F3, F7–F9 and F12 are recorded for the day anyone turns them on. |
+| Stage 3 — client-list closing entry (F6) | **Withdrawn.** Epsilon Net files it. No gap. |
+| Stage 4 — credit notes | **Withdrawn.** Issued where the receipts are issued. |
+| Stage 5 — export to the accountant | **Inverted** — see P2 below. |
+| Track B (§5B) | **Stands**, with the changes in §9.7. |
+
+### What is proposed to be built — five pieces, in order
+
+Each is independently useful. None files anything, none changes what a
+customer is charged or told, and none is started without Tasos saying so.
+
+| | Piece | Depends on | What it gives |
+|---|---|---|---|
+| **P1** | **`expenses`** (§5B.3), plus nullable `paid_on` and `vat_amount` added to `vehicle_costs`, and one unioned view | nothing | Total operating cost, on a cash basis and net of VAT, for the first time |
+| **P2** | **`payments`** — one row per receipt of money: amount, method, date, staff, Stripe reference, and the **Epsilon Net receipt number**. More than one per reservation. Admin lists every payment with **no receipt number as outstanding** | nothing | The receipt rule becomes checkable. Income can be measured from money received, not from quotes (§5B.2) |
+| **P3** | **`payouts`** and Stripe fee capture (§5B.6, F11) | P2 | Card fees become a visible cost; a payout ties to the payments in it — and gives the **bank-arrival date** the deposit receipt is dated by |
+| **P4** | **Bank import** — `bank_accounts`, `bank_transactions`, CSV/MT940, assisted matching a person confirms (§5B.5) | P1–P3 | "Did the money arrive?" answerable |
+| **P5** | **Outflow calendar** from fleet dates and recurring expenses, then a one-page summary (§5B.7, §5B.9 B4–B5) | P1–P4, and open item F1's fleet dates | The off-season cash question. The *inflow forecast* stays in a spreadsheet until a season of `payments` exists (§9.7 point 11) |
+
+**Rules that hold across all five** (from §5B and §9.7):
+
+- Every money figure carries **gross, net and VAT separately** (§5B.1).
+- Cash-in is read from `payments` at **gross**; fees are an expense; a bank
+  line is matched to a **payout**, never to a payment (§9.7 point 10).
+- Nothing in these tables is handed to the accountant as input, and nothing is
+  required to balance. That is what keeps it a mirror and not a set of books
+  (§9.7 point 8).
+- Salaries: **monthly aggregate** unless Tasos asks for per-person (§5B.4).
+- Migrations are written with their `paste/` copy and a `service_role` grant,
+  and handed to Tasos. Never applied by an agent.
+
+### Deliberately not built
+
+A general ledger. Invoice issuing or numbering. Any ΑΑΔΕ transmission from
+this application. Credit notes. Payroll computation. Depreciation. A bank
+API. Budgeting. Removal of the dormant ΑΑΔΕ modules — decided against, §9.11.
+
+### What is still open
+
+All of it is in `docs/OPEN-ITEMS.md`: **W84** (questions for the accountant),
+**W85** (Tasos's go-ahead and the three Track B choices). None of the
+accountant's answers blocks P1 or P2.
 
 ---
 
@@ -253,6 +328,10 @@ Verified by reading the code on 11 November 2026, not from the documents.
 - `lib/aadeCountry.ts` — demonym-to-ISO country mapping, from a real defect.
 - Tests: `aadeXml.test.ts`, `aadeFilings.test.ts`, `aadeCountry.test.ts`.
 
+*Corrected 11 November (§9.2): a sandbox trial of the client-list filing did
+happen on 2 October — open item E3. What is true is that **no filing has ever
+been accepted.** The original sentence follows.*
+
 **Never done:** *nothing has ever been transmitted to ΑΑΔΕ, in sandbox or
 production.* There are no credentials, and §5.3 of the architecture status
 records this. **A module that has never run is written, not built** — the
@@ -300,6 +379,10 @@ existing row carrying `p_series`, `FOR UPDATE` locks the empty set, so there is
 not even nominal serialisation. *This is the project's own documented failure
 mode*: a predicate that cannot exhibit the condition it is supposed to guard —
 the lesson from `HANDOVER-ADMIN-FROZEN-PANES.md`.
+
+*(c) is **wrong as stated** — corrected 11 November, §9.3. A purge by age
+removes the lowest numbers, so `MAX()` does not drop; it regresses only if the
+highest-numbered row is deleted. (a) alone is sufficient. Original text:*
 
 **(c) `MAX()` over a table the retention purge deletes from.** Numbering is
 derived from surviving `reservations` rows. The §4.2b purge deletes reservations
@@ -364,7 +447,13 @@ amount, method and the document it settles — that is what makes a VAT return
 and a bank reconciliation possible. One `text` column cannot carry it, and cash
 is not represented at all.
 
-### F6 — The client list files an opening entry and never a closing one. **Largest exposure. Already in the record as question A2; the legal half is new.**
+### F6 — The client list files an opening entry and never a closing one. **SUPERSEDED 11 November.**
+
+**This finding is withdrawn as an exposure.** Epsilon Net files the client
+list, per rental, in real time (§9.10), so there is no gap. Its evidence was
+also stale: `nonIssueInvoice` is not in the code at all — the text below was
+taken from `GATE-0-QUESTIONS.md` A2, describing code PR #185 replaced on
+2 October (§9.2). Kept for the record only:
 
 `app/api/admin/aade/submit/route.ts:78-88` hardcodes `nonIssueInvoice` **true**
 and `movementPurpose` **1**, and `grep` finds no second filing anywhere.
@@ -429,6 +518,9 @@ why this is a bounded problem and not a rebuild.
 
 ### F11 — Card fees and payouts are recorded nowhere, so revenue is overstated. **Verified, 11 November.**
 
+*Wording corrected, §9.5: revenue is gross and is not overstated; **margin
+and cash are**, and the fee is invisible. The finding stands and is P3.*
+
 Found while writing §5B.6 and then checked rather than assumed. `grep` for
 `application_fee`, `balance_transaction`, `payout` and `fee` across
 `app/api/stripe-webhook/route.ts`, both `app/api/admin/stripe/*/route.ts` and
@@ -451,9 +543,22 @@ wrong about money **today**, rather than wrong about a document that has never
 been transmitted. §5B.6 proposes `payouts` as the fix, and the Stripe Balance
 Transactions API is the only possible source, since nobody can key this in.
 
+### F12 — The invoice route treats HTTP 200 as acceptance. **Verified in code; added by review.**
+
+`app/api/admin/invoices/submit/route.ts:104-126` records `issued` with a null
+mark whenever ΑΑΔΕ answers 2xx. The client-list route had the same defect and
+PR #185 fixed it there only. Also `aa ?? 1` on a failed numbering call (line
+58) and an unvalidated `series` from the request body (line 20). Full
+reasoning in §9.4 and §9.3. **Latent: the module is off and stays off.**
+
 ---
 
 ## 5. Track A — the statutory proposal
+
+**SUPERSEDED 11 November — see §0A.** Epsilon Net issues the receipts and
+files the client list, so of the five stages below only Stage 1's `payments`
+table survives (as P2). The rest is kept as the reasoning that led there, and
+as the work list should issuing ever move in-house.
 
 **There are two tracks.** Track A, this section, is what the **state** requires. **Track B (§5B) is what Tasos requires to run the business.** They share one foundation — Stage 1's money records — and that shared dependency is the strongest reason Stage 1 is worth doing whatever is decided about everything else.
 
@@ -797,6 +902,12 @@ convenience one — it fixes an overstatement that exists today.
 changes what gets built rather than merely when.
 
 ### For the accountant — ask now, not when Stage 1 starts
+
+*Status, 11 November. Questions 1, 2, 4, 6 and 7 below fall away or pass to
+Epsilon Net, which issues and files. Question 3 becomes "is our Epsilon Net
+setup ready for the B2B e-invoicing phase, and from what date". Question 5
+stays. The live list, with the questions added by §9.9 and §9.13, is open
+item **W84**.*
 
 1. **Is a closing declaration required on the vehicles Ψηφιακό Πελατολόγιο,
    and does it carry the invoice MARK?** (F6, and A2 since 30 August.) **This is
