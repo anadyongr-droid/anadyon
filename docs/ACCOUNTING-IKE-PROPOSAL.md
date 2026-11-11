@@ -1359,3 +1359,30 @@ Two things follow for the design, neither urgent:
   return, damage — has no stated receipt practice. Whether each needs its own
   receipt is the accountant's, and worth asking when it next comes up; it is
   not a gap this application creates or can close.
+
+### 9.12 The receipt rule — Tasos, 11 November 2026
+
+Tasos: *"We should issue a receipt for any money we receive."*
+
+**This is the operating rule, stated by the owner, and it closes the open
+point in §9.11.** Every receipt of money — the deposit, the balance, an
+extension, fuel, a late return, damage — gets a receipt in Epsilon Net. The
+question left for the accountant in §9.11 is withdrawn as a question of
+*whether*; only *which document type and VAT treatment* for a damage charge
+remains theirs (§9.9).
+
+**What it means for the design, when `payments` is built — nothing is built
+now:**
+
+- **One `payments` row per receipt of money, each expecting one Epsilon Net
+  receipt number.**
+- **A payment with no receipt number is shown as outstanding**, by name, in
+  the admin — the workbench rule of `DEFINING-STATEMENTS.md` §4: allow the
+  gap, never hide it. That list is how the rule gets kept in a busy season.
+- This application still issues nothing. It records that money arrived and
+  whether Epsilon Net has a receipt for it.
+
+**A gap between the rule and today's practice, recorded not judged:** §9.11
+has Epsilon Net holding only the start-of-rental receipt. Under this rule,
+later charges need receipts too. Whether past seasons' later charges were
+receipted is not known to this document.
