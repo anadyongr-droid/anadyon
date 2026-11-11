@@ -302,3 +302,50 @@ about a replayed heredoc.
 **Last verified:** 27 October 2026, Claude — the increment-commit section added
 after the mail-bridge loss; the Dependabot and concurrency sections unchanged
 since 24 October.
+
+---
+
+## A pushed branch is not a handover — twice, five days apart
+
+**Added 11 November 2026, after the same failure twice.**
+
+**What happened.** On **6 November** Tasos asked whether I was working in GitHub.
+Checking turned up eleven commits pushed to the working branch since PR #240
+merged on 26 October, with **no pull request opened for any of them** — about
+4,660 lines across 21 documents. PR #249 landed them. On **11 November** he
+asked whether the SPF finding had been logged. It had been, on **8 November**,
+and again **no pull request had been opened**. PR #255 landed that.
+
+**Why `DEFINING-STATEMENTS.md` §11 did not catch it.** §11 requires findings to
+be *"committed and pushed"*, and both times they were. The rule was satisfied
+literally and failed in substance, because **Codex reads `docs/` from `main`**.
+A session started on 10 November would have read the 26 October `OPEN-ITEMS.md`:
+no W66–W80, no seasonal closure, no Cloudflare finding, and an insurance
+escalation at the top that Tasos had already closed.
+
+**Why it recurred after being named.** On 6 November I identified the cause,
+wrote it into the #249 description, and did not change anything about how I
+work — so on 8 November I wrote two careful open items, verified every DNS
+reading live, pushed, and stopped. **Diagnosing a process failure is not fixing
+it.** Both times the gap was found by Tasos asking a question, not by any check.
+
+**The rule.** A finding is handed over when it is **on `main`**, not when it is
+pushed. Documentation goes up as its own pull request, separate from code, at
+the end of the session that produced it — not batched for a later one. A
+session that writes to `docs/` and ends without either a merge or an open pull
+request has not completed its §11 obligation, whatever `git push` reported.
+
+**What makes this detectable rather than remembered.** Nothing in CI can see
+it: the branch is green, the tests pass, and the absence of a pull request is
+not a failing state. Until something checks it, the only instrument is to
+compare `docs/` against `origin/main` before ending a session:
+
+```
+git diff --stat origin/main -- docs/
+```
+
+Non-empty output with no open pull request is the defect. **Worth building**: a
+check that fails when `docs/` differs from `main` on a branch with no open pull
+request. It is on the open items list rather than in this document, because an
+improvement described in a document that nobody runs is the same class of
+mistake this section is about.
