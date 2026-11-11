@@ -987,3 +987,244 @@ costume), and a date taken from commentary rather than the source (every date in
 - **Nothing in this document is approved, merged or deployed.** Stage 4 in
   particular reaches a customer and is explicitly subject to
   `DEFINING-STATEMENTS.md` §13.
+
+---
+
+## 9. Review — Fable, 11 November 2026
+
+**Status: a review of §0–§8, not an approval. Nothing here is built either.**
+Every code claim below was checked against `main` at `5ebffe1`. Claims about
+ΑΑΔΕ behaviour or Greek law are from memory or from this repository's own
+record and are **labelled unverified** where they are.
+
+**Verdict in one paragraph.** Design B is right and I would not reopen it. The
+code findings F1(a), F1(b), F2, F3, F4, F5, F7, F8, F9 and F11 reproduce.
+**F6's evidence is stale and F1(c) is wrong as stated**; both are corrected
+below. One defect was missed (**F12**), and it is the same defect this project
+already found and fixed once in the sibling module. And the proposal skips the
+fact that decides whether Stage 1 is needed at all: **nothing in `docs/`
+records how Anadyon issues its invoices and files its client list today.**
+
+### 9.1 The missing Stage 0 fact — how are documents issued today?
+
+The rental business has operated through at least one season while this
+module could not run: the invoice route returns 503 without `AADE_USER_ID`,
+and §3 says there are no credentials. So invoices and receipts have been
+issued **by some other means** — the accountant's software, a commercial
+invoicing package, ΑΑΔΕ's `timologio`, a ΦΗΜ at the desk — and `grep` across
+`docs/` finds no record of which.
+
+That fact outranks every question in §6, because it changes what Stage 1 is:
+
+- **If another system issues today and keeps issuing**, this application is
+  not the system of record for invoices. Stage 1's `invoices` and
+  `invoice_sequences` would then create a *second* numbering authority, which
+  is worse than none. The right build is a `payments` table plus a reference
+  to the externally issued document, and F1–F4 are closed by **deleting the
+  invoice module**, not by repairing it.
+- **If this application is meant to take over issuing**, Stage 1 stands as
+  written — and the takeover needs a series that does not collide with the
+  numbers already issued elsewhere.
+
+The same applies to F6. If the Ψηφιακό Πελατολόγιο has been filed some other
+way since July 2025, there is no gap. If it has not been filed at all, the gap
+is **the whole filing, not the closing half of it**, and no code change
+addresses the past.
+
+**For Tasos, one question, and it does not need the accountant:** *what issues
+Anadyon's invoices and receipts today, and what files the vehicle client
+list?*
+
+### 9.2 F6 — the evidence is stale; the substance is better evidenced than the proposal says
+
+§4 F6 says `app/api/admin/aade/submit/route.ts:78-88` hardcodes
+`nonIssueInvoice` true. **It does not.** That sentence is `GATE-0-QUESTIONS.md`
+A2's, written 30 August about code that PR #185 replaced on 2 October.
+Current state:
+
+- `lib/aadeXml.ts:66-79` emits `dcrnew:NewDigitalClientDoc` with no
+  `nonIssueInvoice` element at all, and `lib/aadeXml.test.ts:181-189` asserts
+  the element is **absent**.
+- §3 says nothing was ever transmitted, "in sandbox or production". The record
+  disagrees: open item **E3** and the blueprint entry of 2 October record a
+  sandbox trial of the client-list filing that exposed two defects. What is
+  true is narrower — **no filing has ever been accepted**; E3 is still waiting
+  on a positive `newClientDclID`.
+- F6 calls the namespace "unverified" against Α.1057/2025. The blueprint entry
+  of 2 October (Codex, against ΑΑΔΕ's v1.1 documentation) records that v1.1
+  **retains** `http://www.aade.gr/myDATA/dcrnew/v1.0`.
+
+The substance survives and gets stronger. The same blueprint entry says:
+*"Invoice outcome and return details belong to UpdateClient, which is a
+separate future operation."* So ΑΑΔΕ's own API has a second operation for
+exactly what F6 says is missing, and this project has known since 2 October
+that it is unbuilt. **That is better evidence than a vendor summary**, and it
+turns question 1 for the accountant into a narrower one: *is `UpdateClient`
+compulsory for every rental, when, and does it carry the invoice MARK?*
+
+This is the §9 failure the proposal opens by warning against: §3 claims
+"verified by reading the code, not from the documents", and F6 was taken from
+a document. `GATE-0-QUESTIONS.md` A2 still carries the stale text and should
+be corrected in the same pass.
+
+### 9.3 F1 — (a) and (b) confirmed, (c) wrong, and two more paths to a duplicate
+
+**(a) Confirmed.** `route.ts:54` is a standalone `rpc()`; PostgREST commits it
+on return; the number is written at `route.ts:116-126`. Two reservations
+submitted in overlap receive the same `aa`. `claim_invoice_submission` does
+not help — it serialises per reservation, not per series.
+
+**(b) Confirmed, and subsumed by (a).** With the lock released on return, what
+it locked is irrelevant.
+
+**(c) Does not follow.** A purge by age deletes the **oldest** rows, which
+carry the **lowest** numbers. `MAX(invoice_aa)` is held by the newest row and
+does not move. Numbering regresses only if the highest-numbered row is deleted
+— an Article 17 erasure of a recent customer, or a series purged entirely
+after five dormant years. That is a real path and much rarer than "when the
+purge runs". Deriving a counter from business rows is still the wrong design;
+the stated reason needs correcting.
+
+**Two paths the proposal missed, both in `route.ts`:**
+
+- **Line 54 discards the RPC error and line 58 falls back to `aa ?? 1`.** Any
+  failure of `next_invoice_aa` files the document as number **1**.
+- **Line 20 takes `series` from the request body, unvalidated.** Any admin
+  caller can open a new series by typing one.
+
+**The fix.** A counter row per series is right, and a Postgres sequence is
+not: sequences are neither transactional nor creatable per series without DDL.
+Three conditions, or the fix repeats the fault:
+
+1. **"The same transaction" means one database function** that increments the
+   counter and inserts the `invoices` row. Two `supabase-js` calls are two
+   transactions, which is fault (a) again.
+2. **`UNIQUE (series, aa)` on `invoices`.** The counter is the mechanism; the
+   constraint is the guarantee.
+3. **The fail-first test must run two overlapping calls against a real
+   Postgres** (the migration replay harness), and be watched failing against
+   the current function. A mocked `rpc()` cannot exhibit this bug.
+
+**"Gaps are legal; duplicates are not" is asserted, not sourced.** Allocating
+before transmission means a rejected filing consumes a number that never
+reaches myDATA. Ask the accountant whether that is acceptable — **unverified**.
+
+**Severity.** F1 is latent, not live: the route cannot run in production
+without credentials. It blocks turning the module on; it is not an exposure
+today.
+
+### 9.4 F12 (new) — the invoice route treats HTTP 200 as acceptance. Verified in code.
+
+`app/api/admin/invoices/submit/route.ts:104-126`: if the HTTP status is 2xx,
+`invoiceMark` is pulled out with a regex that tolerates its absence, and the
+reservation is set to `invoice_status: "issued"` with `invoice_mark: null`.
+The result of that final `update` is never checked.
+
+The client-list route had exactly this defect. The 2 October sandbox trial
+exposed it (*"HTTP-200 business errors were treated as success"*), PR #185
+fixed it with `lib/aadeDclResponse.ts`, and **the invoice route was not given
+the same fix**. An invoice ΑΑΔΕ rejects with a validation error in a 200 body
+would be recorded here as issued, could never be retried
+(`claim_invoice_submission` refuses `issued`), and — because of the
+`invoice_mark IS NOT NULL` filter — would hand its number to the next invoice.
+
+*That myDATA `SendInvoices` returns per-invoice `statusCode` errors inside an
+HTTP 200 is my recollection of ΑΑΔΕ's documentation plus the sibling API's
+observed behaviour; **not verified against the sandbox for this endpoint**.*
+
+Belongs in Stage 2 with F2/F3/F8. Like F1, latent rather than live.
+
+### 9.5 Smaller corrections to §3 and §4
+
+- **F3** cites `aadeXml.ts:134`; the line is **132**. **F2** cites `131-141`;
+  the block is **136-141**.
+- **F3 is half of a larger fault.** `aadeXml.ts:98` computes the invoice
+  amount as `reservations.total − discount_amount`. §5B.2 argues, correctly,
+  that `reservations.total` is a quote and not revenue. The invoice module
+  files that quote. Extras charged at return never reach the document.
+- **No `paymentMethods` element is emitted.** I believe myDATA requires it on
+  these document types — **unverified**; vendoring the XSD (F8) settles it.
+- **F11's wording.** Revenue is not "overstated by the fees" — revenue is
+  gross and the fee is an expense. What is wrong today is that **margin and
+  cash are overstated and the fee is invisible**. The distinction matters for
+  question 10 (§9.7).
+- **"30 tables"**: `CREATE TABLE` across the 48 migrations names 28.
+
+### 9.6 Questions the accountant should also be asked
+
+Add to §6:
+
+- **Is a document due when the online deposit is received**, months before
+  pickup? Stage 1 models deposit, balance and extras as up to three documents,
+  but nothing in §6 asks *when* each must be issued. If an advance payment
+  needs its own document at receipt, the issue point is the Stripe webhook,
+  not check-out — **unverified, and it changes Stage 1's shape**.
+- **Is a deposit retained against damage inside VAT at all?** Question 4 in §7
+  asks whether it is a document or a settlement. My expectation is that
+  compensation is outside VAT scope and takes a different document from a
+  rental charge — **unverified**. Either way `payments.invoice_id` must be
+  **nullable with a separate allocation**, because money arrives before any
+  invoice exists and may never be matched to one.
+- **Does the B2B mandate reach foreign business customers?** `aadeXml.ts:94-97`
+  selects `2.1` on the mere presence of a VAT number, Greek or not. If the
+  mandate is domestic-only, F10 covers only Greek-ΑΦΜ customers and shrinks
+  again — **unverified**.
+
+### 9.7 Answers to §7
+
+1. **Design B — yes.** Subject to §9.1, which may shrink it further.
+2. **F1** — §9.3.
+3. **F6** — §9.2. Neither a false alarm nor yet a proven breach; ask the
+   narrower `UpdateClient` question, and ask §9.1 first.
+4. **Stage 1's model** — not quite: payments must be allocatable rather than
+   owned by one invoice (§9.6).
+5. **B2C/B2B split** — I cannot verify it either. It is the right working
+   assumption because the wrong answer costs a provider subscription, not a
+   rebuild.
+6. **Sequencing** — there is a cheaper order. Nothing in F1–F5 or F12 is a
+   live exposure, because the module cannot run. So: **§9.1's question →
+   accountant's answers → then decide whether Stage 1 exists.** Do not write
+   Stage 1's migration before §9.1 is answered.
+7. **Scope** — Stage 1 is speculative until §9.1 is answered, and I would say
+   so plainly. `payments` is justified under every answer; `invoices` and
+   `invoice_sequences` only if this system issues.
+8. **Is two-track honest?** For B1 and B3, yes. **B2 is where it becomes a
+   set of books**: once bank lines, VAT-bearing expenses and payouts are all
+   matched, this is a cash book whatever it is called. Two rules keep it a
+   mirror: nothing in Track B is ever handed to the accountant as input, and
+   nothing is required to balance. The real cost is not architectural — it is
+   **Tasos typing every expense that the accountant also enters**. Before B1
+   is built, check whether received supplier invoices can be read back from
+   myDATA (its `RequestDocs` operation returns documents issued *to* a VAT
+   number) — **unverified for this account**. That would remove most of the
+   keying.
+9. **Two tables — keep two.** But the unioned view has a hole the proposal
+   does not mention: `vehicle_costs` has **no `paid_on` and no `vat_amount`**
+   (migration 011), so fleet costs cannot appear on a cash basis or net of
+   VAT. Add both as nullable columns in the B1 migration.
+10. **Card fees are not double-counted, provided one rule holds:** cash-in is
+    read from `payments` at **gross**, fees are an expense, and a bank line is
+    matched to a **payout**, never to a payment. Double-counting happens only
+    if income is read from bank lines (already net) *and* fees are also
+    posted. Stripe's fee invoices come from Ireland, so their VAT treatment is
+    the accountant's.
+11. **The projection — split it.** The outflow calendar from fleet dates is
+    arithmetic on existing columns and is within "basic", once open item F1
+    has populated those dates. The inflow forecast is an assumption and
+    belongs in a spreadsheet until a season of `payments` exists.
+
+### 9.8 Recommendation
+
+**Do not merge #256 as it stands; it is one correction away.** F6 and its copy
+in W82 state something about the code that is false, and W82 is what every
+agent reads first each morning. Fix F6, F1(c) and §3's "never transmitted",
+add F12 and §9.1's question, then merge — it is documentation, and the rest is
+sound and worth having on `main`.
+
+**Order of work I would propose instead of §5's:**
+
+1. Tasos answers §9.1.
+2. The accountant gets §6 plus §9.6, with question 1 reworded per §9.2.
+3. **B1**, with the two columns from §9.7 point 9 — after the `RequestDocs`
+   check. Internal, depends on nothing, no §13 effect.
+4. Everything else waits for 1 and 2.
