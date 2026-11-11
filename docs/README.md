@@ -180,7 +180,6 @@ cannot be done from here — the full list with steps is in
 | Document | Answers |
 |---|---|
 | [`../DEFINING-STATEMENTS.md`](../DEFINING-STATEMENTS.md) | What the product is for, which trade-offs are already settled, and **§9 — read what is already written before researching it again** |
-| [`ACCOUNTING-IKE-PROPOSAL.md`](ACCOUNTING-IKE-PROPOSAL.md) | **PROPOSAL, nothing built — what a Greek Ι.Κ.Ε. owes and what this system should therefore not try to be.** An Ι.Κ.Ε. keeps double-entry books from day one with no turnover threshold, so the recommendation is a subsidiary ledger feeding the accountant rather than a general ledger here. Carries ten findings in the existing myDATA code — among them an invoice-numbering function whose lock serialises nothing, and a client-list filing with no closing entry against an obligation compulsory since July 2025 — plus the questions only the accountant can answer. Written for Fable and Codex to challenge; §7 says what to attack |
 | [`RENTAL-SYSTEM-BLUEPRINT.md`](RENTAL-SYSTEM-BLUEPRINT.md) | How we compare to the systems a Greek operator would buy, what to build next, and what we deliberately will not build |
 | [`audits/`](audits/) | Whether what we built is sound — full reviews scored against ten fixed areas |
 
