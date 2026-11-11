@@ -1333,3 +1333,29 @@ asked of Tasos in §9.9 are withdrawn.
   correctly, and so Track B has a source.
 - **Still Tasos's call, not taken here:** remove both dormant ΑΑΔΕ modules, or
   keep them against a future move away from Epsilon Net.
+
+### 9.11 Two decisions from Tasos — 11 November 2026
+
+**The dormant ΑΑΔΕ modules stay.** Tasos: *"Let's leave the two dormant
+modules, you never know."* Decided; do not remove
+`app/api/admin/invoices/submit`, `app/api/admin/aade/*` or `lib/aadeXml.ts`,
+and do not re-propose removing them. §9.10's rule is unchanged: **they stay
+off in production** while Epsilon Net files. If they are ever switched on,
+F1–F3, F7–F9 and F12 must be fixed first — they are recorded here for that
+day.
+
+**What Epsilon Net records.** Tasos: it tracks **only the receipt at the start
+of the rental**, which is normally the only receipt needed, unless the
+customer asks to extend the rental. This answers §9.10's residual question as
+a matter of practice: one receipt per rental, at the start; an extension
+produces a second.
+
+Two things follow for the design, neither urgent:
+
+- **A `payments` record must allow more than one Epsilon Net receipt per
+  reservation** — the extension case — so the reference is on the payment, not
+  on the reservation.
+- **Money taken after the start that is not an extension** — fuel, late
+  return, damage — has no stated receipt practice. Whether each needs its own
+  receipt is the accountant's, and worth asking when it next comes up; it is
+  not a gap this application creates or can close.
