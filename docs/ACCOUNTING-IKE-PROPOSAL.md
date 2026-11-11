@@ -5,6 +5,8 @@ independent evaluation by Fable and Codex before any code is written.
 
 **Last verified:** 11 November 2026, Claude.
 
+**AMENDED 11 November 2026, the same day**, after Tasos read the first version: *"adapt it to include a proposal for a basic build on monitoring the basics like expenses, salaries paid, rental income, cash received, cash flow projection, bank accounts and credit card payment systems reconciliation"*. That is **§5B** — written as a second *track*, not an addition to the first, and §5B.0 says why that distinction carries weight. The original request:
+
 **Requested by Tasos, 11 November 2026:** *"find out how we could enhance our
 current Anadyon application so that it is able to handle the accounting
 requirements of a Greek I.K.E. Limited company"*, as a proposal to share with
@@ -25,7 +27,7 @@ of the current state is:
 > be rejected or non-compliant on several grounds beyond the ones already
 > recorded.**
 
-So the question is not *"how do we add accounting?"*. It is three questions:
+So the question is not *"how do we add accounting?"*. It is four questions:
 
 1. **What does an Ι.Κ.Ε. actually owe**, in 2026, after a year of Greek
    regulatory change that this repository's documents predate?
@@ -34,6 +36,9 @@ So the question is not *"how do we add accounting?"*. It is three questions:
    decision and §2 argues it is currently being got wrong by implication.
 3. **What is defective in what already exists?** §4 lists ten findings, eight
    of them in code, each traced to a file and line.
+4. **What does Tasos need in order to run the business**, as against what the
+   state needs in order to assess it? §5B. Different numbers, on a different
+   basis, and the accountant's software answers only the second.
 
 **The deliverable I am proposing is deliberately smaller than the question.**
 Per §7 of `DEFINING-STATEMENTS.md` the instinct here should be suspicion of
@@ -221,6 +226,9 @@ deciding about a ledger afterwards, if ever.
 | Ψηφιακό Πελατολόγιο, opening **and** closing | Payroll, ΕΡΓΑΝΗ, ΕΦΚΑ |
 | Money received, per document, per method | Corporate tax computation, dividends |
 | Fleet cost capture already built (`vehicle_costs`) | Depreciation schedules, fixed-asset register |
+| **Non-vehicle expenses, incl. salary *payments*** (§5B.3, §5B.4) | **Payroll computation, ΕΦΚΑ, ΕΡΓΑΝΗ** |
+| **Bank and card reconciliation** (§5B.5, §5B.6) | Statutory bank confirmations, audit |
+| **Cash-flow projection** (§5B.7) | Accrual accounts, statutory VAT computation |
 | A reconciled periodic export | Vehicle disposal invoices (not in this system — A1) |
 
 **Note the asymmetry deliberately.** Everything on the left is something only
@@ -263,7 +271,7 @@ reservation.** §4 shows why that is not enough for a rental.
 
 ## 4. Findings in what already exists
 
-Ten findings. **Confidence is stated on each**, and the two already in the
+**Eleven findings** — ten from the statutory review and **F11**, found while writing §5B.6 and then verified. **Confidence is stated on each**, and the two already in the
 project record are marked so credit is not taken twice. Reviewers: F1 is the
 one I would most like a second opinion on, and F6 is the one with the largest
 exposure.
@@ -419,9 +427,35 @@ have started. Direct myDATA transmission satisfies *reporting*; it does not
 produce an EN 16931 invoice through a πάροχος. **B2C is unaffected** — which is
 why this is a bounded problem and not a rebuild.
 
+### F11 — Card fees and payouts are recorded nowhere, so revenue is overstated. **Verified, 11 November.**
+
+Found while writing §5B.6 and then checked rather than assumed. `grep` for
+`application_fee`, `balance_transaction`, `payout` and `fee` across
+`app/api/stripe-webhook/route.ts`, both `app/api/admin/stripe/*/route.ts` and
+`lib/stripe.ts` returns **nothing**. The webhook persists the deposit against
+the reservation and writes to `alert_outbox`; no fee, no payout, no balance
+transaction is captured anywhere.
+
+**Two live consequences.**
+
+1. **Revenue is overstated** by the card fees, which are a genuine cost of sale
+   and currently invisible.
+2. **A bank deposit can never be tied to a booking.** Stripe pays out *net of
+   fees*, on a delay, **batching many charges into one transfer** — so the
+   amount arriving in the bank matches no single reservation, and *"did we
+   receive the money for this rental?"* is unanswerable from this system.
+
+**Not a filing or statutory defect** — it files nothing and breaks no rule, which
+is why it is last in this list. But it is the one finding here that is silently
+wrong about money **today**, rather than wrong about a document that has never
+been transmitted. §5B.6 proposes `payouts` as the fix, and the Stripe Balance
+Transactions API is the only possible source, since nobody can key this in.
+
 ---
 
-## 5. The proposal
+## 5. Track A — the statutory proposal
+
+**There are two tracks.** Track A, this section, is what the **state** requires. **Track B (§5B) is what Tasos requires to run the business.** They share one foundation — Stage 1's money records — and that shared dependency is the strongest reason Stage 1 is worth doing whatever is decided about everything else.
 
 Five stages, **in dependency order**, each independently useful and each
 stopping somewhere defensible. The sequencing principle: **nothing that files
@@ -499,7 +533,10 @@ guessing**, which is why it is last and also why §6 asks the question now.
 source; whether they flow into the export or stay with the accountant's
 purchase-invoice processing is their call.
 
-### Deliberately excluded
+### Deliberately excluded from Track A
+
+Two of these are picked up by Track B, and that is said here explicitly: an
+exclusion which silently reverses two sections later is worse than none.
 
 - **A general ledger, chart of accounts, trial balance or financial
   statements.** §2.
@@ -509,9 +546,248 @@ purchase-invoice processing is their call.
   them is how a management report becomes wrong twice.
 - **Vehicle disposal invoicing.** No sale path exists (A1); do not add one
   speculatively.
-- **Payroll.**
+- **Payroll *computation*** — gross-to-net, ΕΦΚΑ contributions, ΕΡΓΑΝΗ filings.
+  **Still excluded, and not becoming unexcluded.** §5B.4 draws the line:
+  *recording a salary payment as cash out* is in scope for Track B; *running the
+  payroll* is not.
 - **Becoming a Peppol access point.** Buy the provider; the mandate does not
   require building one, and for a minority B2B path it would be absurd.
+
+---
+
+## 5B. Track B — the management view *(added 11 November at Tasos's request)*
+
+**What Tasos asked for:** monitoring of *"expenses, salaries paid, rental
+income, cash received, cash flow projection, bank accounts and credit card
+payment systems reconciliation"*, as a **basic build**.
+
+### 5B.0 Why this is a different thing from Track A, and why that is the point
+
+Track A exists because the **state** requires it. Track B exists because **the
+owner needs to know whether the business is making money and whether it will
+have cash in March** — and those are not the same question, are not answered by
+the same numbers, and must not be mixed up.
+
+| | Track A — statutory | Track B — management |
+|---|---|---|
+| Audience | ΑΑΔΕ, the accountant | Tasos |
+| Basis | **accrual**, as ΕΛΠ requires | **cash**, because that is what runs out |
+| Timing | correct, and late | approximate, and now |
+| Authority | the accountant's books are the truth | indicative; never filed |
+
+**The accountant's software will not give him Track B**, and this is the honest
+argument for building it. It produces statutory output weeks or months after the
+period, on an accrual basis, for the state. It does not tell him on a Tuesday in
+February what the May insurance renewals will cost against the deposits already
+taken for June.
+
+**So Track B does not contradict §2 — it is the other half of it.** §2 says do
+not build the general ledger. Track B is not a ledger: it is the operational
+reporting a rental business needs, built on the money records Track A Stage 1
+creates anyway.
+
+**One consequence to state before any of it is built.** Track B's numbers
+**will disagree** with the accountant's, legitimately — cash versus accrual,
+VAT treatment, depreciation, period cut-offs. **Two numbers that differ for
+known reasons are fine; two numbers that differ for unknown reasons are
+dangerous.** So every report in Track B states its basis on its face, and §5B.6
+makes the tie-back to Track A a requirement rather than a nicety.
+
+### 5B.1 The warning that matters most: VAT is not income
+
+**A cash-flow view built on gross receipts overstates income by about 19.4% and
+then the VAT bill arrives.** At 24%, €124 received is €100 of income and €24
+held on behalf of the state. This is the single most common way a small Greek
+company surprises itself, and it is a *design* requirement, not a caveat:
+
+- every cash-in figure carries **gross, net and VAT separately**;
+- the **VAT payable** is a projected *outflow* with its own due date;
+- no report shows a single "income" number without saying which it is.
+
+Track A's `invoices` table already holds net/VAT/gross per F2's fix, so Track B
+gets this for free **if it reads from there and not from `reservations.total`**.
+
+### 5B.2 Rental income — and a correction to how it is measured today
+
+**`reservations.total` is not revenue.** It is a quote: it includes bookings
+never paid, bookings cancelled, and bookings still in the future, and it
+excludes extras charged at return. Any report built on it is wrong in both
+directions.
+
+**Revenue comes from `invoices`; cash comes from `payments`** — both created in
+Track A Stage 1. This is the strongest practical argument for Stage 1: it is not
+only statutory plumbing, it is the only honest source for the income reporting
+Tasos is asking for. **Track B is therefore blocked on Stage 1 and on nothing
+else.**
+
+Income reporting then splits three ways, and the split is the useful part:
+**booked** (reservations, forward-looking), **invoiced** (earned), **collected**
+(cash in). A gap between invoiced and collected is a debtor; a gap between
+booked and invoiced is work in progress.
+
+### 5B.3 Expenses — extend the pattern that already works
+
+`vehicle_costs` (migration 011) is **already the right design** and should not be
+touched: one row per outlay, `period_start`/`period_end` so an annual premium
+spreads across the season it protects, with `supplier` and `invoice_ref`. Its
+comment even records why profitability is not stored.
+
+**What is missing is everything not attached to a vehicle:** rent, salaries and
+contributions, the accountant, utilities, telecoms, marketing, bank and card
+fees, software, legal, office costs.
+
+**Proposed `expenses`**, deliberately mirroring `vehicle_costs`:
+
+`category` · `amount` · `vat_amount` · `incurred_on` · **`paid_on`** ·
+`period_start` / `period_end` · `supplier` · `invoice_ref` · `payment_method` ·
+`bank_account_id` · `notes`.
+
+**`incurred_on` and `paid_on` are separate columns and that is the whole point.**
+Accrual needs the first, cash flow needs the second, and an unpaid invoice is
+the difference between them — which is also how a creditors list falls out for
+free.
+
+**Two tables rather than one, with the reasoning stated so a reviewer can
+disagree.** `vehicle_costs` stays because fleet attribution is what blueprint
+§7's contribution-per-vehicle work needs, and its `cost_type` constraint is
+vehicle-specific. A unioned read-only view presents both as one expense stream.
+**Honestly: designed together today, these would be one table with a nullable
+`vehicle_id`.** They are not being designed together, and migrating live data
+plus the code that reads it, to arrive at the same reports, is cost without
+benefit. *That is a judgement a reviewer may reverse — see §7.*
+
+### 5B.4 Salaries — record the payment, do not run the payroll
+
+**The distinction decides the scope.** Computing gross-to-net, ΕΦΚΑ
+contributions and ΕΡΓΑΝΗ filings is payroll, it is regulated, it is the
+accountant's or a payroll bureau's, and §5 excludes it. **That exclusion
+stands.**
+
+**"Salaries paid" is a cash outflow**, and recording it is in scope: two
+`expenses` categories, `salaries` and `social_contributions`, with `paid_on`
+and the period covered.
+
+**Recommended default: aggregate by month, not per person.** Per-employee salary
+rows would put sensitive personal data in a system whose access boundary was
+designed around customer records, for little management gain — Tasos knows who
+he employs and the bureau holds the detail. **If he wants per-person tracking it
+is a small addition**, and it should then be a deliberate decision with its own
+access rule, not a side effect of expense tracking.
+
+### 5B.5 Bank accounts — import, do not integrate
+
+**`bank_accounts`**: label, bank, IBAN, currency, active. **`bank_transactions`**:
+one row per statement line — `value_date`, `amount`, `description`,
+`counterparty`, an import batch reference, and a nullable link to the `payment`
+or `expense` it settles.
+
+**Start with CSV or MT940 export from e-banking, and do not build a bank API.**
+PSD2 account-information access exists, but for one company with a handful of
+accounts it is an integration, a credential, a consent to re-authorise every 90
+days and an ongoing maintenance liability, to replace a monthly file download.
+**This is exactly the speculative build §7 of `DEFINING-STATEMENTS.md` warns
+against.** If the monthly import proves tedious, revisit with evidence.
+
+**Reconciliation is matching, and matching is a suggestion, never an
+assertion.** Propose matches on amount, date window and reference; a person
+confirms. An auto-matcher that silently mis-attributes is worse than no matcher,
+because it produces a reconciled-looking report that is wrong.
+
+### 5B.6 Card reconciliation — the part most likely to be quietly wrong today
+
+**Stripe does not deposit what the customer paid.** It deposits a payout, net of
+fees, days later, batching many charges. So:
+
+> **gross charge ≠ bank deposit**, and nothing in this system currently records
+> the difference.
+
+Today a deposit leaves `stripe_payment_intent` and `deposit_paid_at` on the
+reservation. **The fee is recorded nowhere and the payout is recorded nowhere.**
+Two consequences, both live:
+
+1. **Revenue is overstated** by the card fees, which are a real cost of sale.
+2. **The bank line can never be tied to a booking**, because one deposit
+   corresponds to many charges minus fees — so "did we receive the money?"
+   cannot be answered.
+
+**Proposed `payouts`**: provider, provider payout id, `gross`, `fees`, `net`,
+`arrival_date`, bank account, status — with each `payment` carrying its
+`payout_id` and its own fee. Stripe's Balance Transactions API supplies all of
+it, which makes this **the one place an API is worth it**, precisely because it
+is the only source for data nobody can key in.
+
+**Fees post to `expenses` as `card_fees`**, so they appear as a cost rather than
+vanishing into a smaller deposit.
+
+**NBG:** a hosted-payment path exists as an undeployed draft
+(`NBG-PAYMENTS-INTEGRATION.md`). `payouts` should be **provider-agnostic from
+the start** — per §7 of `DEFINING-STATEMENTS.md`, that costs nothing now and
+avoids a rebuild if NBG ever lands.
+
+### 5B.7 Cash-flow projection — and most of the data is already captured
+
+The genuinely forward-looking piece, and the one no accounting package will
+give him. **It should be a computed projection with its assumptions printed,
+never a stored figure** — blueprint §8's rule that profitability is never
+stored applies with equal force here.
+
+**Inflows**, from data that exists: deposits already taken; balances due at
+pickup on confirmed future reservations, dated by pickup; and — stated as an
+assumption, not a fact — expected income for the season ahead.
+
+**Outflows: the useful discovery is that the fleet table already knows most of
+them.** `vehicles` carries `road_tax_paid_until`, `insurance_expiry`,
+`kteo_expiry` and `next_service_due` per vehicle, and `vehicle_costs` carries
+what each of those cost last time. **So a twelve-month outflow projection is
+largely derivable from data already captured** — circulation tax in December,
+insurance renewals on their real dates across 29 vehicles, KTEO as each falls
+due — plus recurring `expenses` (rent, salaries, the accountant) and the **VAT
+payable** from §5B.1.
+
+**This matters most right now, which is the timely argument for building it.**
+The office is closed, it reopens with preparations at end February / early
+March, and the website is still taking bookings. **The off-season is exactly
+when a cash-flow projection earns its keep** — outflows continue while revenue
+is seasonal, and the question "what does it cost to get to March, and what is
+already committed for June?" is unanswerable from this system today.
+
+It also feeds **F1 of the open items** (insurance, KTEO and odometer data per
+vehicle): the projection is only as good as those dates, which gives that item a
+second reason to be done.
+
+### 5B.8 Deliberately NOT in the basic build
+
+Named so "basic" means something, and so the next person does not quietly add
+them:
+
+- **Budgeting and variance analysis.** Build the actuals first; a budget against
+  no reliable actuals is theatre.
+- **Depreciation and a fixed-asset register.** The accountant's (§2.1), and note
+  the trap already flagged: *management* contribution per vehicle and *tax*
+  depreciation are different numbers, and conflating them makes the management
+  report wrong as well as the tax one.
+- **Automated bank APIs.** §5B.5.
+- **Per-employee payroll records.** §5B.4, unless Tasos asks.
+- **Multi-currency.** Everything is EUR.
+- **Any filing or submission.** Track B never sends anything anywhere. It is a
+  mirror, and a mirror cannot create an obligation.
+
+### 5B.9 Staging — what to build in what order
+
+| | Stage | Depends on | Delivers |
+|---|---|---|---|
+| **B1** | `expenses` + the unioned view with `vehicle_costs` | nothing | **Total operating cost, finally visible.** Standalone value even if nothing else is built |
+| **B2** | `bank_accounts`, `bank_transactions`, CSV import, assisted matching | B1, and A1 for `payments` | "Did the money arrive?" answerable |
+| **B3** | `payouts` + Stripe fee and payout capture | A1 | Revenue stops being overstated; card takings tie to the bank |
+| **B4** | The cash-flow projection | B1–B3, and F1's fleet dates | The off-season question answered |
+| **B5** | A management summary screen — booked / invoiced / collected, cost by category, cash position, the projection | B1–B4 | One page, each figure stating its basis |
+
+**B1 is the cheapest useful thing in this entire document** and depends on
+nothing: one table and a view, and Anadyon can see its full operating cost for
+the first time. **If only one thing is built from this proposal, build B1.**
+
+**B3 is the one with a correctness argument behind it** rather than a
+convenience one — it fixes an overstatement that exists today.
 
 ---
 
@@ -543,7 +819,27 @@ changes what gets built rather than merely when.
    fleet disposal** — confirm, and say whether the E3 code differs for an
    intra-EU or third-country buyer. **Not urgent; no code depends on it.**
 
-### For Tasos
+### For Tasos — Track B (§5B), and none of these needs the accountant
+
+These are quick, and each one changes what gets built:
+
+- **Which bank accounts** should be tracked, and **can your e-banking export
+  CSV or MT940?** §5B.5 assumes a monthly download rather than a bank
+  integration; if the export does not exist, that assumption fails and I need
+  to know before B2.
+- **Salaries: monthly aggregate, or per person?** §5B.4 recommends aggregate,
+  because per-person rows put sensitive personal data in a system scoped around
+  customer records for little management gain. Easy either way — but it should
+  be your decision, not a side effect.
+- **Which expense categories** you actually want to see. My list in §5B.3 is a
+  guess at a rental office's costs; the categories are what every report is
+  grouped by, so getting them close to how you already think saves rework.
+- **Is B1 alone worth it?** One table and a view, dependent on nothing, and it
+  shows Anadyon's full operating cost for the first time. **If one thing is
+  built from this document, it is that** — and it does not wait on the
+  accountant, on Stage 1, or on the evaluation.
+
+### For Tasos — Track A
 
 - **ΑΑΔΕ sandbox credentials**, and the staging project — Stage 2 cannot be
   verified without them, and this is the reason the module has sat untransmitted
@@ -634,6 +930,35 @@ wrong answer would cost:
    rest is speculative"* would be making exactly the argument this project's
    rules invite — make it if you believe it.
 
+### Track B (§5B) — added the same day, so less settled than the rest
+
+8. **Is the two-track framing honest, or is it §2 being quietly walked back?**
+   I claim Track B is not a general ledger because it is cash-basis management
+   reporting that never files anything. **A reviewer could reasonably say that a
+   system holding expenses, salaries, bank lines and card payouts *is* a set of
+   books whatever it is called**, and that §2's recommendation has been reversed
+   by instalments. If that is the better reading, say so plainly — it is the
+   criticism I am least able to see from inside.
+
+9. **Two expense tables or one?** §5B.3 keeps `vehicle_costs` and adds
+   `expenses`, unioned in a view, and admits that designed together today they
+   would be one table with a nullable `vehicle_id`. I judged migration cost not
+   worth identical reports. **Reverse me if the duplication will cost more over
+   time than the migration would now** — two tables that mean the same thing is
+   how divergent `cost_type` vocabularies start.
+
+10. **Is the `payouts` model right?** The underlying defect is **verified** — see
+    **F11**; nothing captures a fee or a payout today. What is open is the fix:
+    is a `payouts` table with per-`payment` fee attribution the right shape, and
+    is posting fees to `expenses` as `card_fees` double-counting against the net
+    deposit, or the correct way to make a cost of sale visible? **I am less sure
+    of that second point than the rest of §5B.**
+
+11. **Is the cash-flow projection within "basic"?** It is the piece with the
+    most assumptions and the most ways to mislead, and a reviewer arguing it
+    belongs in a spreadsheet until B1–B3 have produced a season of real data
+    would be making a fair point.
+
 **What would be most useful is disagreement with reasons.** Two things in here
 are already known to be the kind of claim that has been wrong before on this
 project: a lock that does not lock (F1(b) is the frozen-panes lesson in another
@@ -650,6 +975,12 @@ costume), and a date taken from commentary rather than the source (every date in
   (the purge, which F1(c) collides with), §7 (build order and §7's
   anti-speculation rule), `DEFINING-STATEMENTS.md` §5 (one pricing
   implementation, which F7 touches).
+- **Track B's relations:** migration 011 (`vehicle_costs`, the pattern §5B.3
+  extends), blueprint §8 (*"profitability is never stored"*, which §5B.7 obeys),
+  blueprint §7 deferred (*"scheduled email reports — once reporting exists"*,
+  which B5 would be the prerequisite for), `NBG-PAYMENTS-INTEGRATION.md` (the
+  undeployed draft §5B.6 keeps `payouts` provider-agnostic for), and open item
+  **F1** (fleet dates, which §5B.7's outflow projection depends on).
 - **Open items:** the accountant's questions and the F-findings go to
   `docs/OPEN-ITEMS.md` as a group so they are not carried by this document
   alone.
