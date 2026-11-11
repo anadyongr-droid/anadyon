@@ -1299,3 +1299,37 @@ accountant, because each has a catch worth naming when asking:
   **cost**. Whether the amount recharged to the customer is itself a taxable
   supply, or compensation outside VAT, is a separate question from what the
   quote contained.
+
+### 9.10 The client list is filed through Epsilon Net — Tasos, 11 November 2026
+
+Tasos, resolving the ambiguity in §9.9: *"The digital client is filed daily /
+instantaneously not annually."* Read with his earlier *"we currently use the
+Epsilon net module for it"*: **the vehicle Ψηφιακό Πελατολόγιο is filed
+through Epsilon Net, per rental, in real time.** Owner's account of current
+practice; not checked against Epsilon Net or ΑΑΔΕ by an agent.
+
+**This supersedes the alarm in §9.9, in F6, and in W82.** On this account
+there is no unfiled backlog since July 2025 and no live gap. The two checks
+asked of Tasos in §9.9 are withdrawn.
+
+**Consequences.**
+
+- **The in-app client-list module is redundant, exactly as the invoice module
+  is.** `app/api/admin/aade/submit`, `app/api/admin/aade/backlog` and
+  `buildDclXml` must **not** be switched on in production: filing the same
+  rental from two systems would create duplicate client-list entries. The
+  missing ΑΑΔΕ credentials are what prevents that today.
+- **Open item E3's remaining ΑΑΔΕ step** — obtain a positive sandbox
+  `newClientDclID` — no longer serves a production purpose. Recommend dropping
+  it from E3; left for the close-of-day pass to decide.
+- **`GATE-0-QUESTIONS.md` A2 is answered in substance**: whether a closing
+  entry is required is Epsilon Net's to implement, not this application's.
+  One residual question for the accountant, low urgency: *does the Epsilon Net
+  module also record the return and link the receipt, or only the opening?*
+- **Track A, as far as this application is concerned, reduces to nothing that
+  files.** Epsilon Net issues the receipts and files the client list. What
+  this system contributes is the operational record: who rented what, when,
+  for how much, and what money arrived — so staff can key Epsilon Net
+  correctly, and so Track B has a source.
+- **Still Tasos's call, not taken here:** remove both dormant ΑΑΔΕ modules, or
+  keep them against a future move away from Epsilon Net.
