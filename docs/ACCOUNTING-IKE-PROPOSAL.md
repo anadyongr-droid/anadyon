@@ -7,7 +7,7 @@ stands; read it first.** §1–§8 are the original reasoning, kept, with each
 superseded passage marked where it sits. Building any of it still needs
 Tasos's go-ahead for that piece.
 
-**Last verified:** 11 November 2026, Fable — code claims against `main` at
+**Last verified:** 12 November 2026, Fable (§10 added after Codex's review) — code claims against `main` at
 `5ebffe1`; current practice as stated by Tasos; law from secondary sources.
 
 **AMENDED 11 November 2026, the same day**, after Tasos read the first version: *"adapt it to include a proposal for a basic build on monitoring the basics like expenses, salaries paid, rental income, cash received, cash flow projection, bank accounts and credit card payment systems reconciliation"*. That is **§5B** — written as a second *track*, not an addition to the first, and §5B.0 says why that distinction carries weight. The original request:
@@ -58,9 +58,9 @@ customer is charged or told, and none is started without Tasos saying so.
 | | Piece | Depends on | What it gives |
 |---|---|---|---|
 | **P1** | **`expenses`** (§5B.3), plus nullable `paid_on` and `vat_amount` added to `vehicle_costs`, and one unioned view | nothing | Total operating cost, on a cash basis and net of VAT, for the first time |
-| **P2** | **`payments`** — one row per receipt of money: amount, method, date, staff, Stripe reference, and the **Epsilon Net receipt number**. More than one per reservation. Admin lists every payment with **no receipt number as outstanding** | nothing | The receipt rule becomes checkable. Income can be measured from money received, not from quotes (§5B.2) |
+| **P2** | **`payments`** — one row per receipt of money: amount, method, date, staff, Stripe reference, linked to Epsilon Net receipts through a **`payment_allocations`** junction (§10.2) — a payment may precede its receipt, be split across receipts, or share one. More than one per reservation. Admin lists every payment **not fully allocated to a receipt as outstanding** | nothing | The receipt rule becomes checkable. Income can be measured from money received, not from quotes (§5B.2) |
 | **P3** | **`payouts`** and Stripe fee capture (§5B.6, F11) | P2 | Card fees become a visible cost; a payout ties to the payments in it — and gives the **bank-arrival date** the deposit receipt is dated by |
-| **P4** | **Bank import** — `bank_accounts`, `bank_transactions`, CSV/MT940, assisted matching a person confirms (§5B.5) | P1–P3 | "Did the money arrive?" answerable |
+| **P4** | **Bank import** — `bank_accounts`, `bank_transactions`, CSV/MT940, assisted matching a person confirms, held in a **`bank_allocations`** junction and not a single link (§5B.5, §10.5) | P1–P3 | "Did the money arrive?" answerable |
 | **P5** | **Outflow calendar** from fleet dates and recurring expenses, then a one-page summary (§5B.7, §5B.9 B4–B5) | P1–P4, and open item F1's fleet dates | The off-season cash question. The *inflow forecast* stays in a spreadsheet until a season of `payments` exists (§9.7 point 11) |
 
 **Rules that hold across all five** (from §5B and §9.7):
@@ -158,6 +158,11 @@ consent. National law **5222/2025** implements it in phases:
 |---|---|---|
 | 1 | 2023 revenue above €1,000,000 | **2 March 2026**, penalties from 3 May 2026 |
 | 2 | **everyone else — this is Anadyon** | **disputed:** 1 October 2026 in earlier sources; **2 November 2026** in later ones (Α.1128/2025 as deferred by Α.1197/2026), with an adjustment period to **31 January 2027** |
+
+*Settled 12 November (§10.4): **Phase 2 began on 2 November 2026** under
+Α.1197/2026 (ΦΕΚ Β΄ 5905/30.9.2026), with gradual application to
+**31 January 2027**. The "disputed" and "could not settle" wording below is
+superseded.*
 
 **Two things follow, and the second is the one that matters.**
 
@@ -499,6 +504,10 @@ version `v1.0.10` may no longer be current**, which I could not establish.
 **Vendoring the XSD and validating against it is a small change that converts a
 belief into a check.**
 
+*Settled 12 November (§10.4): the current myDATA technical version is
+**v2.0.2** (official, September 2026). The module's `v1.0.10` namespace is
+therefore out of date — one more reason it stays off.*
+
 ### F9 — The code states a deadline that has reportedly moved. **High confidence.**
 
 `app/api/admin/invoices/submit/route.ts:12`: *"Mandatory from 1 October 2026
@@ -516,7 +525,7 @@ have started. Direct myDATA transmission satisfies *reporting*; it does not
 produce an EN 16931 invoice through a πάροχος. **B2C is unaffected** — which is
 why this is a bounded problem and not a rebuild.
 
-### F11 — Card fees and payouts are recorded nowhere, so revenue is overstated. **Verified, 11 November.**
+### F11 — Card fees and payouts are recorded nowhere, so margin and cash are overstated. **Verified, 11 November.**
 
 *Wording corrected, §9.5: revenue is gross and is not overstated; **margin
 and cash are**, and the fee is invisible. The finding stands and is P3.*
@@ -530,8 +539,9 @@ transaction is captured anywhere.
 
 **Two live consequences.**
 
-1. **Revenue is overstated** by the card fees, which are a genuine cost of sale
-   and currently invisible.
+1. **Margin and cash received are overstated** by the card fees. Revenue is
+   gross and is not affected; the fee is a separate expense, currently
+   invisible. *(Corrected, §9.5 and §10.3.)*
 2. **A bank deposit can never be tied to a booking.** Stripe pays out *net of
    fees*, on a delay, **batching many charges into one transfer** — so the
    amount arriving in the bank matches no single reservation, and *"did we
@@ -783,8 +793,10 @@ access rule, not a side effect of expense tracking.
 
 **`bank_accounts`**: label, bank, IBAN, currency, active. **`bank_transactions`**:
 one row per statement line — `value_date`, `amount`, `description`,
-`counterparty`, an import batch reference, and a nullable link to the `payment`
-or `expense` it settles.
+`counterparty`, an import batch reference. *Corrected 12 November (§10.5): **no single
+nullable link.** A bank line is matched through a `bank_allocations` junction
+— (bank transaction, target type, target id, amount) — because one line can
+settle several things and one thing can be settled by several lines.*
 
 **Start with CSV or MT940 export from e-banking, and do not build a bank API.**
 PSD2 account-information access exists, but for one company with a handful of
@@ -810,7 +822,8 @@ Today a deposit leaves `stripe_payment_intent` and `deposit_paid_at` on the
 reservation. **The fee is recorded nowhere and the payout is recorded nowhere.**
 Two consequences, both live:
 
-1. **Revenue is overstated** by the card fees, which are a real cost of sale.
+1. **Margin and cash are overstated** by the card fees, which are a real cost
+   of sale. Revenue stays gross (§10.3).
 2. **The bank line can never be tied to a booking**, because one deposit
    corresponds to many charges minus fees — so "did we receive the money?"
    cannot be answered.
@@ -1568,3 +1581,103 @@ finding for Tasos and the accountant.
 [ΑΠ 263/2026 (taxheaven)](https://www.taxheaven.gr/circulars/54513/areios-pagos-263-2026) ·
 [ΑΠ 1519/2023 (allgood.gr)](https://allgood.gr/kalypsi-fpa-se-apozimioseis-epangelmation-me-apof-ap-1519-2023-nea-dedomena/) ·
 [HMRC VATSC05910](https://www.gov.uk/hmrc-internal-manuals/vat-supply-and-consideration/vatsc05910)
+
+
+---
+
+## 10. Codex's review — 12 November 2026, and what was done with each point
+
+Codex reviewed PR #256 at `ddbc652`, before §0A and §9 were on that branch.
+Five findings; all five accepted. Points 1 and 3 had already been corrected by
+§9; 2, 4 and 5 are new corrections.
+
+### 10.1 The client-list flow — accepted, and now documented in full
+
+`nonIssueInvoice` is not emitted by the code (already corrected: F6, §9.2).
+The official flow, per ΑΑΔΕ's DCL API v1.1 as reported by Codex and by
+ΑΑΔΕ-linked summaries found by search on 12 November:
+
+1. **`SendClient`** when the vehicle goes out — returns the entry's id.
+2. **`UpdateClient`** on that id, with **`entryCompletion`** — compulsory when
+   the vehicle is returned. May be called more than once per entry.
+3. **`ClientCorrelations`** — links the entry id to the document's **ΜΑΡΚ**, or
+   to the **ΦΗΜ** receipt reference where a cash register issued it.
+
+Also: `CancelClient` and `RequestClients` exist.
+
+**For Anadyon this is Epsilon Net's to perform** (§9.10). It sharpens W84(e):
+does Epsilon Net send steps 2 and 3, or only step 1? Tasos's description —
+that it records only the start-of-rental receipt (§9.11) — makes that worth
+asking.
+
+**One more defect in the dormant module, recorded for the list in §4:**
+v1.1 reportedly makes vehicle **category and manufacturer compulsory** for a
+rental `SendClient`; `lib/aadeXml.ts:59-64` emits each only when present.
+*From a secondary summary of the v1.1 change log; the PDF itself was not read
+by Fable.*
+
+### 10.2 Payments — accepted: independent payments and a junction table
+
+Codex is right that a direct `invoice_id` on a payment is too restrictive, and
+it is stronger than §9.6's "nullable, with a separate allocation". Adopted for
+P2, translated to the settled position that Epsilon Net issues the documents:
+
+- **`payments`** — independent. Amount, method, date, staff, Stripe reference,
+  reservation. No document reference on the row.
+- **`receipts`** — a *reference* to a document issued in Epsilon Net: its
+  number, date, type, gross/net/VAT. Not an invoice this system issues or
+  numbers.
+- **`payment_allocations`** — (`payment_id`, `receipt_id`, `amount`). A payment
+  can exist before any receipt, be split across receipts, and a receipt can be
+  covered by several payments.
+
+"Outstanding" is then a payment whose allocations sum to less than its amount.
+
+### 10.3 Stripe — accepted, already corrected
+
+Fees reduce profit and cash received; they do not overstate revenue. Gross
+revenue and the fee are recorded separately, the fee as an expense. §9.5 and
+§9.7 point 10 said so; F11's heading and §5B.6 are now corrected in place too.
+
+### 10.4 Dates and version — accepted; the "unverifiable" statements are replaced
+
+- **Phase 2 of mandatory e-invoicing began on 2 November 2026**, for
+  businesses with 2023 gross revenue up to €1,000,000, under **Α.1197/2026**
+  (ΦΕΚ Β΄ 5905/30.9.2026), which moved it from 1 October. **Gradual
+  application runs to 31 January 2027.**
+- **The current myDATA technical version is v2.0.2** (official documentation
+  dated September 2026).
+
+*How verified: Codex reports reading the primary ΑΑΔΕ sources. Fable confirmed
+by search on 12 November — ΑΑΔΕ's press release of 30.9.2026, the Α.1197
+decision page, and the v2.0.2 documents on `aade.gr` all appear, with
+consistent dates in the summaries. Direct fetches of `aade.gr` from this
+container are still refused, so Fable has not read the PDFs themselves.*
+
+§1.3, §6's "could not verify" list and F9 are superseded on these two points.
+The remaining entries in that list stand.
+
+**A dated consequence — for Tasos and the accountant, and it is this week.**
+One secondary source (taxheaven) says a business starting through a provider
+on 2.11.2026 must file its **Δήλωση Έναρξης Ηλεκτρονικής Έκδοσης by
+12.11.2026**. Whether Anadyon issues any B2B invoices, and whether Epsilon Net
+or the accountant has filed that declaration, is not known to this document.
+Added to W84(c) as urgent. **Unverified beyond that one source.**
+
+### 10.5 Bank reconciliation — accepted: allocation tables
+
+A single nullable link from a bank line cannot represent a split payment, a
+grouped deposit or a partial settlement. P4 uses **`bank_allocations`** —
+(`bank_transaction_id`, target type, target id, `amount`) — where the target
+is a payout, a payment (cash banked, a transfer) or an expense. §5B.5 is
+corrected in place. A bank line is reconciled when its allocations sum to its
+amount.
+
+*Sources for §10:*
+[ΑΑΔΕ — δελτίο τύπου 30.9.2026](https://www.aade.gr/sites/default/files/2026-09/dt_30.09.2026.pdf) ·
+[Α.1197/30-09-2026 (aade.gr)](https://www.aade.gr/egkyklioi-kai-apofaseis/1197-30-09-2026) ·
+[Ηλεκτρονική τιμολόγηση — Β΄ περίοδος (taxheaven)](https://www.taxheaven.gr/news/74429/hlektronikh-timologhsh-b-periodos-analytiko-xronodiagramma-paradeigmata-erwthseis-kai-prostima) ·
+[myDATA technical specifications (aade.gr)](https://www.aade.gr/en/mydata/technical-specifications-versions-mydata) ·
+[myDATA API v2.0.2, ERP (aade.gr)](https://www.aade.gr/sites/default/files/2026-09/myDATA%20API%20Documentation%20v2.0.2_official_erp_1.pdf) ·
+[DCL API v1.1, ERP (aade.gr)](https://aade.gr/sites/default/files/2025-06/DCL%20API%20Documentation%20v1.1_official_erp.pdf) ·
+[Ψηφιακό πελατολόγιο — τελευταίες αλλαγές (taxheaven)](https://www.taxheaven.gr/news/70649/pshfiako-pelatologio-oi-teleytaies-allages-sto-dokimastiko-periballon)
