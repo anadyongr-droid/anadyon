@@ -180,6 +180,7 @@ cannot be done from here — the full list with steps is in
 | Document | Answers |
 |---|---|
 | [`../DEFINING-STATEMENTS.md`](../DEFINING-STATEMENTS.md) | What the product is for, which trade-offs are already settled, and **§9 — read what is already written before researching it again** |
+| [`ACCOUNTING-IKE-PROPOSAL.md`](ACCOUNTING-IKE-PROPOSAL.md) | **FINAL PROPOSAL, nothing built — what this system should do about accounting, given that Epsilon Net issues the receipts and files the client list.** §0A is the settled position: this application is neither the general ledger nor the invoicing system; it holds the operational record. Five pieces proposed, P1–P5 — expenses, a payments record carrying the Epsilon Net receipt number, card fees and payouts, bank import, an outflow calendar. The in-app ΑΑΔΕ modules stay dormant, with their known defects listed in §4. §9 is Fable's review and Tasos's answers of 11 November, including the receipt rule and the research on VAT for damage charges. Open work: W84 (accountant), W85 (go-ahead) |
 | [`RENTAL-SYSTEM-BLUEPRINT.md`](RENTAL-SYSTEM-BLUEPRINT.md) | How we compare to the systems a Greek operator would buy, what to build next, and what we deliberately will not build |
 | [`audits/`](audits/) | Whether what we built is sound — full reviews scored against ten fixed areas |
 

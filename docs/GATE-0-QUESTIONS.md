@@ -62,7 +62,14 @@ because nothing in this system sells a vehicle.
 [Χαρακτηρισμοί εσόδων, InvoiceMaker](https://docs.invoicemaker.gr/appendix/income-classifications) ·
 [Πώς διαβιβάζονται τα τιμολόγια πώλησης παγίων, OnlineData Wiki](https://wiki.onlinedata.gr/mydata/%CF%80%CE%B1%CF%81%CE%B1%CE%B4%CE%B5%CE%AF%CE%B3%CE%BC%CE%B1%CF%84%CE%B1-%CF%80%CE%B1%CF%81%CE%B1%CE%BC%CE%B5%CF%84%CF%81%CE%BF%CF%80%CE%BF%CE%B9%CE%AE%CF%83%CE%B5%CF%89%CE%BD/%CF%80%CF%8E%CF%82-%CE%B4%CE%B9%CE%B1%CE%B2%CE%B9%CE%B2%CE%AC%CE%B6%CE%BF%CE%BD%CF%84%CE%B1%CE%B9-%CF%84%CE%B1-%CF%84%CE%B9%CE%BC%CE%BF%CE%BB%CF%8C%CE%B3%CE%B9%CE%B1-%CF%80%CF%8E%CE%BB%CE%B7%CF%83/)*
 
-### A2. The client list — **not what the question assumed, and there is a larger gap behind it**
+### A2. The client list — **ANSWERED 11 November 2026: Epsilon Net files it.** ✅
+
+*Tasos, 11 November: the vehicle client list is filed through Epsilon Net, per
+rental, in real time. This application does not file it and there is no gap.
+`ACCOUNTING-IKE-PROPOSAL.md` §9.10. **The text below is also stale as a
+description of the code**: since PR #185 (2 October) the in-app module emits no
+`nonIssueInvoice` element at all. The in-app module stays in the code,
+switched off. Original entry, for the record:*
 
 Tasos asked *"which client is on the nonIssueInvoice list?"* — a fair reading of
 how it was written, and the brief was wrong to imply a list. Corrected:
