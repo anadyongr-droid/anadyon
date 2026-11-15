@@ -468,7 +468,7 @@ async function proxyRequest(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+  if (aal?.currentLevel !== "aal2") {
     // Factor enrolled but not yet verified in this session
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "MFA verification required" }, { status: 401 });
