@@ -121,11 +121,12 @@ Password rotation status is unverified. No account or session was changed.
   active-block and idle-reset tests fail; proposed version passes. PGlite uses
   a single serialized connection; no multi-session concurrency claim is made.
 
-## Release handover — owner only
+## Initial release handover — before owner follow-up
 
-All implementation branches target main independently. Merge and production
-release remain Tasos's. No production or hosted-staging migration was applied.
-Before release, Tasos must apply the reviewed paste SQL to hosted staging and
+At the initial handover, implementation branches targeted main independently
+and merge/release authorization was pending. No hosted migration had been applied
+at that point. The subsequent owner application and authorized merges are recorded
+above. The initial owner checklist required applying the reviewed SQL to staging and
 perform authenticated MFA, direct RPC, literal/wildcard promo and quote lockout
 acceptance tests. Local PGlite is SQL verification, not hosted Supabase acceptance.
 
@@ -200,8 +201,9 @@ migration, paste copy and test source are unchanged and independently re-reviewe
 | 263 | 1,759 / 149 files | [43956721535](https://github.com/anadyongr-droid/anadyon/actions/runs/43956721535) |
 | 264 | 1,756 / 150 files | [43956749035](https://github.com/anadyongr-droid/anadyon/actions/runs/43956749035) |
 
-All five implementation PRs are now ready for owner review, with hosted build,
-security/preview and staging checks green at handover. Staging reruns completed
+At the initial handover, all five implementation PRs were ready for owner review,
+with hosted build, security/preview and staging checks green. They have since
+merged as recorded above. Staging reruns completed
 serially after the shared queue canceled waiting jobs (existing W62 behavior).
 That queue behavior remains documented; a cancellation was never counted as a pass.
 Each staging commercial-path suite passed 84 tests / 10 files.
@@ -235,10 +237,12 @@ and full-suite evidence. Final focused quote checks passed 35 tests / 4 files at
 85bd110, and both paste files were rechecked byte-for-byte.
 
 CI's commercial-path tests can create and clean synthetic staging fixtures;
-these are authorized tests. No hosted migration, production data/configuration,
-staff credential or production deployment was changed by this work. Hosted
-acceptance of the proposed 050 SQL remains an owner action and is not established
-by the existing commercial-path suite.
+these are authorized tests. No migration was applied by the agent, and no staff
+credential was changed by the agent. At the initial handover, production had not
+yet changed. The subsequent owner-applied SQL, reported SQL tests and authorized
+merges/deployments are recorded above. The commercial-path suite alone did not
+establish hosted acceptance of the new 050 SQL; that followed through the owner
+steps and the independent definition/permission checks above.
 
 Advisor guidance: [RLS with no policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy),
 [public extensions](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public),
