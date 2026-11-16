@@ -24,6 +24,18 @@ it needs a person, and the item says exactly what is needed.
 
 ---
 
+
+## Security fixes — verified 16 November 2026
+
+Owner: Codex for PRs and evidence; Tasos for merge, hosted SQL and release.
+The four proposal tasks plus a verified handover MFA migration gap are tracked in
+[SECURITY-FIXES-2026-11-16.md](SECURITY-FIXES-2026-11-16.md).
+Production already has the quote RPC and handover aal2 gates; the migrations on
+main are missing both. Do not report the production quote lockout as absent.
+Tasos selected a 24-hour inactivity reset. Hosted staging acceptance, production
+migration application, one staff MFA enrolment/removal, password rotation status
+and owner release approval remain pending. No hosted migration was applied.
+
 ## 🌙 Off-season — stated by Tasos, 2 November 2026
 
 **The office is closed and reopens next year.** Tasos also confirmed on the same
