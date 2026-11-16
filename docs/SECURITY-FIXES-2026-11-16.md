@@ -139,18 +139,55 @@ and replayed all 50 migrations. The committed reviewer record is
 
 | Subject | PR | Reviewed implementation |
 |---|---|---|
-| Quote tracking | [260](https://github.com/anadyongr-droid/anadyon/pull/260) | a10f4ae |
+| Quote tracking | [260](https://github.com/anadyongr-droid/anadyon/pull/260) | 85bd110 |
 | Exact promo validation | [261](https://github.com/anadyongr-droid/anadyon/pull/261) | 3d77196 |
 | Cron guard | [262](https://github.com/anadyongr-droid/anadyon/pull/262) | a31548a |
 | Proxy MFA tests | [263](https://github.com/anadyongr-droid/anadyon/pull/263) | 0d91ad9 |
 | Versioned handover MFA | [264](https://github.com/anadyongr-droid/anadyon/pull/264) | c22c910 |
 
-Local SQL/route focused checks passed. Local check:schema exited 2 because the
-required credentials were absent; no production secrets were retrieved to run it.
-The initial local build was stopped after font downloads failed in the restricted
-network; a build retry with network access and inert placeholders is in progress.
-Per-branch full lint/typecheck/unit/build and hosted CI outcomes are pending.
-A hosted, credential-dependent or unavailable check is never counted as passed.
+Required hosted build jobs passed on all five implementations: typecheck,
+lint (0 errors, 24 existing warnings), complete unit suite, `npm run build`,
+translation/accessibility/SEO audits and Chromium/Firefox browser checks. Quote's
+latest 85bd110 only removes the unnecessary legacy schema snapshot append;
+its final hosted rerun is still completing at this record's timestamp. The
+migration, paste copy and test source are unchanged and independently re-reviewed.
+
+| PR | Full unit tests | Hosted build run |
+|---|---:|---|
+| 260, original reviewed implementation | 1,757 / 152 files | [43956651820](https://github.com/anadyongr-droid/anadyon/actions/runs/43956651820) |
+| 260, final snapshot-only cleanup | final rerun in progress | [43958201437](https://github.com/anadyongr-droid/anadyon/actions/runs/43958201437) |
+| 261 | 1,757 / 151 files | [43956677718](https://github.com/anadyongr-droid/anadyon/actions/runs/43956677718) |
+| 262 | 1,754 / 150 files | [43956693530](https://github.com/anadyongr-droid/anadyon/actions/runs/43956693530) |
+| 263 | 1,759 / 149 files | [43956721535](https://github.com/anadyongr-droid/anadyon/actions/runs/43956721535) |
+| 264 | 1,756 / 150 files | [43956749035](https://github.com/anadyongr-droid/anadyon/actions/runs/43956749035) |
+
+PR 264's hosted staging suite passed 84 tests / 10 files; documentation PR 265's
+initial build and staging job also passed. The shared concurrency group canceled
+waiting staging jobs for 261–263 (the already-recorded W62 behavior), so serial
+reruns are required and are being performed. A canceled job is never a pass.
+Check each PR's current head checks before approval; these links preserve the
+measured state, not a promise that future checks will stay green.
+
+The hosted “Schema drift check” step logged an explicit **skip** because the
+production credentials are absent. Local `check:schema` likewise exited 2 for
+missing credentials. Neither is a passed live schema verification. Read-only MCP
+inspection verified only the specific functions, grants and columns documented
+above; no production service key was fetched to bypass that separation.
+
+Local quote typecheck and lint passed. The first local full-suite run hit one
+process-test timeout while a duplicate production build consumed resources; the
+isolated rerun of all five process tests passed. The complete local suite was
+retried with two workers. The first local build attempt lacked network access for
+fonts; its network-enabled retry was stopped when hosted builds had completed,
+so a full local build is **not claimed as passed**. Hosted CI is the full build
+and full-suite evidence. Final focused quote checks passed 35 tests / 4 files at
+85bd110, and both paste files were rechecked byte-for-byte.
+
+CI's commercial-path tests can create and clean synthetic staging fixtures;
+these are authorized tests. No hosted migration, production data/configuration,
+staff credential or production deployment was changed by this work. Hosted
+acceptance of the proposed 050 SQL remains an owner action and is not established
+by the existing commercial-path suite.
 
 Advisor guidance: [RLS with no policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy),
 [public extensions](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public),

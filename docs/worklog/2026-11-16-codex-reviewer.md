@@ -81,3 +81,13 @@ was changed, and no merge or deployment was performed. Owner approval is still
 required for merging/releasing, the proposed 24-hour idle reset and migration
 application. Hosted staging acceptance and authenticated production MFA journeys
 remain unverified by this review.
+
+## Final delta and owner-policy addendum
+
+The implementer supplied the owner's explicit selection: reset after 24 hours
+without a failure. That policy decision is settled; owner merge, migration
+application and release approval remain separate and pending.
+Quote 85bd110 removes only the unnecessary legacy schema snapshot append;
+canonical migration/paste/tests are unchanged. Independent final delta review
+found no issue. Hosted CI results and the explicit skipped live-schema check are
+recorded in the implementation verification report.
