@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { reportHandledError } from "@/lib/sentryReporting";
 import { supabaseAdmin } from "@/lib/supabase";
 import { checkRateLimit as checkAtomicRateLimit } from "@/lib/rateLimit";
 
@@ -56,7 +57,11 @@ async function checkRateLimit(ip: string): Promise<{ blocked: boolean; retryAfte
 
 async function recordFailure(ip: string): Promise<void> {
   const { error } = await supabaseAdmin.rpc("record_quote_lookup_failure", { p_ip: ip });
-  if (error) console.error("Quote lookup failure tracking failed:", error.message);
+  if (error) {
+    console.error("Quote lookup failure tracking failed:", error.message);
+    // Static error text: database messages can contain identifiers or inputs.
+    reportHandledError(new Error("Quote lookup failure tracking failed"), "quote", "lookup-failure-tracking");
+  }
 }
 
 /**
