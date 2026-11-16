@@ -1,3 +1,4 @@
+import { isAuthorisedCron } from "@/lib/cronAuth";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendTelegram, drainTelegramQueue } from "@/lib/telegram";
@@ -95,8 +96,7 @@ function esc(v: unknown): string {
 
 // Vercel cron configured in vercel.json
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorisedCron(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
