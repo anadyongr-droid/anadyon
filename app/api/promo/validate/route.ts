@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     .from("promo_codes")
     .select("id, code, type, value, expires_at, max_uses, used_count, description, active")
     .eq("active", true)
-    .eq("code", code.trim().toUpperCase())
+    .ilike("code", code.trim())
     .maybeSingle();
 
   if (error || !data) {
