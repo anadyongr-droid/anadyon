@@ -86,6 +86,15 @@ export const AUTH_STUBS = `
     )::uuid
   $stub$;
 
+  -- Supabase auth.jwt(): claims are supplied by PostgREST, never inferred.
+  create or replace function auth.jwt() returns jsonb
+  language sql stable as $stub$
+    select coalesce(
+      nullif(current_setting('request.jwt.claim', true), ''),
+      nullif(current_setting('request.jwt.claims', true), '')
+    )::jsonb
+  $stub$;
+
   grant usage on schema auth to anon, authenticated, service_role;
 `;
 
