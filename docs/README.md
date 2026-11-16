@@ -22,7 +22,8 @@ machine or a six-month gap.
 **Last verified:** 16 November 2026, Codex. Current security proposal evidence,
 independent PR scopes and owner-only release steps are in
 [SECURITY-FIXES-2026-11-16.md](SECURITY-FIXES-2026-11-16.md).
-Production and main were verified at b9756e4. Hosted SQL/release approval and
+PRs #260–#264 are reviewed and green. Production and main remain at b9756e4.
+Hosted SQL/release approval and
 acceptance remain pending; this does not refresh unrelated historical statuses.
 
 ## Where things stand — 27 October 2026

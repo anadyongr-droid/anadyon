@@ -149,24 +149,36 @@ Required hosted build jobs passed on all five implementations: typecheck,
 lint (0 errors, 24 existing warnings), complete unit suite, `npm run build`,
 translation/accessibility/SEO audits and Chromium/Firefox browser checks. Quote's
 latest 85bd110 only removes the unnecessary legacy schema snapshot append;
-its final hosted rerun is still completing at this record's timestamp. The
+its final hosted rerun passed the build and staging jobs. The
 migration, paste copy and test source are unchanged and independently re-reviewed.
 
 | PR | Full unit tests | Hosted build run |
 |---|---:|---|
 | 260, original reviewed implementation | 1,757 / 152 files | [43956651820](https://github.com/anadyongr-droid/anadyon/actions/runs/43956651820) |
-| 260, final snapshot-only cleanup | final rerun in progress | [43958201437](https://github.com/anadyongr-droid/anadyon/actions/runs/43958201437) |
+| 260, final snapshot-only cleanup | 1,757 / 152 files | [43958201437](https://github.com/anadyongr-droid/anadyon/actions/runs/43958201437) |
 | 261 | 1,757 / 151 files | [43956677718](https://github.com/anadyongr-droid/anadyon/actions/runs/43956677718) |
 | 262 | 1,754 / 150 files | [43956693530](https://github.com/anadyongr-droid/anadyon/actions/runs/43956693530) |
 | 263 | 1,759 / 149 files | [43956721535](https://github.com/anadyongr-droid/anadyon/actions/runs/43956721535) |
 | 264 | 1,756 / 150 files | [43956749035](https://github.com/anadyongr-droid/anadyon/actions/runs/43956749035) |
 
-PR 264's hosted staging suite passed 84 tests / 10 files; documentation PR 265's
-initial build and staging job also passed. The shared concurrency group canceled
-waiting staging jobs for 261–263 (the already-recorded W62 behavior), so serial
-reruns are required and are being performed. A canceled job is never a pass.
+All five implementation PRs are now ready for owner review, with hosted build,
+security/preview and staging checks green at handover. Staging reruns completed
+serially after the shared queue canceled waiting jobs (existing W62 behavior).
+That queue behavior remains documented; a cancellation was never counted as a pass.
+Each staging commercial-path suite passed 84 tests / 10 files.
+
+| PR | Passing staging job |
+|---|---|
+| 260 | [133622916172](https://github.com/anadyongr-droid/anadyon/actions/runs/43958201437/job/133622916172) |
+| 261 | [133622604157](https://github.com/anadyongr-droid/anadyon/actions/runs/43956677718/job/133622604157) |
+| 262 | [133624861406](https://github.com/anadyongr-droid/anadyon/actions/runs/43956693530/job/133624861406) |
+| 263 | [133627810186](https://github.com/anadyongr-droid/anadyon/actions/runs/43956721535/job/133627810186) |
+| 264 | [133617067043](https://github.com/anadyongr-droid/anadyon/actions/runs/43956749035/job/133617067043) |
+
 Check each PR's current head checks before approval; these links preserve the
-measured state, not a promise that future checks will stay green.
+measured state, not a promise that future checks will stay green. Documentation
+PR 265 has no product-code changes; its final documentation-only update may
+still be running checks when this record is read.
 
 The hosted “Schema drift check” step logged an explicit **skip** because the
 production credentials are absent. Local `check:schema` likewise exited 2 for
@@ -177,7 +189,7 @@ above; no production service key was fetched to bypass that separation.
 Local quote typecheck and lint passed. The first local full-suite run hit one
 process-test timeout while a duplicate production build consumed resources; the
 isolated rerun of all five process tests passed. The complete local suite was
-retried with two workers. The first local build attempt lacked network access for
+retried with two workers and passed all 1,757 tests / 152 files. The first local build attempt lacked network access for
 fonts; its network-enabled retry was stopped when hosted builds had completed,
 so a full local build is **not claimed as passed**. Hosted CI is the full build
 and full-suite evidence. Final focused quote checks passed 35 tests / 4 files at
@@ -196,3 +208,11 @@ Advisor guidance: [RLS with no policies](https://supabase.com/docs/guides/databa
 [leaked-password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
 Performance advisors also list informational index observations, which were not
 changed as part of this security task.
+
+## Final production recheck
+
+Before handover, GitHub main and the public Vercel deployment were rechecked:
+both remain b9756e441ea4a4089793d1d20a000045a5783c1e and the public deployment is
+READY at dpl_7BVZgqgBXcoMR915MvaB4rzsaKsJ. Supabase migration history still lists
+the earlier Nov 16 gateway/quote migrations, not these new 050/051 files. This
+work prepared reviewed PRs; it did not merge them or release the fixes.
