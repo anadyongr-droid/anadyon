@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { escapeLikePattern, isExactPromoMatch } from "@/lib/promoMatch";
 import { z } from "zod";
 
 /**
@@ -36,12 +37,13 @@ export async function POST(req: NextRequest) {
 
   const { code } = parsed.data;
 
-  const { data, error } = await supabaseAdmin
+  const { data: rows, error } = await supabaseAdmin
     .from("promo_codes")
     .select("id, code, type, value, expires_at, max_uses, used_count, description, active")
     .eq("active", true)
-    .ilike("code", code.trim())
-    .maybeSingle();
+    .ilike("code", escapeLikePattern(code));
+
+  const data = rows?.find((row) => isExactPromoMatch(row.code, code)) ?? null;
 
   if (error || !data) {
     return NextResponse.json({ valid: false, error: "Invalid or expired promo code" });
