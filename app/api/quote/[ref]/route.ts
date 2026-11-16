@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-
-// Progressive block durations after N cumulative failures from the same IP
-function blockSeconds(failCount: number): number {
-  if (failCount >= 12) return 86400;  // 24 hours
-  if (failCount >= 8)  return 3600;   // 1 hour
-  if (failCount >= 5)  return 600;    // 10 minutes
-  if (failCount >= 3)  return 30;     // 30 seconds
-  return 0;
-}
+import { checkRateLimit as checkAtomicRateLimit } from "@/lib/rateLimit";
 
 function humanDuration(seconds: number): string {
   if (seconds >= 86400) return "24 hours";
@@ -63,27 +55,8 @@ async function checkRateLimit(ip: string): Promise<{ blocked: boolean; retryAfte
 }
 
 async function recordFailure(ip: string): Promise<void> {
-  const { data } = await supabaseAdmin
-    .from("quote_rate_limits")
-    .select("fail_count")
-    .eq("ip", ip)
-    .maybeSingle();
-
-  const newCount = (data?.fail_count ?? 0) + 1;
-  const secs = blockSeconds(newCount);
-  const blockedUntil = secs > 0 ? new Date(Date.now() + secs * 1000).toISOString() : null;
-
-  await supabaseAdmin.from("quote_rate_limits").upsert(
-    { ip, fail_count: newCount, blocked_until: blockedUntil, updated_at: new Date().toISOString() },
-    { onConflict: "ip" }
-  );
-}
-
-async function resetFailures(ip: string): Promise<void> {
-  await supabaseAdmin.from("quote_rate_limits").upsert(
-    { ip, fail_count: 0, blocked_until: null, updated_at: new Date().toISOString() },
-    { onConflict: "ip" }
-  );
+  const { error } = await supabaseAdmin.rpc("record_quote_lookup_failure", { p_ip: ip });
+  if (error) console.error("Quote lookup failure tracking failed:", error.message);
 }
 
 /**
@@ -121,6 +94,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ ref:
     return NextResponse.json({ error: "Surname required" }, { status: 400 });
   }
 
+  // Atomic, database-backed request cap also applies to successful lookups.
+  const requestLimit = await checkAtomicRateLimit(req, { limit: 20, windowMs: 15 * 60_000, key: "quote-lookup" });
+  if (!requestLimit.ok) return requestLimit.response!;
+
   const ip = await getIp(req);
 
   // Check if this IP is currently blocked
@@ -155,8 +132,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ ref:
     );
   }
 
-  // Successful lookup — reset failure count for this IP
-  await resetFailures(ip);
+  // Never reset the failure history on success: an attacker may possess one
+  // valid reference and otherwise use it to clear accumulated failures.
 
   return NextResponse.json(data);
 }

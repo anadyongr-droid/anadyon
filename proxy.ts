@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { flushSentryEvents, reportHandledError } from "@/lib/sentryReporting";
 import { devAuthRoleFromEnv, devAuthWarning } from "@/lib/devAuth";
+import { hasVerifiedMfaAssurance } from "@/lib/mfaAssurance";
 
 // Pages staff can access (exact page, or a nested route beneath it).
 // Must mirror the `adminOnly: false` entries in app/admin/AdminLayoutClient.tsx.
@@ -468,7 +469,7 @@ async function proxyRequest(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+  if (!hasVerifiedMfaAssurance(aal?.currentLevel)) {
     // Factor enrolled but not yet verified in this session
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "MFA verification required" }, { status: 401 });
