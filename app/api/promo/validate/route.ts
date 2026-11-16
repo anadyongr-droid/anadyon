@@ -15,7 +15,7 @@ import { z } from "zod";
  * stored. Neither uses a number the client chose.
  */
 const ValidateSchema = z.object({
-  code: z.string().min(1).max(50),
+  code: z.string().trim().min(1).max(50).regex(/^[A-Za-z0-9_-]+$/, "Invalid promo code format"),
 });
 
 export async function POST(req: NextRequest) {
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     .from("promo_codes")
     .select("id, code, type, value, expires_at, max_uses, used_count, description, active")
     .eq("active", true)
-    .ilike("code", code.trim())
+    .eq("code", code.trim().toUpperCase())
     .maybeSingle();
 
   if (error || !data) {
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     valid: true,
-    code: data.code,
+    code: code.trim().toUpperCase(),
     id: data.id,
     discount_type: data.type,
     value: Number(data.value),
