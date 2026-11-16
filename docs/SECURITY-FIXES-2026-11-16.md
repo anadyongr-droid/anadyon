@@ -1,6 +1,45 @@
 # Security fixes verification — 16 November 2026
 
-**Last verified:** 16 November 2026, Codex (implementer); independent review recorded separately.
+**Last verified:** 17 November 2026, Codex (implementer); independent review recorded separately.
+
+## Owner SQL follow-up after initial handover
+
+Tasos explicitly authorized merging the green PRs #260–#265. All five
+implementation PRs are now merged. GitHub strict branch protection required
+updating and rechecking each subsequent branch as main advanced. No protection
+or failed check was bypassed. #265 delivers the final documentation record.
+
+| PR | Checked head | Merge commit | Fresh CI run |
+|---|---|---|---|
+| 260 | 85bd110 | 191a0a3 | [43958201437](https://github.com/anadyongr-droid/anadyon/actions/runs/43958201437) |
+| 261 | 8fad276 | b9cb967 | [43971052522](https://github.com/anadyongr-droid/anadyon/actions/runs/43971052522) |
+| 262 | 5ec62a2 | 10402b1 | [43972771703](https://github.com/anadyongr-droid/anadyon/actions/runs/43972771703) |
+| 263 | 4275c26 | 9f6880a | [43974807586](https://github.com/anadyongr-droid/anadyon/actions/runs/43974807586) |
+| 264 | 56e5e1f | 6f0e31d | [43976646659](https://github.com/anadyongr-droid/anadyon/actions/runs/43976646659) |
+
+Every listed head had all checks SUCCESS, including hosted build, security,
+preview and staging, before merge. One #262 merge attempt was held by automatic
+review because its last visible context still showed staging running; an explicit
+fresh check proved all checks green and the exact-head retry succeeded. No
+alternate merge path was used to bypass that rejection.
+
+Tasos supplied the original five function definitions as backups, reported
+applying both 050 and 051 and passing the provided staging tests, then reported
+successful production steps too. Read-only verification independently confirms
+all five installed function bodies match the reviewed paste SQL exactly in
+**both staging and production**, including SECURITY DEFINER, empty search_path,
+and the intended service-only quote/authenticated-only handover permissions.
+The SQL was applied by Tasos, never by the agent. The older sections below retain
+the initial investigation and pre-owner-handover state.
+
+A separate production catalog check compared all 29 declared tables using the
+repository's schemaDeclarations.mjs parser: no missing tables, missing columns
+or unexpected columns within the declared tables. This does not execute the
+credential-dependent PostgREST check:schema command, which was not run by the agent; its output has not been supplied.
+A production account recheck still found 3 staff/admin accounts, 1 without a
+verified MFA factor. The account action and authenticated acceptance are separate
+from successful SQL application; password/session rotation is not independently
+verified.
 
 ## Verified starting state
 
@@ -209,7 +248,7 @@ Advisor guidance: [RLS with no policies](https://supabase.com/docs/guides/databa
 Performance advisors also list informational index observations, which were not
 changed as part of this security task.
 
-## Final production recheck
+## Initial handover production recheck
 
 Before handover, GitHub main and the public Vercel deployment were rechecked:
 both remain b9756e441ea4a4089793d1d20a000045a5783c1e and the public deployment is

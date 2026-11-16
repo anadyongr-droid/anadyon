@@ -25,17 +25,22 @@ it needs a person, and the item says exactly what is needed.
 ---
 
 
-## Security fixes — verified 16 November 2026
+## Security fixes — verified 17 November 2026
 
-Owner: Codex for PRs and evidence; Tasos for merge, hosted SQL and release.
-The four proposal tasks plus a verified handover MFA migration gap have reviewed,
-green PRs #260–#264 ready for owner approval and are tracked in
+Owner: Codex for the authorized green merges and evidence; Tasos for account
+management and authenticated acceptance. PRs #260–#264 are merged after fresh
+checks against updated main; #265 delivers this final documentation record.
+Tasos applied 050/051 and reported successful staging and production tests.
+Read-only checks independently confirm exact function bodies, security settings
+and execution permissions in both databases. The 24-hour inactivity reset is now
+installed. All 29 declared production tables also match migration column shapes.
+
+Remaining: one of three staff/admin accounts still lacks a verified MFA factor;
+password/session rotation and authenticated manual acceptance are not independently
+verified. The credential-dependent PostgREST check:schema was not run by the agent;
+its output has not been supplied. The catalog column check is separately passed.
+Full evidence and refreshed CI/merge links:
 [SECURITY-FIXES-2026-11-16.md](SECURITY-FIXES-2026-11-16.md).
-Production already has the quote RPC and handover aal2 gates; the migrations on
-main are missing both. Do not report the production quote lockout as absent.
-Tasos selected a 24-hour inactivity reset. Hosted staging acceptance, production
-migration application, one staff MFA enrolment/removal, password rotation status
-and owner release approval remain pending. No hosted migration was applied.
 
 ## 🌙 Off-season — stated by Tasos, 2 November 2026
 

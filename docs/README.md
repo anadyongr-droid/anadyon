@@ -17,14 +17,17 @@ machine or a six-month gap.
 | [`WORKLOG.md`](WORKLOG.md) | The most recent day's entry |
 | [`agent-controls/OPERATOR-SETUP.md`](agent-controls/OPERATOR-SETUP.md) | **The steps only a person can run**, in order of value: no standing production session, the root-owned gate, staging's email configuration, the one query that unblocks `pgaudit`. Each says whether it was rehearsed and what to send back |
 
-## Security verification — 16 November 2026
+## Security verification — 17 November 2026
 
-**Last verified:** 16 November 2026, Codex. Current security proposal evidence,
-independent PR scopes and owner-only release steps are in
+**Last verified:** 17 November 2026, Codex. PRs #260–#264 merged on Tasos's
+explicit authorization after refreshed green checks. Tasos applied the tested
+SQL to staging and production; read-only verification confirms exact function
+bodies and permissions in both. All 29 declared production table column shapes
+match the migrations. #265 delivers the final merge and owner-action record in
 [SECURITY-FIXES-2026-11-16.md](SECURITY-FIXES-2026-11-16.md).
-PRs #260–#264 are reviewed and green. Production and main remain at b9756e4.
-Hosted SQL/release approval and
-acceptance remain pending; this does not refresh unrelated historical statuses.
+One staff/admin account still lacks verified MFA; password/session rotation and
+manual authenticated acceptance remain independently unverified. This update
+does not refresh unrelated historical statuses below.
 
 ## Where things stand — 27 October 2026
 
