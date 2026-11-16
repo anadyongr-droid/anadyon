@@ -227,3 +227,53 @@ describe("a signed-in account with no role", () => {
     expect(res.headers.get("x-middleware-request-x-anadyon-role")).toBeNull();
   });
 });
+
+
+describe("an administrator whose session is password-only", () => {
+  beforeEach(() => {
+    mocks.getUser.mockResolvedValue({ data: { user: { id: "u-admin", email: "admin@example.com", app_metadata: { role: "admin" } } } });
+    mocks.getUserById.mockResolvedValue({ data: { user: { app_metadata: { role: "admin" } } }, error: null });
+    mocks.listFactors.mockResolvedValue({ data: { totp: [{ id: "f1" }] } });
+    mocks.getAal.mockResolvedValue({ data: { currentLevel: "aal1", nextLevel: "aal1" } });
+  });
+  it("refuses the API with the MFA verification error", async () => {
+    const res = await middleware(request("/api/admin/customers"));
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "MFA verification required" });
+  });
+  it("redirects pages to the MFA login without forwarding a trusted role", async () => {
+    const res = await middleware(request("/admin/reservations"));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/admin/login");
+    expect(res.headers.get("location")).toContain("mfa=1");
+    expect(res.headers.get("x-middleware-request-x-anadyon-role")).toBeNull();
+  });
+  it.each([undefined, null, "aal3"])("refuses an absent or unknown assurance level: %s", async (currentLevel) => {
+    mocks.getAal.mockResolvedValue({ data: { currentLevel, nextLevel: "aal1" } });
+    const res = await middleware(request("/api/admin/customers"));
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "MFA verification required" });
+  });
+  it.each([undefined, null, "aal1", "unknown"])("does not rely on the advertised next level: %s", async (nextLevel) => {
+    mocks.getAal.mockResolvedValue({ data: { currentLevel: "aal1", nextLevel } });
+    const res = await middleware(request("/api/admin/customers"));
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "MFA verification required" });
+  });
+  it("refuses an absent assurance response", async () => {
+    mocks.getAal.mockResolvedValue({ data: null });
+    expect((await middleware(request("/api/admin/customers"))).status).toBe(401);
+  });
+  it("requires setup when no factor is enrolled", async () => {
+    mocks.listFactors.mockResolvedValue({ data: { totp: [] } });
+    const res = await middleware(request("/api/admin/customers"));
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "MFA setup required" });
+  });
+  it("allows the same administrator with verified aal2", async () => {
+    mocks.getAal.mockResolvedValue({ data: { currentLevel: "aal2", nextLevel: "aal2" } });
+    const res = await middleware(request("/api/admin/customers"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-middleware-request-x-anadyon-role")).toBe("admin");
+  });
+});
