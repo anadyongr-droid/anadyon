@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { checkRateLimit as checkAtomicRateLimit } from "@/lib/rateLimit";
 
 // Progressive block durations after N cumulative failures from the same IP
 function blockSeconds(failCount: number): number {
@@ -79,13 +80,6 @@ async function recordFailure(ip: string): Promise<void> {
   );
 }
 
-async function resetFailures(ip: string): Promise<void> {
-  await supabaseAdmin.from("quote_rate_limits").upsert(
-    { ip, fail_count: 0, blocked_until: null, updated_at: new Date().toISOString() },
-    { onConflict: "ip" }
-  );
-}
-
 /**
  * Exactly the fields the quote page renders — the `Quote` type in
  * app/quote/[ref]/page.tsx, plus the two this route needs itself (`last_name`
@@ -121,6 +115,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ ref:
     return NextResponse.json({ error: "Surname required" }, { status: 400 });
   }
 
+  // Atomic, database-backed request cap also applies to successful lookups.
+  const requestLimit = await checkAtomicRateLimit(req, { limit: 20, windowMs: 15 * 60_000, key: "quote-lookup" });
+  if (!requestLimit.ok) return requestLimit.response!;
+
   const ip = await getIp(req);
 
   // Check if this IP is currently blocked
@@ -155,8 +153,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ ref:
     );
   }
 
-  // Successful lookup — reset failure count for this IP
-  await resetFailures(ip);
+  // Never reset the failure history on success: an attacker may possess one
+  // valid reference and otherwise use it to clear accumulated failures.
 
   return NextResponse.json(data);
 }
